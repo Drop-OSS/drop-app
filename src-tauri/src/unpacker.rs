@@ -20,7 +20,7 @@ struct ManifestChunk {
 #[derive(Deserialize)]
 struct ManifestRecord {
     chunks: Vec<ManifestChunk>,
-    permissions: Vec<bool>,
+    permissions: u32,
 }
 
 #[derive(Deserialize)]
@@ -71,7 +71,7 @@ pub fn unpack() -> Result<(), Error> {
         #[cfg(unix)]
         {
             let mut file_permissions = file_handle.metadata().unwrap().permissions();
-            file_permissions.set_mode(generate_permissions(value.permissions));
+            file_permissions.set_mode(value.permissions);
             file_handle.set_permissions(file_permissions).unwrap();
         }
 
