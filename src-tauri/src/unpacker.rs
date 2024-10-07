@@ -4,12 +4,11 @@ use serde::Deserialize;
 use std::{
     collections::HashMap,
     fs::{create_dir_all, File},
-    io::{self, BufReader, Error, Seek},
+    io::{self, BufReader, Error, Seek, Write},
     os::unix::fs::PermissionsExt,
     path::Path,
 };
 use tauri::Runtime;
-use xz2::bufread::XzDecoder;
 
 #[derive(Deserialize)]
 struct ManifestChunk {
@@ -26,31 +25,6 @@ struct ManifestRecord {
 #[derive(Deserialize)]
 struct Manifest {
     record: HashMap<String, ManifestRecord>,
-}
-
-fn generate_permissions(permissions: Vec<bool>) -> u32 {
-    // Base 8
-    let mut perms: u32 = 0;
-
-    // Read
-    if permissions[0] {
-        perms += 4;
-    }
-
-    // Write
-    if permissions[1] {
-        perms += 2;
-    }
-
-    // Execute
-    if permissions[2] {
-        perms += 1;
-    }
-
-    perms *= 8 * 8;
-    perms += 4 * 8 + 4;
-
-    return perms;
 }
 
 pub fn unpack() -> Result<(), Error> {
@@ -80,12 +54,13 @@ pub fn unpack() -> Result<(), Error> {
             let chunk_handle = File::open(chunk_path).unwrap();
 
             let chunk_reader = BufReader::new(chunk_handle);
-            let mut decompressor = XzDecoder::new(chunk_reader);
+            let mut decompressor = zstd::Decoder::new(chunk_reader).unwrap();
 
             let offset = u64::try_from(chunk.index).unwrap() * chunk_size;
             file_handle.seek(io::SeekFrom::Start(offset)).unwrap();
 
             io::copy(&mut decompressor, &mut file_handle).unwrap();
+            file_handle.flush().unwrap();
         }
     });
 
