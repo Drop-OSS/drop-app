@@ -25,3 +25,9 @@ serde_json = "1"
 ciborium = "0.2.2"
 zstd = "0.13.2"
 rayon = "1.10.0"
+directories = "5.0.1"
+
+[dependencies.rustbreak]
+version = "2"
+features = ["bin_enc"] # You can also use "yaml_enc" or "ron_enc"
+                       # Check the documentation to add your own!

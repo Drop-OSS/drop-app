@@ -27,7 +27,7 @@ struct Manifest {
     record: HashMap<String, ManifestRecord>,
 }
 
-pub fn unpack() -> Result<(), Error> {
+pub async fn unpack() -> Result<(), Error> {
     let chunk_size: u64 = 1024 * 1024 * 16;
 
     let input = Path::new("/home/decduck/Dev/droplet-output");
@@ -53,13 +53,12 @@ pub fn unpack() -> Result<(), Error> {
             let chunk_path = input.join(chunk.uuid + ".bin");
             let chunk_handle = File::open(chunk_path).unwrap();
 
-            let chunk_reader = BufReader::new(chunk_handle);
-            let mut decompressor = zstd::Decoder::new(chunk_reader).unwrap();
+            let mut chunk_reader = BufReader::new(chunk_handle);
 
             let offset = u64::try_from(chunk.index).unwrap() * chunk_size;
             file_handle.seek(io::SeekFrom::Start(offset)).unwrap();
 
-            io::copy(&mut decompressor, &mut file_handle).unwrap();
+            io::copy(&mut chunk_reader, &mut file_handle).unwrap();
             file_handle.flush().unwrap();
         }
     });
