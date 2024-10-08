@@ -3,10 +3,10 @@
     <h1
       class="mt-4 text-3xl font-bold font-display tracking-tight text-zinc-100 sm:text-5xl"
     >
-      Sign in to Drop
+      You've been signed out
     </h1>
     <p class="mt-6 text-base leading-7 text-zinc-400">
-      To get started, sign in to your Drop instance by clicking below.
+      Unfortunately, you've been signed out. To sign back in, click below.
     </p>
   </InitiateAuthModule>
 </template>

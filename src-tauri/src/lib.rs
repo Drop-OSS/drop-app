@@ -13,7 +13,7 @@ use auth::{auth_initiate, recieve_handshake};
 use data::DatabaseInterface;
 use log::info;
 use remote::use_remote;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
 
@@ -24,7 +24,7 @@ pub enum AppStatus {
     SignedIn,
     SignedInNeedsReauth,
 }
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct User {}
 
 #[derive(Clone, Copy, Serialize)]
