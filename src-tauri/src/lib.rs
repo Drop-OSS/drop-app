@@ -1,13 +1,21 @@
 mod auth;
 mod data;
+mod remote;
 mod unpacker;
 
+use std::{
+    borrow::Borrow,
+    sync::{LazyLock, Mutex},
+};
+
+use auth::auth_initiate;
 use data::DatabaseInterface;
+use remote::use_remote;
 use serde::Serialize;
-use tauri::Runtime;
 
 #[derive(Clone, Copy, Serialize)]
-pub enum AppAuthenticationStatus {
+pub enum AppStatus {
+    NotConfigured,
     SignedOut,
     SignedIn,
     SignedInNeedsReauth,
@@ -17,28 +25,47 @@ pub struct User {}
 
 #[derive(Clone, Copy, Serialize)]
 pub struct AppState {
-    auth: AppAuthenticationStatus,
+    status: AppStatus,
     user: Option<User>,
 }
 
 #[tauri::command]
-fn fetch_state(state: tauri::State<AppState>) -> Result<AppState, String> {
-    Ok(*state.inner())
+fn fetch_state<'a>(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
+    let guard = state.lock().unwrap();
+    let cloned_state = guard.clone();
+    drop(guard);
+    Ok(cloned_state)
 }
+
+fn setup<'a>() -> AppState {
+    let is_set_up = data::is_set_up();
+    if !is_set_up {
+        return AppState {
+            status: AppStatus::NotConfigured,
+            user: None,
+        };
+    }
+
+    let auth_result = auth::setup().unwrap();
+    return AppState {
+        status: auth_result.0,
+        user: auth_result.1,
+    };
+}
+
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| data::setup());
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let db: DatabaseInterface = data::setup();
-    let auth_result = auth::setup(db).unwrap();
-
-    let state = AppState {
-        auth: auth_result.0,
-        user: auth_result.1,
-    };
+    let state = setup();
 
     tauri::Builder::default()
-        .manage(state)
-        .invoke_handler(tauri::generate_handler![fetch_state])
+        .manage(Mutex::new(state))
+        .invoke_handler(tauri::generate_handler![
+            fetch_state,
+            auth_initiate,
+            use_remote
+        ])
         .plugin(tauri_plugin_shell::init())
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,0 +1,33 @@
+<template>
+  <div
+    class="mx-auto flex flex-col items-center gap-y-4 max-w-2xl py-32 sm:py-48 lg:py-56"
+  >
+    <div>
+      <Wordmark />
+    </div>
+    <div class="text-center">
+      <h1
+        class="text-balance text-4xl font-bold font-display tracking-tight text-zinc-100 sm:text-6xl"
+      >
+        Let's get you set up
+      </h1>
+      <p class="mt-6 text-lg leading-8 text-zinc-400">
+        Anim aute id magna aliqua ad ad non deserunt sunt. Qui irure qui lorem
+        cupidatat commodo. Elit sunt amet fugiat veniam occaecat fugiat aliqua.
+      </p>
+      <div class="mt-10 flex items-center justify-center gap-x-6">
+        <NuxtLink
+          href="/setup/server"
+          class="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >Get started -></NuxtLink
+        >
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+definePageMeta({
+  layout: "mini",
+});
+</script>

@@ -26,8 +26,15 @@ ciborium = "0.2.2"
 zstd = "0.13.2"
 rayon = "1.10.0"
 directories = "5.0.1"
+webbrowser = "1.0.2"
+url = "2.5.2"
+os_info = "3.8.2"
 
 [dependencies.rustbreak]
 version = "2"
-features = ["bin_enc"] # You can also use "yaml_enc" or "ron_enc"
-                       # Check the documentation to add your own!
+features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
+
+[dependencies.reqwest]
+version = "0.12"
+features = ["json"]
+

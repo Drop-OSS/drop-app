@@ -1,14 +1,24 @@
 <template>
-  <div class="flex flex-col bg-zinc-900 h-screen w-screen overflow-hidden">
-    <Header class="select-none" />
-    <div class="grow overflow-y-scroll">
-        <div class="h-[200vh]" />
-    </div>
-  </div>
+  <NuxtLayout>
+    <NuxtPage />
+  </NuxtLayout>
+  {{ state }}
 </template>
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
+// @ts-expect-error
+import { AppStatus } from "./types.d.ts";
 
-const state = await invoke("fetch_state");
+const router = useRouter();
+
+const state: { status: AppStatus } = await invoke("fetch_state");
+switch (state.status) {
+  case AppStatus.NotConfigured:
+    router.push("/setup");
+    break;
+  case AppStatus.SignedOut:
+    router.push("/auth");
+    break;
+}
 </script>

@@ -12,16 +12,17 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@tauri-apps/api": ">=2.0.0",
-    "@tauri-apps/plugin-shell": ">=2.0.0",
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.1.5",
+    "@tauri-apps/api": ">=2.0.0",
+    "@tauri-apps/plugin-shell": ">=2.0.0",
     "nuxt": "^3.13.0",
     "scss": "^0.2.4",
     "vue": "latest",
     "vue-router": "latest"
   },
   "devDependencies": {
+    "@tailwindcss/forms": "^0.5.9",
     "@tauri-apps/cli": ">=2.0.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.47",
