@@ -4,14 +4,16 @@ mod remote;
 mod unpacker;
 
 use std::{
-    borrow::Borrow,
     sync::{LazyLock, Mutex},
+    task, thread,
 };
 
-use auth::auth_initiate;
+use auth::{auth_initiate, recieve_handshake};
 use data::DatabaseInterface;
+use futures::executor;
 use remote::use_remote;
 use serde::Serialize;
+use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -59,7 +61,18 @@ pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| data::setup());
 pub fn run() {
     let state = setup();
 
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
+          println!("a new app instance was opened with {argv:?} and the deep link event was already triggered");
+          // when defining deep link schemes at runtime, you must also check `argv` here
+        }));
+    }
+
+    builder
+        .plugin(tauri_plugin_deep_link::init())
         .manage(Mutex::new(state))
         .invoke_handler(tauri::generate_handler![
             fetch_state,
@@ -67,6 +80,30 @@ pub fn run() {
             use_remote
         ])
         .plugin(tauri_plugin_shell::init())
+        .setup(|app| {
+            #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                app.deep_link().register_all()?;
+            }
+
+            let handle = app.handle().clone();
+
+            app.deep_link().on_open_url(move |event| {
+                let binding = event.urls();
+                let url = binding.get(0).unwrap();
+                match url.host_str().unwrap() {
+                    "handshake" => {
+                        executor::block_on(recieve_handshake(
+                            handle.clone(),
+                            url.path().to_string(),
+                        ));
+                    }
+                    _ => (),
+                }
+            });
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

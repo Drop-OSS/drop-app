@@ -7,6 +7,9 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
+tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -29,6 +32,8 @@ directories = "5.0.1"
 webbrowser = "1.0.2"
 url = "2.5.2"
 os_info = "3.8.2"
+tauri-plugin-deep-link = "2"
+futures = "0.3.31"
 
 [dependencies.rustbreak]
 version = "2"

@@ -1,5 +1,5 @@
 <template>
-  <div class="inline-flex items-center h-6 gap-x-2">
+  <div class="inline-flex items-center gap-x-2">
     <HeaderButton @click="() => window.minimize()">
       <MinusIcon />
     </HeaderButton>

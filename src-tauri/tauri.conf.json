@@ -24,6 +24,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["drop"]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "icon": [

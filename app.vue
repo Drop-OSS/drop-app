@@ -1,5 +1,5 @@
 <template>
-  <NuxtLayout>
+  <NuxtLayout class="select-none">
     <NuxtPage />
   </NuxtLayout>
   {{ state }}
@@ -9,6 +9,7 @@
 import { invoke } from "@tauri-apps/api/core";
 // @ts-expect-error
 import { AppStatus } from "./types.d.ts";
+import { listen } from "@tauri-apps/api/event";
 
 const router = useRouter();
 
@@ -21,4 +22,8 @@ switch (state.status) {
     router.push("/auth");
     break;
 }
+
+listen("auth/connecting", (event) => {
+  router.push("/auth/connecting");
+});
 </script>

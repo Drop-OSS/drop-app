@@ -1,43 +1,42 @@
 <template>
   <div
     @mousedown="() => window.startDragging()"
-    class="cursor-pointer bg-gray-950 flex flex-row pl-4 pr-2 py-2"
+    class="h-10 cursor-pointer bg-gray-950 flex flex-row justify-between"
   >
-    <div class="grow inline-flex items-center gap-x-10">
-      <Wordmark class="h-8 mb-1" />
-      <nav class="inline-flex items-center">
-        <ol class="inline-flex items-center gap-x-6">
-          <li
-            class="transition text-gray-300 hover:text-gray-100 uppercase font-display font-semibold text-md"
-            v-for="(nav, navIdx) in navigation"
-          >
-            {{ nav.label }}
+    <div class="flex flex-row grow items-center justify-between px-2 py-3">
+      <div class="inline-flex items-center gap-x-10">
+        <Wordmark class="h-8 mb-0.5" />
+        <nav class="inline-flex items-center mt-0.5">
+          <ol class="inline-flex items-center gap-x-6">
+            <li
+              class="transition text-gray-300 hover:text-gray-100 uppercase font-display font-semibold text-md"
+              v-for="(nav, navIdx) in navigation"
+            >
+              {{ nav.label }}
+            </li>
+          </ol>
+        </nav>
+      </div>
+      <div class="inline-flex items-center">
+        <ol class="inline-flex gap-3">
+          <li v-for="(item, itemIdx) in quickActions">
+            <HeaderWidget
+              @click="item.action"
+              :notifications="item.notifications"
+            >
+              <component class="h-5" :is="item.icon" />
+            </HeaderWidget>
           </li>
+          <HeaderUserWidget />
         </ol>
-      </nav>
+      </div>
     </div>
-    <div class="inline-flex items-center">
-      <ol class="inline-flex gap-3">
-        <li v-for="(item, itemIdx) in quickActions">
-          <HeaderWidget
-            @click="item.action"
-            :notifications="item.notifications"
-          >
-            <component class="h-5" :is="item.icon" />
-          </HeaderWidget>
-        </li>
-        <HeaderUserWidget />
-      </ol>
-      <WindowControl class="ml-3" />
-    </div>
+    <WindowControl />
   </div>
 </template>
 
 <script setup lang="ts">
-import {
-  BellIcon,
-  UserGroupIcon,
-} from "@heroicons/vue/16/solid";
+import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
 import type { NavigationItem, QuickActionNav } from "./types";
 import HeaderWidget from "./HeaderWidget.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";

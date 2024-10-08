@@ -19,7 +19,8 @@ pub struct Database {
     pub base_url: String,
 }
 
-pub type DatabaseInterface = rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
+pub type DatabaseInterface =
+    rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
 
 pub fn setup() -> DatabaseInterface {
     let db_path = BaseDirs::new().unwrap().data_dir().join("drop");

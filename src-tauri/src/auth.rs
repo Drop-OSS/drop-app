@@ -4,15 +4,22 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use tauri::Error;
+use tauri::{App, AppHandle, Emitter, Error, EventLoopMessage, Wry};
 use url::Url;
 
-use crate::{data::DatabaseInterface, AppState, AppStatus, User, DB};
+use crate::{AppStatus, User, DB};
 
 #[derive(Serialize)]
 struct InitiateRequestBody {
     name: String,
     platform: String,
+}
+
+pub async fn recieve_handshake(app: AppHandle, path: String) {
+    // Tell the app we're connecting
+    app.emit("auth/connecting", ()).unwrap();
+
+    // TODO
 }
 
 #[tauri::command]
