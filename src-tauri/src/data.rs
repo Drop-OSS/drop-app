@@ -9,7 +9,6 @@ use crate::DB;
 #[derive(serde::Serialize, Clone, Deserialize)]
 pub struct DatabaseCerts {
     pub private: String,
-    pub public: String,
     pub cert: String,
 }
 

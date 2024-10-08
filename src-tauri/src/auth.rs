@@ -25,7 +25,6 @@ struct HandshakeRequestBody {
 #[derive(Deserialize)]
 struct HandshakeResponse {
     private: String,
-    public: String,
     certificate: String,
     id: String,
 }
@@ -74,7 +73,6 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         let mut handle = DB.borrow_data_mut().unwrap();
         handle.certs = Some(DatabaseCerts {
             private: response_struct.private,
-            public: response_struct.public,
             cert: response_struct.certificate,
         });
         drop(handle);
