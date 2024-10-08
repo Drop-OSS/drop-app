@@ -7,14 +7,15 @@ use serde::Deserialize;
 use crate::DB;
 
 #[derive(serde::Serialize, Clone, Deserialize)]
-pub struct DatabaseCerts {
+pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
+    pub clientId: String,
 }
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 pub struct Database {
-    pub certs: Option<DatabaseCerts>,
+    pub auth: Option<DatabaseAuth>,
     pub base_url: String,
 }
 
@@ -24,7 +25,7 @@ pub type DatabaseInterface =
 pub fn setup() -> DatabaseInterface {
     let db_path = BaseDirs::new().unwrap().data_dir().join("drop");
     let default = Database {
-        certs: None,
+        auth: None,
         base_url: "".to_string(),
     };
     let db = match fs::exists(db_path.clone()).unwrap() {

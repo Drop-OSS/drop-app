@@ -35,6 +35,18 @@ os_info = "3.8.2"
 tauri-plugin-deep-link = "2"
 log = "0.4.22"
 structured-logger = "1.0.3"
+hex = "0.4.3"
+
+[dependencies.uuid]
+version = "1.10.0"
+features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+]
+
+[dependencies.openssl]
+version = "0.10.66"
 
 [dependencies.rustbreak]
 version = "2"
@@ -43,4 +55,3 @@ features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
 [dependencies.reqwest]
 version = "0.12"
 features = ["json", "blocking"]
-

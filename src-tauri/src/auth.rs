@@ -1,14 +1,22 @@
 use std::{
     borrow::{Borrow, BorrowMut},
+    fmt::format,
     sync::Mutex,
 };
 
 use log::info;
+use openssl::{
+    ec::EcKey,
+    hash::MessageDigest,
+    pkey::PKey,
+    sign::{self, Signer},
+};
 use serde::{Deserialize, Serialize};
 use tauri::{App, AppHandle, Emitter, Error, EventLoopMessage, Manager, Wry};
 use url::Url;
+use uuid::Uuid;
 
-use crate::{data::DatabaseCerts, AppState, AppStatus, User, DB};
+use crate::{data::DatabaseAuth, AppState, AppStatus, User, DB};
 
 #[derive(Serialize)]
 struct InitiateRequestBody {
@@ -41,6 +49,52 @@ macro_rules! unwrap_or_return {
     };
 }
 
+pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, Error> {
+    let client_private_key = EcKey::private_key_from_pem(private_key.as_bytes()).unwrap();
+    let pkey_private_key = PKey::from_ec_key(client_private_key).unwrap();
+
+    let mut signer = Signer::new(MessageDigest::sha256(), &pkey_private_key).unwrap();
+    signer.update(nonce.as_bytes()).unwrap();
+    let signature = signer.sign_to_vec().unwrap();
+
+    let hex_signature = hex::encode(signature);
+
+    return Ok(hex_signature);
+}
+
+pub fn generate_authorization_header() -> String {
+    let certs = {
+        let db = DB.borrow_data().unwrap();
+        db.auth.clone().unwrap()
+    };
+
+    let nonce = Uuid::new_v4().to_string();
+    let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
+
+    return format!("Nonce {} {} {}", certs.clientId, nonce, signature);
+}
+
+pub fn fetch_user() -> Result<User, Error> {
+    let base_url = {
+        let handle = DB.borrow_data().unwrap();
+        Url::parse(&handle.base_url).unwrap()
+    };
+
+    let endpoint = base_url.join("/api/v1/client/user").unwrap();
+    let header = generate_authorization_header();
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(endpoint.to_string())
+        .header("Authorization", header)
+        .send()
+        .unwrap();
+
+    let user = response.json::<User>().unwrap();
+
+    return Ok(user);
+}
+
 pub fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
     app.emit("auth/processing", ()).unwrap();
@@ -63,7 +117,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         token: token.to_string(),
     };
 
-    let endpoint = unwrap_or_return!(base_url.join("/api/v1/client/handshake"), app);
+    let endpoint = unwrap_or_return!(base_url.join("/api/v1/client/auth/handshake"), app);
     let client = reqwest::blocking::Client::new();
     let response = unwrap_or_return!(client.post(endpoint).json(&body).send(), app);
     info!("server responded with {}", response.status());
@@ -71,9 +125,10 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
 
     {
         let mut handle = DB.borrow_data_mut().unwrap();
-        handle.certs = Some(DatabaseCerts {
+        handle.auth = Some(DatabaseAuth {
             private: response_struct.private,
             cert: response_struct.certificate,
+            clientId: response_struct.id,
         });
         drop(handle);
         DB.save().unwrap();
@@ -86,6 +141,8 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     }
 
     app.emit("auth/finished", ()).unwrap();
+
+    fetch_user().unwrap();
 }
 
 #[tauri::command]
@@ -97,7 +154,7 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
 
     let current_os_info = os_info::get();
 
-    let endpoint = base_url.join("/api/v1/client/initiate").unwrap();
+    let endpoint = base_url.join("/api/v1/client/auth/initiate").unwrap();
     let body = InitiateRequestBody {
         name: format!("Drop Desktop Client"),
         platform: current_os_info.os_type().to_string(),
@@ -124,10 +181,13 @@ pub fn setup() -> Result<(AppStatus, Option<User>), Error> {
     let data = DB.borrow_data().unwrap();
 
     // If we have certs, exit for now
-    if data.certs.is_some() {
-        // TODO: check if it's still valid, and fetch user information
-        info!("have existing certs, assuming logged in...");
-        return Ok((AppStatus::SignedInNeedsReauth, None));
+    if data.auth.is_some() {
+        let user_result = fetch_user();
+        if user_result.is_err() {
+            return Ok((AppStatus::SignedInNeedsReauth, None));
+
+        }
+        return Ok((AppStatus::SignedIn, Some(user_result.unwrap())))
     }
 
     drop(data);

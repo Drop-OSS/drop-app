@@ -23,6 +23,9 @@ switch (state.status) {
   case AppStatus.SignedOut:
     router.push("/auth");
     break;
+  case AppStatus.SignedInNeedsReauth:
+    router.push("/auth/signedout");
+    break;
 }
 
 listen("auth/processing", () => {
