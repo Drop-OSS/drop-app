@@ -3,6 +3,8 @@
     <NuxtPage />
   </NuxtLayout>
   {{ state }}
+  <input type="text" v-model="debugLocation" />
+  <NuxtLink :to="debugLocation">Go</NuxtLink>
 </template>
 
 <script setup lang="ts">
@@ -23,7 +25,17 @@ switch (state.status) {
     break;
 }
 
-listen("auth/connecting", (event) => {
-  router.push("/auth/connecting");
+listen("auth/processing", () => {
+  router.push("/auth/processing");
 });
+
+listen("auth/failed", () => {
+  router.push("/auth/failed");
+});
+
+listen("auth/finished", () => {
+  router.push("/");
+});
+
+const debugLocation = ref("");
 </script>

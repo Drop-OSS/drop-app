@@ -3,6 +3,7 @@ use std::{
     sync::Mutex,
 };
 
+use log::{info, warn};
 use serde::Deserialize;
 use url::Url;
 
@@ -32,7 +33,7 @@ pub async fn use_remote<'a>(
     url: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    println!("connecting to url {}", url);
+    info!("connecting to url {}", url);
     let base_url = unwrap_or_return!(Url::parse(&url));
 
     // Test Drop url
@@ -42,6 +43,7 @@ pub async fn use_remote<'a>(
     let result = response.json::<DropHealthcheck>().await.unwrap();
 
     if result.appName != "Drop" {
+        warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
         return Err("Not a valid Drop endpoint".to_string());
     }
 

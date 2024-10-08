@@ -33,7 +33,8 @@ webbrowser = "1.0.2"
 url = "2.5.2"
 os_info = "3.8.2"
 tauri-plugin-deep-link = "2"
-futures = "0.3.31"
+log = "0.4.22"
+structured-logger = "1.0.3"
 
 [dependencies.rustbreak]
 version = "2"
@@ -41,5 +42,5 @@ features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
 
 [dependencies.reqwest]
 version = "0.12"
-features = ["json"]
+features = ["json", "blocking"]
 

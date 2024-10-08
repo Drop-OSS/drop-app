@@ -1,5 +1,6 @@
 <template>
   <div class="inline-flex items-center gap-x-2">
+    <!--
     <HeaderButton @click="() => window.minimize()">
       <MinusIcon />
     </HeaderButton>
@@ -17,6 +18,7 @@
         />
       </svg>
     </HeaderButton>
+    -->
     <HeaderButton @click="() => window.close()">
       <XMarkIcon />
     </HeaderButton>
@@ -24,10 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import {
-  MinusIcon,
-  XMarkIcon,
-} from "@heroicons/vue/16/solid";
+import { MinusIcon, XMarkIcon } from "@heroicons/vue/16/solid";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const window = getCurrentWindow();
