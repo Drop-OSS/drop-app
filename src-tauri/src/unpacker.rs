@@ -5,10 +5,11 @@ use std::{
     collections::HashMap,
     fs::{create_dir_all, File},
     io::{self, BufReader, Error, Seek, Write},
-    os::unix::fs::PermissionsExt,
     path::Path,
 };
-use tauri::Runtime;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 #[derive(Deserialize)]
 struct ManifestChunk {

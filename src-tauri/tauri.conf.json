@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "drop",
   "version": "0.1.0",
-  "identifier": "dev.drop.drop",
+  "identifier": "dev.drop.app",
   "build": {
     "beforeDevCommand": "yarn dev --port 1432",
     "devUrl": "http://localhost:1432",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "drop-app",
+        "title": "Drop",
         "width": 1536,
         "height": 864,
         "minWidth": 820,
@@ -33,6 +33,17 @@
   },
   "bundle": {
     "active": true,
+    "targets": ["nsis", "deb", "rpm", "dmg"],
+    "windows": {
+      "nsis": {
+        "installMode": "both"
+      },
+      "webviewInstallMode": {
+        "silent": true,
+        "type": "embedBootstrapper"
+      },
+      "wix": null
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
