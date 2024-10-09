@@ -185,7 +185,6 @@ pub fn setup() -> Result<(AppStatus, Option<User>), Error> {
         let user_result = fetch_user();
         if user_result.is_err() {
             return Ok((AppStatus::SignedInNeedsReauth, None));
-
         }
         return Ok((AppStatus::SignedIn, Some(user_result.unwrap())))
     }
