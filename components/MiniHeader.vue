@@ -2,7 +2,7 @@
   <div
     class="h-10 cursor-pointer flex flex-row items-center justify-between bg-zinc-950"
   >
-    <div class="px-5 py-3" @mousedown="() => window.startDragging()">
+    <div class="px-5 py-3 grow" @mousedown="() => window.startDragging()">
       <Wordmark class="mt-1" />
     </div>
     <WindowControl />
