@@ -1,10 +1,12 @@
 <template>
-  <Menu as="div" class="relative inline-block">
+  <Menu v-if="state.user" as="div" class="relative inline-block">
     <MenuButton>
       <HeaderWidget>
         <div class="inline-flex items-center text-zinc-300 hover:text-white">
-          <img :src="userData.image" class="w-5 h-5 rounded-sm" />
-          <span class="ml-2 text-sm font-bold">{{ userData.name }}</span>
+          <img :src="profilePictureUrl" class="w-5 h-5 rounded-sm" />
+          <span class="ml-2 text-sm font-bold">{{
+            state.user.displayName
+          }}</span>
           <ChevronDownIcon class="ml-3 h-4" />
         </div>
       </HeaderWidget>
@@ -27,12 +29,25 @@
             class="transition inline-flex items-center w-full py-3 px-4 hover:bg-zinc-800"
           >
             <div class="inline-flex items-center text-zinc-300">
-              <img :src="userData.image" class="w-5 h-5 rounded-sm" />
-              <span class="ml-2 text-sm font-bold">{{ userData.name }}</span>
+              <img :src="profilePictureUrl" class="w-5 h-5 rounded-sm" />
+              <span class="ml-2 text-sm font-bold">{{
+                state.user.displayName
+              }}</span>
             </div>
           </NuxtLink>
           <div class="h-0.5 rounded-full w-full bg-zinc-800" />
           <div class="flex flex-col mb-1">
+            <MenuItem v-slot="{ active }">
+              <NuxtLink
+                @click="() => openAdminUrl()"
+                :class="[
+                  active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
+                  'transition block px-4 py-2 text-sm',
+                ]"
+              >
+                Admin Dashboard
+              </NuxtLink>
+            </MenuItem>
             <MenuItem v-for="(nav, navIdx) in navigation" v-slot="{ active }">
               <NuxtLink
                 :href="nav.route"
@@ -56,18 +71,22 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { ChevronDownIcon } from "@heroicons/vue/16/solid";
 import type { NavigationItem } from "./types";
 import HeaderWidget from "./HeaderWidget.vue";
+import { useAppState } from "~/composables/app-state";
+import { invoke } from "@tauri-apps/api/core";
 
-const userData = {
-  image: "https://avatars.githubusercontent.com/u/64579723?v=4",
-  name: "DecDuck",
-};
+const state = useAppState();
+const profilePictureUrl: string = await invoke("gen_drop_url", {
+  path: `/api/v1/object/${state.value.user?.profilePicture}`,
+});
+const adminUrl: string = await invoke("gen_drop_url", {
+  path: "/admin",
+});
+
+async function openAdminUrl() {
+  await invoke("open_url", { path: adminUrl });
+}
 
 const navigation: NavigationItem[] = [
-  {
-    label: "Admin Dashboard",
-    route: "/admin",
-    prefix: "",
-  },
   {
     label: "Account settings",
     route: "/account",
@@ -78,5 +97,5 @@ const navigation: NavigationItem[] = [
     route: "/signout",
     prefix: "",
   },
-];
+].filter((e) => e !== undefined);
 </script>

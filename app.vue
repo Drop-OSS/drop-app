@@ -1,22 +1,26 @@
 <template>
-  <NuxtLayout class="select-none">
+  <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
   </NuxtLayout>
-  {{ state }}
-  <input type="text" v-model="debugLocation" />
-  <NuxtLink :to="debugLocation">Go</NuxtLink>
 </template>
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 // @ts-expect-error
-import { AppStatus } from "./types.d.ts";
+import { AppStatus, type AppState } from "./types.d.ts";
 import { listen } from "@tauri-apps/api/event";
+import { useAppState } from "./composables/app-state.js";
 
 const router = useRouter();
 
-const state: { status: AppStatus } = await invoke("fetch_state");
-switch (state.status) {
+const state = useAppState();
+state.value = await invoke("fetch_state");
+
+router.beforeEach(async () => {
+  state.value = await invoke("fetch_state");
+});
+
+switch (state.value.status) {
   case AppStatus.NotConfigured:
     router.push("/setup");
     break;
@@ -39,6 +43,4 @@ listen("auth/failed", () => {
 listen("auth/finished", () => {
   router.push("/");
 });
-
-const debugLocation = ref("");
 </script>

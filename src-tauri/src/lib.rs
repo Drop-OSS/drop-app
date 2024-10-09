@@ -12,7 +12,7 @@ use std::{
 use auth::{auth_initiate, recieve_handshake};
 use data::DatabaseInterface;
 use log::info;
-use remote::use_remote;
+use remote::{gen_drop_url, open_url, use_remote};
 use serde::{Deserialize, Serialize};
 use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -24,10 +24,16 @@ pub enum AppStatus {
     SignedIn,
     SignedInNeedsReauth,
 }
-#[derive(Clone, Copy, Serialize, Deserialize)]
-pub struct User {}
+#[derive(Clone, Serialize, Deserialize)]
+pub struct User {
+    id: String,
+    username: String,
+    admin: bool,
+    displayName: String,
+    profilePicture: String,
+}
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Serialize)]
 pub struct AppState {
     status: AppStatus,
     user: Option<User>,
@@ -83,7 +89,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             fetch_state,
             auth_initiate,
-            use_remote
+            use_remote,
+            gen_drop_url,
+            open_url,
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

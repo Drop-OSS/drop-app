@@ -4,7 +4,9 @@ use std::{
 };
 
 use log::{info, warn};
+use openssl::x509::store::HashDir;
 use serde::Deserialize;
+use tauri::async_runtime::handle;
 use url::Url;
 
 use crate::{AppState, AppStatus, DB};
@@ -58,4 +60,27 @@ pub async fn use_remote<'a>(
     DB.save().unwrap();
 
     return Ok(());
+}
+
+#[tauri::command]
+pub fn open_url(path: String) -> Result<(), String> {
+    webbrowser::open(&path).unwrap();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn gen_drop_url(app: tauri::AppHandle, path: String) -> Result<String, String> {
+    let base_url = {
+        let handle = DB.borrow_data().unwrap();
+
+        if handle.base_url.is_empty() {
+            return Ok("".to_string());
+        };
+
+        Url::parse(&handle.base_url).unwrap()
+    };
+
+    let url = base_url.join(&path).unwrap();
+
+    return Ok(url.to_string());
 }
