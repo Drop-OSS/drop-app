@@ -1,9 +1,8 @@
 <template>
   <div
-    @mousedown="() => window.startDragging()"
     class="h-10 cursor-pointer flex flex-row items-center justify-between bg-zinc-950"
   >
-    <div class="px-5 py-3">
+    <div class="px-5 py-3" @mousedown="() => window.startDragging()">
       <Wordmark class="mt-1" />
     </div>
     <WindowControl />
