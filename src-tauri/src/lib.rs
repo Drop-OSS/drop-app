@@ -12,7 +12,7 @@ use std::{
 use auth::{auth_initiate, recieve_handshake};
 use data::DatabaseInterface;
 use log::info;
-use remote::{gen_drop_url, open_url, use_remote};
+use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -91,7 +91,6 @@ pub fn run() {
             auth_initiate,
             use_remote,
             gen_drop_url,
-            open_url,
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

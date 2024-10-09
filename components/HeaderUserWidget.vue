@@ -38,15 +38,16 @@
           <div class="h-0.5 rounded-full w-full bg-zinc-800" />
           <div class="flex flex-col mb-1">
             <MenuItem v-slot="{ active }">
-              <NuxtLink
-                @click="() => openAdminUrl()"
+              <a
+                :href="adminUrl"
+                target="_blank"
                 :class="[
                   active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
                   'transition block px-4 py-2 text-sm',
                 ]"
               >
                 Admin Dashboard
-              </NuxtLink>
+              </a>
             </MenuItem>
             <MenuItem v-for="(nav, navIdx) in navigation" v-slot="{ active }">
               <NuxtLink
@@ -81,10 +82,6 @@ const profilePictureUrl: string = await invoke("gen_drop_url", {
 const adminUrl: string = await invoke("gen_drop_url", {
   path: "/admin",
 });
-
-async function openAdminUrl() {
-  await invoke("open_url", { path: adminUrl });
-}
 
 const navigation: NavigationItem[] = [
   {

@@ -24,7 +24,7 @@
               class="flex rounded-md shadow-sm ring-1 ring-inset ring-zinc-700 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-600 sm:max-w-md"
             >
               <span
-                v-if="!url.startsWith('http')"
+                v-if="showHttps"
                 class="flex select-none items-center pl-3 text-zinc-500 -mr-2.5 sm:text-sm"
                 >https://</span
               >
@@ -87,6 +87,13 @@ const error = ref(undefined);
 const loading = ref(false);
 
 const router = useRouter();
+const showHttps = computed(() => {
+  const prefixes = ["http://", "https://"];
+
+  const doesntHavePrefix = prefixes.findIndex((e) => url.value.startsWith(e.slice(0, url.value.length))) == -1;
+
+  return doesntHavePrefix;
+})
 
 async function connect() {
   const newUrl = url.value.startsWith("http")

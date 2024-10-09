@@ -63,12 +63,6 @@ pub async fn use_remote<'a>(
 }
 
 #[tauri::command]
-pub fn open_url(path: String) -> Result<(), String> {
-    webbrowser::open(&path).unwrap();
-    Ok(())
-}
-
-#[tauri::command]
 pub fn gen_drop_url(app: tauri::AppHandle, path: String) -> Result<String, String> {
     let base_url = {
         let handle = DB.borrow_data().unwrap();
