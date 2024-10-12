@@ -1,5 +1,6 @@
-<template>{{state}}</template>
+<template />
 
 <script setup lang="ts">
-const state = useAppState();
+const router = useRouter();
+router.replace("/store");
 </script>

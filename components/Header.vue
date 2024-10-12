@@ -10,12 +10,18 @@
         </NuxtLink>
         <nav class="inline-flex items-center mt-0.5">
           <ol class="inline-flex items-center gap-x-6">
-            <li
-              class="transition text-zinc-300 hover:text-zinc-100 uppercase font-display font-semibold text-md"
+            <NuxtLink
               v-for="(nav, navIdx) in navigation"
+              :class="[
+                'transition  uppercase font-display font-semibold text-md',
+                navIdx === currentPageIndex
+                  ? 'text-zinc-100'
+                  : 'text-zinc-400 hover:text-zinc-200',
+              ]"
+              :href="nav.route"
             >
               {{ nav.label }}
-            </li>
+            </NuxtLink>
           </ol>
         </nav>
       </div>
@@ -67,6 +73,8 @@ const navigation: Array<NavigationItem> = [
     label: "News",
   },
 ];
+
+const currentPageIndex = useCurrentNavigationIndex(navigation);
 
 const quickActions: Array<QuickActionNav> = [
   {
