@@ -1,8 +1,9 @@
+use core::time;
 use std::{
     borrow::{Borrow, BorrowMut},
     env,
     fmt::format,
-    sync::Mutex,
+    sync::Mutex, time::{SystemTime, UNIX_EPOCH},
 };
 
 use log::{info, warn};
@@ -69,7 +70,12 @@ pub fn generate_authorization_header() -> String {
         db.auth.clone().unwrap()
     };
 
-    let nonce = Uuid::new_v4().to_string();
+    let start = SystemTime::now();
+    let timestamp = start
+        .duration_since(UNIX_EPOCH)
+        .expect("Time went backwards");
+    let nonce = timestamp.as_millis().to_string();
+
     let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
     return format!("Nonce {} {} {}", certs.clientId, nonce, signature);
