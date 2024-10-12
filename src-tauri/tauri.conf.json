@@ -10,16 +10,6 @@
     "frontendDist": "../.output/public"
   },
   "app": {
-    "windows": [
-      {
-        "title": "Drop",
-        "width": 1536,
-        "height": 864,
-        "minWidth": 820,
-        "minHeight": 600,
-        "decorations": false
-      }
-    ],
     "security": {
       "csp": null
     }

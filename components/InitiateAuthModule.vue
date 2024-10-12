@@ -14,9 +14,9 @@
         <slot />
         <div class="mt-10">
           <button
-            @click="() => auth()"
+            @click="() => authWrapper_wrapper()"
             :disabled="loading"
-            class="text-sm font-semibold leading-7 text-blue-600"
+            class="text-sm text-left font-semibold leading-7 text-blue-600"
           >
             <div v-if="loading" role="status">
               <svg
@@ -40,6 +40,22 @@
             <span v-else>
               Sign in with your browser <span aria-hidden="true">&rarr;</span>
             </span>
+
+            <div v-if="error" class="mt-5 rounded-md bg-red-600/10 p-4">
+              <div class="flex">
+                <div class="flex-shrink-0">
+                  <XCircleIcon
+                    class="h-5 w-5 text-red-600"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div class="ml-3">
+                  <h3 class="text-sm font-medium text-red-600">
+                    {{ error }}
+                  </h3>
+                </div>
+              </div>
+            </div>
           </button>
         </div>
       </div>
@@ -82,12 +98,21 @@
 </template>
 
 <script setup lang="ts">
+import { XCircleIcon } from "@heroicons/vue/16/solid";
 import { invoke } from "@tauri-apps/api/core";
 
 const loading = ref(false);
+const error = ref<string | undefined>();
 
 async function auth() {
-  loading.value = true;
   await invoke("auth_initiate");
+}
+
+function authWrapper_wrapper() {
+  loading.value = true;
+  auth().catch((e) => {
+    loading.value = false;
+    error.value = e;
+  });
 }
 </script>

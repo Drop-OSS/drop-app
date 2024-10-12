@@ -30,11 +30,11 @@ rayon = "1.10.0"
 directories = "5.0.1"
 webbrowser = "1.0.2"
 url = "2.5.2"
-os_info = "3.8.2"
 tauri-plugin-deep-link = "2"
 log = "0.4.22"
 structured-logger = "1.0.3"
 hex = "0.4.3"
+tauri-plugin-dialog = "2"
 
 [dependencies.uuid]
 version = "1.10.0"

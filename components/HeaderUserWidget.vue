@@ -49,15 +49,16 @@
                 Admin Dashboard
               </a>
             </MenuItem>
-            <MenuItem v-for="(nav, navIdx) in navigation" v-slot="{ active }">
-              <NuxtLink
+            <MenuItem v-for="(nav, navIdx) in navigation" v-slot="{ active, close }">
+              <button
+              @click="() => navigate(close, nav)"
                 :href="nav.route"
                 :class="[
                   active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
-                  'transition block px-4 py-2 text-sm',
+                  'transition text-left block px-4 py-2 text-sm',
                 ]"
               >
-                {{ nav.label }}</NuxtLink
+                {{ nav.label }}</button
               >
             </MenuItem>
           </div>
@@ -75,6 +76,12 @@ import HeaderWidget from "./HeaderWidget.vue";
 import { useAppState } from "~/composables/app-state";
 import { invoke } from "@tauri-apps/api/core";
 
+const open = ref(false);
+const router = useRouter();
+router.afterEach(() => {
+  open.value = false;
+})
+
 const state = useAppState();
 const profilePictureUrl: string = await invoke("gen_drop_url", {
   path: `/api/v1/object/${state.value.user?.profilePicture}`,
@@ -83,6 +90,11 @@ const adminUrl: string = await invoke("gen_drop_url", {
   path: "/admin",
 });
 
+function navigate(close: () => any, to: NavigationItem){
+  close();
+  router.push(to.route);
+}
+
 const navigation: NavigationItem[] = [
   {
     label: "Account settings",
@@ -90,9 +102,14 @@ const navigation: NavigationItem[] = [
     prefix: "",
   },
   {
+    label: "App settings",
+    route: "/settings",
+    prefix: "",
+  },
+  {
     label: "Sign out",
     route: "/signout",
     prefix: "",
   },
-].filter((e) => e !== undefined);
+]
 </script>

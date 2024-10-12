@@ -1,15 +1,17 @@
 <template>
-  <div class="h-16 cursor-pointer bg-gray-950 flex flex-row justify-between">
-    <div
-      @mousedown="() => window.startDragging()"
-      class="flex flex-row grow items-center justify-between pl-5 pr-2 py-3"
-    >
+  <div
+    @mousedown="() => window.startDragging()"
+    class="h-16 cursor-pointer bg-zinc-950 flex flex-row justify-between"
+  >
+    <div class="flex flex-row grow items-center justify-between pl-5 pr-2 py-3">
       <div class="inline-flex items-center gap-x-10">
-        <Wordmark class="h-8 mb-0.5" />
+        <NuxtLink to="/">
+          <Wordmark class="h-8 mb-0.5" />
+        </NuxtLink>
         <nav class="inline-flex items-center mt-0.5">
           <ol class="inline-flex items-center gap-x-6">
             <li
-              class="transition text-gray-300 hover:text-gray-100 uppercase font-display font-semibold text-md"
+              class="transition text-zinc-300 hover:text-zinc-100 uppercase font-display font-semibold text-md"
               v-for="(nav, navIdx) in navigation"
             >
               {{ nav.label }}

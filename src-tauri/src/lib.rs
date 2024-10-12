@@ -1,5 +1,5 @@
 mod auth;
-mod data;
+mod db;
 mod remote;
 mod unpacker;
 
@@ -10,7 +10,7 @@ use std::{
 };
 
 use auth::{auth_initiate, recieve_handshake};
-use data::DatabaseInterface;
+use db::{DatabaseInterface, DATA_ROOT_DIR};
 use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
@@ -52,7 +52,7 @@ fn setup<'a>() -> AppState {
         .with_target_writer("*", new_writer(io::stdout()))
         .init();
 
-    let is_set_up = data::is_set_up();
+    let is_set_up = db::is_set_up();
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
@@ -67,14 +67,14 @@ fn setup<'a>() -> AppState {
     };
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| data::setup());
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| db::setup());
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = setup();
     info!("Initialized drop client");
 
-    let mut builder = tauri::Builder::default();
+    let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(desktop)]
     {
@@ -103,6 +103,19 @@ pub fn run() {
 
             let handle = app.handle().clone();
 
+            let main_window = tauri::WebviewWindowBuilder::new(
+                &handle,
+                "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
+                tauri::WebviewUrl::App("index.html".into()),
+            )
+            .title("Drop Desktop App")
+            .min_inner_size(900.0, 900.0)
+            .inner_size(1536.0, 864.0)
+            .decorations(false)
+            .data_directory(DATA_ROOT_DIR.join(".webview"))
+            .build()
+            .unwrap();
+
             app.deep_link().on_open_url(move |event| {
                 info!("handling drop:// url");
                 let binding = event.urls();
@@ -112,6 +125,7 @@ pub fn run() {
                     _ => (),
                 }
             });
+
             Ok(())
         })
         .run(tauri::generate_context!())
