@@ -1,10 +1,11 @@
 use std::{
     borrow::{Borrow, BorrowMut},
+    env,
     fmt::format,
     sync::Mutex,
 };
 
-use log::info;
+use log::{info, warn};
 use openssl::{
     ec::EcKey,
     hash::MessageDigest,
@@ -12,11 +13,11 @@ use openssl::{
     sign::{self, Signer},
 };
 use serde::{Deserialize, Serialize};
-use tauri::{App, AppHandle, Emitter, Error, EventLoopMessage, Manager, Wry};
+use tauri::{http::response, App, AppHandle, Emitter, EventLoopMessage, Manager, Wry};
 use url::Url;
 use uuid::Uuid;
 
-use crate::{data::DatabaseAuth, AppState, AppStatus, User, DB};
+use crate::{db::DatabaseAuth, AppState, AppStatus, User, DB};
 
 #[derive(Serialize)]
 struct InitiateRequestBody {
@@ -49,7 +50,7 @@ macro_rules! unwrap_or_return {
     };
 }
 
-pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, Error> {
+pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
     let client_private_key = EcKey::private_key_from_pem(private_key.as_bytes()).unwrap();
     let pkey_private_key = PKey::from_ec_key(client_private_key).unwrap();
 
@@ -74,7 +75,7 @@ pub fn generate_authorization_header() -> String {
     return format!("Nonce {} {} {}", certs.clientId, nonce, signature);
 }
 
-pub fn fetch_user() -> Result<User, Error> {
+pub fn fetch_user() -> Result<User, ()> {
     let base_url = {
         let handle = DB.borrow_data().unwrap();
         Url::parse(&handle.base_url).unwrap()
@@ -89,6 +90,11 @@ pub fn fetch_user() -> Result<User, Error> {
         .header("Authorization", header)
         .send()
         .unwrap();
+
+    if response.status() != 200 {
+        warn!("Failed to fetch user: {}", response.status());
+        return Err(());
+    }
 
     let user = response.json::<User>().unwrap();
 
@@ -138,11 +144,10 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         let app_state = app.state::<Mutex<AppState>>();
         let mut app_state_handle = app_state.lock().unwrap();
         app_state_handle.status = AppStatus::SignedIn;
+        app_state_handle.user = Some(fetch_user().unwrap());
     }
 
     app.emit("auth/finished", ()).unwrap();
-
-    fetch_user().unwrap();
 }
 
 #[tauri::command]
@@ -152,12 +157,10 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
         Url::parse(&db_lock.base_url.clone()).unwrap()
     };
 
-    let current_os_info = os_info::get();
-
     let endpoint = base_url.join("/api/v1/client/auth/initiate").unwrap();
     let body = InitiateRequestBody {
         name: format!("Drop Desktop Client"),
-        platform: current_os_info.os_type().to_string(),
+        platform: env::consts::OS.to_string(),
     };
 
     let client = reqwest::Client::new();
@@ -168,6 +171,10 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
         .await
         .unwrap();
 
+    if response.status() != 200 {
+        return Err("Failed to create redirect URL. Please try again later.".to_string());
+    }
+
     let redir_url = response.text().await.unwrap();
     let complete_redir_url = base_url.join(&redir_url).unwrap();
 
@@ -177,7 +184,7 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
     return Ok(());
 }
 
-pub fn setup() -> Result<(AppStatus, Option<User>), Error> {
+pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     let data = DB.borrow_data().unwrap();
 
     // If we have certs, exit for now
@@ -186,7 +193,7 @@ pub fn setup() -> Result<(AppStatus, Option<User>), Error> {
         if user_result.is_err() {
             return Ok((AppStatus::SignedInNeedsReauth, None));
         }
-        return Ok((AppStatus::SignedIn, Some(user_result.unwrap())))
+        return Ok((AppStatus::SignedIn, Some(user_result.unwrap())));
     }
 
     drop(data);

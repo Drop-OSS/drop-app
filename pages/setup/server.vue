@@ -60,7 +60,7 @@
         </div>
       </form>
 
-      <p class="mt-10 text-center text-sm text-gray-500">
+      <p class="mt-10 text-center text-sm text-zinc-500">
         Don't have one?
         {{ " " }}
         <a

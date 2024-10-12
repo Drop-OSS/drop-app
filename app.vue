@@ -43,4 +43,8 @@ listen("auth/failed", () => {
 listen("auth/finished", () => {
   router.push("/");
 });
+
+useHead({
+  title: "Drop"
+})
 </script>
