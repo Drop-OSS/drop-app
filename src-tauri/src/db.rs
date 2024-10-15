@@ -7,6 +7,7 @@ use std::{
 use directories::BaseDirs;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::Deserialize;
+use url::Url;
 
 use crate::DB;
 
@@ -61,4 +62,9 @@ pub fn setup() -> DatabaseInterface {
 
 pub fn is_set_up() -> bool {
     return !DB.borrow_data().unwrap().base_url.is_empty();
+}
+
+pub fn fetch_base_url() -> Url {
+    let handle = DB.borrow_data().unwrap();
+    Url::parse(&handle.base_url).unwrap()
 }

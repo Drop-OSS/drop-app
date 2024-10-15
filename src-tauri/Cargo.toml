@@ -36,6 +36,7 @@ structured-logger = "1.0.3"
 hex = "0.4.3"
 tauri-plugin-dialog = "2"
 env_logger = "0.11.5"
+http = "1.1.0"
 
 [dependencies.uuid]
 version = "1.10.0"
