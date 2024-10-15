@@ -45,7 +45,7 @@
 
 <script setup lang="ts">
 import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
-import type { NavigationItem, QuickActionNav } from "./types";
+import type { NavigationItem, QuickActionNav } from "../types";
 import HeaderWidget from "./HeaderWidget.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
