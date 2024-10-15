@@ -26,12 +26,13 @@ pub enum AppStatus {
     SignedInNeedsReauth,
 }
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct User {
     id: String,
     username: String,
     admin: bool,
-    displayName: String,
-    profilePicture: String,
+    display_name: String,
+    profile_picture: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -48,7 +49,7 @@ fn fetch_state<'a>(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState,
     Ok(cloned_state)
 }
 
-fn setup<'a>() -> AppState {
+fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let is_set_up = db::is_set_up();
@@ -119,9 +120,8 @@ pub fn run() {
                 info!("handling drop:// url");
                 let binding = event.urls();
                 let url = binding.get(0).unwrap();
-                match url.host_str().unwrap() {
-                    "handshake" => recieve_handshake(handle.clone(), url.path().to_string()),
-                    _ => (),
+                if url.host_str().unwrap() == "handshake" {
+                    recieve_handshake(handle.clone(), url.path().to_string())
                 }
             });
 

@@ -27,8 +27,9 @@ struct InitiateRequestBody {
 }
 
 #[derive(Serialize)]
+#[serde(rename_all="camelCase")]
 struct HandshakeRequestBody {
-    clientId: String,
+    client_id: String,
     token: String,
 }
 
@@ -78,7 +79,7 @@ pub fn generate_authorization_header() -> String {
 
     let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
-    return format!("Nonce {} {} {}", certs.clientId, nonce, signature);
+    return format!("Nonce {} {} {}", certs.client_id, nonce, signature);
 }
 
 pub fn fetch_user() -> Result<User, ()> {
@@ -125,7 +126,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     let client_id = path_chunks.get(1).unwrap();
     let token = path_chunks.get(2).unwrap();
     let body = HandshakeRequestBody {
-        clientId: client_id.to_string(),
+        client_id: client_id.to_string(),
         token: token.to_string(),
     };
 
@@ -140,7 +141,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         handle.auth = Some(DatabaseAuth {
             private: response_struct.private,
             cert: response_struct.certificate,
-            clientId: response_struct.id,
+            client_id: response_struct.id,
         });
         drop(handle);
         DB.save().unwrap();
