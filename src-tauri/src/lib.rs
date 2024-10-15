@@ -8,7 +8,8 @@ use std::{
     sync::{LazyLock, Mutex},
     task, thread,
 };
-
+use env_logger;
+use env_logger::Env;
 use auth::{auth_initiate, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
 use log::info;
@@ -48,9 +49,7 @@ fn fetch_state<'a>(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState,
 }
 
 fn setup<'a>() -> AppState {
-    Builder::with_level("info")
-        .with_target_writer("*", new_writer(io::stdout()))
-        .init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let is_set_up = db::is_set_up();
     if !is_set_up {
