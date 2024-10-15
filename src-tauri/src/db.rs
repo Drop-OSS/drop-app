@@ -11,10 +11,11 @@ use serde::Deserialize;
 use crate::DB;
 
 #[derive(serde::Serialize, Clone, Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
-    pub clientId: String,
+    pub client_id: String,
 }
 
 #[derive(serde::Serialize, Clone, Deserialize)]

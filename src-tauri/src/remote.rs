@@ -26,8 +26,9 @@ macro_rules! unwrap_or_return {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct DropHealthcheck {
-    appName: String,
+    app_name: String,
 }
 
 #[tauri::command]
@@ -44,7 +45,7 @@ pub async fn use_remote<'a>(
 
     let result = response.json::<DropHealthcheck>().await.unwrap();
 
-    if result.appName != "Drop" {
+    if result.app_name != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
         return Err("Not a valid Drop endpoint".to_string());
     }
