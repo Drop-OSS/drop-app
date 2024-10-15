@@ -6,17 +6,15 @@ mod unpacker;
 
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{fetch_base_url, DatabaseInterface, DATA_ROOT_DIR};
-use env_logger;
 use env_logger::Env;
-use http::{header::*, response::Builder as ResponseBuilder, status::StatusCode};
+use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
 use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap, io, sync::{LazyLock, Mutex}, task, thread
+    collections::HashMap, sync::{LazyLock, Mutex}
 };
-use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
@@ -63,14 +61,14 @@ fn setup<'a>() -> AppState {
     }
 
     let auth_result = auth::setup().unwrap();
-    return AppState {
+    AppState {
         status: auth_result.0,
         user: auth_result.1,
         games: HashMap::new(),
-    };
+    }
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| db::setup());
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(db::setup);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -128,11 +126,8 @@ pub fn run() {
             app.deep_link().on_open_url(move |event| {
                 info!("handling drop:// url");
                 let binding = event.urls();
-                let url = binding.get(0).unwrap();
-                match url.host_str().unwrap() {
-                    "handshake" => recieve_handshake(handle.clone(), url.path().to_string()),
-                    _ => (),
-                }
+                let url = binding.first().unwrap();
+                if url.host_str().unwrap() == "handshake" { recieve_handshake(handle.clone(), url.path().to_string()) }
             });
 
             Ok(())
