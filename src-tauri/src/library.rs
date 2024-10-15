@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, sync::Mutex};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -7,18 +7,19 @@ use tauri::{AppHandle, Manager};
 use crate::{auth::generate_authorization_header, db::fetch_base_url, AppState};
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all="camelCase")]
 pub struct Game {
     id: String,
-    mName: String,
-    mShortDescription: String,
-    mDescription: String,
+    m_name: String,
+    m_short_description: String,
+    m_description: String,
     // mDevelopers
     // mPublishers
 
-    mIconId: String,
-    mBannerId: String,
-    mCoverId: String,
-    mImageLibrary: Vec<String>,
+    m_icon_id: String,
+    m_banner_id: String,
+    m_cover_id: String,
+    m_image_library: Vec<String>,
 }
 
 #[tauri::command]
@@ -54,7 +55,7 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
 
     drop(handle);
 
-    return Ok(json!(games.clone()).to_string());
+    Ok(json!(games.clone()).to_string())
 }
 
 #[tauri::command]
@@ -66,5 +67,5 @@ pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
         return Ok(json!(game.unwrap()).to_string());
     }
 
-    return Ok("".to_string());
+    Ok("".to_string())
 }
