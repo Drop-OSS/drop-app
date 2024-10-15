@@ -25,12 +25,13 @@ pub enum AppStatus {
     SignedInNeedsReauth,
 }
 #[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct User {
     id: String,
     username: String,
     admin: bool,
-    displayName: String,
-    profilePicture: String,
+    display_name: String,
+    profile_picture: String,
 }
 
 #[derive(Clone, Serialize)]
@@ -41,14 +42,14 @@ pub struct AppState {
 }
 
 #[tauri::command]
-fn fetch_state<'a>(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
+fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
     let guard = state.lock().unwrap();
     let cloned_state = guard.clone();
     drop(guard);
     Ok(cloned_state)
 }
 
-fn setup<'a>() -> AppState {
+fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let is_set_up = db::is_set_up();
