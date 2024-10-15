@@ -1,20 +1,21 @@
 mod auth;
 mod db;
+mod library;
 mod remote;
 mod unpacker;
 
-use std::{
-    io,
-    sync::{LazyLock, Mutex},
-    task, thread,
-};
+use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
+use db::{fetch_base_url, DatabaseInterface, DATA_ROOT_DIR};
 use env_logger;
 use env_logger::Env;
-use auth::{auth_initiate, recieve_handshake};
-use db::{DatabaseInterface, DATA_ROOT_DIR};
+use http::{header::*, response::Builder as ResponseBuilder, status::StatusCode};
+use library::{fetch_game, fetch_library, Game};
 use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
+use std::{
+    collections::HashMap, io, sync::{LazyLock, Mutex}, task, thread
+};
 use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
 
@@ -38,6 +39,7 @@ pub struct User {
 pub struct AppState {
     status: AppStatus,
     user: Option<User>,
+    games: HashMap<String, Game>,
 }
 
 #[tauri::command]
@@ -56,6 +58,7 @@ fn setup<'a>() -> AppState {
         return AppState {
             status: AppStatus::NotConfigured,
             user: None,
+            games: HashMap::new(),
         };
     }
 
@@ -63,6 +66,7 @@ fn setup<'a>() -> AppState {
     return AppState {
         status: auth_result.0,
         user: auth_result.1,
+        games: HashMap::new(),
     };
 }
 
@@ -71,7 +75,7 @@ pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| db::setup());
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let state = setup();
-    info!("Initialized drop client");
+    info!("initialized drop client");
 
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
@@ -86,10 +90,16 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         .manage(Mutex::new(state))
         .invoke_handler(tauri::generate_handler![
+            // DB
             fetch_state,
+            // Auth
             auth_initiate,
+            // Remote
             use_remote,
             gen_drop_url,
+            // Library
+            fetch_library,
+            fetch_game,
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
@@ -102,7 +112,7 @@ pub fn run() {
 
             let handle = app.handle().clone();
 
-            let main_window = tauri::WebviewWindowBuilder::new(
+            let _main_window = tauri::WebviewWindowBuilder::new(
                 &handle,
                 "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
                 tauri::WebviewUrl::App("index.html".into()),
@@ -126,6 +136,37 @@ pub fn run() {
             });
 
             Ok(())
+        })
+        .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
+            let base_url = fetch_base_url();
+
+            // Drop leading /
+            let object_id = &request.uri().path()[1..];
+
+            let object_url = base_url
+                .join("/api/v1/client/object/")
+                .unwrap()
+                .join(object_id)
+                .unwrap();
+
+            info!["{}", object_url.to_string()];
+
+            let header = generate_authorization_header();
+            let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
+            let response = client
+                .get(object_url.to_string())
+                .header("Authorization", header)
+                .send()
+                .unwrap();
+
+            let resp_builder = ResponseBuilder::new().header(
+                CONTENT_TYPE,
+                response.headers().get("Content-Type").unwrap(),
+            );
+            let data = Vec::from(response.bytes().unwrap());
+            let resp = resp_builder.body(data).unwrap();
+
+            responder.respond(resp);
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
