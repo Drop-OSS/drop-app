@@ -3,19 +3,13 @@ mod db;
 mod remote;
 mod unpacker;
 
-use std::{
-    io,
-    sync::{LazyLock, Mutex},
-    task, thread,
-};
-use env_logger;
+use std::sync::{LazyLock, Mutex};
 use env_logger::Env;
 use auth::{auth_initiate, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
 use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
-use structured_logger::{json::new_writer, Builder};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
@@ -61,13 +55,13 @@ fn setup() -> AppState {
     }
 
     let auth_result = auth::setup().unwrap();
-    return AppState {
+    AppState {
         status: auth_result.0,
         user: auth_result.1,
-    };
+    }
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(|| db::setup());
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(db::setup);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -103,7 +97,7 @@ pub fn run() {
 
             let handle = app.handle().clone();
 
-            let main_window = tauri::WebviewWindowBuilder::new(
+            let _main_window = tauri::WebviewWindowBuilder::new(
                 &handle,
                 "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
                 tauri::WebviewUrl::App("index.html".into()),
@@ -119,7 +113,7 @@ pub fn run() {
             app.deep_link().on_open_url(move |event| {
                 info!("handling drop:// url");
                 let binding = event.urls();
-                let url = binding.get(0).unwrap();
+                let url = binding.first().unwrap();
                 if url.host_str().unwrap() == "handshake" {
                     recieve_handshake(handle.clone(), url.path().to_string())
                 }
