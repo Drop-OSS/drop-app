@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{db::DatabaseAuth, AppState, AppStatus, User, DB};
+use crate::{db::{fetch_base_url, DatabaseAuth}, AppState, AppStatus, User, DB};
 
 #[derive(Serialize)]
 struct InitiateRequestBody {
@@ -79,10 +79,7 @@ pub fn generate_authorization_header() -> String {
 }
 
 pub fn fetch_user() -> Result<User, ()> {
-    let base_url = {
-        let handle = DB.borrow_data().unwrap();
-        Url::parse(&handle.base_url).unwrap()
-    };
+    let base_url = fetch_base_url();
 
     let endpoint = base_url.join("/api/v1/client/user").unwrap();
     let header = generate_authorization_header();
