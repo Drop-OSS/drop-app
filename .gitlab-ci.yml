@@ -8,6 +8,8 @@ build-linux:
     - apt-get update -y
     - apt-get install yarnpkg libsoup-3.0-0 libsoup-3.0-dev libatk-adaptor libgtk-3-dev libjavascriptcoregtk-4.1-dev libwebkit2gtk-4.1-dev -y
     - yarnpkg
+    - export
+    - export RUST_LOG=warn
     - yarnpkg tauri build
     - cp src-tauri/target/release/bundle/deb/*.deb .
     - cp src-tauri/target/release/bundle/rpm/*.rpm .
