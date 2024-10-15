@@ -1,8 +1,5 @@
-use core::time;
 use std::{
-    borrow::{Borrow, BorrowMut},
     env,
-    fmt::format,
     sync::Mutex, time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -11,12 +8,11 @@ use openssl::{
     ec::EcKey,
     hash::MessageDigest,
     pkey::PKey,
-    sign::{self, Signer},
+    sign::{Signer},
 };
 use serde::{Deserialize, Serialize};
-use tauri::{http::response, App, AppHandle, Emitter, EventLoopMessage, Manager, Wry};
+use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
-use uuid::Uuid;
 
 use crate::{db::DatabaseAuth, AppState, AppStatus, User, DB};
 
@@ -62,7 +58,7 @@ pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
 
     let hex_signature = hex::encode(signature);
 
-    return Ok(hex_signature);
+    Ok(hex_signature)
 }
 
 pub fn generate_authorization_header() -> String {
@@ -79,7 +75,7 @@ pub fn generate_authorization_header() -> String {
 
     let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
-    return format!("Nonce {} {} {}", certs.client_id, nonce, signature);
+    format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
 pub fn fetch_user() -> Result<User, ()> {
@@ -105,7 +101,7 @@ pub fn fetch_user() -> Result<User, ()> {
 
     let user = response.json::<User>().unwrap();
 
-    return Ok(user);
+    Ok(user)
 }
 
 pub fn recieve_handshake(app: AppHandle, path: String) {
@@ -166,7 +162,7 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
 
     let endpoint = base_url.join("/api/v1/client/auth/initiate").unwrap();
     let body = InitiateRequestBody {
-        name: format!("Drop Desktop Client"),
+        name: "Drop Desktop Client".to_string(),
         platform: env::consts::OS.to_string(),
     };
 
@@ -186,9 +182,9 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
     let complete_redir_url = base_url.join(&redir_url).unwrap();
 
     info!("opening web browser to continue authentication");
-    webbrowser::open(&complete_redir_url.to_string()).unwrap();
+    webbrowser::open(complete_redir_url.as_ref()).unwrap();
 
-    return Ok(());
+    Ok(())
 }
 
 pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
@@ -205,5 +201,5 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
 
     drop(data);
 
-    return Ok((AppStatus::SignedOut, None));
+    Ok((AppStatus::SignedOut, None))
 }

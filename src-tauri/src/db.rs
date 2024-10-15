@@ -50,12 +50,13 @@ pub fn setup() -> DatabaseInterface {
             apps_base_dir: apps_base_dir.to_str().unwrap().to_string(),
         },
     };
+    #[allow(clippy::let_and_return)]
     let db = match fs::exists(db_path.clone()).unwrap() {
         true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
         false => PathDatabase::create_at_path(db_path, default).unwrap(),
     };
 
-    return db;
+    db
 }
 
 pub fn is_set_up() -> bool {

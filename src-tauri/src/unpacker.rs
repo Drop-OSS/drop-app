@@ -64,5 +64,5 @@ pub async fn unpack() -> Result<(), Error> {
         }
     });
 
-    return Ok(());
+    Ok(())
 }

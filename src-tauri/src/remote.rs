@@ -1,12 +1,7 @@
-use std::{
-    borrow::{Borrow, BorrowMut},
-    sync::Mutex,
-};
+use std::sync::Mutex;
 
 use log::{info, warn};
-use openssl::x509::store::HashDir;
 use serde::Deserialize;
-use tauri::async_runtime::handle;
 use url::Url;
 
 use crate::{AppState, AppStatus, DB};
@@ -60,11 +55,11 @@ pub async fn use_remote<'a>(
 
     DB.save().unwrap();
 
-    return Ok(());
+    Ok(())
 }
 
 #[tauri::command]
-pub fn gen_drop_url(app: tauri::AppHandle, path: String) -> Result<String, String> {
+pub fn gen_drop_url(path: String) -> Result<String, String> {
     let base_url = {
         let handle = DB.borrow_data().unwrap();
 
@@ -77,5 +72,5 @@ pub fn gen_drop_url(app: tauri::AppHandle, path: String) -> Result<String, Strin
 
     let url = base_url.join(&path).unwrap();
 
-    return Ok(url.to_string());
+    Ok(url.to_string())
 }
