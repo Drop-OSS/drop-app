@@ -18,7 +18,6 @@ use std::{
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
-#[serde(rename_all="camelCase")]
 pub enum AppStatus {
     NotConfigured,
     SignedOut,
