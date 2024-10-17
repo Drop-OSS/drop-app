@@ -39,7 +39,7 @@ pub type DatabaseInterface =
 pub static DATA_ROOT_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| BaseDirs::new().unwrap().data_dir().join("drop"));
 
-pub fn setup() -> DatabaseInterface {
+pub fn set_up_database() -> DatabaseInterface {
     let db_path = DATA_ROOT_DIR.join("drop.db");
     let apps_base_dir = DATA_ROOT_DIR.join("apps");
 
@@ -62,8 +62,8 @@ pub fn setup() -> DatabaseInterface {
     db
 }
 
-pub fn is_set_up() -> bool {
-    return !DB.borrow_data().unwrap().base_url.is_empty();
+pub fn database_is_set_up() -> bool {
+    !DB.borrow_data().unwrap().base_url.is_empty()
 }
 
 pub fn fetch_base_url() -> Url {
