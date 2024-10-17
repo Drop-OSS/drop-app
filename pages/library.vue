@@ -33,7 +33,7 @@
         </NuxtLink>
       </ul>
     </div>
-    <div class="grow">
+    <div class="grow overflow-y-scroll">
       <NuxtPage />
     </div>
   </div>
