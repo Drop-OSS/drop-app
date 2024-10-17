@@ -41,9 +41,12 @@ pub struct Database {
     pub base_url: String,
     pub games: DatabaseGames,
 }
+pub static DATA_ROOT_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| BaseDirs::new().unwrap().data_dir().join("drop"));
 
 pub type DatabaseInterface =
     rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
+
 pub trait DatabaseImpls {
     fn set_up_database() -> DatabaseInterface;
     fn database_is_set_up(&self) -> bool;
@@ -83,5 +86,3 @@ impl DatabaseImpls for DatabaseInterface {
         Url::parse(&handle.base_url).unwrap()
     }
 }
-pub static DATA_ROOT_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| BaseDirs::new().unwrap().data_dir().join("drop"));
