@@ -17,6 +17,7 @@ use url::Url;
 use crate::{db::{fetch_base_url, DatabaseAuth}, AppState, AppStatus, User, DB};
 
 #[derive(Serialize)]
+#[serde(rename_all="camelCase")]
 struct InitiateRequestBody {
     name: String,
     platform: String,
@@ -30,6 +31,7 @@ struct HandshakeRequestBody {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct HandshakeResponse {
     private: String,
     certificate: String,

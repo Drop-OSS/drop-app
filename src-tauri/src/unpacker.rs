@@ -12,18 +12,21 @@ use std::{
 use std::os::unix::fs::PermissionsExt;
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct ManifestChunk {
     uuid: String,
     index: i64,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct ManifestRecord {
     chunks: Vec<ManifestChunk>,
     permissions: u32,
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all="camelCase")]
 struct Manifest {
     record: HashMap<String, ManifestRecord>,
 }

@@ -6,7 +6,7 @@ use std::{
 
 use directories::BaseDirs;
 use rustbreak::{deser::Bincode, PathDatabase};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::DB;
@@ -19,12 +19,14 @@ pub struct DatabaseAuth {
     pub client_id: String,
 }
 
-#[derive(serde::Serialize, Clone, Deserialize)]
+#[derive(Serialize, Clone, Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct DatabaseApps {
     pub apps_base_dir: String,
 }
 
-#[derive(serde::Serialize, Clone, Deserialize)]
+#[derive(Serialize, Clone, Deserialize)]
+#[serde(rename_all="camelCase")]
 pub struct Database {
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
