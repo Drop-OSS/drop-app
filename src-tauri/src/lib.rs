@@ -3,6 +3,8 @@ mod db;
 mod library;
 mod remote;
 mod unpacker;
+mod downloads;
+mod utils;
 
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
@@ -101,6 +103,8 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
+            // Downloads
+            download_game
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
