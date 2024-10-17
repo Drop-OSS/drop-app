@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{db::{fetch_base_url, DatabaseAuth}, AppState, AppStatus, User, DB};
+use crate::{db::{DatabaseAuth, DatabaseImpls}, AppState, AppStatus, User, DB};
 
 #[derive(Serialize)]
 #[serde(rename_all="camelCase")]
@@ -81,7 +81,7 @@ pub fn generate_authorization_header() -> String {
 }
 
 pub fn fetch_user() -> Result<User, ()> {
-    let base_url = fetch_base_url();
+    let base_url = DB.fetch_base_url();
 
     let endpoint = base_url.join("/api/v1/client/user").unwrap();
     let header = generate_authorization_header();

@@ -5,7 +5,7 @@ mod remote;
 mod unpacker;
 
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{fetch_base_url, DatabaseInterface, DATA_ROOT_DIR};
+use db::{DatabaseInterface, DATA_ROOT_DIR};
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -16,6 +16,7 @@ use std::{
     collections::HashMap, sync::{LazyLock, Mutex}
 };
 use tauri_plugin_deep_link::DeepLinkExt;
+use crate::db::DatabaseImpls;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -53,7 +54,7 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let is_set_up = db::database_is_set_up();
+    let is_set_up = DB.database_is_set_up();
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
@@ -70,7 +71,7 @@ fn setup() -> AppState {
     }
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(db::set_up_database);
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -135,7 +136,7 @@ pub fn run() {
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
-            let base_url = fetch_base_url();
+            let base_url = DB.fetch_base_url();
 
             // Drop leading /
             let object_id = &request.uri().path()[1..];

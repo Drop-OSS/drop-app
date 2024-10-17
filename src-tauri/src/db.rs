@@ -9,8 +9,6 @@ use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::DB;
-
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all="camelCase")]
 pub struct DatabaseAuth {
@@ -35,38 +33,43 @@ pub struct Database {
 
 pub type DatabaseInterface =
     rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
+pub trait DatabaseImpls {
+    fn set_up_database() -> DatabaseInterface;
+    fn database_is_set_up(&self) -> bool;
+    fn fetch_base_url(&self) -> Url;
+}
+impl DatabaseImpls for DatabaseInterface {
+    fn set_up_database() -> DatabaseInterface {
+        let db_path = DATA_ROOT_DIR.join("drop.db");
+        let apps_base_dir = DATA_ROOT_DIR.join("apps");
 
+        create_dir_all(DATA_ROOT_DIR.clone()).unwrap();
+        create_dir_all(apps_base_dir.clone()).unwrap();
+
+        let default = Database {
+            auth: None,
+            base_url: "".to_string(),
+            downloads: DatabaseApps {
+                apps_base_dir: apps_base_dir.to_str().unwrap().to_string(),
+            },
+        };
+        #[allow(clippy::let_and_return)]
+        let db = match fs::exists(db_path.clone()).unwrap() {
+            true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
+            false => PathDatabase::create_at_path(db_path, default).unwrap(),
+        };
+
+        db
+    }
+
+    fn database_is_set_up(&self) -> bool {
+        !self.borrow_data().unwrap().base_url.is_empty()
+    }
+
+    fn fetch_base_url(&self) -> Url {
+        let handle = self.borrow_data().unwrap();
+        Url::parse(&handle.base_url).unwrap()
+    }
+}
 pub static DATA_ROOT_DIR: LazyLock<PathBuf> =
     LazyLock::new(|| BaseDirs::new().unwrap().data_dir().join("drop"));
-
-pub fn set_up_database() -> DatabaseInterface {
-    let db_path = DATA_ROOT_DIR.join("drop.db");
-    let apps_base_dir = DATA_ROOT_DIR.join("apps");
-
-    create_dir_all(DATA_ROOT_DIR.clone()).unwrap();
-    create_dir_all(apps_base_dir.clone()).unwrap();
-
-    let default = Database {
-        auth: None,
-        base_url: "".to_string(),
-        downloads: DatabaseApps {
-            apps_base_dir: apps_base_dir.to_str().unwrap().to_string(),
-        },
-    };
-    #[allow(clippy::let_and_return)]
-    let db = match fs::exists(db_path.clone()).unwrap() {
-        true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
-        false => PathDatabase::create_at_path(db_path, default).unwrap(),
-    };
-
-    db
-}
-
-pub fn database_is_set_up() -> bool {
-    !DB.borrow_data().unwrap().base_url.is_empty()
-}
-
-pub fn fetch_base_url() -> Url {
-    let handle = DB.borrow_data().unwrap();
-    Url::parse(&handle.base_url).unwrap()
-}
