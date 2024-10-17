@@ -54,7 +54,7 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let is_set_up = db::is_set_up();
+    let is_set_up = db::database_is_set_up();
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
@@ -71,7 +71,7 @@ fn setup() -> AppState {
     }
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(db::setup);
+pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(db::set_up_database);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
