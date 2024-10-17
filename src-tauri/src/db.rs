@@ -1,4 +1,5 @@
 use std::{
+    collections::HashMap,
     fs::{self, create_dir_all},
     path::PathBuf,
     sync::LazyLock,
@@ -10,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 
 #[derive(serde::Serialize, Clone, Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
@@ -18,17 +19,27 @@ pub struct DatabaseAuth {
 }
 
 #[derive(Serialize, Clone, Deserialize)]
-#[serde(rename_all="camelCase")]
-pub struct DatabaseApps {
-    pub apps_base_dir: String,
+pub enum DatabaseGameStatus {
+    Remote,
+    Downloading,
+    Installed,
+    Updating,
+    Uninstalling,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
+pub struct DatabaseGames {
+    pub games_base_dir: String,
+    pub games_statuses: HashMap<String, DatabaseGameStatus>,
+}
+
+#[derive(Serialize, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Database {
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
-    pub downloads: DatabaseApps,
+    pub games: DatabaseGames,
 }
 
 pub type DatabaseInterface =
@@ -41,16 +52,17 @@ pub trait DatabaseImpls {
 impl DatabaseImpls for DatabaseInterface {
     fn set_up_database() -> DatabaseInterface {
         let db_path = DATA_ROOT_DIR.join("drop.db");
-        let apps_base_dir = DATA_ROOT_DIR.join("apps");
+        let games_base_dir = DATA_ROOT_DIR.join("games");
 
         create_dir_all(DATA_ROOT_DIR.clone()).unwrap();
-        create_dir_all(apps_base_dir.clone()).unwrap();
+        create_dir_all(games_base_dir.clone()).unwrap();
 
         let default = Database {
             auth: None,
             base_url: "".to_string(),
-            downloads: DatabaseApps {
-                apps_base_dir: apps_base_dir.to_str().unwrap().to_string(),
+            games: DatabaseGames {
+                games_base_dir: games_base_dir.to_str().unwrap().to_string(),
+                games_statuses: HashMap::new(),
             },
         };
         #[allow(clippy::let_and_return)]

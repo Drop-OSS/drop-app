@@ -6,9 +6,16 @@ use tauri::{AppHandle, Manager};
 
 use crate::{auth::generate_authorization_header, AppState, DB};
 use crate::db::DatabaseImpls;
+use crate::db::DatabaseGameStatus;
+
+#[derive(serde::Serialize)]
+struct FetchGameStruct {
+    game: Game,
+    status: DatabaseGameStatus,
+}
 
 #[derive(Serialize, Deserialize, Clone)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct Game {
     id: String,
     m_name: String,
@@ -16,7 +23,6 @@ pub struct Game {
     m_description: String,
     // mDevelopers
     // mPublishers
-
     m_icon_id: String,
     m_banner_id: String,
     m_cover_id: String,
@@ -50,8 +56,16 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
     let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
 
+    let mut db_handle = DB.borrow_data_mut().unwrap();
+
     for game in games.iter() {
         handle.games.insert(game.id.clone(), game.clone());
+        if !db_handle.games.games_statuses.contains_key(&game.id) {
+            db_handle
+                .games
+                .games_statuses
+                .insert(game.id.clone(), DatabaseGameStatus::Remote);
+        }
     }
 
     drop(handle);
@@ -64,9 +78,16 @@ pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
     let state = app.state::<Mutex<AppState>>();
     let handle = state.lock().unwrap();
     let game = handle.games.get(&id);
-    if game.is_some() {
-        return Ok(json!(game.unwrap()).to_string());
+    if let Some(game) = game {
+        let db_handle = DB.borrow_data().unwrap();
+
+        let data = FetchGameStruct {
+            game: game.clone(),
+            status: db_handle.games.games_statuses.get(&game.id).unwrap().clone(),
+        };
+
+        return Ok(json!(data).to_string());
     }
 
-    Ok("".to_string())
+    Err("".to_string())
 }

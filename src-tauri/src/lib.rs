@@ -147,8 +147,6 @@ pub fn run() {
                 .join(object_id)
                 .unwrap();
 
-            info!["{}", object_url.to_string()];
-
             let header = generate_authorization_header();
             let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
             let response = client
