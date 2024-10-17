@@ -4,7 +4,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
 
-use crate::{auth::generate_authorization_header, db::fetch_base_url, AppState};
+use crate::{auth::generate_authorization_header, AppState, DB};
+use crate::db::DatabaseImpls;
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all="camelCase")]
@@ -24,7 +25,7 @@ pub struct Game {
 
 #[tauri::command]
 pub fn fetch_library(app: AppHandle) -> Result<String, String> {
-    let base_url = fetch_base_url();
+    let base_url = DB.fetch_base_url();
     let library_url = base_url.join("/api/v1/client/user/library").unwrap();
 
     let header = generate_authorization_header();
