@@ -5,17 +5,17 @@ use rayon::ThreadPoolBuilder;
 pub struct ProgressChecker<T>
 where T: 'static + Send + Sync
 {
-    counter: AtomicUsize,
+    counter: Arc<AtomicUsize>,
     f: Arc<Box<dyn Fn(T) + Send + Sync + 'static>>,
 }
 
 impl<T> ProgressChecker<T>
 where T: Send + Sync
 {
-    pub fn new(f: Box<dyn Fn(T) + Send + Sync + 'static>) -> Self {
+    pub fn new(f: Box<dyn Fn(T) + Send + Sync + 'static>, counter_reference: Arc<AtomicUsize>) -> Self {
         Self {
             f: f.into(),
-            counter: AtomicUsize::new(0)
+            counter: counter_reference
         }
     }
     pub async fn run_contexts_sequentially_async(&self, contexts: Vec<T>) {
