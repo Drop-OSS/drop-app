@@ -21,6 +21,7 @@ use std::{
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::db::DatabaseImpls;
+use crate::downloads::game_download::GameDownload;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -45,6 +46,7 @@ pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
+    game_downloads: Vec<GameDownload>
 }
 
 #[tauri::command]
@@ -64,6 +66,7 @@ fn setup() -> AppState {
             status: AppStatus::NotConfigured,
             user: None,
             games: HashMap::new(),
+            game_downloads: vec![],
         };
     }
 
@@ -72,6 +75,7 @@ fn setup() -> AppState {
         status: auth_result.0,
         user: auth_result.1,
         games: HashMap::new(),
+        game_downloads: vec![],
     }
 }
 

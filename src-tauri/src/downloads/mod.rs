@@ -1,4 +1,4 @@
 mod downloads;
 mod manifest;
 pub mod progress;
-mod game_download;
+pub mod game_download;
