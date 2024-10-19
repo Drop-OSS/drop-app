@@ -1,9 +1,13 @@
 use std::future::Future;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
+use log::info;
 use serde::{Deserialize, Serialize};
 use versions::Version;
-use crate::AppState;
+use crate::{AppState, DB};
+use crate::auth::generate_authorization_header;
+use crate::db::DatabaseImpls;
 use crate::downloads::progress::ProgressChecker;
 
 #[derive(Serialize, Deserialize)]
@@ -32,6 +36,7 @@ pub enum GameDownloadError {
     ManifestAlreadyExists,
     ManifestDoesNotExist,
     ManifestDownloadError,
+    StatusError(u16)
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Ord, PartialOrd)]
 #[serde(rename_all="camelCase")]
@@ -72,7 +77,39 @@ impl GameDownload {
         if self.manifest.is_some() {
             return Err(GameDownloadError::ManifestAlreadyExists);
         }
-        todo!() // Need to actually download the manifest
+
+        info!("Getting url components");
+        let base_url = DB.fetch_base_url();
+        let manifest_url = base_url
+            .join(
+                format!(
+                    "/api/v1/client/metadata/manifest?id={}&version={}",
+                    self.id,
+                    self.version.to_string()
+                )
+                .as_str()
+            )
+            .unwrap();
+
+        info!("Generating authorization header");
+        let header = generate_authorization_header();
+
+        info!("Generating & sending client");
+        let client = reqwest::blocking::Client::new();
+        let response = client
+            .get(manifest_url.to_string())
+            .header("Authorization", header)
+            .send()
+            .unwrap();
+
+        info!("Got status");
+        if response.status() != 200 {
+            return Err(GameDownloadError::StatusError(response.status().as_u16()));
+        }
+
+        info!("{:?}", response.text());
+
+        Ok(())
     }
     pub fn change_state(&self, state: GameDownloadState) {
         let mut lock = self.state.lock().unwrap();
@@ -92,16 +129,23 @@ fn download_game_chunk(ctx: GameChunkCtx) {
 #[tauri::command]
 pub async fn start_game_download(
     game_id: String,
-    game_version: Version,
+    game_version: String,
     max_threads: usize,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), GameDownloadError> {
-    let mut download = Arc::new(GameDownload::new(game_id, game_version));
-    let mut app_state = state.lock().unwrap();
+
+    info!("Triggered Game Download");
+
+    let mut download = Arc::new(GameDownload::new(game_id, Version::from_str(&*game_version).unwrap()));
+    //let mut app_state = state.lock().unwrap();
 
     let tmp = download.clone();
-    let manifest = &tmp.manifest;
+    //let manifest = &tmp.manifest;
 
+    let res = download.download_manifest().await;
+
+    res
+    /*
     let Some(unlocked) = manifest else { return Err(GameDownloadError::ManifestDoesNotExist) };
     let lock = unlocked.lock().unwrap();
 
@@ -119,5 +163,7 @@ pub async fn start_game_download(
 
     app_state.game_downloads.push(download.clone());
     download.download(max_threads, chunks).await
+
+     */
 }
 
