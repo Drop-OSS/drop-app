@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap, sync::{LazyLock, Mutex}
 };
+use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::db::DatabaseImpls;
 use crate::downloads::game_download::GameDownload;
@@ -46,7 +47,7 @@ pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
-    game_downloads: Vec<GameDownload>
+    game_downloads: Vec<Arc<GameDownload>>
 }
 
 #[tauri::command]
@@ -109,7 +110,6 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
-            // Downloads
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
