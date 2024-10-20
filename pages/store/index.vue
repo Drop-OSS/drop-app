@@ -5,10 +5,6 @@
   </button>
 </template>
 <script setup lang="ts">
-definePageMeta({
-  layout: "mini",
-});
-
 import { invoke } from "@tauri-apps/api/core";
 
 async function requestGame() {
