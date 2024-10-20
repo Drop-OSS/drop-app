@@ -95,19 +95,21 @@ impl GameDownload {
         let header = generate_authorization_header();
 
         info!("Generating & sending client");
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
         let response = client
             .get(manifest_url.to_string())
             .header("Authorization", header)
             .send()
+            .await
             .unwrap();
 
         info!("Got status");
         if response.status() != 200 {
+            info!("Error status: {}", response.status());
             return Err(GameDownloadError::StatusError(response.status().as_u16()));
         }
 
-        info!("{:?}", response.text());
+        info!("{:?}", response.text().await.unwrap());
 
         Ok(())
     }
@@ -142,9 +144,8 @@ pub async fn start_game_download(
     let tmp = download.clone();
     //let manifest = &tmp.manifest;
 
-    let res = download.download_manifest().await;
+    download.download_manifest().await
 
-    res
     /*
     let Some(unlocked) = manifest else { return Err(GameDownloadError::ManifestDoesNotExist) };
     let lock = unlocked.lock().unwrap();
