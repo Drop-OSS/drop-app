@@ -44,7 +44,7 @@ listen("auth/failed", () => {
 });
 
 listen("auth/finished", () => {
-  router.push("/");
+  router.push("/store");
 });
 
 useHead({
