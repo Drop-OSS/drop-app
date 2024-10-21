@@ -11,7 +11,6 @@ use tauri::AppHandle;
 use crate::auth::generate_authorization_header;
 use crate::DB;
 use crate::db::DatabaseImpls;
-use crate::downloads::manifest::Manifest;
 
 #[tauri::command]
 fn download_game(app: AppHandle, game_id: String) -> Result<String, String>{
