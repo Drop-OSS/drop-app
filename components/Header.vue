@@ -1,11 +1,10 @@
 <template>
   <div
-      class="h-16 cursor-pointer bg-zinc-950 flex flex-row justify-between"
+      class="h-16 bg-zinc-950 flex flex-row justify-between"
   >
-    <div @mousedown="() => window.startDragging()"
-         class="flex flex-row grow items-center justify-between pl-5 pr-2 py-3">
+    <div class="flex flex-row grow items-center pl-5 pr-2 py-3">
       <div class="inline-flex items-center gap-x-10">
-        <NuxtLink to="/">
+        <NuxtLink to="/store">
           <Wordmark class="h-8 mb-0.5"/>
         </NuxtLink>
         <nav class="inline-flex items-center mt-0.5">
@@ -25,6 +24,7 @@
           </ol>
         </nav>
       </div>
+      <div @mousedown="() => window.startDragging()" class="flex cursor-pointer grow h-full" />
       <div class="inline-flex items-center">
         <ol class="inline-flex gap-3">
           <li v-for="(item, itemIdx) in quickActions">
