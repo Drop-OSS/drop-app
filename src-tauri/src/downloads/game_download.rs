@@ -8,6 +8,7 @@ use versions::Version;
 use crate::{AppState, DB};
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
+use crate::downloads::manifest::DropManifest;
 use crate::downloads::progress::ProgressChecker;
 
 #[derive(Serialize, Deserialize)]
@@ -78,7 +79,6 @@ impl GameDownload {
             return Err(GameDownloadError::ManifestAlreadyExists);
         }
 
-        info!("Getting url components");
         let base_url = DB.fetch_base_url();
         let manifest_url = base_url
             .join(
@@ -91,7 +91,6 @@ impl GameDownload {
             )
             .unwrap();
 
-        info!("Generating authorization header");
         let header = generate_authorization_header();
 
         info!("Generating & sending client");
@@ -103,13 +102,14 @@ impl GameDownload {
             .await
             .unwrap();
 
-        info!("Got status");
         if response.status() != 200 {
             info!("Error status: {}", response.status());
             return Err(GameDownloadError::StatusError(response.status().as_u16()));
         }
 
-        info!("{}", response.text().await.unwrap());
+        //info!("{}", response.text().await.unwrap());
+
+        info!("Parsed manifest: {:?}", response.json::<DropManifest>().await.unwrap());
 
         Ok(())
     }
