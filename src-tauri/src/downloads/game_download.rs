@@ -109,7 +109,7 @@ impl GameDownload {
             return Err(GameDownloadError::StatusError(response.status().as_u16()));
         }
 
-        info!("{:?}", response.text().await.unwrap());
+        info!("{}", response.text().await.unwrap());
 
         Ok(())
     }
