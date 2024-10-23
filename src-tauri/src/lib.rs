@@ -110,8 +110,6 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
-            // Downloads
-            start_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

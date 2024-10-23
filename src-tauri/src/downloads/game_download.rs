@@ -8,17 +8,18 @@ use versions::Version;
 use crate::{AppState, DB};
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
-use crate::downloads::manifest::DropManifest;
+use crate::downloads::download_files;
+use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
 
 #[derive(Serialize, Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct GameDownload {
     id: String,
-    version: Version,
+    version: String,
     progress: Arc<AtomicUsize>,
     state: Mutex<GameDownloadState>,
-    manifest: Option<Mutex<GameDownloadManifest>>
+    pub manifest: Mutex<Option<DropManifest>>,
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub enum GameDownloadState {
@@ -29,56 +30,57 @@ pub enum GameDownloadState {
     Finished,
     Stalled,
     Failed,
-    Cancelled
+    Cancelled,
 }
 
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum GameDownloadError {
-    ManifestAlreadyExists,
-    ManifestDoesNotExist,
     ManifestDownloadError,
-    StatusError(u16)
+    StatusError(u16),
+    SystemError(SystemError),
+}
+#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug)]
+pub enum SystemError {
+    MutexLockFailed
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct GameChunkCtx {
     chunk_id: usize,
 }
-
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub struct GameDownloadManifest {
-    // TODO: Implement game manifest
-}
-
 impl GameDownload {
-    pub fn new(id: String, version: Version) -> Self {
+    pub fn new(id: String, version: String) -> Self {
         Self {
             id,
             version,
             progress: Arc::new(AtomicUsize::new(0)),
             state: Mutex::from(GameDownloadState::Uninitialised),
-            manifest: None
+            manifest: Mutex::new(None),
         }
     }
     pub async fn queue(&self) -> Result<(), GameDownloadError> {
         self.change_state(GameDownloadState::Queued);
-        if self.manifest.is_none() {
-            return Ok(())
+        if self.manifest.lock().unwrap().is_none() {
+            return Ok(());
         }
-        self.download_manifest().await
+        self.ensure_manifest_exists().await
     }
-    pub async fn download(&self, max_threads: usize, contexts: Vec<GameChunkCtx>) -> Result<(), GameDownloadError> {
+    pub async fn download(&self, max_threads: usize, contexts: Vec<DropDownloadContext>) -> Result<(), GameDownloadError> {
         let progress = Arc::new(AtomicUsize::new(0));
         self.change_state(GameDownloadState::Downloading);
-        let progress = ProgressChecker::new(Box::new(download_game_chunk), progress);
+        let progress = ProgressChecker::new(Box::new(download_files::download_game_chunk), progress);
         progress.run_contexts_parallel_async(contexts, max_threads).await;
         Ok(())
     }
-    pub async fn download_manifest(&self) -> Result<(), GameDownloadError> {
-        if self.manifest.is_some() {
-            return Err(GameDownloadError::ManifestAlreadyExists);
+    pub async fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
+        if self.manifest.lock().unwrap().is_some() {
+            return Ok(());
         }
 
+        self.download_manifest().await
+    }
+
+    async fn download_manifest(&self) -> Result<(), GameDownloadError> {
         let base_url = DB.fetch_base_url();
         let manifest_url = base_url
             .join(
@@ -87,7 +89,7 @@ impl GameDownload {
                     self.id,
                     self.version.to_string()
                 )
-                .as_str()
+                    .as_str()
             )
             .unwrap();
 
@@ -107,25 +109,39 @@ impl GameDownload {
             return Err(GameDownloadError::StatusError(response.status().as_u16()));
         }
 
-        //info!("{}", response.text().await.unwrap());
-
-        info!("Parsed manifest: {:?}", response.json::<DropManifest>().await.unwrap());
+        let manifest_download = response.json::<DropManifest>().await.unwrap();
+        if let Ok(mut manifest) = self.manifest.lock() {
+            *manifest = Some(manifest_download)
+        } else { return Err(GameDownloadError::SystemError(SystemError::MutexLockFailed)); }
 
         Ok(())
     }
+
     pub fn change_state(&self, state: GameDownloadState) {
         let mut lock = self.state.lock().unwrap();
         *lock = state;
     }
 }
-impl GameDownloadManifest {
-    fn parse_to_chunks(&self) -> Vec<GameChunkCtx> {
-        todo!()
+pub fn to_contexts(manifest: &DropManifest, version: String) -> Vec<DropDownloadContext> {
+    let mut contexts = Vec::new();
+    let mut counter = 0;
+    let mut prev_key: String = String::new();
+    for key in manifest {
+        contexts.push(DropDownloadContext {
+            file_chunk: Arc::new(key.1.clone()),
+
+            file_name: key.0.clone(),
+            version: version.to_string(),
+            index: counter,
+        });
+        if prev_key == *key.0 {
+            counter += 1;
+        } else {
+            prev_key = key.0.clone();
+            counter = 0;
+        }
     }
-}
-fn download_game_chunk(ctx: GameChunkCtx) {
-    todo!();
-    // Need to implement actual download logic
+    contexts
 }
 
 #[tauri::command]
@@ -135,16 +151,23 @@ pub async fn start_game_download(
     max_threads: usize,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), GameDownloadError> {
-
     info!("Triggered Game Download");
 
-    let mut download = Arc::new(GameDownload::new(game_id, Version::from_str(&*game_version).unwrap()));
-    //let mut app_state = state.lock().unwrap();
+    let mut download = Arc::new(GameDownload::new(game_id, game_version.clone()));
 
-    let tmp = download.clone();
-    //let manifest = &tmp.manifest;
 
-    download.download_manifest().await
+    download.ensure_manifest_exists().await?;
+
+
+    let manifest = download.manifest.lock().unwrap();
+    let local_manifest = (*manifest).clone().unwrap();
+
+
+    let contexts = to_contexts(&local_manifest, game_version.clone());
+
+    let _ = download.download(max_threads, contexts).await;
+
+    Ok(())
 
     /*
     let Some(unlocked) = manifest else { return Err(GameDownloadError::ManifestDoesNotExist) };
