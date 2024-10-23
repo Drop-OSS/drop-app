@@ -1,10 +1,7 @@
-use std::future::Future;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use log::info;
 use serde::{Deserialize, Serialize};
-use versions::Version;
 use crate::{AppState, DB};
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
@@ -87,7 +84,7 @@ impl GameDownload {
                 format!(
                     "/api/v1/client/metadata/manifest?id={}&version={}",
                     self.id,
-                    self.version.to_string()
+                    self.version
                 )
                     .as_str()
             )
@@ -153,7 +150,7 @@ pub async fn start_game_download(
 ) -> Result<(), GameDownloadError> {
     info!("Triggered Game Download");
 
-    let mut download = Arc::new(GameDownload::new(game_id, game_version.clone()));
+    let download = Arc::new(GameDownload::new(game_id, game_version.clone()));
 
 
     download.ensure_manifest_exists().await?;
