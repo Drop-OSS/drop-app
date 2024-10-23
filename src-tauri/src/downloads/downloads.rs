@@ -12,10 +12,4 @@ use crate::auth::generate_authorization_header;
 use crate::DB;
 use crate::db::DatabaseImpls;
 
-#[tauri::command]
-fn download_game(app: AppHandle, game_id: String) -> Result<String, String>{
-    todo!()
-}
-
-
 
