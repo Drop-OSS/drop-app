@@ -5,6 +5,7 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
 use crate::{AppState, DB};
 use log::info;
+use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
@@ -64,7 +65,7 @@ impl GameDownloadManager {
         }
         self.ensure_manifest_exists().await
     }
-    
+
     pub fn begin_download(
         &self,
         max_threads: usize,
@@ -143,7 +144,7 @@ pub fn generate_job_contexts(
         let container = path.parent().unwrap();
         create_dir_all(container).unwrap();
 
-        let file = Arc::new(Mutex::new(File::create(path).unwrap()));
+        let file = File::create(path.clone()).unwrap();
         let mut running_offset = 0;
 
         for i in 0..chunk.ids.len() {
@@ -153,10 +154,12 @@ pub fn generate_job_contexts(
                 offset: running_offset,
                 index: i,
                 game_id: game_id.to_string(),
-                file: file.clone(),
+                path: path.clone(),
             });
             running_offset += chunk.lengths[i] as u64;
         }
+
+        fallocate(file, FallocateFlags::empty(), 0, running_offset);
     }
     contexts
 }
@@ -184,7 +187,9 @@ pub async fn start_game_download(
 
     let contexts = generate_job_contexts(&local_manifest, game_version.clone(), game_id);
 
-    let _ = download_manager.begin_download(max_threads, contexts);
+    download_manager
+        .begin_download(max_threads, contexts)
+        .unwrap();
 
     Ok(())
 }
