@@ -30,19 +30,6 @@ where T: Send + Sync
             self.counter.fetch_add(1, Ordering::Relaxed);
         }
     }
-    pub async fn run_contexts_parallel_async(&self, contexts: Vec<T>, max_threads: usize) {
-        let threads = ThreadPoolBuilder::new()
-            // If max_threads == 0, then the limit will be determined 
-            // by Rayon's internal RAYON_NUM_THREADS
-            .num_threads(max_threads)
-            .build()
-            .unwrap();
-
-        for context in contexts {
-            let f = self.f.clone();
-            threads.spawn(move || f(context));
-        }
-    }
     pub fn run_contexts_parallel(&self, contexts: Vec<T>, max_threads: usize) {
         let threads = ThreadPoolBuilder::new()
             // If max_threads == 0, then the limit will be determined 

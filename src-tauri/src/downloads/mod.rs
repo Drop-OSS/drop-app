@@ -1,5 +1,4 @@
-mod downloads;
 mod manifest;
 pub mod progress;
-pub mod game_download;
-mod download_files;
+pub mod download_manager;
+mod download_logic;

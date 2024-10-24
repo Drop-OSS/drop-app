@@ -14,10 +14,10 @@ pub struct DropChunk {
 
 #[derive(Debug, Clone)]
 pub struct DropDownloadContext {
-    pub file_chunk: Arc<DropChunk>,
     pub file_name: String,
     pub version: String,
     pub index: usize,
+    pub offset: u64,
     pub game_id: String,
     pub file: Arc<Mutex<File>>
 }
