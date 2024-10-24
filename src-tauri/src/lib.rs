@@ -22,7 +22,7 @@ use std::{
 use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::db::DatabaseImpls;
-use crate::downloads::game_download::{start_game_download, GameDownload};
+use crate::downloads::download_manager::{start_game_download, GameDownloadManager};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -47,7 +47,7 @@ pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
-    game_downloads: Vec<Arc<GameDownload>>
+    game_downloads: Vec<Arc<GameDownloadManager>>
 }
 
 #[tauri::command]
