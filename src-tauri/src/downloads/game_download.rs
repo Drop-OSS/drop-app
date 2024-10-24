@@ -1,3 +1,5 @@
+use std::fs::File;
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use log::info;
@@ -125,14 +127,19 @@ pub fn to_contexts(manifest: &DropManifest, version: String, game_id: String) ->
     let mut counter = 0;
     let mut prev_key: String = String::new();
     for key in manifest {
-        contexts.push(DropDownloadContext {
-            file_chunk: Arc::new(key.1.clone()),
+        let path = Path::new(key.0);
+        if !path.exists() {
+            let file = File::create(path).unwrap();
+            contexts.push(DropDownloadContext {
+                file_chunk: Arc::new(key.1.clone()),
 
-            file_name: key.0.clone(),
-            version: version.to_string(),
-            index: counter,
-            game_id: game_id.to_string(),
-        });
+                file_name: key.0.clone(),
+                version: version.to_string(),
+                index: counter,
+                game_id: game_id.to_string(),
+                file: Arc::new(Mutex::new(file)),
+            });
+        }
         if prev_key == *key.0 {
             counter += 1;
         } else {
@@ -153,7 +160,6 @@ pub async fn start_game_download(
     info!("Triggered Game Download");
 
     let download = Arc::new(GameDownload::new(game_id.clone(), game_version.clone()));
-
 
     download.ensure_manifest_exists().await?;
 
