@@ -22,7 +22,7 @@ use std::{
 use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::db::DatabaseImpls;
-use crate::downloads::game_download::GameDownload;
+use crate::downloads::game_download::{start_game_download, GameDownload};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -110,6 +110,8 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
+            // Downloads
+            start_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

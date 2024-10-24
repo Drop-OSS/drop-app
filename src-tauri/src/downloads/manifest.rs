@@ -16,5 +16,6 @@ pub struct DropDownloadContext {
     pub file_chunk: Arc<DropChunk>,
     pub file_name: String,
     pub version: String,
-    pub index: usize
+    pub index: usize,
+    pub game_id: String
 }
