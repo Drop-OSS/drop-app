@@ -6,7 +6,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 use crate::{AppState, DB};
 use crate::auth::generate_authorization_header;
-use crate::db::DatabaseImpls;
+use crate::db::{DatabaseImpls, DATA_ROOT_DIR};
 use crate::downloads::download_files;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
@@ -109,7 +109,7 @@ impl GameDownload {
         }
 
         let manifest_download = response.json::<DropManifest>().await.unwrap();
-        info!("{:?}", manifest_download);
+        info!("Manifest: {:?}", manifest_download);
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download)
         } else { return Err(GameDownloadError::System(SystemError::MutexLockFailed)); }
@@ -124,29 +124,24 @@ impl GameDownload {
 }
 pub fn to_contexts(manifest: &DropManifest, version: String, game_id: String) -> Vec<DropDownloadContext> {
     let mut contexts = Vec::new();
-    let mut counter = 0;
-    let mut prev_key: String = String::new();
+    let base_path = DATA_ROOT_DIR.clone();
     for key in manifest {
-        let path = Path::new(key.0);
-        if !path.exists() {
-            let file = File::create(path).unwrap();
+        let path = base_path.join(Path::new(key.0));
+        let file = Arc::new(Mutex::new(File::create(path).unwrap()));
+        for i in 0..key.1.ids.len() {
             contexts.push(DropDownloadContext {
                 file_chunk: Arc::new(key.1.clone()),
 
                 file_name: key.0.clone(),
                 version: version.to_string(),
-                index: counter,
+                index: i,
                 game_id: game_id.to_string(),
-                file: Arc::new(Mutex::new(file)),
+                file: file.clone(),
             });
-        }
-        if prev_key == *key.0 {
-            counter += 1;
-        } else {
-            prev_key = key.0.clone();
-            counter = 0;
+
         }
     }
+    info!("Contexts: {:?}", contexts);
     contexts
 }
 

@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::{Seek, SeekFrom, Write};
+use std::os::unix::fs::MetadataExt;
 use std::sync::{Arc, Mutex};
 use log::info;
 use uuid::Bytes;
@@ -13,8 +14,6 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
     info!("Downloading game chunk");
     let base_url = DB.fetch_base_url();
 
-    let index = ctx.index;
-    let chunk = ctx.file_chunk;
 
     let client = reqwest::blocking::Client::new();
     let chunk_url = base_url.join(
@@ -23,7 +22,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
             ctx.game_id,
             ctx.version,
             ctx.file_name,
-            index
+            ctx.index
         )).unwrap();
 
     let header = generate_authorization_header();
@@ -35,16 +34,16 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .unwrap();
     let response_data = response.bytes().unwrap();
     
-    
-    write_to_file(ctx.file, CHUNK_SIZE * index as u64, response_data.to_vec());
+    info!("Writing data to chunk at offset {}", CHUNK_SIZE * ctx.index as u64);
+    write_to_file(ctx.file, ctx.index as u64, response_data.to_vec());
     // Need to implement actual download logic
 }
 
-fn write_to_file(file: Arc<Mutex<File>>, offset: u64, data: Vec<u8>) {
+fn write_to_file(file: Arc<Mutex<File>>, index: u64, data: Vec<u8>) {
     let mut lock = file.lock().unwrap();
     
-    if offset != 0 {
-        lock.seek(SeekFrom::Start(offset)).expect("Failed to seek to file offset");
+    if index != 0 {
+        lock.seek(SeekFrom::Start(index * CHUNK_SIZE)).expect("Failed to seek to file offset");
     }
     
     lock.write_all(&data).unwrap();
