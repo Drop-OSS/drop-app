@@ -11,7 +11,6 @@ use crate::downloads::manifest::DropDownloadContext;
 
 const CHUNK_SIZE: u64 = 1024 * 1024 * 64;
 pub fn download_game_chunk(ctx: DropDownloadContext) {
-    info!("Downloading game chunk");
     let base_url = DB.fetch_base_url();
 
 
@@ -34,9 +33,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .unwrap();
     let response_data = response.bytes().unwrap();
     
-    info!("Writing data to chunk at offset {}", CHUNK_SIZE * ctx.index as u64);
     write_to_file(ctx.file, ctx.index as u64, response_data.to_vec());
-    // Need to implement actual download logic
 }
 
 fn write_to_file(file: Arc<Mutex<File>>, index: u64, data: Vec<u8>) {
