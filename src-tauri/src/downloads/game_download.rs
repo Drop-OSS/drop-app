@@ -32,9 +32,9 @@ pub enum GameDownloadState {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum GameDownloadError {
-    ManifestDownloadError,
-    StatusError(u16),
-    SystemError(SystemError),
+    ManifestDownload,
+    Status(u16),
+    System(SystemError),
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Debug)]
 pub enum SystemError {
@@ -103,13 +103,14 @@ impl GameDownload {
 
         if response.status() != 200 {
             info!("Error status: {}", response.status());
-            return Err(GameDownloadError::StatusError(response.status().as_u16()));
+            return Err(GameDownloadError::Status(response.status().as_u16()));
         }
 
         let manifest_download = response.json::<DropManifest>().await.unwrap();
+        info!("{:?}", manifest_download);
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download)
-        } else { return Err(GameDownloadError::SystemError(SystemError::MutexLockFailed)); }
+        } else { return Err(GameDownloadError::System(SystemError::MutexLockFailed)); }
 
         Ok(())
     }
@@ -119,7 +120,7 @@ impl GameDownload {
         *lock = state;
     }
 }
-pub fn to_contexts(manifest: &DropManifest, version: String) -> Vec<DropDownloadContext> {
+pub fn to_contexts(manifest: &DropManifest, version: String, game_id: String) -> Vec<DropDownloadContext> {
     let mut contexts = Vec::new();
     let mut counter = 0;
     let mut prev_key: String = String::new();
@@ -130,6 +131,7 @@ pub fn to_contexts(manifest: &DropManifest, version: String) -> Vec<DropDownload
             file_name: key.0.clone(),
             version: version.to_string(),
             index: counter,
+            game_id: game_id.to_string(),
         });
         if prev_key == *key.0 {
             counter += 1;
@@ -150,17 +152,17 @@ pub async fn start_game_download(
 ) -> Result<(), GameDownloadError> {
     info!("Triggered Game Download");
 
-    let download = Arc::new(GameDownload::new(game_id, game_version.clone()));
+    let download = Arc::new(GameDownload::new(game_id.clone(), game_version.clone()));
 
 
     download.ensure_manifest_exists().await?;
 
+    let local_manifest = {
+        let manifest = download.manifest.lock().unwrap();
+        (*manifest).clone().unwrap()
+    };
 
-    let manifest = download.manifest.lock().unwrap();
-    let local_manifest = (*manifest).clone().unwrap();
-
-
-    let contexts = to_contexts(&local_manifest, game_version.clone());
+    let contexts = to_contexts(&local_manifest, game_version.clone(), game_id);
 
     let _ = download.download(max_threads, contexts).await;
 

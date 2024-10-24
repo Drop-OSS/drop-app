@@ -1,3 +1,4 @@
+use log::info;
 use crate::auth::generate_authorization_header;
 use crate::DB;
 use crate::db::DatabaseImpls;
@@ -5,6 +6,7 @@ use crate::downloads::manifest::DropDownloadContext;
 
 
 pub fn download_game_chunk(ctx: DropDownloadContext) {
+    info!("Downloading game chunk");
     let base_url = DB.fetch_base_url();
 
     let index = ctx.index;
@@ -13,8 +15,8 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
     let client = reqwest::blocking::Client::new();
     let chunk_url = base_url.join(
         &format!(
-            "/api/v1/client/user/library?gameId={}&versionName={}&filename={}&chunkIndex={}",
-            chunk.ids[index],
+            "/api/v1/client/chunk?id={}&version={}&name={}&chunk={}",
+            ctx.game_id,
             ctx.version,
             ctx.file_name,
             index
@@ -27,6 +29,6 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .header("Authorization", header)
         .send()
         .unwrap();
-    println!("{}", response.text().unwrap());
+    println!("Response text: {}", response.text().unwrap());
     // Need to implement actual download logic
 }
