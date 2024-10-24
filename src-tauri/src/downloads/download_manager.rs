@@ -64,6 +64,7 @@ impl GameDownloadManager {
         }
         self.ensure_manifest_exists().await
     }
+    
     pub fn begin_download(
         &self,
         max_threads: usize,
@@ -76,6 +77,7 @@ impl GameDownloadManager {
         progress.run_contexts_parallel(contexts, max_threads);
         Ok(())
     }
+
     pub async fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
@@ -145,9 +147,6 @@ pub fn generate_job_contexts(
         let mut running_offset = 0;
 
         for i in 0..chunk.ids.len() {
-            if i == 1 {
-                info!("woah a chunk bigger than 1")
-            }
             contexts.push(DropDownloadContext {
                 file_name: raw_path.to_string(),
                 version: version.to_string(),
