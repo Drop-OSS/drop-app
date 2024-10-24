@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::fs::File;
+use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
 pub type DropManifest = HashMap<String, DropChunk>;
@@ -11,11 +12,12 @@ pub struct DropChunk {
     pub lengths: Vec<usize>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct DropDownloadContext {
     pub file_chunk: Arc<DropChunk>,
     pub file_name: String,
     pub version: String,
     pub index: usize,
-    pub game_id: String
+    pub game_id: String,
+    pub file: Arc<Mutex<File>>
 }

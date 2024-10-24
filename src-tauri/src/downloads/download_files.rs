@@ -1,10 +1,14 @@
+use std::fs::File;
+use std::io::{Seek, SeekFrom, Write};
+use std::sync::{Arc, Mutex};
 use log::info;
+use uuid::Bytes;
 use crate::auth::generate_authorization_header;
 use crate::DB;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 
-
+const CHUNK_SIZE: u64 = 1024 * 1024 * 64;
 pub fn download_game_chunk(ctx: DropDownloadContext) {
     info!("Downloading game chunk");
     let base_url = DB.fetch_base_url();
@@ -29,6 +33,19 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .header("Authorization", header)
         .send()
         .unwrap();
-    println!("Response text: {}", response.text().unwrap());
+    let response_data = response.bytes().unwrap();
+    
+    
+    write_to_file(ctx.file, CHUNK_SIZE * index as u64, response_data.to_vec());
     // Need to implement actual download logic
+}
+
+fn write_to_file(file: Arc<Mutex<File>>, offset: u64, data: Vec<u8>) {
+    let mut lock = file.lock().unwrap();
+    
+    if offset != 0 {
+        lock.seek(SeekFrom::Start(offset)).expect("Failed to seek to file offset");
+    }
+    
+    lock.write_all(&data).unwrap();
 }
