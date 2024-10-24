@@ -34,7 +34,8 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
             .expect("Failed to seek to file offset");
     }
 
-    let mut stream = BufWriter::with_capacity(1024, file_lock.try_clone().unwrap());
+    let mut stream = BufWriter::with_capacity(1024 * 1024, file_lock.try_clone().unwrap());
+    drop(file_lock);
 
     response.copy_to(&mut stream).unwrap();
 }
