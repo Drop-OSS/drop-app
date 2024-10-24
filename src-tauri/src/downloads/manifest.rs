@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs::File;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use serde::{Deserialize, Serialize};
 
@@ -19,5 +20,5 @@ pub struct DropDownloadContext {
     pub index: usize,
     pub offset: u64,
     pub game_id: String,
-    pub file: Arc<Mutex<File>>
+    pub path: PathBuf
 }
