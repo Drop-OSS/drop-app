@@ -61,3 +61,8 @@ features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
 [dependencies.reqwest]
 version = "0.12"
 features = ["json", "blocking"]
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = 'abort'
