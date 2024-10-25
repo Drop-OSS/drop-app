@@ -1,21 +1,26 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use rayon::ThreadPoolBuilder;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 
 pub struct ProgressChecker<T>
-where T: 'static + Send + Sync
+where
+    T: 'static + Send + Sync,
 {
     counter: Arc<AtomicUsize>,
     f: Arc<Box<dyn Fn(T) + Send + Sync + 'static>>,
 }
 
 impl<T> ProgressChecker<T>
-where T: Send + Sync
+where
+    T: Send + Sync,
 {
-    pub fn new(f: Box<dyn Fn(T) + Send + Sync + 'static>, counter_reference: Arc<AtomicUsize>) -> Self {
+    pub fn new(
+        f: Box<dyn Fn(T) + Send + Sync + 'static>,
+        counter_reference: Arc<AtomicUsize>,
+    ) -> Self {
         Self {
             f: f.into(),
-            counter: counter_reference
+            counter: counter_reference,
         }
     }
     pub async fn run_contexts_sequentially_async(&self, contexts: Vec<T>) {
