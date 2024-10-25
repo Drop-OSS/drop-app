@@ -7,6 +7,7 @@ use crate::{AppState, DB};
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
+use urlencoding::encode;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
@@ -93,7 +94,7 @@ impl GameDownloadAgent {
             .join(
                 format!(
                     "/api/v1/client/metadata/manifest?id={}&version={}",
-                    self.id, self.version
+                    encode(&self.id), encode(&self.version)
                 )
                 .as_str(),
             )
