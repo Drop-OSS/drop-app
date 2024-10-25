@@ -32,7 +32,7 @@ where T: Send + Sync
     }
     pub fn run_contexts_parallel(&self, contexts: Vec<T>, max_threads: usize) {
         let threads = ThreadPoolBuilder::new()
-            // If max_threads == 0, then the limit will be determined 
+            // If max_threads == 0, then the limit will be determined
             // by Rayon's internal RAYON_NUM_THREADS
             .num_threads(max_threads)
             .build()

@@ -11,6 +11,7 @@ use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -138,6 +139,7 @@ pub fn generate_job_contexts(
     let mut contexts = Vec::new();
     let base_path = DATA_ROOT_DIR.join("games").join(game_id.clone()).clone();
     create_dir_all(base_path.clone()).unwrap();
+    info!("Generating contexts");
     for (raw_path, chunk) in manifest {
         let path = base_path.join(Path::new(raw_path));
 
@@ -147,7 +149,7 @@ pub fn generate_job_contexts(
         let file = File::create(path.clone()).unwrap();
         let mut running_offset = 0;
 
-        for i in 0..chunk.ids.len() {
+        for (i, length) in chunk.lengths.iter().enumerate() {
             contexts.push(DropDownloadContext {
                 file_name: raw_path.to_string(),
                 version: version.to_string(),
@@ -156,11 +158,12 @@ pub fn generate_job_contexts(
                 game_id: game_id.to_string(),
                 path: path.clone(),
             });
-            running_offset += chunk.lengths[i] as u64;
+            running_offset += *length as u64;
         }
 
-        fallocate(file, FallocateFlags::empty(), 0, running_offset);
+        fallocate(file, FallocateFlags::empty(), 0, running_offset).unwrap();
     }
+    info!("Finished generating");
     contexts
 }
 
@@ -188,8 +191,7 @@ pub async fn start_game_download(
     let contexts = generate_job_contexts(&local_manifest, game_version.clone(), game_id);
 
     download_manager
-        .begin_download(max_threads, contexts)
-        .unwrap();
+        .begin_download(max_threads, contexts)?;
 
     Ok(())
 }

@@ -6,7 +6,7 @@
     Load Data
   </button>
   <input placeholder="GAME ID" v-model="gameId" />
-  <input placehodler="VERSION NAME" v-model="versionName" />
+  <input placeholder="VERSION NAME" v-model="versionName" />
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
     @click="requestGameWrapper"
@@ -24,8 +24,9 @@ async function requestGame() {
   await invoke("start_game_download", {
     gameId: gameId.value,
     gameVersion: versionName.value,
-    maxThreads: 4,
+    maxThreads: 12,
   });
+  console.log("Requested game from FE");
 }
 function requestGameWrapper() {
   console.log("Wrapper started");
