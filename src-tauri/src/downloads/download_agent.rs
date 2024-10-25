@@ -44,11 +44,7 @@ pub enum GameDownloadError {
 pub enum SystemError {
     MutexLockFailed,
 }
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq, Ord, PartialOrd)]
-#[serde(rename_all = "camelCase")]
-pub struct GameChunkCtx {
-    chunk_id: usize,
-}
+
 impl GameDownloadAgent {
     pub fn new(id: String, version: String) -> Self {
         Self {
@@ -94,7 +90,7 @@ impl GameDownloadAgent {
             .join(
                 format!(
                     "/api/v1/client/metadata/manifest?id={}&version={}",
-                    encode(&self.id), encode(&self.version)
+                    self.id, encode(&self.version)
                 )
                 .as_str(),
             )
@@ -158,6 +154,7 @@ impl GameDownloadAgent {
                     index: i,
                     game_id: game_id.to_string(),
                     path: path.clone(),
+                    checksum: chunk.checksums[i].clone()
                 });
                 running_offset += *length as u64;
             }

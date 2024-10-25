@@ -21,4 +21,5 @@ pub struct DropDownloadContext {
     pub offset: u64,
     pub game_id: String,
     pub path: PathBuf,
+    pub checksum: String
 }

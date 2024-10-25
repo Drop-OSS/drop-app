@@ -2,10 +2,42 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
+use gxhash::GxHasher;
 use log::info;
-use std::{fs::OpenOptions, io::{BufWriter, Seek, SeekFrom, Write}};
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{BufWriter, Seek, SeekFrom, Write}, path::PathBuf};
 use urlencoding::encode;
 
+pub struct FileWriter {
+    file: File,
+    hasher: GxHasher
+}
+impl FileWriter {
+    fn new(path: PathBuf) -> Self {
+        Self {
+            file: OpenOptions::new().write(true).open(path).unwrap(),
+            hasher: GxHasher::with_seed(0)
+        }
+    }
+    fn finish(mut self) -> u128 {
+        self.flush();
+        self.hasher.finish_u128()
+    }
+}
+impl Write for FileWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.hasher.write(buf);
+        self.file.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.file.flush()
+    }
+}
+impl Seek for FileWriter {
+    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+        self.file.seek(pos)
+    }
+}
 pub fn download_game_chunk(ctx: DropDownloadContext) {
     let base_url = DB.fetch_base_url();
 
@@ -29,7 +61,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .send()
         .unwrap();
 
-    let mut file = OpenOptions::new().write(true).open(ctx.path).unwrap();
+    let mut file = FileWriter::new(ctx.path);
 
     if ctx.offset != 0 {
         file
@@ -39,7 +71,16 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
 
     // let mut stream = BufWriter::with_capacity(1024, file);
 
+    // Writing directly to disk to avoid write spikes that delay everything
+
     response.copy_to(&mut file).unwrap();
+    let res = hex::encode(file.finish().to_le_bytes());
+    if res == ctx.checksum {
+        info!("Matched Checksum {}", res);
+    }
+    else {
+        info!("Checksum failed {}", res);
+    }
 
     // stream.flush().unwrap();
 }
