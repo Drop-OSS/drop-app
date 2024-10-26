@@ -4,23 +4,24 @@ use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
 use gxhash::{gxhash128, GxHasher};
 use log::info;
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{BufWriter, Seek, SeekFrom, Write}, path::PathBuf};
+use md5::{Context, Digest};
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{Seek, SeekFrom, Write}, path::PathBuf};
 use urlencoding::encode;
 
 pub struct FileWriter {
     file: File,
-    hasher: GxHasher
+    hasher: Context
 }
 impl FileWriter {
     fn new(path: PathBuf) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
-            hasher: GxHasher::with_seed(0)
+            hasher: Context::new()
         }
     }
-    fn finish(mut self) -> u128 {
+    fn finish(mut self) -> Digest {
         self.flush();
-        self.hasher.finish_u128()
+        self.hasher.compute()
     }
 }
 impl Write for FileWriter {
@@ -30,6 +31,7 @@ impl Write for FileWriter {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
+        self.hasher.flush()?;
         self.file.flush()
     }
 }
@@ -73,18 +75,15 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
 
     // Writing directly to disk to avoid write spikes that delay everything
 
-    let data = response.bytes().unwrap();
-    let checksum = gxhash128(&*data.clone(), 0);
-    let res = file.write(&*data).unwrap();
 
-    //response.copy_to(&mut file).unwrap();
-    let res = hex::encode(file.finish().to_le_bytes());
+    response.copy_to(&mut file).unwrap();
+    let res = hex::encode(file.finish().0);
     if res == ctx.checksum {
         info!("Matched Checksum {}", res);
     }
     else {
         info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);
-        info!("Other Checksum: {}", hex::encode(checksum.to_le_bytes()));
+        //info!("Other Checksum: {}", hex::encode(checksum));
     }
 
     // stream.flush().unwrap();
