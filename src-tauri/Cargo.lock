@@ -1699,11 +1699,11 @@ dependencies = [
 
 [[package]]
 name = "gxhash"
-version = "3.4.1"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a197c9b654827513cf53842c5c6d3da2b4b35a785f8e0eff78bdf8e445aba1bb"
+checksum = "09f0c897148ec6ff3ca864b7c886df75e6ba09972d206bd9a89af0c18c992253"
 dependencies = [
- "rustversion",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -3419,12 +3419,6 @@ dependencies = [
  "rustls-pki-types",
  "untrusted",
 ]
-
-[[package]]
-name = "rustversion"
-version = "1.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e819f2bc632f285be6d7cd36e25940d45b2391dd6d9b939e79de557f7014248"
 
 [[package]]
 name = "ryu"

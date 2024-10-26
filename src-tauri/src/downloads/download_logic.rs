@@ -2,7 +2,7 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
-use gxhash::GxHasher;
+use gxhash::{gxhash128, GxHasher};
 use log::info;
 use std::{fs::{File, OpenOptions}, hash::Hasher, io::{BufWriter, Seek, SeekFrom, Write}, path::PathBuf};
 use urlencoding::encode;
@@ -61,7 +61,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .send()
         .unwrap();
 
-    let mut file = FileWriter::new(ctx.path);
+    let mut file: FileWriter = FileWriter::new(ctx.path);
 
     if ctx.offset != 0 {
         file
@@ -73,13 +73,18 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
 
     // Writing directly to disk to avoid write spikes that delay everything
 
-    response.copy_to(&mut file).unwrap();
+    let data = response.bytes().unwrap();
+    let checksum = gxhash128(&*data.clone(), 0);
+    let res = file.write(&*data).unwrap();
+
+    //response.copy_to(&mut file).unwrap();
     let res = hex::encode(file.finish().to_le_bytes());
     if res == ctx.checksum {
         info!("Matched Checksum {}", res);
     }
     else {
-        info!("Checksum failed {}", res);
+        info!("Checksum failed. Original: {}, Calculated: {}", ctx.checksum, res);
+        info!("Other Checksum: {}", hex::encode(checksum.to_le_bytes()));
     }
 
     // stream.flush().unwrap();
