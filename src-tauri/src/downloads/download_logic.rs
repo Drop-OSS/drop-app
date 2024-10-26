@@ -83,7 +83,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         info!("Matched Checksum {}", res);
     }
     else {
-        info!("Checksum failed. Original: {}, Calculated: {}", ctx.checksum, res);
+        info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);
         info!("Other Checksum: {}", hex::encode(checksum.to_le_bytes()));
     }
 
