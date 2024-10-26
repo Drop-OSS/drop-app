@@ -10,23 +10,28 @@ use urlencoding::encode;
 
 pub struct FileWriter {
     file: File,
-    hasher: Context
+    hasher: Context,
+    data: Vec<u8>
 }
 impl FileWriter {
     fn new(path: PathBuf) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
-            hasher: Context::new()
+            hasher: Context::new(),
+            data: Vec::new()
         }
     }
     fn finish(mut self) -> Digest {
         self.flush();
-        self.hasher.compute()
+        let res = self.hasher.compute();
+        info!("Final calculated value hash: {:?}", hex::encode(res.0));
+        res
     }
 }
 impl Write for FileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.hasher.write(buf);
+        self.data.extend_from_slice(buf);
         self.file.write(buf)
     }
 
