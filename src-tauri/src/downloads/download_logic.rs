@@ -5,18 +5,20 @@ use crate::DB;
 use gxhash::{gxhash128, GxHasher};
 use log::info;
 use md5::{Context, Digest};
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, Seek, SeekFrom, Write}, path::PathBuf};
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use urlencoding::encode;
 
-pub struct FileWriter {
+pub struct DropFileWriter {
     file: File,
     hasher: Context,
+    callback: Arc<AtomicBool>
 }
-impl FileWriter {
-    fn new(path: PathBuf) -> Self {
+impl DropFileWriter {
+    fn new(path: PathBuf, callback: Arc<AtomicBool>) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
+            callback
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
@@ -24,8 +26,11 @@ impl FileWriter {
         Ok(self.hasher.compute())
     }
 }
-impl Write for FileWriter {
+impl Write for DropFileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        if self.callback.load(Ordering::Acquire) {
+            
+        }
         self.hasher.write_all(buf).unwrap();
         self.file.write(buf)
     }
@@ -35,12 +40,15 @@ impl Write for FileWriter {
         self.file.flush()
     }
 }
-impl Seek for FileWriter {
+impl Seek for DropFileWriter {
     fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
         self.file.seek(pos)
     }
 }
-pub fn download_game_chunk(ctx: DropDownloadContext) {
+pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) {
+    if callback.load(Ordering::Acquire) {
+        return;
+    }
     let base_url = DB.fetch_base_url();
 
     let client = reqwest::blocking::Client::new();
@@ -63,7 +71,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
         .send()
         .unwrap();
 
-    let mut file: FileWriter = FileWriter::new(ctx.path);
+    let mut file: DropFileWriter = DropFileWriter::new(ctx.path);
 
     if ctx.offset != 0 {
         file

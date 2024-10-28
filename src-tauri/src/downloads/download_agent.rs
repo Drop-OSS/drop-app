@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use urlencoding::encode;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::{Arc, Mutex};
 
 pub struct GameDownloadAgent {
@@ -20,6 +20,7 @@ pub struct GameDownloadAgent {
     contexts: Mutex<Vec<DropDownloadContext>>,
     progress: ProgressChecker<DropDownloadContext>,
     pub manifest: Mutex<Option<DropManifest>>,
+    pub callback: Arc<AtomicBool>
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub enum GameDownloadState {
@@ -47,14 +48,17 @@ pub enum SystemError {
 
 impl GameDownloadAgent {
     pub fn new(id: String, version: String) -> Self {
+        let callback = Arc::new(AtomicBool::new(false));
         Self {
             id,
             version,
             state: Mutex::from(GameDownloadState::Uninitialised),
             manifest: Mutex::new(None),
+            callback: callback.clone(),
             progress: ProgressChecker::new(
                 Box::new(download_logic::download_game_chunk),
                 Arc::new(AtomicUsize::new(0)),
+                callback
             ),
             contexts: Mutex::new(Vec::new()),
         }
