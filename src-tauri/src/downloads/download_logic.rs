@@ -5,33 +5,28 @@ use crate::DB;
 use gxhash::{gxhash128, GxHasher};
 use log::info;
 use md5::{Context, Digest};
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{Seek, SeekFrom, Write}, path::PathBuf};
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, Seek, SeekFrom, Write}, path::PathBuf};
 use urlencoding::encode;
 
 pub struct FileWriter {
     file: File,
     hasher: Context,
-    data: Vec<u8>
 }
 impl FileWriter {
     fn new(path: PathBuf) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
-            data: Vec::new()
         }
     }
-    fn finish(mut self) -> Digest {
-        self.flush();
-        let res = self.hasher.compute();
-        info!("Final calculated value hash: {:?}", hex::encode(res.0));
-        res
+    fn finish(mut self) -> io::Result<Digest> {
+        self.flush().unwrap();
+        Ok(self.hasher.compute())
     }
 }
 impl Write for FileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.hasher.write(buf);
-        self.data.extend_from_slice(buf);
+        self.hasher.write_all(buf).unwrap();
         self.file.write(buf)
     }
 
@@ -82,13 +77,9 @@ pub fn download_game_chunk(ctx: DropDownloadContext) {
 
 
     response.copy_to(&mut file).unwrap();
-    let res = hex::encode(file.finish().0);
-    if res == ctx.checksum {
-        info!("Matched Checksum {}", res);
-    }
-    else {
+    let res = hex::encode(file.finish().unwrap().0);
+    if res != ctx.checksum {  
         info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);
-        //info!("Other Checksum: {}", hex::encode(checksum));
     }
 
     // stream.flush().unwrap();

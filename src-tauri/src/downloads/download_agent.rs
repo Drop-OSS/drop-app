@@ -14,8 +14,8 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 
 pub struct GameDownloadAgent {
-    id: String,
-    version: String,
+    pub id: String,
+    pub version: String,
     state: Mutex<GameDownloadState>,
     contexts: Mutex<Vec<DropDownloadContext>>,
     progress: ProgressChecker<DropDownloadContext>,
@@ -126,6 +126,10 @@ impl GameDownloadAgent {
         let mut lock = self.state.lock().unwrap();
         *lock = state;
     }
+    pub fn get_state(&self) -> GameDownloadState {
+        let lock = self.state.lock().unwrap();
+        lock.clone()
+    }
 
     pub fn generate_job_contexts(
         &self,
@@ -174,27 +178,3 @@ impl GameDownloadAgent {
     }
 }
 
-#[tauri::command]
-pub async fn start_game_download(
-    game_id: String,
-    game_version: String,
-    max_threads: usize,
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), GameDownloadError> {
-    info!("Triggered Game Download");
-
-    let download_agent = GameDownloadAgent::new(game_id.clone(), game_version.clone());
-
-    download_agent.ensure_manifest_exists().await?;
-
-    let local_manifest = {
-        let manifest = download_agent.manifest.lock().unwrap();
-        (*manifest).clone().unwrap()
-    };
-
-    download_agent.generate_job_contexts(&local_manifest, game_version.clone(), game_id).unwrap();
-
-    download_agent.begin_download(max_threads)?;
-
-    Ok(())
-}

@@ -1,17 +1,17 @@
 <template>
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="requestGameWrapper"
+    @click="queueGameWrapper"
   >
-    Load Data
+    Queue Game Download
   </button>
   <input placeholder="GAME ID" v-model="gameId" />
   <input placeholder="VERSION NAME" v-model="versionName" />
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="requestGameWrapper"
+    @click="startGameDownloads"
   >
-    Download Game
+    Start Game Downloads
   </button>
 </template>
 <script setup lang="ts">
@@ -20,20 +20,31 @@ import { invoke } from "@tauri-apps/api/core";
 const gameId = ref("");
 const versionName = ref("");
 
-async function requestGame() {
-  await invoke("start_game_download", {
+async function queueGame() {
+  await invoke("queue_game_download", {
     gameId: gameId.value,
     gameVersion: versionName.value,
     maxThreads: 12,
   });
   console.log("Requested game from FE");
 }
-function requestGameWrapper() {
+function queueGameWrapper() {
   console.log("Wrapper started");
-  requestGame()
+  queueGame()
     .then(() => {})
     .catch((e) => {
       console.log(e);
     });
+}
+async function startGameDownloads() {
+  console.log("Downloading Games");
+  await invoke("start_game_downloads", { maxThreads: 4 })
+}
+function startGameDownloadsWrapper() {
+  startGameDownloads()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
 }
 </script>
