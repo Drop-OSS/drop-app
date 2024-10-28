@@ -46,8 +46,8 @@ pub async fn start_game_downloads(
             }
         };
         info!("Downloading game");
-        start_game_download(max_threads, download_agent.unwrap()).await?;
         {
+            start_game_download(max_threads, download_agent.unwrap()).await?;
             let mut lock = state.lock().unwrap();
             lock.game_downloads.remove_entry(&current_id);
         }
@@ -70,7 +70,7 @@ pub async fn start_game_download(
 
     download_agent.generate_job_contexts(&local_manifest, download_agent.version.clone(), download_agent.id.clone()).unwrap();
 
-    download_agent.begin_download(max_threads)?;
+    download_agent.begin_download(max_threads).await?;
 
     Ok(())
 }

@@ -67,12 +67,15 @@ impl GameDownloadAgent {
         self.ensure_manifest_exists().await
     }
 
-    pub fn begin_download(&self, max_threads: usize) -> Result<(), GameDownloadError> {
+    pub async fn begin_download(&self, max_threads: usize) -> Result<(), GameDownloadError> {
         self.change_state(GameDownloadState::Downloading);
         // TODO we're coping the whole context thing
         // It's not necessary, I just can't figure out to make the borrow checker happy
-        self.progress
-            .run_contexts_parallel(self.contexts.lock().unwrap().to_vec(), max_threads);
+        {
+            let lock = self.contexts.lock().unwrap().to_vec();
+            self.progress
+                .run_context_parallel(lock, max_threads).await;
+        }
         Ok(())
     }
 

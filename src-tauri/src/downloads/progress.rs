@@ -1,4 +1,6 @@
 use rayon::ThreadPoolBuilder;
+use uuid::timestamp::context;
+use std::os::unix::thread;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -35,7 +37,7 @@ where
             self.counter.fetch_add(1, Ordering::Relaxed);
         }
     }
-    pub fn run_contexts_parallel(&self, contexts: Vec<T>, max_threads: usize) {
+    pub fn run_contexts_parallel_background(&self, contexts: Vec<T>, max_threads: usize) {
         let threads = ThreadPoolBuilder::new()
             // If max_threads == 0, then the limit will be determined
             // by Rayon's internal RAYON_NUM_THREADS
@@ -47,6 +49,20 @@ where
             let f = self.f.clone();
             threads.spawn(move || f(context));
         }
+    }
+    pub async fn run_context_parallel(&self, contexts: Vec<T>, max_threads: usize) {
+        let threads = ThreadPoolBuilder::new()
+            .num_threads(max_threads)
+            .build()
+            .unwrap();
+
+        threads.scope(|s| {
+            for context in contexts {
+                let f = self.f.clone();
+                s.spawn(move |_| f(context));    
+            }
+        });
+        
     }
     pub fn get_progress(&self) -> usize {
         self.counter.load(Ordering::Relaxed)

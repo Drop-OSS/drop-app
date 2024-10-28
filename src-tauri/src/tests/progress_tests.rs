@@ -13,7 +13,7 @@ fn test_progress_sequentially() {
 fn test_progress_parallel() {
     let counter = Arc::new(AtomicUsize::new(0));
     let p = ProgressChecker::new(Box::new(test_fn), counter.clone());
-    p.run_contexts_parallel((1..100).collect(), 10);
+    p.run_contexts_parallel_background((1..100).collect(), 10);
 }
 
 fn test_fn(int: usize) {
