@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use log::info;
 
@@ -73,4 +73,17 @@ pub async fn start_game_download(
     download_agent.begin_download(max_threads).await?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn stop_specific_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) -> Result<(), String> {
+    let lock = state.lock().unwrap();
+    let download_agent = lock.game_downloads.get(&game_id).unwrap();
+
+    let callback = download_agent.callback.clone();
+    drop(lock);
+
+    callback.store(true, Ordering::Release);
+
+    return Ok(())
 }

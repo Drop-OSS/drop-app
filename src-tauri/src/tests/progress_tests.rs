@@ -18,6 +18,6 @@ fn test_progress_parallel() {
     p.run_contexts_parallel_background((1..100).collect(), 10);
 }
 
-fn test_fn(int: usize) {
+fn test_fn(int: usize, callback: Arc<AtomicBool>) {
     println!("{}", int);
 }

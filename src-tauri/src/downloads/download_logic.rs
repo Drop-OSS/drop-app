@@ -5,7 +5,7 @@ use crate::DB;
 use gxhash::{gxhash128, GxHasher};
 use log::info;
 use md5::{Context, Digest};
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use urlencoding::encode;
 
 pub struct DropFileWriter {
@@ -26,10 +26,11 @@ impl DropFileWriter {
         Ok(self.hasher.compute())
     }
 }
+// TODO: Implement error handling
 impl Write for DropFileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.callback.load(Ordering::Acquire) {
-            
+            return Err(Error::new(ErrorKind::Interrupted, "Interrupt command recieved"));
         }
         self.hasher.write_all(buf).unwrap();
         self.file.write(buf)
@@ -71,7 +72,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
         .send()
         .unwrap();
 
-    let mut file: DropFileWriter = DropFileWriter::new(ctx.path);
+    let mut file: DropFileWriter = DropFileWriter::new(ctx.path, callback);
 
     if ctx.offset != 0 {
         file
@@ -79,12 +80,19 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
             .expect("Failed to seek to file offset");
     }
 
-    // let mut stream = BufWriter::with_capacity(1024, file);
+    // Writing everything to disk directly is probably slightly faster because it balances out the writes, 
+    // but this is better than the performance loss from constantly reading the callbacks
 
-    // Writing directly to disk to avoid write spikes that delay everything
+    let mut writer = BufWriter::with_capacity(1024 * 1024, file);
 
-
-    response.copy_to(&mut file).unwrap();
+    match response.copy_to(&mut writer) {
+        Ok(_) => {},
+        Err(_) => { println!("Stopped printing chunk {}", ctx.file_name); return; }
+    };
+    let file = match writer.into_inner() {
+        Ok(inner) => inner,
+        Err(_) => panic!("Failed to get BufWriter inner"),
+    };
     let res = hex::encode(file.finish().unwrap().0);
     if res != ctx.checksum {  
         info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);

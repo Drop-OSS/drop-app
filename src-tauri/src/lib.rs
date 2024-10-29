@@ -4,13 +4,12 @@ mod library;
 mod remote;
 mod unpacker;
 mod downloads;
-mod utils;
 #[cfg(test)]
 mod tests;
 
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
-use downloads::download_commands::{queue_game_download, start_game_downloads};
+use downloads::download_commands::{queue_game_download, start_game_downloads, stop_specific_game_download};
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -115,7 +114,8 @@ pub fn run() {
             fetch_game,
             // Downloads
             queue_game_download,
-            start_game_downloads
+            start_game_downloads,
+            stop_specific_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
