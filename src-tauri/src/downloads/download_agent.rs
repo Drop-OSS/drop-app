@@ -3,7 +3,7 @@ use crate::db::{DatabaseImpls, DATA_ROOT_DIR};
 use crate::downloads::download_logic;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
-use crate::{AppState, DB};
+use crate::DB;
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};

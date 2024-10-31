@@ -2,11 +2,10 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
-use gxhash::{gxhash128, GxHasher};
 use log::info;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{fs::{File, OpenOptions}, io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use urlencoding::encode;
 
 pub struct DropFileWriter {
@@ -101,24 +100,4 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
     }
 
     // stream.flush().unwrap();
-}
-
-pub fn copy_to_drop_file_writer(response: &mut Response, writer: &mut DropFileWriter) {
-    loop {
-        info!("Writing to file writer");
-        let mut buf = [0u8; 1024];
-        response.read(&mut buf).unwrap();
-        match writer.write_all(&buf) {
-            Ok(_) => {},
-            Err(e) => {
-                match e.kind() {
-                    ErrorKind::Interrupted => { 
-                        info!("Interrupted"); 
-                        return;
-                    }
-                    _ => { println!("{}", e); return;}
-                }
-            },
-        }
-    }
 }

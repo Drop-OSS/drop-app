@@ -56,7 +56,7 @@ pub async fn start_game_downloads(
         }    
     });
     info!("Spawned download");
-    return Ok(())
+    Ok(())
 }
 
 pub fn start_game_download(
@@ -92,5 +92,5 @@ pub async fn stop_specific_game_download(state: tauri::State<'_, Mutex<AppState>
     info!("Stopping callback");
     callback.store(true, Ordering::Release);
 
-    return Ok(())
+    Ok(())
 }
