@@ -1,6 +1,5 @@
+use log::info;
 use rayon::ThreadPoolBuilder;
-use uuid::timestamp::context;
-use std::os::unix::thread;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 
@@ -28,12 +27,6 @@ where
             callback
         }
     }
-    pub async fn run_contexts_sequentially_async(&self, contexts: Vec<T>) {
-        for context in contexts {
-            (self.f)(context, self.callback.clone());
-            self.counter.fetch_add(1, Ordering::Release);
-        }
-    }
     pub fn run_contexts_sequentially(&self, contexts: Vec<T>) {
         for context in contexts {
             (self.f)(context, self.callback.clone());
@@ -54,7 +47,7 @@ where
             threads.spawn(move || f(context, callback));
         }
     }
-    pub async fn run_context_parallel(&self, contexts: Vec<T>, max_threads: usize) {
+    pub fn run_context_parallel(&self, contexts: Vec<T>, max_threads: usize) {
         let threads = ThreadPoolBuilder::new()
             .num_threads(max_threads)
             .build()
@@ -64,9 +57,10 @@ where
             for context in contexts {
                 let callback = self.callback.clone();
                 let f = self.f.clone();
-                s.spawn(move |_| f(context, callback));
+                s.spawn(move |_| {info!("Running thread"); f(context, callback)});
             }
         });
+        info!("Concluded scope");
         
     }
     pub fn get_progress(&self) -> usize {

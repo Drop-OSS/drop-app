@@ -5,7 +5,8 @@ use crate::DB;
 use gxhash::{gxhash128, GxHasher};
 use log::info;
 use md5::{Context, Digest};
-use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use reqwest::blocking::Response;
+use std::{fs::{File, OpenOptions}, hash::Hasher, io::{self, BufReader, BufWriter, Error, ErrorKind, Read, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
 use urlencoding::encode;
 
 pub struct DropFileWriter {
@@ -30,8 +31,10 @@ impl DropFileWriter {
 impl Write for DropFileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.callback.load(Ordering::Acquire) {
-            return Err(Error::new(ErrorKind::Interrupted, "Interrupt command recieved"));
+            return Err(Error::new(ErrorKind::ConnectionAborted, "Interrupt command recieved"));
         }
+        
+        //info!("Writing data to writer");
         self.hasher.write_all(buf).unwrap();
         self.file.write(buf)
     }
@@ -48,6 +51,7 @@ impl Seek for DropFileWriter {
 }
 pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) {
     if callback.load(Ordering::Acquire) {
+        info!("Callback stopped download at start");
         return;
     }
     let base_url = DB.fetch_base_url();
@@ -83,20 +87,38 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
     // Writing everything to disk directly is probably slightly faster because it balances out the writes, 
     // but this is better than the performance loss from constantly reading the callbacks
 
-    let mut writer = BufWriter::with_capacity(1024 * 1024, file);
+    //let mut writer = BufWriter::with_capacity(1024 * 1024, file);
 
-    match response.copy_to(&mut writer) {
+    //copy_to_drop_file_writer(&mut response, &mut file);
+    match io::copy(&mut response, &mut file) {
         Ok(_) => {},
-        Err(_) => { println!("Stopped printing chunk {}", ctx.file_name); return; }
-    };
-    let file = match writer.into_inner() {
-        Ok(inner) => inner,
-        Err(_) => panic!("Failed to get BufWriter inner"),
-    };
+        Err(e) => { info!("Copy errored with error {}", e)},
+    }
+    
     let res = hex::encode(file.finish().unwrap().0);
     if res != ctx.checksum {  
         info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);
     }
 
     // stream.flush().unwrap();
+}
+
+pub fn copy_to_drop_file_writer(response: &mut Response, writer: &mut DropFileWriter) {
+    loop {
+        info!("Writing to file writer");
+        let mut buf = [0u8; 1024];
+        response.read(&mut buf).unwrap();
+        match writer.write_all(&buf) {
+            Ok(_) => {},
+            Err(e) => {
+                match e.kind() {
+                    ErrorKind::Interrupted => { 
+                        info!("Interrupted"); 
+                        return;
+                    }
+                    _ => { println!("{}", e); return;}
+                }
+            },
+        }
+    }
 }

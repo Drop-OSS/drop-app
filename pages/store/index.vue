@@ -9,9 +9,15 @@
   <input placeholder="VERSION NAME" v-model="versionName" />
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="startGameDownloads"
+    @click="startGameDownloadsWrapper"
   >
     Start Game Downloads
+  </button>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="cancelGameDownloadWrapper"
+  >
+    Cancel game download
   </button>
 </template>
 <script setup lang="ts">
@@ -39,9 +45,22 @@ function queueGameWrapper() {
 async function startGameDownloads() {
   console.log("Downloading Games");
   await invoke("start_game_downloads", { maxThreads: 4 })
+  console.log("Finished downloading games");
 }
 function startGameDownloadsWrapper() {
   startGameDownloads()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
+}
+async function cancelGameDownload() {
+  console.log("Cancelling game download");
+  await invoke("stop_specific_game_download", { gameId: gameId.value })
+}
+function cancelGameDownloadWrapper() {
+  console.log("Triggered game cancel wrapper");
+  cancelGameDownload()
     .then(() => {})
     .catch((e) => {
       console.log(e)

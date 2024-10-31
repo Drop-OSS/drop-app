@@ -68,30 +68,30 @@ impl GameDownloadAgent {
         if self.manifest.lock().unwrap().is_none() {
             return Ok(());
         }
-        self.ensure_manifest_exists().await
+        self.ensure_manifest_exists()
     }
 
-    pub async fn begin_download(&self, max_threads: usize) -> Result<(), GameDownloadError> {
+    pub fn begin_download(&self, max_threads: usize) -> Result<(), GameDownloadError> {
         self.change_state(GameDownloadState::Downloading);
         // TODO we're coping the whole context thing
         // It's not necessary, I just can't figure out to make the borrow checker happy
         {
             let lock = self.contexts.lock().unwrap().to_vec();
             self.progress
-                .run_context_parallel(lock, max_threads).await;
+                .run_context_parallel(lock, max_threads);
         }
         Ok(())
     }
 
-    pub async fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
+    pub fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
         }
 
-        self.download_manifest().await
+        self.download_manifest()
     }
 
-    async fn download_manifest(&self) -> Result<(), GameDownloadError> {
+    fn download_manifest(&self) -> Result<(), GameDownloadError> {
         let base_url = DB.fetch_base_url();
         let manifest_url = base_url
             .join(
@@ -106,12 +106,11 @@ impl GameDownloadAgent {
         let header = generate_authorization_header();
 
         info!("Generating & sending client");
-        let client = reqwest::Client::new();
+        let client = reqwest::blocking::Client::new();
         let response = client
             .get(manifest_url.to_string())
             .header("Authorization", header)
             .send()
-            .await
             .unwrap();
 
         if response.status() != 200 {
@@ -119,7 +118,7 @@ impl GameDownloadAgent {
             return Err(GameDownloadError::Status(response.status().as_u16()));
         }
 
-        let manifest_download = response.json::<DropManifest>().await.unwrap();
+        let manifest_download = response.json::<DropManifest>().unwrap();
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download)
         } else {
