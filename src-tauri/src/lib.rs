@@ -2,7 +2,6 @@ mod auth;
 mod db;
 mod library;
 mod remote;
-mod unpacker;
 mod downloads;
 #[cfg(test)]
 mod tests;
