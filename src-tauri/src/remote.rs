@@ -21,7 +21,7 @@ macro_rules! unwrap_or_return {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct DropHealthcheck {
     app_name: String,
 }

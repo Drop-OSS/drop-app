@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
 
-use crate::{auth::generate_authorization_header, AppState, DB};
-use crate::db::DatabaseImpls;
 use crate::db::DatabaseGameStatus;
+use crate::db::DatabaseImpls;
+use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
 struct FetchGameStruct {
@@ -83,7 +83,12 @@ pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
 
         let data = FetchGameStruct {
             game: game.clone(),
-            status: db_handle.games.games_statuses.get(&game.id).unwrap().clone(),
+            status: db_handle
+                .games
+                .games_statuses
+                .get(&game.id)
+                .unwrap()
+                .clone(),
         };
 
         return Ok(json!(data).to_string());

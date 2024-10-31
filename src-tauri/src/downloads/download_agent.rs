@@ -7,11 +7,11 @@ use crate::DB;
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
-use urlencoding::encode;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::sync::{Arc, Mutex};
+use urlencoding::encode;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -20,7 +20,7 @@ pub struct GameDownloadAgent {
     contexts: Mutex<Vec<DropDownloadContext>>,
     progress: ProgressChecker<DropDownloadContext>,
     pub manifest: Mutex<Option<DropManifest>>,
-    pub callback: Arc<AtomicBool>
+    pub callback: Arc<AtomicBool>,
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub enum GameDownloadState {
@@ -58,7 +58,7 @@ impl GameDownloadAgent {
             progress: ProgressChecker::new(
                 Box::new(download_logic::download_game_chunk),
                 Arc::new(AtomicUsize::new(0)),
-                callback
+                callback,
             ),
             contexts: Mutex::new(Vec::new()),
         }
@@ -77,8 +77,7 @@ impl GameDownloadAgent {
         // It's not necessary, I just can't figure out to make the borrow checker happy
         {
             let lock = self.contexts.lock().unwrap().to_vec();
-            self.progress
-                .run_context_parallel(lock, max_threads);
+            self.progress.run_context_parallel(lock, max_threads);
         }
         Ok(())
     }
@@ -97,7 +96,8 @@ impl GameDownloadAgent {
             .join(
                 format!(
                     "/api/v1/client/metadata/manifest?id={}&version={}",
-                    self.id, encode(&self.version)
+                    self.id,
+                    encode(&self.version)
                 )
                 .as_str(),
             )
@@ -164,7 +164,7 @@ impl GameDownloadAgent {
                     index: i,
                     game_id: game_id.to_string(),
                     path: path.clone(),
-                    checksum: chunk.checksums[i].clone()
+                    checksum: chunk.checksums[i].clone(),
                 });
                 running_offset += *length as u64;
             }
@@ -183,4 +183,3 @@ impl GameDownloadAgent {
         Ok(())
     }
 }
-

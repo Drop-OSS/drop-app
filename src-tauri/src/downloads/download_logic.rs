@@ -4,21 +4,28 @@ use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
 use log::info;
 use md5::{Context, Digest};
-use reqwest::blocking::Response;
-use std::{fs::{File, OpenOptions}, io::{self, Error, ErrorKind, Read, Seek, SeekFrom, Write}, path::PathBuf, sync::{atomic::{AtomicBool, Ordering}, Arc}};
+use std::{
+    fs::{File, OpenOptions},
+    io::{self, Error, ErrorKind, Seek, SeekFrom, Write},
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 use urlencoding::encode;
 
 pub struct DropFileWriter {
     file: File,
     hasher: Context,
-    callback: Arc<AtomicBool>
+    callback: Arc<AtomicBool>,
 }
 impl DropFileWriter {
     fn new(path: PathBuf, callback: Arc<AtomicBool>) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
-            callback
+            callback,
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
@@ -30,9 +37,12 @@ impl DropFileWriter {
 impl Write for DropFileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if self.callback.load(Ordering::Acquire) {
-            return Err(Error::new(ErrorKind::ConnectionAborted, "Interrupt command recieved"));
+            return Err(Error::new(
+                ErrorKind::ConnectionAborted,
+                "Interrupt command recieved",
+            ));
         }
-        
+
         //info!("Writing data to writer");
         self.hasher.write_all(buf).unwrap();
         self.file.write(buf)
@@ -78,25 +88,29 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
     let mut file: DropFileWriter = DropFileWriter::new(ctx.path, callback);
 
     if ctx.offset != 0 {
-        file
-            .seek(SeekFrom::Start(ctx.offset))
+        file.seek(SeekFrom::Start(ctx.offset))
             .expect("Failed to seek to file offset");
     }
 
-    // Writing everything to disk directly is probably slightly faster because it balances out the writes, 
+    // Writing everything to disk directly is probably slightly faster because it balances out the writes,
     // but this is better than the performance loss from constantly reading the callbacks
 
     //let mut writer = BufWriter::with_capacity(1024 * 1024, file);
 
     //copy_to_drop_file_writer(&mut response, &mut file);
     match io::copy(&mut response, &mut file) {
-        Ok(_) => {},
-        Err(e) => { info!("Copy errored with error {}", e)},
+        Ok(_) => {}
+        Err(e) => {
+            info!("Copy errored with error {}", e)
+        }
     }
-    
+
     let res = hex::encode(file.finish().unwrap().0);
-    if res != ctx.checksum {  
-        info!("Checksum failed. Original: {}, Calculated: {} for {}", ctx.checksum, res, ctx.file_name);
+    if res != ctx.checksum {
+        info!(
+            "Checksum failed. Original: {}, Calculated: {} for {}",
+            ctx.checksum, res, ctx.file_name
+        );
     }
 
     // stream.flush().unwrap();

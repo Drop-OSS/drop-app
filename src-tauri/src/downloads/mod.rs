@@ -1,5 +1,5 @@
+pub mod download_agent;
+pub mod download_commands;
+mod download_logic;
 mod manifest;
 pub mod progress;
-pub mod download_agent;
-mod download_logic;
-pub mod download_commands;

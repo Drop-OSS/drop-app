@@ -1,37 +1,36 @@
 use std::{
     env,
-    sync::Mutex, time::{SystemTime, UNIX_EPOCH},
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use log::{info, warn};
-use openssl::{
-    ec::EcKey,
-    hash::MessageDigest,
-    pkey::PKey,
-    sign::{Signer},
-};
+use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{db::{DatabaseAuth, DatabaseImpls}, AppState, AppStatus, User, DB};
+use crate::{
+    db::{DatabaseAuth, DatabaseImpls},
+    AppState, AppStatus, User, DB,
+};
 
 #[derive(Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct InitiateRequestBody {
     name: String,
     platform: String,
 }
 
 #[derive(Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct HandshakeRequestBody {
     client_id: String,
     token: String,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct HandshakeResponse {
     private: String,
     certificate: String,

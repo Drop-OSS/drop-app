@@ -9,7 +9,7 @@ where
 {
     counter: Arc<AtomicUsize>,
     f: Arc<Box<dyn Fn(T, Arc<AtomicBool>) + Send + Sync + 'static>>,
-    callback: Arc<AtomicBool>
+    callback: Arc<AtomicBool>,
 }
 
 impl<T> ProgressChecker<T>
@@ -19,12 +19,12 @@ where
     pub fn new(
         f: Box<dyn Fn(T, Arc<AtomicBool>) + Send + Sync + 'static>,
         counter_reference: Arc<AtomicUsize>,
-        callback: Arc<AtomicBool>
+        callback: Arc<AtomicBool>,
     ) -> Self {
         Self {
             f: f.into(),
             counter: counter_reference,
-            callback
+            callback,
         }
     }
     pub fn run_contexts_sequentially(&self, contexts: Vec<T>) {
@@ -57,11 +57,13 @@ where
             for context in contexts {
                 let callback = self.callback.clone();
                 let f = self.f.clone();
-                s.spawn(move |_| {info!("Running thread"); f(context, callback)});
+                s.spawn(move |_| {
+                    info!("Running thread");
+                    f(context, callback)
+                });
             }
         });
         info!("Concluded scope");
-        
     }
     pub fn get_progress(&self) -> usize {
         self.counter.load(Ordering::Relaxed)
