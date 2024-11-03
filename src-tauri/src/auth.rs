@@ -1,53 +1,41 @@
 use std::{
     env,
-    sync::Mutex, time::{SystemTime, UNIX_EPOCH},
+    fmt::{Display, Formatter},
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use log::{info, warn};
-use openssl::{
-    ec::EcKey,
-    hash::MessageDigest,
-    pkey::PKey,
-    sign::{Signer},
-};
+use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-use url::Url;
+use url::{ParseError, Url};
 
-use crate::{db::{DatabaseAuth, DatabaseImpls}, AppState, AppStatus, User, DB};
+use crate::{
+    db::{DatabaseAuth, DatabaseImpls},
+    AppState, AppStatus, User, DB,
+};
 
 #[derive(Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct InitiateRequestBody {
     name: String,
     platform: String,
 }
 
 #[derive(Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct HandshakeRequestBody {
     client_id: String,
     token: String,
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct HandshakeResponse {
     private: String,
     certificate: String,
     id: String,
-}
-
-macro_rules! unwrap_or_return {
-    ( $e:expr, $app:expr ) => {
-        match $e {
-            Ok(x) => x,
-            Err(_) => {
-                $app.emit("auth/failed", ()).unwrap();
-                return;
-            }
-        }
-    };
 }
 
 pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
@@ -80,42 +68,76 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-pub fn fetch_user() -> Result<User, ()> {
+#[derive(Debug)]
+pub enum RemoteAccessError {
+    FetchError(reqwest::Error),
+    ParsingError(ParseError),
+    GenericErrror(String),
+}
+
+impl Display for RemoteAccessError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RemoteAccessError::FetchError(error) => write!(f, "{}", error),
+            RemoteAccessError::GenericErrror(error) => write!(f, "{}", error),
+            RemoteAccessError::ParsingError(parse_error) => {
+                write!(f, "{}", parse_error)
+            }
+        }
+    }
+}
+
+impl From<reqwest::Error> for RemoteAccessError {
+    fn from(err: reqwest::Error) -> Self {
+        RemoteAccessError::FetchError(err)
+    }
+}
+impl From<String> for RemoteAccessError {
+    fn from(err: String) -> Self {
+        RemoteAccessError::GenericErrror(err)
+    }
+}
+impl From<ParseError> for RemoteAccessError {
+    fn from(err: ParseError) -> Self {
+        RemoteAccessError::ParsingError(err)
+    }
+}
+
+impl std::error::Error for RemoteAccessError {}
+
+pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
-    let endpoint = base_url.join("/api/v1/client/user").unwrap();
+    let endpoint = base_url.join("/api/v1/client/user")?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
     let response = client
         .get(endpoint.to_string())
         .header("Authorization", header)
-        .send()
-        .unwrap();
+        .send()?;
 
     if response.status() != 200 {
-        warn!("Failed to fetch user: {}", response.status());
-        return Err(());
+        return Err(format!("Failed to fetch user: {}", response.status()).into());
     }
 
-    let user = response.json::<User>().unwrap();
+    let user = response.json::<User>()?;
 
     Ok(user)
 }
 
-pub fn recieve_handshake(app: AppHandle, path: String) {
-    // Tell the app we're processing
-    app.emit("auth/processing", ()).unwrap();
-
+fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
     let path_chunks: Vec<&str> = path.split("/").collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
-        return;
+        return Err(RemoteAccessError::GenericErrror(
+            "Invalid number of handshake chunks".to_string().into(),
+        ));
     }
 
     let base_url = {
         let handle = DB.borrow_data().unwrap();
-        Url::parse(handle.base_url.as_str()).unwrap()
+        Url::parse(handle.base_url.as_str())?
     };
 
     let client_id = path_chunks.get(1).unwrap();
@@ -125,11 +147,11 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         token: token.to_string(),
     };
 
-    let endpoint = unwrap_or_return!(base_url.join("/api/v1/client/auth/handshake"), app);
+    let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = reqwest::blocking::Client::new();
-    let response = unwrap_or_return!(client.post(endpoint).json(&body).send(), app);
+    let response = client.post(endpoint).json(&body).send()?;
     info!("server responded with {}", response.status());
-    let response_struct = unwrap_or_return!(response.json::<HandshakeResponse>(), app);
+    let response_struct = response.json::<HandshakeResponse>()?;
 
     {
         let mut handle = DB.borrow_data_mut().unwrap();
@@ -146,42 +168,61 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         let app_state = app.state::<Mutex<AppState>>();
         let mut app_state_handle = app_state.lock().unwrap();
         app_state_handle.status = AppStatus::SignedIn;
-        app_state_handle.user = Some(fetch_user().unwrap());
+        app_state_handle.user = Some(fetch_user()?);
+    }
+
+    return Ok(());
+}
+
+pub fn recieve_handshake(app: AppHandle, path: String) {
+    // Tell the app we're processing
+    app.emit("auth/processing", ()).unwrap();
+
+    let handshake_result = recieve_handshake_logic(&app, path);
+    if handshake_result.is_err() {
+        app.emit("auth/failed", ()).unwrap();
+        return;
     }
 
     app.emit("auth/finished", ()).unwrap();
 }
 
-#[tauri::command]
-pub async fn auth_initiate<'a>() -> Result<(), String> {
+async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     let base_url = {
         let db_lock = DB.borrow_data().unwrap();
-        Url::parse(&db_lock.base_url.clone()).unwrap()
+        Url::parse(&db_lock.base_url.clone())?
     };
 
-    let endpoint = base_url.join("/api/v1/client/auth/initiate").unwrap();
+    let endpoint = base_url.join("/api/v1/client/auth/initiate")?;
     let body = InitiateRequestBody {
         name: "Drop Desktop Client".to_string(),
         platform: env::consts::OS.to_string(),
     };
 
     let client = reqwest::Client::new();
-    let response = client
-        .post(endpoint.to_string())
-        .json(&body)
-        .send()
-        .await
-        .unwrap();
+    let response = client.post(endpoint.to_string()).json(&body).send().await?;
 
     if response.status() != 200 {
-        return Err("Failed to create redirect URL. Please try again later.".to_string());
+        return Err("Failed to create redirect URL. Please try again later."
+            .to_string()
+            .into());
     }
 
-    let redir_url = response.text().await.unwrap();
-    let complete_redir_url = base_url.join(&redir_url).unwrap();
+    let redir_url = response.text().await?;
+    let complete_redir_url = base_url.join(&redir_url)?;
 
     info!("opening web browser to continue authentication");
     webbrowser::open(complete_redir_url.as_ref()).unwrap();
+
+    return Ok(());
+}
+
+#[tauri::command]
+pub async fn auth_initiate<'a>() -> Result<(), String> {
+    let result = auth_initiate_wrapper().await;
+    if result.is_err() {
+        return Err(result.err().unwrap().to_string());
+    }
 
     Ok(())
 }
@@ -193,7 +234,14 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     if data.auth.is_some() {
         let user_result = fetch_user();
         if user_result.is_err() {
-            return Ok((AppStatus::SignedInNeedsReauth, None));
+            let error = user_result.err().unwrap();
+            warn!("auth setup failed with: {}", error);
+            match error {
+                RemoteAccessError::FetchError(_) => {
+                    return Ok((AppStatus::ServerUnavailable, None))
+                }
+                _ => return Ok((AppStatus::SignedInNeedsReauth, None)),
+            }
         }
         return Ok((AppStatus::SignedIn, Some(user_result.unwrap())));
     }

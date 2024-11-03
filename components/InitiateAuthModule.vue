@@ -40,23 +40,20 @@
             <span v-else>
               Sign in with your browser <span aria-hidden="true">&rarr;</span>
             </span>
+          </button>
 
-            <div v-if="error" class="mt-5 rounded-md bg-red-600/10 p-4">
-              <div class="flex">
-                <div class="flex-shrink-0">
-                  <XCircleIcon
-                    class="h-5 w-5 text-red-600"
-                    aria-hidden="true"
-                  />
-                </div>
-                <div class="ml-3">
-                  <h3 class="text-sm font-medium text-red-600">
-                    {{ error }}
-                  </h3>
-                </div>
+          <div v-if="error" class="mt-5 rounded-md bg-red-600/10 p-4">
+            <div class="flex">
+              <div class="flex-shrink-0">
+                <XCircleIcon class="h-5 w-5 text-red-600" aria-hidden="true" />
+              </div>
+              <div class="ml-3">
+                <h3 class="text-sm font-medium text-red-600">
+                  {{ error }}
+                </h3>
               </div>
             </div>
-          </button>
+          </div>
         </div>
       </div>
     </main>

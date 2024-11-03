@@ -10,7 +10,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { AppStatus, type AppState } from "./types.d.ts";
 import { listen } from "@tauri-apps/api/event";
 import { useAppState } from "./composables/app-state.js";
-import {useRouter} from "#vue-router";
+import { useRouter } from "#vue-router";
 
 const router = useRouter();
 
@@ -23,13 +23,18 @@ router.beforeEach(async () => {
 
 switch (state.value.status) {
   case AppStatus.NotConfigured:
-    router.push({ path: "/setup" }).then(() => {console.log("Pushed Setup")});
+    router.push({ path: "/setup" }).then(() => {
+      console.log("Pushed Setup");
+    });
     break;
   case AppStatus.SignedOut:
     router.push("/auth");
     break;
   case AppStatus.SignedInNeedsReauth:
     router.push("/auth/signedout");
+    break;
+  case AppStatus.ServerUnavailable:
+    router.push("/error/serverunavailable");
     break;
   default:
     router.push("/store");
@@ -48,6 +53,6 @@ listen("auth/finished", () => {
 });
 
 useHead({
-  title: "Drop"
-})
+  title: "Drop",
+});
 </script>
