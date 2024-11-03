@@ -1,48 +1,80 @@
-use std::sync::Mutex;
+use std::{
+    fmt::{write, Display, Formatter},
+    sync::Mutex,
+};
 
 use log::{info, warn};
 use serde::Deserialize;
-use url::Url;
+use url::{ParseError, Url};
 
 use crate::{AppState, AppStatus, DB};
 
-macro_rules! unwrap_or_return {
-    ( $e:expr ) => {
-        match $e {
-            Ok(x) => x,
-            Err(e) => {
-                return Err(format!(
-                    "Invalid URL or Drop is inaccessible ({})",
-                    e.to_string()
-                ))
-            }
-        }
-    };
+#[derive(Debug)]
+pub enum RemoteAccessError {
+    FetchError(reqwest::Error),
+    ParsingError(ParseError),
+    InvalidCodeError(u16),
+    GenericErrror(String),
 }
 
+impl Display for RemoteAccessError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RemoteAccessError::FetchError(error) => write!(f, "{}", error),
+            RemoteAccessError::GenericErrror(error) => write!(f, "{}", error),
+            RemoteAccessError::ParsingError(parse_error) => {
+                write!(f, "{}", parse_error)
+            }
+            RemoteAccessError::InvalidCodeError(error) => write!(f, "HTTP {}", error),
+        }
+    }
+}
+
+impl From<reqwest::Error> for RemoteAccessError {
+    fn from(err: reqwest::Error) -> Self {
+        RemoteAccessError::FetchError(err)
+    }
+}
+impl From<String> for RemoteAccessError {
+    fn from(err: String) -> Self {
+        RemoteAccessError::GenericErrror(err)
+    }
+}
+impl From<ParseError> for RemoteAccessError {
+    fn from(err: ParseError) -> Self {
+        RemoteAccessError::ParsingError(err)
+    }
+}
+impl From<u16> for RemoteAccessError {
+    fn from(err: u16) -> Self {
+        RemoteAccessError::InvalidCodeError(err)
+    }
+}
+
+impl std::error::Error for RemoteAccessError {}
+
 #[derive(Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 struct DropHealthcheck {
     app_name: String,
 }
 
-#[tauri::command]
-pub async fn use_remote<'a>(
+async fn use_remote_logic<'a>(
     url: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
+) -> Result<(), RemoteAccessError> {
     info!("connecting to url {}", url);
-    let base_url = unwrap_or_return!(Url::parse(&url));
+    let base_url = Url::parse(&url)?;
 
     // Test Drop url
-    let test_endpoint = base_url.join("/api/v1").unwrap();
-    let response = unwrap_or_return!(reqwest::get(test_endpoint.to_string()).await);
+    let test_endpoint = base_url.join("/api/v1")?;
+    let response = reqwest::get(test_endpoint.to_string()).await?;
 
-    let result = response.json::<DropHealthcheck>().await.unwrap();
+    let result = response.json::<DropHealthcheck>().await?;
 
     if result.app_name != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
-        return Err("Not a valid Drop endpoint".to_string());
+        return Err("Not a valid Drop endpoint".to_string().into());
     }
 
     let mut app_state = state.lock().unwrap();
@@ -54,6 +86,20 @@ pub async fn use_remote<'a>(
     drop(db_state);
 
     DB.save().unwrap();
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn use_remote<'a>(
+    url: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let result = use_remote_logic(url, state).await;
+
+    if result.is_err() {
+        return Err(result.err().unwrap().to_string());
+    }
 
     Ok(())
 }

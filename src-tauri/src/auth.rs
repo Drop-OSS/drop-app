@@ -13,6 +13,7 @@ use url::{ParseError, Url};
 
 use crate::{
     db::{DatabaseAuth, DatabaseImpls},
+    remote::RemoteAccessError,
     AppState, AppStatus, User, DB,
 };
 
@@ -68,43 +69,6 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-#[derive(Debug)]
-pub enum RemoteAccessError {
-    FetchError(reqwest::Error),
-    ParsingError(ParseError),
-    GenericErrror(String),
-}
-
-impl Display for RemoteAccessError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            RemoteAccessError::FetchError(error) => write!(f, "{}", error),
-            RemoteAccessError::GenericErrror(error) => write!(f, "{}", error),
-            RemoteAccessError::ParsingError(parse_error) => {
-                write!(f, "{}", parse_error)
-            }
-        }
-    }
-}
-
-impl From<reqwest::Error> for RemoteAccessError {
-    fn from(err: reqwest::Error) -> Self {
-        RemoteAccessError::FetchError(err)
-    }
-}
-impl From<String> for RemoteAccessError {
-    fn from(err: String) -> Self {
-        RemoteAccessError::GenericErrror(err)
-    }
-}
-impl From<ParseError> for RemoteAccessError {
-    fn from(err: ParseError) -> Self {
-        RemoteAccessError::ParsingError(err)
-    }
-}
-
-impl std::error::Error for RemoteAccessError {}
-
 pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
@@ -118,7 +82,7 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         .send()?;
 
     if response.status() != 200 {
-        return Err(format!("Failed to fetch user: {}", response.status()).into());
+        return Err(response.status().as_u16().into());
     }
 
     let user = response.json::<User>()?;
