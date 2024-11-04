@@ -1,7 +1,7 @@
 use atomic_counter::RelaxedCounter;
 
 use crate::downloads::progress::ProgressChecker;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
 #[test]
@@ -20,6 +20,6 @@ fn test_progress_parallel() {
     p.run_contexts_parallel_background((1..100).collect(), 10);
 }
 
-fn test_fn(int: usize, callback: Arc<AtomicBool>, counter: Arc<RelaxedCounter>) {
+fn test_fn(int: usize, _callback: Arc<AtomicBool>, _counter: Arc<RelaxedCounter>) {
     println!("{}", int);
 }

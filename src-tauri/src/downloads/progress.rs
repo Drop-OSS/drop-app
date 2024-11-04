@@ -31,11 +31,13 @@ where
             capacity: capacity.into(),
         }
     }
+    #[allow(dead_code)]
     pub fn run_contexts_sequentially(&self, contexts: Vec<T>) {
         for context in contexts {
             (self.f)(context, self.callback.clone(), self.counter.clone());
         }
     }
+    #[allow(dead_code)]
     pub fn run_contexts_parallel_background(&self, contexts: Vec<T>, max_threads: usize) {
         let threads = ThreadPoolBuilder::new()
             // If max_threads == 0, then the limit will be determined
