@@ -12,6 +12,7 @@ use url::{ParseError, Url};
 
 use crate::{
     db::{DatabaseAuth, DatabaseImpls},
+    remote::RemoteAccessError,
     AppState, AppStatus, User, DB,
 };
 

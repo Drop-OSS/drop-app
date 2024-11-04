@@ -6,6 +6,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
+use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
