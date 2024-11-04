@@ -2,6 +2,7 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
+use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use md5::{Context, Digest};
 use std::{
@@ -9,7 +10,7 @@ use std::{
     io::{self, Error, ErrorKind, Seek, SeekFrom, Write},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc,
     },
 };
@@ -19,13 +20,15 @@ pub struct DropFileWriter {
     file: File,
     hasher: Context,
     callback: Arc<AtomicBool>,
+    progress: Arc<RelaxedCounter>
 }
 impl DropFileWriter {
-    fn new(path: PathBuf, callback: Arc<AtomicBool>) -> Self {
+    fn new(path: PathBuf, callback: Arc<AtomicBool>, progress: Arc<RelaxedCounter>) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
             callback,
+            progress
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
@@ -42,6 +45,8 @@ impl Write for DropFileWriter {
                 "Interrupt command recieved",
             ));
         }
+        let len = buf.len();
+        self.progress.add(len);
 
         //info!("Writing data to writer");
         self.hasher.write_all(buf).unwrap();
@@ -58,7 +63,7 @@ impl Seek for DropFileWriter {
         self.file.seek(pos)
     }
 }
-pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) {
+pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>, progress: Arc<RelaxedCounter>) {
     if callback.load(Ordering::Acquire) {
         info!("Callback stopped download at start");
         return;
@@ -85,7 +90,7 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>) 
         .send()
         .unwrap();
 
-    let mut file: DropFileWriter = DropFileWriter::new(ctx.path, callback);
+    let mut file: DropFileWriter = DropFileWriter::new(ctx.path, callback, progress);
 
     if ctx.offset != 0 {
         file.seek(SeekFrom::Start(ctx.offset))
