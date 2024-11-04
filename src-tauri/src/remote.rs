@@ -1,5 +1,5 @@
 use std::{
-    fmt::{write, Display, Formatter},
+    fmt::{Display, Formatter},
     sync::Mutex,
 };
 

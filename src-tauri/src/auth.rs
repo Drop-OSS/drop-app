@@ -8,7 +8,7 @@ use log::{info, warn};
 use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
-use url::{ParseError, Url};
+use url::Url;
 
 use crate::{
     db::{DatabaseAuth, DatabaseImpls},
