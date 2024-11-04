@@ -11,7 +11,8 @@ use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::{
-    get_game_download_progress, queue_game_download, start_game_downloads, stop_specific_game_download
+    get_game_download_progress, queue_game_download, start_game_downloads,
+    stop_specific_game_download,
 };
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};

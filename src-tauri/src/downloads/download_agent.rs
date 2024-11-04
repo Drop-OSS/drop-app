@@ -10,7 +10,7 @@ use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use urlencoding::encode;
 
@@ -60,7 +60,7 @@ impl GameDownloadAgent {
                 Box::new(download_logic::download_game_chunk),
                 Arc::new(RelaxedCounter::new(0)),
                 callback,
-                0
+                0,
             ),
             contexts: Mutex::new(Vec::new()),
         }
@@ -121,16 +121,18 @@ impl GameDownloadAgent {
         }
 
         let manifest_download = response.json::<DropManifest>().unwrap();
-        let length = manifest_download.iter().map(|(_, chunk)| {
-            return chunk.lengths.iter().sum::<usize>();
-        }).sum::<usize>();
+        let length = manifest_download
+            .values()
+            .map(|chunk| {
+                return chunk.lengths.iter().sum::<usize>();
+            })
+            .sum::<usize>();
         self.progress.set_capacity(length);
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download)
         } else {
             return Err(GameDownloadError::System(SystemError::MutexLockFailed));
         }
-        
 
         Ok(())
     }

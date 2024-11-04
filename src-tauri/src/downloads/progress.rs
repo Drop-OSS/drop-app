@@ -1,7 +1,7 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use rayon::ThreadPoolBuilder;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 pub struct ProgressChecker<T>
@@ -11,7 +11,7 @@ where
     counter: Arc<RelaxedCounter>,
     f: Arc<Box<dyn Fn(T, Arc<AtomicBool>, Arc<RelaxedCounter>) + Send + Sync + 'static>>,
     callback: Arc<AtomicBool>,
-    capacity: Mutex<usize>
+    capacity: Mutex<usize>,
 }
 
 impl<T> ProgressChecker<T>
@@ -22,13 +22,13 @@ where
         f: Box<dyn Fn(T, Arc<AtomicBool>, Arc<RelaxedCounter>) + Send + Sync + 'static>,
         counter: Arc<RelaxedCounter>,
         callback: Arc<AtomicBool>,
-        capacity: usize
+        capacity: usize,
     ) -> Self {
         Self {
             f: f.into(),
             counter,
             callback,
-            capacity: capacity.into()
+            capacity: capacity.into(),
         }
     }
     pub fn run_contexts_sequentially(&self, contexts: Vec<T>) {

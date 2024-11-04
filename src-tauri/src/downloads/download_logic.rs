@@ -10,7 +10,7 @@ use std::{
     io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write},
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
+        atomic::{AtomicBool, Ordering},
         Arc,
     },
 };
@@ -20,7 +20,7 @@ pub struct DropFileWriter {
     file: File,
     hasher: Context,
     callback: Arc<AtomicBool>,
-    progress: Arc<RelaxedCounter>
+    progress: Arc<RelaxedCounter>,
 }
 impl DropFileWriter {
     fn new(path: PathBuf, callback: Arc<AtomicBool>, progress: Arc<RelaxedCounter>) -> Self {
@@ -28,7 +28,7 @@ impl DropFileWriter {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
             callback,
-            progress
+            progress,
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
@@ -63,7 +63,11 @@ impl Seek for DropFileWriter {
         self.file.seek(pos)
     }
 }
-pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>, progress: Arc<RelaxedCounter>) {
+pub fn download_game_chunk(
+    ctx: DropDownloadContext,
+    callback: Arc<AtomicBool>,
+    progress: Arc<RelaxedCounter>,
+) {
     if callback.load(Ordering::Acquire) {
         info!("Callback stopped download at start");
         return;
@@ -111,7 +115,10 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>, 
     }
     let file = match writer.into_inner() {
         Ok(file) => file,
-        Err(_) => {error!("Failed to acquire writer from BufWriter"); return; }
+        Err(_) => {
+            error!("Failed to acquire writer from BufWriter");
+            return;
+        }
     };
 
     let res = hex::encode(file.finish().unwrap().0);
