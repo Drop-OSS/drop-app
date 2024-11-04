@@ -2,10 +2,13 @@ mod auth;
 mod db;
 mod library;
 mod remote;
-mod unpacker;
+mod downloads;
+#[cfg(test)]
+mod tests;
 
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
+use downloads::download_commands::{queue_game_download, start_game_downloads, stop_specific_game_download};
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -15,8 +18,10 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap, sync::{LazyLock, Mutex}
 };
+use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::db::DatabaseImpls;
+use crate::downloads::download_agent::{GameDownloadAgent};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -41,6 +46,9 @@ pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
+    
+    #[serde(skip_serializing)]
+    game_downloads: HashMap<String, Arc<GameDownloadAgent>>
 }
 
 #[tauri::command]
@@ -60,6 +68,7 @@ fn setup() -> AppState {
             status: AppStatus::NotConfigured,
             user: None,
             games: HashMap::new(),
+            game_downloads: HashMap::new(),
         };
     }
 
@@ -68,6 +77,7 @@ fn setup() -> AppState {
         status: auth_result.0,
         user: auth_result.1,
         games: HashMap::new(),
+        game_downloads: HashMap::new(),
     }
 }
 
@@ -101,6 +111,10 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
+            // Downloads
+            queue_game_download,
+            start_game_downloads,
+            stop_specific_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
