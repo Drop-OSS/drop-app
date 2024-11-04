@@ -3,11 +3,11 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
-use log::info;
+use log::{error, info};
 use md5::{Context, Digest};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Error, ErrorKind, Seek, SeekFrom, Write},
+    io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -100,15 +100,19 @@ pub fn download_game_chunk(ctx: DropDownloadContext, callback: Arc<AtomicBool>, 
     // Writing everything to disk directly is probably slightly faster because it balances out the writes,
     // but this is better than the performance loss from constantly reading the callbacks
 
-    //let mut writer = BufWriter::with_capacity(1024 * 1024, file);
+    let mut writer = BufWriter::with_capacity(1024 * 1024, file);
 
     //copy_to_drop_file_writer(&mut response, &mut file);
-    match io::copy(&mut response, &mut file) {
+    match io::copy(&mut response, &mut writer) {
         Ok(_) => {}
         Err(e) => {
             info!("Copy errored with error {}", e)
         }
     }
+    let file = match writer.into_inner() {
+        Ok(file) => file,
+        Err(_) => {error!("Failed to acquire writer from BufWriter"); return; }
+    };
 
     let res = hex::encode(file.finish().unwrap().0);
     if res != ctx.checksum {
