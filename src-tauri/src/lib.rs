@@ -1,28 +1,30 @@
 mod auth;
 mod db;
+mod downloads;
 mod library;
 mod remote;
-mod downloads;
 #[cfg(test)]
 mod tests;
 
 use crate::db::DatabaseImpls;
+use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
-use downloads::download_commands::{queue_game_download, start_game_downloads, stop_specific_game_download};
+use downloads::download_commands::{
+    queue_game_download, start_game_downloads, stop_specific_game_download,
+};
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
 use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
-use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
-use crate::downloads::download_agent::{GameDownloadAgent};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -49,9 +51,9 @@ pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
-    
+
     #[serde(skip_serializing)]
-    game_downloads: HashMap<String, Arc<GameDownloadAgent>>
+    game_downloads: HashMap<String, Arc<GameDownloadAgent>>,
 }
 
 #[tauri::command]

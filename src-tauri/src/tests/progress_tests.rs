@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
 use crate::downloads::progress::ProgressChecker;
+use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::Arc;
 
 #[test]
 fn test_progress_sequentially() {
