@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
 
-use crate::{auth::generate_authorization_header, AppState, DB};
-use crate::db::DatabaseImpls;
 use crate::db::DatabaseGameStatus;
+use crate::db::DatabaseImpls;
+use crate::remote::RemoteAccessError;
+use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
 struct FetchGameStruct {
@@ -29,10 +30,9 @@ pub struct Game {
     m_image_library: Vec<String>,
 }
 
-#[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<String, String> {
+fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
-    let library_url = base_url.join("/api/v1/client/user/library").unwrap();
+    let library_url = base_url.join("/api/v1/client/user/library")?;
 
     let header = generate_authorization_header();
 
@@ -40,18 +40,13 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
     let response = client
         .get(library_url.to_string())
         .header("Authorization", header)
-        .send()
-        .unwrap();
+        .send()?;
 
     if response.status() != 200 {
-        return Err(format!(
-            "Library fetch request failed with {}",
-            response.status()
-        ));
+        return Err(response.status().as_u16().into());
     }
 
-    // Keep as string
-    let games = response.json::<Vec<Game>>().unwrap();
+    let games = response.json::<Vec<Game>>()?;
 
     let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
@@ -74,20 +69,48 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
+pub fn fetch_library(app: AppHandle) -> Result<String, String> {
+    let result = fetch_library_logic(app);
+
+    if result.is_err() {
+        return Err(result.err().unwrap().to_string());
+    }
+
+    return Ok(result.unwrap());
+}
+
+fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {
     let state = app.state::<Mutex<AppState>>();
     let handle = state.lock().unwrap();
+
     let game = handle.games.get(&id);
     if let Some(game) = game {
         let db_handle = DB.borrow_data().unwrap();
 
         let data = FetchGameStruct {
             game: game.clone(),
-            status: db_handle.games.games_statuses.get(&game.id).unwrap().clone(),
+            status: db_handle
+                .games
+                .games_statuses
+                .get(&game.id)
+                .unwrap()
+                .clone(),
         };
 
         return Ok(json!(data).to_string());
     }
+    // TODO request games that aren't found from remote server
 
-    Err("".to_string())
+    Err("".to_string().into())
+}
+
+#[tauri::command]
+pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
+    let result = fetch_game_logic(id, app);
+
+    if result.is_err() {
+        return Err(result.err().unwrap().to_string());
+    }
+
+    Ok(result.unwrap())
 }

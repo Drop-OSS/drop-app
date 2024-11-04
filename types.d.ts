@@ -22,6 +22,7 @@ export enum AppStatus {
   SignedOut = "SignedOut",
   SignedIn = "SignedIn",
   SignedInNeedsReauth = "SignedInNeedsReauth",
+  ServerUnavailable = "ServerUnavailable",
 }
 
 export enum GameStatus {

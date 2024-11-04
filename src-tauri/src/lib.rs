@@ -6,6 +6,7 @@ mod downloads;
 #[cfg(test)]
 mod tests;
 
+use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::{queue_game_download, start_game_downloads, stop_specific_game_download};
@@ -16,7 +17,8 @@ use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap, sync::{LazyLock, Mutex}
+    collections::HashMap,
+    sync::{LazyLock, Mutex},
 };
 use std::sync::Arc;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -26,12 +28,14 @@ use crate::downloads::download_agent::{GameDownloadAgent};
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
     NotConfigured,
+    ServerError,
     SignedOut,
     SignedIn,
     SignedInNeedsReauth,
+    ServerUnavailable,
 }
 #[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct User {
     id: String,
     username: String,
@@ -41,7 +45,7 @@ pub struct User {
 }
 
 #[derive(Clone, Serialize)]
-#[serde(rename_all="camelCase")]
+#[serde(rename_all = "camelCase")]
 pub struct AppState {
     status: AppStatus,
     user: Option<User>,
@@ -72,10 +76,10 @@ fn setup() -> AppState {
         };
     }
 
-    let auth_result = auth::setup().unwrap();
+    let (app_status, user) = auth::setup().unwrap();
     AppState {
-        status: auth_result.0,
-        user: auth_result.1,
+        status: app_status,
+        user: user,
         games: HashMap::new(),
         game_downloads: HashMap::new(),
     }
@@ -144,7 +148,9 @@ pub fn run() {
                 info!("handling drop:// url");
                 let binding = event.urls();
                 let url = binding.first().unwrap();
-                if url.host_str().unwrap() == "handshake" { recieve_handshake(handle.clone(), url.path().to_string()) }
+                if url.host_str().unwrap() == "handshake" {
+                    recieve_handshake(handle.clone(), url.path().to_string())
+                }
             });
 
             Ok(())
