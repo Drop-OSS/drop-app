@@ -19,6 +19,12 @@
   >
     Cancel game download
   </button>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="getGameDownloadProgressWrapper"
+  >
+    Get game download progress
+  </button>
 </template>
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
@@ -65,5 +71,17 @@ function cancelGameDownloadWrapper() {
     .catch((e) => {
       console.log(e)
     })
+}
+async function getGameDownloadProgress() {
+  console.log("Getting game download status");
+  await invoke("get_game_download_progress", { gameId: gameId.value })
+}
+function getGameDownloadProgressWrapper() {
+  getGameDownloadProgress()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
+
 }
 </script>

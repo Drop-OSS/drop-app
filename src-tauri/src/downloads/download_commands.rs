@@ -60,7 +60,7 @@ pub async fn start_game_downloads(
         }
     });
     info!("Spawned download");
-    return Ok(());
+    Ok(())
 }
 
 pub fn start_game_download(
@@ -104,5 +104,17 @@ pub async fn stop_specific_game_download(
     info!("Stopping callback");
     callback.store(true, Ordering::Release);
 
-    return Ok(());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_game_download_progress(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String,
+) -> Result<f64, String> {
+    let lock = state.lock().unwrap();
+    let download_agent = lock.game_downloads.get(&game_id).unwrap();
+    let progress = download_agent.progress.get_progress_percentage();
+    info!("{}", progress);
+    Ok(progress)
 }

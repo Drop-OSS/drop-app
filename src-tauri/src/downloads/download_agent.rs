@@ -3,13 +3,14 @@ use crate::db::{DatabaseImpls, DATA_ROOT_DIR};
 use crate::downloads::download_logic;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
-use crate::{AppState, DB};
+use crate::DB;
+use atomic_counter::RelaxedCounter;
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize};
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 use urlencoding::encode;
 
@@ -18,7 +19,7 @@ pub struct GameDownloadAgent {
     pub version: String,
     state: Mutex<GameDownloadState>,
     contexts: Mutex<Vec<DropDownloadContext>>,
-    progress: ProgressChecker<DropDownloadContext>,
+    pub progress: ProgressChecker<DropDownloadContext>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub callback: Arc<AtomicBool>,
 }
@@ -57,8 +58,9 @@ impl GameDownloadAgent {
             callback: callback.clone(),
             progress: ProgressChecker::new(
                 Box::new(download_logic::download_game_chunk),
-                Arc::new(AtomicUsize::new(0)),
+                Arc::new(RelaxedCounter::new(0)),
                 callback,
+                0,
             ),
             contexts: Mutex::new(Vec::new()),
         }
@@ -119,6 +121,13 @@ impl GameDownloadAgent {
         }
 
         let manifest_download = response.json::<DropManifest>().unwrap();
+        let length = manifest_download
+            .values()
+            .map(|chunk| {
+                return chunk.lengths.iter().sum::<usize>();
+            })
+            .sum::<usize>();
+        self.progress.set_capacity(length);
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download)
         } else {

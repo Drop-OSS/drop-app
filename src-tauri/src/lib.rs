@@ -11,7 +11,8 @@ use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::{
-    queue_game_download, start_game_downloads, stop_specific_game_download,
+    get_game_download_progress, queue_game_download, start_game_downloads,
+    stop_specific_game_download,
 };
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
@@ -96,6 +97,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(desktop)]
+    #[allow(unused_variables)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|_app, argv, _cwd| {
             // when defining deep link schemes at runtime, you must also check `argv` here
@@ -119,7 +121,8 @@ pub fn run() {
             // Downloads
             queue_game_download,
             start_game_downloads,
-            stop_specific_game_download
+            stop_specific_game_download,
+            get_game_download_progress
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

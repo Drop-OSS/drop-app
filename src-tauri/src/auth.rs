@@ -1,6 +1,5 @@
 use std::{
     env,
-    fmt::{Display, Formatter},
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -13,7 +12,6 @@ use url::{ParseError, Url};
 
 use crate::{
     db::{DatabaseAuth, DatabaseImpls},
-    remote::RemoteAccessError,
     AppState, AppStatus, User, DB,
 };
 

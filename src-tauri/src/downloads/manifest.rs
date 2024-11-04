@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fs::File;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 
 pub type DropManifest = HashMap<String, DropChunk>;
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
