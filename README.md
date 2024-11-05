@@ -13,4 +13,4 @@ To manually specify the logging level, add the environment variable `RUST_LOG=[d
 e.g. `RUST_LOG=debug yarn taudi dev`
 
 ## Contributing
-Check the original [Drop repo](https://github.com/Drop-OSS/drop) for contributing guidelines. 
+Check the original [Drop repo](https://github.com/Drop-OSS/drop/blob/main/CONTRIBUTING.md) for contributing guidelines. 
