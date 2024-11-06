@@ -95,11 +95,12 @@ pub async fn stop_specific_game_download(
     game_id: String,
 ) -> Result<(), String> {
     info!("called stop_specific_game_download");
-    let lock = state.lock().unwrap();
-    let download_agent = lock.game_downloads.get(&game_id).unwrap();
+    let callback = {
+        let lock = state.lock().unwrap();
+        let download_agent = lock.game_downloads.get(&game_id).unwrap();
+        download_agent.callback.clone()
+    };
 
-    let callback = download_agent.callback.clone();
-    drop(lock);
 
     info!("Stopping callback");
     callback.store(true, Ordering::Release);
@@ -118,3 +119,19 @@ pub async fn get_game_download_progress(
     info!("{}", progress);
     Ok(progress)
 }
+
+/*
+#[tauri::command]
+async fn resume_game_download(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String,
+) -> Result<(), String> {
+    
+    let download = {
+        let lock = state.lock().unwrap();
+        lock.game_downloads.get(&game_id).unwrap().clone()
+    };
+    
+    Ok(())
+}
+*/

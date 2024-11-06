@@ -38,7 +38,7 @@ impl DropFileWriter {
 }
 // TODO: Implement error handling
 impl Write for DropFileWriter {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         if self.callback.load(Ordering::Acquire) {
             return Err(Error::new(
                 ErrorKind::ConnectionAborted,
@@ -53,13 +53,13 @@ impl Write for DropFileWriter {
         self.file.write(buf)
     }
 
-    fn flush(&mut self) -> std::io::Result<()> {
+    fn flush(&mut self) -> io::Result<()> {
         self.hasher.flush()?;
         self.file.flush()
     }
 }
 impl Seek for DropFileWriter {
-    fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
         self.file.seek(pos)
     }
 }
@@ -101,18 +101,19 @@ pub fn download_game_chunk(
             .expect("Failed to seek to file offset");
     }
 
-    // Writing everything to disk directly is probably slightly faster because it balances out the writes,
-    // but this is better than the performance loss from constantly reading the callbacks
+    // Writing everything to disk directly is probably slightly faster in terms of disk
+    // speed because it balances out the writes, but this is better than the performance 
+    // loss from constantly reading the callbacks
 
     let mut writer = BufWriter::with_capacity(1024 * 1024, file);
 
-    //copy_to_drop_file_writer(&mut response, &mut file);
     match io::copy(&mut response, &mut writer) {
         Ok(_) => {}
         Err(e) => {
             info!("Copy errored with error {}", e)
         }
     }
+    writer.flush().unwrap();
     let file = match writer.into_inner() {
         Ok(file) => file,
         Err(_) => {
@@ -129,5 +130,4 @@ pub fn download_game_chunk(
         );
     }
 
-    // stream.flush().unwrap();
 }
