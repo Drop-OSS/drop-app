@@ -3,6 +3,7 @@ mod db;
 mod downloads;
 mod library;
 mod remote;
+mod p2p;
 #[cfg(test)]
 mod tests;
 
