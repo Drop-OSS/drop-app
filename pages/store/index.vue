@@ -25,6 +25,18 @@
   >
     Get game download progress
   </button>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="pauseGameDownloadWrapper"
+  >
+    Pause game download
+  </button>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="resumeGameDownloadWrapper"
+  >
+    Resume game download
+  </button>
 </template>
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
@@ -62,7 +74,7 @@ function startGameDownloadsWrapper() {
 }
 async function cancelGameDownload() {
   console.log("Cancelling game download");
-  await invoke("stop_specific_game_download", { gameId: gameId.value })
+  await invoke("cancel_specific_game_download", { gameId: gameId.value })
 }
 function cancelGameDownloadWrapper() {
   console.log("Triggered game cancel wrapper");
@@ -78,6 +90,30 @@ async function getGameDownloadProgress() {
 }
 function getGameDownloadProgressWrapper() {
   getGameDownloadProgress()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
+
+}
+async function pauseGameDownload() {
+  console.log("Getting game download status");
+  await invoke("pause_game_download", { gameId: gameId.value })
+}
+function pauseGameDownloadWrapper() {
+  pauseGameDownload()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
+
+}
+async function resumeGameDownload() {
+  console.log("Getting game download status");
+  await invoke("resume_game_download", { gameId: gameId.value })
+}
+function resumeGameDownloadWrapper() {
+  resumeGameDownload()
     .then(() => {})
     .catch((e) => {
       console.log(e)

@@ -11,10 +11,7 @@ use crate::db::DatabaseImpls;
 use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{DatabaseInterface, DATA_ROOT_DIR};
-use downloads::download_commands::{
-    get_game_download_progress, queue_game_download, start_game_downloads,
-    stop_specific_game_download,
-};
+use downloads::download_commands::*;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -122,8 +119,10 @@ pub fn run() {
             // Downloads
             queue_game_download,
             start_game_downloads,
-            stop_specific_game_download,
-            get_game_download_progress
+            cancel_specific_game_download,
+            get_game_download_progress,
+            resume_game_download,
+            pause_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

@@ -90,20 +90,16 @@ pub fn start_game_download(
 }
 
 #[tauri::command]
-pub async fn stop_specific_game_download(
+pub async fn cancel_specific_game_download(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<(), String> {
     info!("called stop_specific_game_download");
-    let callback = {
-        let lock = state.lock().unwrap();
-        let download_agent = lock.game_downloads.get(&game_id).unwrap();
-        download_agent.callback.clone()
-    };
+    let status = get_game_download(state, game_id).change_state(GameDownloadState::Cancelled);
 
+    //TODO: Drop the game download instance
 
     info!("Stopping callback");
-    callback.store(true, Ordering::Release);
 
     Ok(())
 }
@@ -113,25 +109,36 @@ pub async fn get_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<f64, String> {
-    let lock = state.lock().unwrap();
-    let download_agent = lock.game_downloads.get(&game_id).unwrap();
-    let progress = download_agent.progress.get_progress_percentage();
+    let progress = get_game_download(state, game_id).progress.get_progress_percentage();
     info!("{}", progress);
     Ok(progress)
 }
 
-/*
 #[tauri::command]
-async fn resume_game_download(
+pub async fn pause_game_download(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<(), String> {
-    
-    let download = {
-        let lock = state.lock().unwrap();
-        lock.game_downloads.get(&game_id).unwrap().clone()
-    };
+    get_game_download(state, game_id).change_state(GameDownloadState::Paused);
     
     Ok(())
 }
-*/
+
+#[tauri::command]
+pub async fn resume_game_download(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String,
+) -> Result<(), String> {
+    get_game_download(state, game_id).change_state(GameDownloadState::Downloading);
+    
+    Ok(())
+}
+
+fn get_game_download(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String,
+) -> Arc<GameDownloadAgent> {
+    let lock = state.lock().unwrap();
+    let download_agent = lock.game_downloads.get(&game_id).unwrap();
+    download_agent.clone()
+}

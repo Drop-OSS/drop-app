@@ -23,5 +23,4 @@ impl Peer {
     pub fn disconnect(&mut self) {
         todo!()
     }
-    
 }

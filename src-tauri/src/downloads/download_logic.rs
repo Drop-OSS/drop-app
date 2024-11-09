@@ -5,45 +5,94 @@ use crate::DB;
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{error, info};
 use md5::{Context, Digest};
+
+#[cfg(windows)]
+use tokio::signal::windows::Signal;
+use tokio::sync::{broadcast::Receiver, mpsc};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write},
     path::PathBuf,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
-    },
+        Arc, RwLock,
+    }, thread::sleep, time::Duration,
 };
 use urlencoding::encode;
+
+use super::download_agent::GameDownloadState;
 
 pub struct DropFileWriter {
     file: File,
     hasher: Context,
-    callback: Arc<AtomicBool>,
     progress: Arc<RelaxedCounter>,
+    status: Arc<RwLock<GameDownloadState>>,
 }
 impl DropFileWriter {
-    fn new(path: PathBuf, callback: Arc<AtomicBool>, progress: Arc<RelaxedCounter>) -> Self {
+    fn new(path: PathBuf, status: Arc<RwLock<GameDownloadState>>, progress: Arc<RelaxedCounter>) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
-            callback,
             progress,
+            status
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
         self.flush().unwrap();
         Ok(self.hasher.compute())
     }
+    
+    fn manage_state(&mut self) -> Option<Result<usize, Error>> {
+        match {self.status.read().unwrap().clone()} {
+            GameDownloadState::Uninitialised => todo!(),
+            GameDownloadState::Queued => {
+                return Some(Err(Error::new(
+                    ErrorKind::NotConnected,
+                    "Download has not yet been started"
+                )))
+            },
+            GameDownloadState::Manifest => {
+                return Some(Err(Error::new(
+                    ErrorKind::NotFound, 
+                    "Manifest still not finished downloading"
+                )))
+            },
+            GameDownloadState::Downloading => {},
+            GameDownloadState::Finished => {
+                return Some(Err(Error::new(
+                    ErrorKind::AlreadyExists, "Download already finished")))
+            },
+            GameDownloadState::Stalled => {
+                return Some(Err(Error::new(
+                    ErrorKind::Interrupted, "Download Stalled"
+                )))
+            },
+            GameDownloadState::Failed => {
+                return Some(Err(Error::new(
+                    ErrorKind::BrokenPipe,
+                    "Download Failed"
+                )))
+            },
+            GameDownloadState::Cancelled => {
+                return Some(Err(Error::new(
+                    ErrorKind::ConnectionAborted,
+                    "Interrupt command recieved",
+                )));
+            },
+            GameDownloadState::Paused => {
+                info!("Game download paused");
+                sleep(Duration::from_secs(1));
+            },
+        };
+        None
+    }
 }
 // TODO: Implement error handling
 impl Write for DropFileWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        if self.callback.load(Ordering::Acquire) {
-            return Err(Error::new(
-                ErrorKind::ConnectionAborted,
-                "Interrupt command recieved",
-            ));
+        // TODO: Tidy up these error messages / types because these ones don't really seem to fit
+        if let Some(value) = self.manage_state() {
+            return value;
         }
         let len = buf.len();
         self.progress.add(len);
@@ -65,10 +114,10 @@ impl Seek for DropFileWriter {
 }
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
-    callback: Arc<AtomicBool>,
+    status: Arc<RwLock<GameDownloadState>>,
     progress: Arc<RelaxedCounter>,
 ) {
-    if callback.load(Ordering::Acquire) {
+    if *status.read().unwrap() == GameDownloadState::Cancelled {
         info!("Callback stopped download at start");
         return;
     }
@@ -88,13 +137,16 @@ pub fn download_game_chunk(
 
     let header = generate_authorization_header();
 
-    let mut response = client
+    let mut response = match client
         .get(chunk_url)
         .header("Authorization", header)
-        .send()
-        .unwrap();
+        .send() {
+            Ok(response) => response,
+            Err(e) => { info!("{}", e); return; },
+        };
+        
 
-    let mut file: DropFileWriter = DropFileWriter::new(ctx.path, callback, progress);
+    let mut file: DropFileWriter = DropFileWriter::new(ctx.path, status, progress);
 
     if ctx.offset != 0 {
         file.seek(SeekFrom::Start(ctx.offset))

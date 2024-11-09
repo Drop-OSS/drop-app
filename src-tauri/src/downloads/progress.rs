@@ -2,15 +2,17 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use rayon::ThreadPoolBuilder;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
+
+use super::download_agent::GameDownloadState;
 
 pub struct ProgressChecker<T>
 where
     T: 'static + Send + Sync,
 {
     counter: Arc<RelaxedCounter>,
-    f: Arc<Box<dyn Fn(T, Arc<AtomicBool>, Arc<RelaxedCounter>) + Send + Sync + 'static>>,
-    callback: Arc<AtomicBool>,
+    f: Arc<Box<dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static>>,
+    status: Arc<RwLock<GameDownloadState>>,
     capacity: Mutex<usize>,
 }
 
@@ -19,38 +21,16 @@ where
     T: Send + Sync,
 {
     pub fn new(
-        f: Box<dyn Fn(T, Arc<AtomicBool>, Arc<RelaxedCounter>) + Send + Sync + 'static>,
+        f: Box<dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static>,
         counter: Arc<RelaxedCounter>,
-        callback: Arc<AtomicBool>,
+        status: Arc<RwLock<GameDownloadState>>,
         capacity: usize,
     ) -> Self {
         Self {
             f: f.into(),
             counter,
-            callback,
+            status,
             capacity: capacity.into(),
-        }
-    }
-    #[allow(dead_code)]
-    pub fn run_contexts_sequentially(&self, contexts: Vec<T>) {
-        for context in contexts {
-            (self.f)(context, self.callback.clone(), self.counter.clone());
-        }
-    }
-    #[allow(dead_code)]
-    pub fn run_contexts_parallel_background(&self, contexts: Vec<T>, max_threads: usize) {
-        let threads = ThreadPoolBuilder::new()
-            // If max_threads == 0, then the limit will be determined
-            // by Rayon's internal RAYON_NUM_THREADS
-            .num_threads(max_threads)
-            .build()
-            .unwrap();
-
-        for context in contexts {
-            let callback = self.callback.clone();
-            let counter = self.counter.clone();
-            let f = self.f.clone();
-            threads.spawn(move || f(context, callback, counter));
         }
     }
     pub fn run_context_parallel(&self, contexts: Vec<T>, max_threads: usize) {
@@ -61,12 +41,12 @@ where
 
         threads.scope(|s| {
             for context in contexts {
-                let callback = self.callback.clone();
+                let status = self.status.clone();
                 let counter = self.counter.clone();
                 let f = self.f.clone();
                 s.spawn(move |_| {
                     info!("Running thread");
-                    f(context, callback, counter)
+                    f(context, status, counter)
                 });
             }
         });

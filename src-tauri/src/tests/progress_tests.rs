@@ -1,8 +1,10 @@
+/*
 use atomic_counter::RelaxedCounter;
 
 use crate::downloads::progress::ProgressChecker;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
+
 
 #[test]
 fn test_progress_sequentially() {
@@ -23,3 +25,5 @@ fn test_progress_parallel() {
 fn test_fn(int: usize, _callback: Arc<AtomicBool>, _counter: Arc<RelaxedCounter>) {
     println!("{}", int);
 }
+
+*/

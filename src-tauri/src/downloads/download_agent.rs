@@ -5,28 +5,28 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
 use crate::DB;
 use atomic_counter::RelaxedCounter;
+use http::status;
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use urlencoding::encode;
 
 pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
-    state: Mutex<GameDownloadState>,
+    pub status: Arc<RwLock<GameDownloadState>>,
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub progress: ProgressChecker<DropDownloadContext>,
     pub manifest: Mutex<Option<DropManifest>>,
-    pub callback: Arc<AtomicBool>,
 }
 #[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
 pub enum GameDownloadState {
     Uninitialised,
     Queued,
+    Paused,
     Manifest,
     Downloading,
     Finished,
@@ -49,17 +49,16 @@ pub enum SystemError {
 
 impl GameDownloadAgent {
     pub fn new(id: String, version: String) -> Self {
-        let callback = Arc::new(AtomicBool::new(false));
+        let status = Arc::new(RwLock::new(GameDownloadState::Uninitialised));
         Self {
             id,
             version,
-            state: Mutex::from(GameDownloadState::Uninitialised),
+            status: status.clone(),
             manifest: Mutex::new(None),
-            callback: callback.clone(),
             progress: ProgressChecker::new(
                 Box::new(download_logic::download_game_chunk),
                 Arc::new(RelaxedCounter::new(0)),
-                callback,
+                status,
                 0,
             ),
             contexts: Mutex::new(Vec::new()),
@@ -138,11 +137,11 @@ impl GameDownloadAgent {
     }
 
     pub fn change_state(&self, state: GameDownloadState) {
-        let mut lock = self.state.lock().unwrap();
+        let mut lock = self.status.write().unwrap();
         *lock = state;
     }
     pub fn get_state(&self) -> GameDownloadState {
-        let lock = self.state.lock().unwrap();
+        let lock = self.status.read().unwrap();
         lock.clone()
     }
 
