@@ -1,5 +1,5 @@
 use std::{
-    sync::{atomic::Ordering, Arc, Mutex},
+    sync::{Arc, Mutex},
     thread,
 };
 
@@ -95,7 +95,7 @@ pub async fn cancel_specific_game_download(
     game_id: String,
 ) -> Result<(), String> {
     info!("called stop_specific_game_download");
-    let status = get_game_download(state, game_id).change_state(GameDownloadState::Cancelled);
+    get_game_download(state, game_id).change_state(GameDownloadState::Cancelled);
 
     //TODO: Drop the game download instance
 
@@ -109,7 +109,9 @@ pub async fn get_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<f64, String> {
-    let progress = get_game_download(state, game_id).progress.get_progress_percentage();
+    let progress = get_game_download(state, game_id)
+        .progress
+        .get_progress_percentage();
     info!("{}", progress);
     Ok(progress)
 }
@@ -120,7 +122,7 @@ pub async fn pause_game_download(
     game_id: String,
 ) -> Result<(), String> {
     get_game_download(state, game_id).change_state(GameDownloadState::Paused);
-    
+
     Ok(())
 }
 
@@ -130,7 +132,7 @@ pub async fn resume_game_download(
     game_id: String,
 ) -> Result<(), String> {
     get_game_download(state, game_id).change_state(GameDownloadState::Downloading);
-    
+
     Ok(())
 }
 

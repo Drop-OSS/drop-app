@@ -94,7 +94,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
         return Err(RemoteAccessError::GenericErrror(
-            "Invalid number of handshake chunks".to_string().into(),
+            "Invalid number of handshake chunks".to_string(),
         ));
     }
 
@@ -134,7 +134,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
         app_state_handle.user = Some(fetch_user()?);
     }
 
-    return Ok(());
+    Ok(())
 }
 
 pub fn recieve_handshake(app: AppHandle, path: String) {
@@ -177,7 +177,7 @@ async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     info!("opening web browser to continue authentication");
     webbrowser::open(complete_redir_url.as_ref()).unwrap();
 
-    return Ok(());
+    Ok(())
 }
 
 #[tauri::command]

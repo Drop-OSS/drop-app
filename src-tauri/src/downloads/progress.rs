@@ -1,7 +1,6 @@
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::info;
 use rayon::ThreadPoolBuilder;
-use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex, RwLock};
 
 use super::download_agent::GameDownloadState;
@@ -11,7 +10,9 @@ where
     T: 'static + Send + Sync,
 {
     counter: Arc<RelaxedCounter>,
-    f: Arc<Box<dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static>>,
+    f: Arc<
+        Box<dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static>,
+    >,
     status: Arc<RwLock<GameDownloadState>>,
     capacity: Mutex<usize>,
 }
@@ -21,7 +22,9 @@ where
     T: Send + Sync,
 {
     pub fn new(
-        f: Box<dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static>,
+        f: Box<
+            dyn Fn(T, Arc<RwLock<GameDownloadState>>, Arc<RelaxedCounter>) + Send + Sync + 'static,
+        >,
         counter: Arc<RelaxedCounter>,
         status: Arc<RwLock<GameDownloadState>>,
         capacity: usize,

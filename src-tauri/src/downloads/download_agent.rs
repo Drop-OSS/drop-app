@@ -5,7 +5,6 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress::ProgressChecker;
 use crate::DB;
 use atomic_counter::RelaxedCounter;
-use http::status;
 use log::info;
 use rustix::fs::{fallocate, FallocateFlags};
 use serde::{Deserialize, Serialize};

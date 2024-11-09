@@ -2,8 +2,8 @@ mod auth;
 mod db;
 mod downloads;
 mod library;
-mod remote;
 mod p2p;
+mod remote;
 #[cfg(test)]
 mod tests;
 
@@ -79,7 +79,7 @@ fn setup() -> AppState {
     let (app_status, user) = auth::setup().unwrap();
     AppState {
         status: app_status,
-        user: user,
+        user,
         games: HashMap::new(),
         game_downloads: HashMap::new(),
     }

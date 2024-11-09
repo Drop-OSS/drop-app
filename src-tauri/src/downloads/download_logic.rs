@@ -6,17 +6,13 @@ use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{error, info};
 use md5::{Context, Digest};
 
-#[cfg(windows)]
-use tokio::signal::windows::Signal;
-use tokio::sync::{broadcast::Receiver, mpsc};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write},
     path::PathBuf,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc, RwLock,
-    }, thread::sleep, time::Duration,
+    sync::{Arc, RwLock},
+    thread::sleep,
+    time::Duration,
 };
 use urlencoding::encode;
 
@@ -29,60 +25,61 @@ pub struct DropFileWriter {
     status: Arc<RwLock<GameDownloadState>>,
 }
 impl DropFileWriter {
-    fn new(path: PathBuf, status: Arc<RwLock<GameDownloadState>>, progress: Arc<RelaxedCounter>) -> Self {
+    fn new(
+        path: PathBuf,
+        status: Arc<RwLock<GameDownloadState>>,
+        progress: Arc<RelaxedCounter>,
+    ) -> Self {
         Self {
             file: OpenOptions::new().write(true).open(path).unwrap(),
             hasher: Context::new(),
             progress,
-            status
+            status,
         }
     }
     fn finish(mut self) -> io::Result<Digest> {
         self.flush().unwrap();
         Ok(self.hasher.compute())
     }
-    
+
     fn manage_state(&mut self) -> Option<Result<usize, Error>> {
-        match {self.status.read().unwrap().clone()} {
+        match self.status.read().unwrap().clone() {
             GameDownloadState::Uninitialised => todo!(),
             GameDownloadState::Queued => {
                 return Some(Err(Error::new(
                     ErrorKind::NotConnected,
-                    "Download has not yet been started"
+                    "Download has not yet been started",
                 )))
-            },
+            }
             GameDownloadState::Manifest => {
                 return Some(Err(Error::new(
-                    ErrorKind::NotFound, 
-                    "Manifest still not finished downloading"
+                    ErrorKind::NotFound,
+                    "Manifest still not finished downloading",
                 )))
-            },
-            GameDownloadState::Downloading => {},
+            }
+            GameDownloadState::Downloading => {}
             GameDownloadState::Finished => {
                 return Some(Err(Error::new(
-                    ErrorKind::AlreadyExists, "Download already finished")))
-            },
+                    ErrorKind::AlreadyExists,
+                    "Download already finished",
+                )))
+            }
             GameDownloadState::Stalled => {
-                return Some(Err(Error::new(
-                    ErrorKind::Interrupted, "Download Stalled"
-                )))
-            },
+                return Some(Err(Error::new(ErrorKind::Interrupted, "Download Stalled")))
+            }
             GameDownloadState::Failed => {
-                return Some(Err(Error::new(
-                    ErrorKind::BrokenPipe,
-                    "Download Failed"
-                )))
-            },
+                return Some(Err(Error::new(ErrorKind::BrokenPipe, "Download Failed")))
+            }
             GameDownloadState::Cancelled => {
                 return Some(Err(Error::new(
                     ErrorKind::ConnectionAborted,
                     "Interrupt command recieved",
                 )));
-            },
+            }
             GameDownloadState::Paused => {
                 info!("Game download paused");
                 sleep(Duration::from_secs(1));
-            },
+            }
         };
         None
     }
@@ -137,14 +134,13 @@ pub fn download_game_chunk(
 
     let header = generate_authorization_header();
 
-    let mut response = match client
-        .get(chunk_url)
-        .header("Authorization", header)
-        .send() {
-            Ok(response) => response,
-            Err(e) => { info!("{}", e); return; },
-        };
-        
+    let mut response = match client.get(chunk_url).header("Authorization", header).send() {
+        Ok(response) => response,
+        Err(e) => {
+            info!("{}", e);
+            return;
+        }
+    };
 
     let mut file: DropFileWriter = DropFileWriter::new(ctx.path, status, progress);
 
@@ -154,7 +150,7 @@ pub fn download_game_chunk(
     }
 
     // Writing everything to disk directly is probably slightly faster in terms of disk
-    // speed because it balances out the writes, but this is better than the performance 
+    // speed because it balances out the writes, but this is better than the performance
     // loss from constantly reading the callbacks
 
     let mut writer = BufWriter::with_capacity(1024 * 1024, file);
@@ -181,5 +177,4 @@ pub fn download_game_chunk(
             ctx.checksum, res, ctx.file_name
         );
     }
-
 }

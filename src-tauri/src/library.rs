@@ -76,7 +76,7 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
         return Err(result.err().unwrap().to_string());
     }
 
-    return Ok(result.unwrap());
+    Ok(result.unwrap())
 }
 
 fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {

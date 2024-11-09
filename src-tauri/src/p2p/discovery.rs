@@ -3,7 +3,7 @@ use url::Url;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct P2PManager {
-    peers: Vec<Peer>
+    peers: Vec<Peer>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -15,9 +15,9 @@ pub struct Peer {
 
 impl Peer {
     pub fn get_current_endpoint(&self) -> Url {
-        return self.endpoints[self.current_endpoint].clone();
+        self.endpoints[self.current_endpoint].clone()
     }
-    pub fn connect(&mut self, ) {
+    pub fn connect(&mut self) {
         todo!()
     }
     pub fn disconnect(&mut self) {
