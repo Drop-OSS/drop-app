@@ -37,6 +37,13 @@
   >
     Resume game download
   </button>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="setGameDownloadWrapper"
+  >
+    Set game download
+  </button>
+  
 </template>
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
@@ -118,6 +125,16 @@ function resumeGameDownloadWrapper() {
     .catch((e) => {
       console.log(e)
     })
-
+}
+async function setGameDownload() {
+  console.log("Setting game download status");
+  await invoke("set_download_state", { gameId: gameId.value, status: "Paused" })
+}
+function setGameDownloadWrapper() {
+  setGameDownload()
+    .then(() => {})
+    .catch((e) => {
+      console.log(e)
+    })
 }
 </script>

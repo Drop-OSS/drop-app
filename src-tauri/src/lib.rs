@@ -125,7 +125,8 @@ pub fn run() {
             cancel_specific_game_download,
             get_game_download_progress,
             resume_game_download,
-            pause_game_download
+            pause_game_download,
+            set_download_state
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

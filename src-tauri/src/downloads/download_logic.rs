@@ -12,7 +12,6 @@ use std::{
     path::PathBuf,
     sync::{Arc, RwLock},
     thread::sleep,
-    time::Duration,
 };
 use urlencoding::encode;
 

@@ -135,6 +135,16 @@ pub async fn resume_game_download(
 
     Ok(())
 }
+#[tauri::command]
+pub async fn set_download_state(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String,
+    status: GameDownloadState
+) -> Result<(), String> {
+    get_game_download(state, game_id).change_state(status);
+
+    Ok(())
+}
 
 fn get_game_download(
     state: tauri::State<'_, Mutex<AppState>>,
