@@ -7,41 +7,34 @@
   </button>
   <input placeholder="GAME ID" v-model="gameId" />
   <input placeholder="VERSION NAME" v-model="versionName" />
+  <input placeholder="STATUS" v-model="status" />
+
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
     @click="startGameDownloadsWrapper"
   >
     Start Game Downloads
   </button>
+
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
     @click="cancelGameDownloadWrapper"
   >
     Cancel game download
   </button>
+
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
     @click="getGameDownloadProgressWrapper"
   >
     Get game download progress
   </button>
+
   <button
     class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="pauseGameDownloadWrapper"
+    @click="setGameDownloadStatusWrapper"
   >
-    Pause game download
-  </button>
-  <button
-    class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="resumeGameDownloadWrapper"
-  >
-    Resume game download
-  </button>
-  <button
-    class="w-full rounded-md p-4 bg-blue-600 text-white"
-    @click="setGameDownloadWrapper"
-  >
-    Set game download
+    Set game download progress
   </button>
   
 </template>
@@ -50,6 +43,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 const gameId = ref("");
 const versionName = ref("");
+const status = ref("");
 
 async function queueGame() {
   await invoke("queue_game_download", {
@@ -79,13 +73,9 @@ function startGameDownloadsWrapper() {
       console.log(e)
     })
 }
-async function cancelGameDownload() {
-  console.log("Cancelling game download");
-  await invoke("cancel_specific_game_download", { gameId: gameId.value })
-}
 function cancelGameDownloadWrapper() {
   console.log("Triggered game cancel wrapper");
-  cancelGameDownload()
+  setGameDownloadStatus("Cancelled")
     .then(() => {})
     .catch((e) => {
       console.log(e)
@@ -101,37 +91,26 @@ function getGameDownloadProgressWrapper() {
     .catch((e) => {
       console.log(e)
     })
+}
+/* status can be any of the following values:
+    Uninitialised,
+    Queued,
+    Paused,
+    Manifest,
+    Downloading,
+    Finished,
+    Stalled,
+    Failed,
+    Cancelled,
+*/
 
-}
-async function pauseGameDownload() {
-  console.log("Getting game download status");
-  await invoke("pause_game_download", { gameId: gameId.value })
-}
-function pauseGameDownloadWrapper() {
-  pauseGameDownload()
-    .then(() => {})
-    .catch((e) => {
-      console.log(e)
-    })
-
-}
-async function resumeGameDownload() {
-  console.log("Getting game download status");
-  await invoke("resume_game_download", { gameId: gameId.value })
-}
-function resumeGameDownloadWrapper() {
-  resumeGameDownload()
-    .then(() => {})
-    .catch((e) => {
-      console.log(e)
-    })
-}
-async function setGameDownload() {
+async function setGameDownloadStatus(status: string) {
   console.log("Setting game download status");
-  await invoke("set_download_state", { gameId: gameId.value, status: "Paused" })
+  await invoke("set_download_state", { gameId: gameId.value, status: status })
 }
-function setGameDownloadWrapper() {
-  setGameDownload()
+function setGameDownloadStatusWrapper() {
+  console.log("Called setGameDownloadWrapper");
+  setGameDownloadStatus(status.value)
     .then(() => {})
     .catch((e) => {
       console.log(e)

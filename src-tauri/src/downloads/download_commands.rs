@@ -117,32 +117,13 @@ pub async fn get_game_download_progress(
 }
 
 #[tauri::command]
-pub async fn pause_game_download(
-    state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String,
-) -> Result<(), String> {
-    get_game_download(state, game_id).change_state(GameDownloadState::Paused);
-
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn resume_game_download(
-    state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String,
-) -> Result<(), String> {
-    get_game_download(state, game_id).change_state(GameDownloadState::Downloading);
-
-    Ok(())
-}
-#[tauri::command]
 pub async fn set_download_state(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
     status: GameDownloadState
 ) -> Result<(), String> {
+    info!("Setting game state");
     get_game_download(state, game_id).change_state(status);
-
     Ok(())
 }
 
