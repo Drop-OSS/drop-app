@@ -1,4 +1,4 @@
-use crate::auth::generate_authorization_header;
+use crate::{auth::generate_authorization_header, GAME_PAUSE_CHECK_INTERVAL};
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
@@ -78,7 +78,7 @@ impl DropFileWriter {
             }
             GameDownloadState::Paused => {
                 info!("Game download paused");
-                sleep(Duration::from_secs(1));
+                sleep(GAME_PAUSE_CHECK_INTERVAL);
             }
         };
         None

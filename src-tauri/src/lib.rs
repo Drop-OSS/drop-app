@@ -19,11 +19,14 @@ use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
 use tauri_plugin_deep_link::DeepLinkExt;
+
+pub const GAME_PAUSE_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
