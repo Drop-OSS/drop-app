@@ -2,13 +2,15 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::PathBuf,
-    sync::LazyLock,
+    sync::{LazyLock, Mutex, RwLock},
 };
 
 use directories::BaseDirs;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
 use url::Url;
+
+use crate::DB;
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -42,8 +44,8 @@ pub struct Database {
     pub base_url: String,
     pub games: DatabaseGames,
 }
-pub static DATA_ROOT_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| BaseDirs::new().unwrap().data_dir().join("drop"));
+pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
+    LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
 
 pub type DatabaseInterface =
     rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
@@ -55,10 +57,11 @@ pub trait DatabaseImpls {
 }
 impl DatabaseImpls for DatabaseInterface {
     fn set_up_database() -> DatabaseInterface {
-        let db_path = DATA_ROOT_DIR.join("drop.db");
-        let games_base_dir = DATA_ROOT_DIR.join("games");
+        let data_root_dir = DATA_ROOT_DIR.lock().unwrap();
+        let db_path = data_root_dir.join("drop.db");
+        let games_base_dir = data_root_dir.join("games");
 
-        create_dir_all(DATA_ROOT_DIR.clone()).unwrap();
+        create_dir_all(data_root_dir.clone()).unwrap();
         create_dir_all(games_base_dir.clone()).unwrap();
 
         let default = Database {
@@ -86,4 +89,9 @@ impl DatabaseImpls for DatabaseInterface {
         let handle = self.borrow_data().unwrap();
         Url::parse(&handle.base_url).unwrap()
     }
+}
+
+fn change_root_directory<T: Into<PathBuf>>(new_dir: T) {
+    let mut lock = DATA_ROOT_DIR.lock().unwrap();
+    *lock = new_dir.into();
 }
