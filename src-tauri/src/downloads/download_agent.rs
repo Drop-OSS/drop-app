@@ -2,6 +2,7 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
+use crate::settings::DOWNLOAD_MAX_THREADS;
 use crate::DB;
 use log::info;
 use rayon::ThreadPoolBuilder;
@@ -24,7 +25,6 @@ pub struct GameDownloadAgent {
     pub control_flag: Arc<RwLock<DownloadThreadControlFlag>>,
     pub target_download_dir: usize,
     contexts: Mutex<Vec<DropDownloadContext>>,
-    // pub progress: ProgressChecker<DropDownloadContext>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: ProgressObject,
 }
@@ -52,8 +52,6 @@ impl Display for GameDownloadError {
         }
     }
 }
-
-pub const DOWNLOAD_MAX_THREADS: usize = 4;
 
 pub struct ProgressObject {
     pub max: u64,

@@ -4,6 +4,7 @@ mod downloads;
 mod library;
 mod p2p;
 mod remote;
+mod settings;
 #[cfg(test)]
 mod tests;
 
@@ -25,8 +26,6 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 use tauri_plugin_deep_link::DeepLinkExt;
-
-pub const GAME_PAUSE_CHECK_INTERVAL: Duration = Duration::from_secs(1);
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
