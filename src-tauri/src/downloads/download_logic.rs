@@ -1,7 +1,7 @@
-use crate::{auth::generate_authorization_header, GAME_PAUSE_CHECK_INTERVAL};
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::DB;
+use crate::{auth::generate_authorization_header, GAME_PAUSE_CHECK_INTERVAL};
 use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{error, info};
 use md5::{Context, Digest};

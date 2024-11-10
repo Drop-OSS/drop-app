@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::PathBuf,
-    sync::{LazyLock, Mutex, RwLock},
+    sync::{LazyLock, Mutex},
 };
 
 use directories::BaseDirs;
@@ -10,8 +10,6 @@ use log::info;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
 use url::Url;
-
-use crate::{AppState, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]

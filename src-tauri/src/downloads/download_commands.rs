@@ -120,7 +120,7 @@ pub async fn get_game_download_progress(
 pub async fn set_download_state(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
-    status: GameDownloadState
+    status: GameDownloadState,
 ) -> Result<(), String> {
     info!("Setting game state");
     get_game_download(state, game_id).change_state(status);

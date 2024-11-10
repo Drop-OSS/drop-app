@@ -151,7 +151,12 @@ impl GameDownloadAgent {
         game_id: String,
     ) -> Result<(), GameDownloadError> {
         let mut contexts = Vec::new();
-        let base_path = DATA_ROOT_DIR.lock().unwrap().join("games").join(game_id.clone()).clone();
+        let base_path = DATA_ROOT_DIR
+            .lock()
+            .unwrap()
+            .join("games")
+            .join(game_id.clone())
+            .clone();
         create_dir_all(base_path.clone()).unwrap();
         info!("Generating contexts");
         for (raw_path, chunk) in manifest {
