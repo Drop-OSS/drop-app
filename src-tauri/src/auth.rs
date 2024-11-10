@@ -113,7 +113,6 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = reqwest::blocking::Client::new();
     let response = client.post(endpoint).json(&body).send()?;
-    info!("server responded with {}", response.status());
     let response_struct = response.json::<HandshakeResponse>()?;
 
     {

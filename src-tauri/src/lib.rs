@@ -10,7 +10,7 @@ mod tests;
 use crate::db::DatabaseImpls;
 use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{change_root_directory, DatabaseInterface, DATA_ROOT_DIR};
+use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
@@ -119,13 +119,10 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
-            change_root_directory,
+            add_new_download_dir,
             // Downloads
-            queue_game_download,
-            start_game_downloads,
-            cancel_specific_game_download,
+            download_game,
             get_game_download_progress,
-            set_download_state
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

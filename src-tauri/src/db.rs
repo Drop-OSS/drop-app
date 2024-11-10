@@ -1,7 +1,9 @@
 use std::{
+    borrow::BorrowMut,
     collections::HashMap,
+    fmt::format,
     fs::{self, create_dir_all},
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::{LazyLock, Mutex},
 };
 
@@ -9,7 +11,10 @@ use directories::BaseDirs;
 use log::info;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
+use tokio::fs::metadata;
 use url::Url;
+
+use crate::DB;
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,7 +37,7 @@ pub enum DatabaseGameStatus {
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseGames {
-    pub games_base_dir: String,
+    pub install_dirs: Vec<String>,
     pub games_statuses: HashMap<String, DatabaseGameStatus>,
 }
 
@@ -67,7 +72,7 @@ impl DatabaseImpls for DatabaseInterface {
             auth: None,
             base_url: "".to_string(),
             games: DatabaseGames {
-                games_base_dir: games_base_dir.to_str().unwrap().to_string(),
+                install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
                 games_statuses: HashMap::new(),
             },
         };
@@ -91,8 +96,31 @@ impl DatabaseImpls for DatabaseInterface {
 }
 
 #[tauri::command]
-pub fn change_root_directory(new_dir: String) {
-    info!("Changed root directory to {}", new_dir);
-    let mut lock = DATA_ROOT_DIR.lock().unwrap();
-    *lock = new_dir.into();
+pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
+    // Check the new directory is all good
+    let new_dir_path = Path::new(&new_dir);
+    if new_dir_path.exists() {
+        let metadata = new_dir_path
+            .metadata()
+            .map_err(|e| format!("Unable to access file or directory: {}", e.to_string()))?;
+        if metadata.is_dir() {
+            return Err("Invalid path: not a directory".to_string());
+        }
+        let dir_contents = new_dir_path
+            .read_dir()
+            .map_err(|e| format!("Unable to check directory contents: {}", e.to_string()))?;
+        if dir_contents.count() == 0 {
+            return Err("Path is not empty".to_string());
+        }
+    } else {
+        create_dir_all(new_dir_path)
+            .map_err(|e| format!("Unable to create directories to path: {}", e.to_string()))?;
+    }
+
+    // Add it to the dictionary
+    let mut lock = DB.borrow_data_mut().unwrap();
+    lock.games.install_dirs.push(new_dir);
+    drop(lock);
+
+    Ok(())
 }

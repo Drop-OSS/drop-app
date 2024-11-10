@@ -47,7 +47,7 @@ import {
   RectangleGroupIcon,
 } from "@heroicons/vue/16/solid";
 import type { Component } from "vue";
-import type { NavigationItem } from "~/components/types";
+import type { NavigationItem } from "~/types";
 
 const navigation: Array<NavigationItem & { icon: Component }> = [
   {
