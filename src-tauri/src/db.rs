@@ -6,11 +6,12 @@ use std::{
 };
 
 use directories::BaseDirs;
+use log::info;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::DB;
+use crate::{AppState, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -91,7 +92,9 @@ impl DatabaseImpls for DatabaseInterface {
     }
 }
 
-fn change_root_directory<T: Into<PathBuf>>(new_dir: T) {
+#[tauri::command]
+pub fn change_root_directory(new_dir: String) {
+    info!("Changed root directory to {}", new_dir);
     let mut lock = DATA_ROOT_DIR.lock().unwrap();
     *lock = new_dir.into();
 }

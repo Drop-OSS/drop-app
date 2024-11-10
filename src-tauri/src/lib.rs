@@ -10,7 +10,7 @@ mod tests;
 use crate::db::DatabaseImpls;
 use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{DatabaseInterface, DATA_ROOT_DIR};
+use db::{change_root_directory, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
@@ -119,6 +119,7 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
+            change_root_directory,
             // Downloads
             queue_game_download,
             start_game_downloads,
