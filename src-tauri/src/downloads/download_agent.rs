@@ -53,7 +53,7 @@ impl Display for GameDownloadError {
     }
 }
 
-static DOWNLOAD_MAX_THREADS: usize = 4;
+pub const DOWNLOAD_MAX_THREADS: usize = 4;
 
 pub struct ProgressObject {
     pub max: u64,
