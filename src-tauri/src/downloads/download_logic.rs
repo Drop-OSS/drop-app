@@ -3,12 +3,11 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::{error, info};
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
 use std::io::Read;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
@@ -17,7 +16,8 @@ use std::{
 };
 use urlencoding::encode;
 
-use super::download_agent::{DownloadThreadControlFlag, GameDownloadError};
+use super::download_agent::GameDownloadError;
+use super::download_thread_control_flag::DownloadThreadControl;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -63,7 +63,7 @@ impl Seek for DropWriter<File> {
 pub struct DropDownloadPipeline<R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
-    pub control_flag: Arc<DownloadThreadControlFlag>,
+    pub control_flag: DownloadThreadControl,
     pub progress: Arc<AtomicU64>,
     pub size: usize,
 }
@@ -71,7 +71,7 @@ impl DropDownloadPipeline<Response, File> {
     fn new(
         source: Response,
         destination: DropWriter<File>,
-        control_flag: Arc<DownloadThreadControlFlag>,
+        control_flag: DownloadThreadControl,
         progress: Arc<AtomicU64>,
         size: usize,
     ) -> Self {
@@ -91,14 +91,14 @@ impl DropDownloadPipeline<Response, File> {
 
         let mut current_size = 0;
         loop {
-            if self.control_flag.load(Ordering::Relaxed) == false {
+            if self.control_flag.get() == false {
                 return Ok(false);
             }
 
             let bytes_read = self.source.read(&mut copy_buf)?;
             current_size += bytes_read;
 
-            buf_writer.write(&copy_buf[0..bytes_read])?;
+            buf_writer.write_all(&copy_buf[0..bytes_read])?;
             self.progress.fetch_add(
                 bytes_read.try_into().unwrap(),
                 std::sync::atomic::Ordering::Relaxed,
@@ -120,11 +120,11 @@ impl DropDownloadPipeline<Response, File> {
 
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
-    control_flag: Arc<DownloadThreadControlFlag>,
+    control_flag: DownloadThreadControl,
     progress: Arc<AtomicU64>,
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
-    if control_flag.load(Ordering::Relaxed) {
+    if control_flag.get() {
         return Ok(false);
     }
 

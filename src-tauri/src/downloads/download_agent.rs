@@ -10,29 +10,25 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::atomic::{AtomicU64};
+use std::sync::{Arc, Mutex};
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};
 
 use super::download_logic::download_game_chunk;
+use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 
 pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
-    pub control_flag: Arc<DownloadThreadControlFlag>,
+    pub control_flag: DownloadThreadControl,
     pub target_download_dir: usize,
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: ProgressObject,
 }
-
-/// Faster alternative to a RwLock Enum.
-/// true = Go
-/// false = Stop
-pub type DownloadThreadControlFlag = AtomicBool;
 
 #[derive(Debug)]
 pub enum GameDownloadError {
@@ -61,7 +57,7 @@ pub struct ProgressObject {
 impl GameDownloadAgent {
     pub fn new(id: String, version: String, target_download_dir: usize) -> Self {
         // Don't run by default
-        let status = Arc::new(DownloadThreadControlFlag::new(false));
+        let status = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
         Self {
             id,
             version,
@@ -75,12 +71,6 @@ impl GameDownloadAgent {
             },
         }
     }
-    pub fn set_control_flag(&self, flag: bool) {
-        self.control_flag.store(flag, Ordering::Relaxed);
-    }
-    pub fn get_control_flag(&self) -> bool {
-        self.control_flag.load(Ordering::Relaxed)
-    }
 
     // Blocking
     // Requires mutable self
@@ -89,7 +79,7 @@ impl GameDownloadAgent {
 
         self.generate_contexts()?;
 
-        self.set_control_flag(true);
+        self.control_flag.set(DownloadThreadControlFlag::Go);
 
         Ok(())
     }
