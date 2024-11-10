@@ -103,7 +103,7 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
         let metadata = new_dir_path
             .metadata()
             .map_err(|e| format!("Unable to access file or directory: {}", e.to_string()))?;
-        if metadata.is_dir() {
+        if !metadata.is_dir() {
             return Err("Invalid path: not a directory".to_string());
         }
         let dir_contents = new_dir_path
