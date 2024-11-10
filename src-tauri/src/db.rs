@@ -1,17 +1,13 @@
 use std::{
-    borrow::BorrowMut,
     collections::HashMap,
-    fmt::format,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
     sync::{LazyLock, Mutex},
 };
 
 use directories::BaseDirs;
-use log::info;
 use rustbreak::{deser::Bincode, PathDatabase};
 use serde::{Deserialize, Serialize};
-use tokio::fs::metadata;
 use url::Url;
 
 use crate::DB;
@@ -102,19 +98,19 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
     if new_dir_path.exists() {
         let metadata = new_dir_path
             .metadata()
-            .map_err(|e| format!("Unable to access file or directory: {}", e.to_string()))?;
+            .map_err(|e| format!("Unable to access file or directory: {}", e))?;
         if !metadata.is_dir() {
             return Err("Invalid path: not a directory".to_string());
         }
         let dir_contents = new_dir_path
             .read_dir()
-            .map_err(|e| format!("Unable to check directory contents: {}", e.to_string()))?;
+            .map_err(|e| format!("Unable to check directory contents: {}", e))?;
         if dir_contents.count() == 0 {
             return Err("Path is not empty".to_string());
         }
     } else {
         create_dir_all(new_dir_path)
-            .map_err(|e| format!("Unable to create directories to path: {}", e.to_string()))?;
+            .map_err(|e| format!("Unable to create directories to path: {}", e))?;
     }
 
     // Add it to the dictionary

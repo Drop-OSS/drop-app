@@ -20,7 +20,6 @@ use log::info;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::time::Duration;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},

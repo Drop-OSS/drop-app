@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use urlencoding::encode;
 
@@ -22,17 +22,17 @@ use super::download_logic::download_game_chunk;
 pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
-    pub control_flag: Arc<RwLock<DownloadThreadControlFlag>>,
+    pub control_flag: Arc<DownloadThreadControlFlag>,
     pub target_download_dir: usize,
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: ProgressObject,
 }
-#[derive(Serialize, Deserialize, Clone, Eq, PartialEq)]
-pub enum DownloadThreadControlFlag {
-    Go,
-    Stop,
-}
+
+/// Faster alternative to a RwLock Enum.
+/// true = Go
+/// false = Stop
+pub type DownloadThreadControlFlag = AtomicBool;
 
 #[derive(Debug)]
 pub enum GameDownloadError {
@@ -61,7 +61,7 @@ pub struct ProgressObject {
 impl GameDownloadAgent {
     pub fn new(id: String, version: String, target_download_dir: usize) -> Self {
         // Don't run by default
-        let status = Arc::new(RwLock::new(DownloadThreadControlFlag::Stop));
+        let status = Arc::new(DownloadThreadControlFlag::new(false));
         Self {
             id,
             version,
@@ -75,13 +75,11 @@ impl GameDownloadAgent {
             },
         }
     }
-    pub fn set_control_flag(&self, flag: DownloadThreadControlFlag) {
-        let mut lock = self.control_flag.write().unwrap();
-        *lock = flag;
+    pub fn set_control_flag(&self, flag: bool) {
+        self.control_flag.store(flag, Ordering::Relaxed);
     }
-    pub fn get_control_flag(&self) -> DownloadThreadControlFlag {
-        let lock = self.control_flag.read().unwrap();
-        lock.clone()
+    pub fn get_control_flag(&self) -> bool {
+        self.control_flag.load(Ordering::Relaxed)
     }
 
     // Blocking
@@ -91,7 +89,7 @@ impl GameDownloadAgent {
 
         self.generate_contexts()?;
 
-        self.set_control_flag(DownloadThreadControlFlag::Go);
+        self.set_control_flag(true);
 
         Ok(())
     }
@@ -110,7 +108,7 @@ impl GameDownloadAgent {
         }
 
         // Explicitly propagate error
-        Ok(self.download_manifest()?)
+        self.download_manifest()
     }
 
     fn download_manifest(&mut self) -> Result<(), GameDownloadError> {
@@ -159,7 +157,7 @@ impl GameDownloadAgent {
             return Ok(());
         }
 
-        return Err(GameDownloadError::LockError);
+        Err(GameDownloadError::LockError)
     }
 
     pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
@@ -210,9 +208,9 @@ impl GameDownloadAgent {
             return Ok(());
         }
 
-        return Err(GameDownloadError::SetupError(
+        Err(GameDownloadError::SetupError(
             "Failed to generate download contexts".to_owned(),
-        ));
+        ))
     }
 
     pub fn run(&self) {

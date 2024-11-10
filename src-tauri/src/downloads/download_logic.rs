@@ -3,15 +3,12 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use atomic_counter::{AtomicCounter, RelaxedCounter};
 use log::{error, info};
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
-use serde::de::Error;
 
 use std::io::Read;
-use std::sync::atomic::AtomicU64;
-use std::sync::RwLock;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
@@ -66,7 +63,7 @@ impl Seek for DropWriter<File> {
 pub struct DropDownloadPipeline<R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
-    pub control_flag: Arc<RwLock<DownloadThreadControlFlag>>,
+    pub control_flag: Arc<DownloadThreadControlFlag>,
     pub progress: Arc<AtomicU64>,
     pub size: usize,
 }
@@ -74,7 +71,7 @@ impl DropDownloadPipeline<Response, File> {
     fn new(
         source: Response,
         destination: DropWriter<File>,
-        control_flag: Arc<RwLock<DownloadThreadControlFlag>>,
+        control_flag: Arc<DownloadThreadControlFlag>,
         progress: Arc<AtomicU64>,
         size: usize,
     ) -> Self {
@@ -94,7 +91,7 @@ impl DropDownloadPipeline<Response, File> {
 
         let mut current_size = 0;
         loop {
-            if *self.control_flag.read().unwrap() == DownloadThreadControlFlag::Stop {
+            if self.control_flag.load(Ordering::Relaxed) == false {
                 return Ok(false);
             }
 
@@ -123,11 +120,11 @@ impl DropDownloadPipeline<Response, File> {
 
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
-    control_flag: Arc<RwLock<DownloadThreadControlFlag>>,
+    control_flag: Arc<DownloadThreadControlFlag>,
     progress: Arc<AtomicU64>,
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
-    if *control_flag.read().unwrap() == DownloadThreadControlFlag::Stop {
+    if control_flag.load(Ordering::Relaxed) {
         return Ok(false);
     }
 
