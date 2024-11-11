@@ -75,13 +75,13 @@ impl DropDownloadPipeline<Response, File> {
         progress: Arc<AtomicUsize>,
         size: usize,
     ) -> Self {
-        return Self {
+        Self {
             source,
             destination,
             control_flag,
             progress,
             size,
-        };
+        }
     }
 
     fn copy(&mut self) -> Result<bool, io::Error> {
@@ -99,10 +99,8 @@ impl DropDownloadPipeline<Response, File> {
             current_size += bytes_read;
 
             buf_writer.write_all(&copy_buf[0..bytes_read])?;
-            self.progress.fetch_add(
-                bytes_read.try_into().unwrap(),
-                std::sync::atomic::Ordering::Relaxed,
-            );
+            self.progress
+                .fetch_add(bytes_read, std::sync::atomic::Ordering::Relaxed);
 
             if current_size == self.size {
                 break;
@@ -114,7 +112,7 @@ impl DropDownloadPipeline<Response, File> {
 
     fn finish(self) -> Result<Digest, io::Error> {
         let checksum = self.destination.finish()?;
-        return Ok(checksum);
+        Ok(checksum)
     }
 }
 
@@ -187,5 +185,5 @@ pub fn download_game_chunk(
         return Err(GameDownloadError::ChecksumError);
     }
 
-    return Ok(true);
+    Ok(true)
 }

@@ -25,7 +25,6 @@ impl From<bool> for DownloadThreadControlFlag {
     }
 }
 
-
 #[derive(Clone)]
 pub struct DownloadThreadControl {
     inner: Arc<AtomicBool>,

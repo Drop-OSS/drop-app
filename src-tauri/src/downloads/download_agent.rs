@@ -132,9 +132,10 @@ impl GameDownloadAgent {
                 return chunk.lengths.iter().sum::<usize>();
             })
             .sum::<usize>();
-        let chunk_count = manifest_download.iter().map(|(_, chunk)| {
-            chunk.lengths.len()
-        }).sum();
+        let chunk_count = manifest_download
+            .values()
+            .map(|chunk| chunk.lengths.len())
+            .sum();
         self.progress = ProgressObject::new(length.try_into().unwrap(), chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {

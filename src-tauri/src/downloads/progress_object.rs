@@ -1,4 +1,7 @@
-use std::sync::{atomic::{AtomicUsize, Ordering}, Arc};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 #[derive(Clone)]
 pub struct ProgressObject {
@@ -8,16 +11,17 @@ pub struct ProgressObject {
 
 impl ProgressObject {
     pub fn new(max: usize, length: usize) -> Self {
-        let arr = (0..length).map(|_| { Arc::new(AtomicUsize::new(0)) }).collect();
+        let arr = (0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect();
         Self {
             max,
-            progress_instances: Arc::new(arr)
+            progress_instances: Arc::new(arr),
         }
     }
     pub fn sum(&self) -> usize {
-        self.progress_instances.iter().map(|instance| {
-            instance.load(Ordering::Relaxed)
-        }).sum()
+        self.progress_instances
+            .iter()
+            .map(|instance| instance.load(Ordering::Relaxed))
+            .sum()
     }
 
     pub fn get_progress(&self) -> f64 {
