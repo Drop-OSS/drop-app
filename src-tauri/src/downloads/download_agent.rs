@@ -4,11 +4,13 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::info;
-use rayon::ThreadPoolBuilder;
+use rayon::{spawn, ThreadPool, ThreadPoolBuilder};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread::Thread;
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
@@ -207,6 +209,7 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
+
         pool.scope(move |scope| {
             let contexts = self.contexts.lock().unwrap();
 
@@ -223,6 +226,6 @@ impl GameDownloadAgent {
                     download_game_chunk(context, control_flag, progress).unwrap();
                 });
             }
-        })
+        });
     }
 }

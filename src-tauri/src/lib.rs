@@ -13,6 +13,7 @@ use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
+use downloads::download_manager::DownloadManager;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -53,7 +54,7 @@ pub struct AppState {
     games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
-    game_downloads: HashMap<String, Arc<GameDownloadAgent>>,
+    download_manager: Arc<DownloadManager>,
 }
 
 #[tauri::command]
@@ -67,13 +68,16 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
+    let games = HashMap::new();
+    let download_manager = Arc::new(DownloadManager::new());
+
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
             user: None,
-            games: HashMap::new(),
-            game_downloads: HashMap::new(),
+            games,
+            download_manager,
         };
     }
 
@@ -81,8 +85,8 @@ fn setup() -> AppState {
     AppState {
         status: app_status,
         user,
-        games: HashMap::new(),
-        game_downloads: HashMap::new(),
+        games,
+        download_manager,
     }
 }
 
