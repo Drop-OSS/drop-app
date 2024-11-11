@@ -136,7 +136,7 @@ impl GameDownloadAgent {
             .values()
             .map(|chunk| chunk.lengths.len())
             .sum();
-        self.progress = ProgressObject::new(length.try_into().unwrap(), chunk_count);
+        self.progress = ProgressObject::new(length, chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -170,15 +170,15 @@ impl GameDownloadAgent {
             let file = File::create(path.clone()).unwrap();
             let mut running_offset = 0;
 
-            for (i, length) in chunk.lengths.iter().enumerate() {
+            for (index, length) in chunk.lengths.iter().enumerate() {
                 contexts.push(DropDownloadContext {
                     file_name: raw_path.to_string(),
                     version: version.to_string(),
                     offset: running_offset,
-                    index: i,
+                    index,
                     game_id: game_id.to_string(),
                     path: path.clone(),
-                    checksum: chunk.checksums[i].clone(),
+                    checksum: chunk.checksums[index].clone(),
                 });
                 running_offset += *length as u64;
             }
@@ -195,7 +195,7 @@ impl GameDownloadAgent {
         }
 
         Err(GameDownloadError::SetupError(
-            "Failed to generate download contexts".to_owned(),
+            String::from("Failed to generate download contexts"),
         ))
     }
 
@@ -213,7 +213,7 @@ impl GameDownloadAgent {
             for (index, context) in contexts.iter().enumerate() {
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
-                let progress = self.progress.get(index); // Clone arcs
+                let progress = self.progress.get(index);
 
                 scope.spawn(move |_| {
                     info!(
