@@ -5,12 +5,10 @@ use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::info;
 use rayon::ThreadPoolBuilder;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]

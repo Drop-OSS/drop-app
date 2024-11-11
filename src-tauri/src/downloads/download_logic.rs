@@ -3,7 +3,6 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::info;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 

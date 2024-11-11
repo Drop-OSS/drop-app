@@ -1,4 +1,4 @@
-use std::sync::{atomic::Ordering, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use log::info;
 use rayon::spawn;
@@ -36,9 +36,9 @@ pub fn get_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<f64, String> {
-    let da = use_download_agent(state, game_id)?;
+    let download_agent = use_download_agent(state, game_id)?;
 
-    let progress = &da.progress;
+    let progress = &download_agent.progress;
 
     Ok(progress.get_progress())
 }
