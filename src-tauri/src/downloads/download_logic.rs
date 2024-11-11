@@ -3,11 +3,12 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
+use log::info;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
 use std::io::Read;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
@@ -17,7 +18,7 @@ use std::{
 use urlencoding::encode;
 
 use super::download_agent::GameDownloadError;
-use super::download_thread_control_flag::DownloadThreadControl;
+use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -64,7 +65,7 @@ pub struct DropDownloadPipeline<R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
     pub control_flag: DownloadThreadControl,
-    pub progress: Arc<AtomicU64>,
+    pub progress: Arc<AtomicUsize>,
     pub size: usize,
 }
 impl DropDownloadPipeline<Response, File> {
@@ -72,7 +73,7 @@ impl DropDownloadPipeline<Response, File> {
         source: Response,
         destination: DropWriter<File>,
         control_flag: DownloadThreadControl,
-        progress: Arc<AtomicU64>,
+        progress: Arc<AtomicUsize>,
         size: usize,
     ) -> Self {
         return Self {
@@ -91,7 +92,7 @@ impl DropDownloadPipeline<Response, File> {
 
         let mut current_size = 0;
         loop {
-            if self.control_flag.get() == false {
+            if self.control_flag.get() == DownloadThreadControlFlag::Stop {
                 return Ok(false);
             }
 
@@ -121,10 +122,10 @@ impl DropDownloadPipeline<Response, File> {
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
     control_flag: DownloadThreadControl,
-    progress: Arc<AtomicU64>,
+    progress: Arc<AtomicUsize>,
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
-    if control_flag.get() {
+    if control_flag.get() == DownloadThreadControlFlag::Stop {
         return Ok(false);
     }
 

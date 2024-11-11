@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::Ordering, Arc, Mutex};
 
 use log::info;
 use rayon::spawn;
@@ -39,14 +39,8 @@ pub fn get_game_download_progress(
     let da = use_download_agent(state, game_id)?;
 
     let progress = &da.progress;
-    let current: f64 = progress
-        .current
-        .fetch_add(0, std::sync::atomic::Ordering::Relaxed) as f64;
-    let max = progress.max as f64;
 
-    let current_progress = current / max;
-
-    Ok(current_progress)
+    Ok(progress.get_progress())
 }
 
 fn use_download_agent(

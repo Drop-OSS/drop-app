@@ -2,7 +2,6 @@ use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
-use crate::settings::DOWNLOAD_MAX_THREADS;
 use crate::DB;
 use log::info;
 use rayon::ThreadPoolBuilder;
@@ -10,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::{AtomicU64};
+use std::sync::atomic::AtomicUsize;
 use std::sync::{Arc, Mutex};
 use urlencoding::encode;
 
@@ -19,6 +18,7 @@ use rustix::fs::{fallocate, FallocateFlags};
 
 use super::download_logic::download_game_chunk;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use super::progress_object::ProgressObject;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -49,11 +49,6 @@ impl Display for GameDownloadError {
     }
 }
 
-pub struct ProgressObject {
-    pub max: u64,
-    pub current: Arc<AtomicU64>,
-}
-
 impl GameDownloadAgent {
     pub fn new(id: String, version: String, target_download_dir: usize) -> Self {
         // Don't run by default
@@ -65,10 +60,7 @@ impl GameDownloadAgent {
             manifest: Mutex::new(None),
             target_download_dir,
             contexts: Mutex::new(Vec::new()),
-            progress: ProgressObject {
-                max: 0,
-                current: Arc::new(AtomicU64::new(0)),
-            },
+            progress: ProgressObject::new(0, 0),
         }
     }
 
@@ -76,8 +68,10 @@ impl GameDownloadAgent {
     // Requires mutable self
     pub fn setup_download(&mut self) -> Result<(), GameDownloadError> {
         self.ensure_manifest_exists()?;
+        info!("Ensured manifest exists");
 
         self.generate_contexts()?;
+        info!("Generated contexts");
 
         self.control_flag.set(DownloadThreadControlFlag::Go);
 
@@ -140,7 +134,10 @@ impl GameDownloadAgent {
                 return chunk.lengths.iter().sum::<usize>();
             })
             .sum::<usize>();
-        self.progress.max = length.try_into().unwrap();
+        let chunk_count = manifest_download.iter().map(|(_, chunk)| {
+            chunk.lengths.len()
+        }).sum();
+        self.progress = ProgressObject::new(length.try_into().unwrap(), chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -204,6 +201,8 @@ impl GameDownloadAgent {
     }
 
     pub fn run(&self) {
+        const DOWNLOAD_MAX_THREADS: usize = 4;
+
         let pool = ThreadPoolBuilder::new()
             .num_threads(DOWNLOAD_MAX_THREADS)
             .build()
@@ -212,16 +211,16 @@ impl GameDownloadAgent {
         pool.scope(move |scope| {
             let contexts = self.contexts.lock().unwrap();
 
-            for context in contexts.iter() {
+            for (index, context) in contexts.iter().enumerate() {
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
-                let progress = self.progress.current.clone(); // Clone arcs
-                info!(
-                    "starting download for file {} {}",
-                    context.file_name, context.index
-                );
+                let progress = self.progress.get(index); // Clone arcs
 
                 scope.spawn(move |_| {
+                    info!(
+                        "starting download for file {} {}",
+                        context.file_name, context.index
+                    );
                     download_game_chunk(context, control_flag, progress).unwrap();
                 });
             }
