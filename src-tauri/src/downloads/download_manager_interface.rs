@@ -1,21 +1,29 @@
 use std::{
-    collections::VecDeque,
-    sync::{
+    any::Any, collections::VecDeque, sync::{
         mpsc::{SendError, Sender},
         Arc, Mutex, MutexGuard,
-    },
-    thread::JoinHandle,
+    }, thread::JoinHandle
 };
 
 use log::info;
 
 use super::{download_manager::DownloadManagerSignal, progress_object::ProgressObject};
 
+/// Accessible front-end for the DownloadManager
+/// 
+/// The system works entirely through signals, both internally and externally,
+/// all of which are accessible through the DownloadManagerSignal type, but 
+/// should not be used directly. Rather, signals are abstracted through this
+/// interface.
+/// 
+/// The actual download queue may be accessed through the .edit() function,
+/// which provides raw access to the underlying queue. 
+/// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManagerInterface {
     terminator: JoinHandle<Result<(), ()>>,
     download_queue: Arc<Mutex<VecDeque<String>>>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
-    sender: Sender<DownloadManagerSignal>,
+    command_sender: Sender<DownloadManagerSignal>,
 }
 
 impl DownloadManagerInterface {
@@ -23,29 +31,29 @@ impl DownloadManagerInterface {
         terminator: JoinHandle<Result<(), ()>>,
         download_queue: Arc<Mutex<VecDeque<String>>>,
         progress: Arc<Mutex<Option<ProgressObject>>>,
-        sender: Sender<DownloadManagerSignal>,
+        command_sender: Sender<DownloadManagerSignal>,
     ) -> Self {
         Self {
             terminator,
             download_queue,
             progress,
-            sender,
+            command_sender,
         }
     }
 
     pub fn queue_game(
         &self,
-        game_id: String,
+        id: String,
         version: String,
         target_download_dir: usize,
     ) -> Result<(), SendError<DownloadManagerSignal>> {
-        info!("Adding game id {}", game_id);
-        self.sender.send(DownloadManagerSignal::Queue(
-            game_id,
+        info!("Adding game id {}", id);
+        self.command_sender.send(DownloadManagerSignal::Queue(
+            id,
             version,
             target_download_dir,
         ))?;
-        self.sender.send(DownloadManagerSignal::Go)
+        self.command_sender.send(DownloadManagerSignal::Go)
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<String>> {
         self.download_queue.lock().unwrap()
@@ -68,26 +76,25 @@ impl DownloadManagerInterface {
     pub fn remove_from_queue(&self, index: usize) {
         self.edit().remove(index);
     }
-    pub fn remove_from_queue_string(&self, game_id: String) {
+    pub fn remove_from_queue_string(&self, id: String) {
         let mut queue = self.edit();
-        let current_index = get_index_from_id(&mut queue, game_id).unwrap();
+        let current_index = get_index_from_id(&mut queue, id).unwrap();
         queue.remove(current_index);
     }
     pub fn pause_downloads(&self) -> Result<(), SendError<DownloadManagerSignal>> {
-        self.sender.send(DownloadManagerSignal::Stop)
+        self.command_sender.send(DownloadManagerSignal::Stop)
     }
     pub fn resume_downloads(&self) -> Result<(), SendError<DownloadManagerSignal>> {
-        self.sender.send(DownloadManagerSignal::Go)
+        self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn ensure_terminated(self) -> Result<(), ()> {
-        self.sender.send(DownloadManagerSignal::Finish).unwrap();
-        match self.terminator.join() {
-            Ok(o) => o,
-            Err(_) => Err(()),
-        }
+    pub fn ensure_terminated(self) -> Result<Result<(),()>, Box<dyn Any + Send>> {
+        self.command_sender.send(DownloadManagerSignal::Finish).unwrap();
+        self.terminator.join()
     }
 }
 
+/// Takes in the locked value from .edit() and attempts to
+/// get the index of whatever game_id is passed in
 fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<String>>, id: String) -> Option<usize> {
     queue
         .iter()

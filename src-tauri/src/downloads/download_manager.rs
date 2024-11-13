@@ -19,7 +19,7 @@ use super::{
 pub struct DownloadManager {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
     download_queue: Arc<Mutex<VecDeque<String>>>,
-    receiver: Receiver<DownloadManagerSignal>,
+    command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
 
@@ -37,27 +37,27 @@ pub enum DownloadManagerSignal {
 impl DownloadManager {
     pub fn generate() -> DownloadManagerInterface {
         let queue = Arc::new(Mutex::new(VecDeque::new()));
-        let (sender, receiver) = channel();
+        let (command_sender, command_receiver) = channel();
         let active_progress = Arc::new(Mutex::new(None));
 
         let manager = Self {
             download_agent_registry: HashMap::new(),
             download_queue: queue.clone(),
-            receiver,
+            command_receiver,
             current_game_id: None,
             active_control_flag: None,
-            sender: sender.clone(),
+            sender: command_sender.clone(),
             progress: active_progress.clone(),
         };
 
         let terminator = spawn(|| manager.manage_queue());
 
-        DownloadManagerInterface::new(terminator, queue, active_progress, sender)
+        DownloadManagerInterface::new(terminator, queue, active_progress, command_sender)
     }
 
     fn manage_queue(mut self) -> Result<(), ()> {
         loop {
-            let signal = match self.receiver.recv() {
+            let signal = match self.command_receiver.recv() {
                 Ok(signal) => signal,
                 Err(e) => return Err(()),
             };
@@ -109,19 +109,19 @@ impl DownloadManager {
 
     fn manage_queue_signal(
         &mut self,
-        game_id: String,
+        id: String,
         version: String,
         target_download_dir: usize,
     ) {
         info!("Got signal Queue");
         let download_agent = Arc::new(GameDownloadAgent::new(
-            game_id.clone(),
+            id.clone(),
             version,
             target_download_dir,
         ));
         self.download_agent_registry
-            .insert(game_id.clone(), download_agent);
-        self.download_queue.lock().unwrap().push_back(game_id);
+            .insert(id.clone(), download_agent);
+        self.download_queue.lock().unwrap().push_back(id);
     }
 
     fn manage_go_signal(&mut self) {
