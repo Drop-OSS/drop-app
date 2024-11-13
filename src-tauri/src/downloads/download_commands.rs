@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use log::info;
 use rayon::spawn;
 
-use crate::{downloads::download_agent::GameDownloadAgent, AppState};
+use crate::{AppState};
 
 #[tauri::command]
 pub fn download_game(
@@ -29,7 +29,7 @@ pub fn download_game(
         download_agent_ref.clone().run();
     });
     */
-
+    state.lock().unwrap().download_manager.queue_game(game_id, game_version, 0).unwrap();
     Ok(())
 }
 
@@ -45,8 +45,12 @@ pub fn get_game_download_progress(
 
     Ok(progress.get_progress())
     */
+    let progress = match state.lock().unwrap().download_manager.get_current_game_download_progress() {
+        Some(progress) => progress,
+        None => 0.0
+    };
 
-    Ok(0.0)
+    Ok(progress)
 }
 /*
 fn use_download_agent(

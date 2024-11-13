@@ -3,6 +3,7 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
+use log::info;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
@@ -123,6 +124,7 @@ pub fn download_game_chunk(
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
+        info!("Control flag is Stop");
         return Ok(false);
     }
 

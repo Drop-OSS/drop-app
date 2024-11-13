@@ -13,7 +13,7 @@ use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
-use downloads::download_manager::DownloadManager;
+use downloads::download_manager::{DownloadManager, DownloadManagerInterface};
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
@@ -54,7 +54,7 @@ pub struct AppState {
     games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
-    download_manager: Arc<DownloadManager>,
+    download_manager: Arc<DownloadManagerInterface>,
 }
 
 #[tauri::command]
@@ -69,7 +69,7 @@ fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManager::new());
+    let download_manager = Arc::new(DownloadManager::generate());
 
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {

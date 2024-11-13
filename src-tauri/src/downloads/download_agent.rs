@@ -66,7 +66,7 @@ impl GameDownloadAgent {
 
     // Blocking
     // Requires mutable self
-    pub fn setup_download(&mut self) -> Result<(), GameDownloadError> {
+    pub fn setup_download(&self) -> Result<(), GameDownloadError> {
         self.ensure_manifest_exists()?;
         info!("Ensured manifest exists");
 
@@ -79,23 +79,22 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&mut self) -> Result<(), GameDownloadError> {
+    pub fn download(&self) -> Result<(), GameDownloadError> {
         self.setup_download()?;
         self.run();
 
         Ok(())
     }
 
-    pub fn ensure_manifest_exists(&mut self) -> Result<(), GameDownloadError> {
+    pub fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
         }
 
-        // Explicitly propagate error
         self.download_manifest()
     }
 
-    fn download_manifest(&mut self) -> Result<(), GameDownloadError> {
+    fn download_manifest(&self) -> Result<(), GameDownloadError> {
         let base_url = DB.fetch_base_url();
         let manifest_url = base_url
             .join(
@@ -138,7 +137,8 @@ impl GameDownloadAgent {
             .values()
             .map(|chunk| chunk.lengths.len())
             .sum();
-        self.progress = ProgressObject::new(length.try_into().unwrap(), chunk_count);
+        self.progress.set_max(length.try_into().unwrap());
+        self.progress.set_size(chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
