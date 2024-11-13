@@ -16,6 +16,43 @@ use super::{
     progress_object::ProgressObject,
 };
 
+/*
+
+Welcome to the download manager, the most overengineered, glorious piece of bullshit.
+
+The download manager takes a queue of game_ids and their associated 
+GameDownloadAgents, and then, one-by-one, executes them. It provides an interface
+to interact with the currently downloading agent, and manage the queue.
+
+When the DownloadManager is initialised, it is designed to provide a reference
+which can be used to provide some instructions (the DownloadManagerInterface),
+but other than that, it runs without any sort of interruptions.
+
+It does this by opening up two data structures. Primarily is the command_receiver,
+and mpsc (multi-channel-single-producer) which allows commands to be sent from
+the Interface, and queued up for the Manager to process.
+
+These have been mapped in the DownloadManagerSignal docs.
+
+The other way to interact with the DownloadManager is via the donwload_queue,
+which is just a collection of ids which may be rearranged to suit
+whichever download queue order is required.
+
++----------------------------------------------------------------------------+
+| DO NOT ATTEMPT TO ADD OR REMOVE FROM THE QUEUE WITHOUT USING SIGNALS!!     |
+| THIS WILL CAUSE A DESYNC BETWEEN THE DOWNLOAD AGENT REGISTRY AND THE QUEUE |
+| WHICH HAS NOT BEEN ACCOUNTED FOR                                           |
++----------------------------------------------------------------------------+
+
+This download queue does not actually own any of the GameDownloadAgents. It is
+simply a id-based reference system. The actual Agents are stored in the
+download_agent_registry HashMap, as ordering is no issue here. This is why
+appending or removing from the download_queue must be done via signals.
+
+Behold, my madness - quexeky
+
+*/
+
 pub struct DownloadManager {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
     download_queue: Arc<Mutex<VecDeque<String>>>,
@@ -27,10 +64,18 @@ pub struct DownloadManager {
     active_control_flag: Option<DownloadThreadControl>,
 }
 pub enum DownloadManagerSignal {
+    /// Resumes (or starts) the DownloadManager
     Go,
+    /// Pauses the DownloadManager
     Stop,
+    /// Called when a GameDownloadAgent has finished.
+    /// Triggers the next download cycle to begin
     Completed(String),
+    /// Generates and appends a GameDownloadAgent
+    /// to the registry and queue
     Queue(String, String, usize),
+    /// Tells the Manager to stop the current
+    /// download and return
     Finish,
 }
 
