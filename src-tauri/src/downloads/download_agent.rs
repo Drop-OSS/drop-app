@@ -207,7 +207,6 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
-
         pool.scope(move |scope| {
             let contexts = self.contexts.lock().unwrap();
 

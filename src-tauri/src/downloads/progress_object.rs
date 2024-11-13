@@ -32,7 +32,8 @@ impl ProgressObject {
         *self.max.lock().unwrap() = new_max
     }
     pub fn set_size(&self, length: usize) {
-        *self.progress_instances.lock().unwrap() = (0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect();
+        *self.progress_instances.lock().unwrap() =
+            (0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect();
     }
 
     pub fn get_progress(&self) -> f64 {

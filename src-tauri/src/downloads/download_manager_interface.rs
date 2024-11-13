@@ -1,29 +1,50 @@
-use std::{collections::VecDeque, sync::{mpsc::{SendError, Sender}, Arc, Mutex, MutexGuard}, thread::JoinHandle};
+use std::{
+    collections::VecDeque,
+    sync::{
+        mpsc::{SendError, Sender},
+        Arc, Mutex, MutexGuard,
+    },
+    thread::JoinHandle,
+};
 
 use log::info;
 
 use super::{download_manager::DownloadManagerSignal, progress_object::ProgressObject};
 
 pub struct DownloadManagerInterface {
-    terminator: JoinHandle<Result<(),()>>,
+    terminator: JoinHandle<Result<(), ()>>,
     download_queue: Arc<Mutex<VecDeque<String>>>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
     sender: Sender<DownloadManagerSignal>,
 }
 
 impl DownloadManagerInterface {
-    
     pub fn new(
-        terminator: JoinHandle<Result<(),()>>,
-         download_queue: Arc<Mutex<VecDeque<String>>>,
-          progress: Arc<Mutex<Option<ProgressObject>>>,
-          sender: Sender<DownloadManagerSignal>) -> Self {
-        Self { terminator, download_queue, progress, sender }
+        terminator: JoinHandle<Result<(), ()>>,
+        download_queue: Arc<Mutex<VecDeque<String>>>,
+        progress: Arc<Mutex<Option<ProgressObject>>>,
+        sender: Sender<DownloadManagerSignal>,
+    ) -> Self {
+        Self {
+            terminator,
+            download_queue,
+            progress,
+            sender,
+        }
     }
-    
-    pub fn queue_game(&self, game_id: String, version: String, target_download_dir: usize) -> Result<(), SendError<DownloadManagerSignal>> {
+
+    pub fn queue_game(
+        &self,
+        game_id: String,
+        version: String,
+        target_download_dir: usize,
+    ) -> Result<(), SendError<DownloadManagerSignal>> {
         info!("Adding game id {}", game_id);
-        self.sender.send(DownloadManagerSignal::Queue(game_id, version, target_download_dir))?;
+        self.sender.send(DownloadManagerSignal::Queue(
+            game_id,
+            version,
+            target_download_dir,
+        ))?;
         self.sender.send(DownloadManagerSignal::Go)
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<String>> {
@@ -59,6 +80,7 @@ impl DownloadManagerInterface {
         self.sender.send(DownloadManagerSignal::Go)
     }
     pub fn ensure_terminated(self) -> Result<(), ()> {
+        self.sender.send(DownloadManagerSignal::Finish).unwrap();
         match self.terminator.join() {
             Ok(o) => o,
             Err(_) => Err(()),
@@ -66,8 +88,8 @@ impl DownloadManagerInterface {
     }
 }
 
-pub fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<String>>, id: String) -> Option<usize> {
-    queue.iter().position(|download_agent| {
-        download_agent == &id
-    })
+fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<String>>, id: String) -> Option<usize> {
+    queue
+        .iter()
+        .position(|download_agent| download_agent == &id)
 }

@@ -1,7 +1,6 @@
 use std::sync::Mutex;
 
-
-use crate::{AppState};
+use crate::AppState;
 
 #[tauri::command]
 pub fn download_game(
@@ -27,7 +26,12 @@ pub fn download_game(
         download_agent_ref.clone().run();
     });
     */
-    state.lock().unwrap().download_manager.queue_game(game_id, game_version, 0).unwrap();
+    state
+        .lock()
+        .unwrap()
+        .download_manager
+        .queue_game(game_id, game_version, 0)
+        .unwrap();
     Ok(())
 }
 
@@ -43,7 +47,12 @@ pub fn get_game_download_progress(
 
     Ok(progress.get_progress())
     */
-    let progress = state.lock().unwrap().download_manager.get_current_game_download_progress().unwrap_or(0.0);
+    let progress = state
+        .lock()
+        .unwrap()
+        .download_manager
+        .get_current_game_download_progress()
+        .unwrap_or(0.0);
 
     Ok(progress)
 }
