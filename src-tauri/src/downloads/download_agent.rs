@@ -4,13 +4,11 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::info;
-use rayon::{spawn, ThreadPool, ThreadPoolBuilder};
+use rayon::ThreadPoolBuilder;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread::Thread;
+use std::sync::Mutex;
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
@@ -137,7 +135,7 @@ impl GameDownloadAgent {
             .values()
             .map(|chunk| chunk.lengths.len())
             .sum();
-        self.progress.set_max(length.try_into().unwrap());
+        self.progress.set_max(length);
         self.progress.set_size(chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {

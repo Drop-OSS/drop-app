@@ -26,7 +26,7 @@ impl ProgressObject {
             .sum()
     }
     pub fn get_max(&self) -> usize {
-        self.max.lock().unwrap().clone()
+        *self.max.lock().unwrap()
     }
     pub fn set_max(&self, new_max: usize) {
         *self.max.lock().unwrap() = new_max

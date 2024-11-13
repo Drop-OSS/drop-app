@@ -9,7 +9,6 @@ mod settings;
 mod tests;
 
 use crate::db::DatabaseImpls;
-use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;

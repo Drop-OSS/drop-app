@@ -1,7 +1,5 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use log::info;
-use rayon::spawn;
 
 use crate::{AppState};
 
@@ -45,10 +43,7 @@ pub fn get_game_download_progress(
 
     Ok(progress.get_progress())
     */
-    let progress = match state.lock().unwrap().download_manager.get_current_game_download_progress() {
-        Some(progress) => progress,
-        None => 0.0
-    };
+    let progress = state.lock().unwrap().download_manager.get_current_game_download_progress().unwrap_or(0.0);
 
     Ok(progress)
 }
