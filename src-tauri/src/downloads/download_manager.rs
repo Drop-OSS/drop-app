@@ -20,7 +20,7 @@ use super::{
 
 Welcome to the download manager, the most overengineered, glorious piece of bullshit.
 
-The download manager takes a queue of game_ids and their associated 
+The download manager takes a queue of game_ids and their associated
 GameDownloadAgents, and then, one-by-one, executes them. It provides an interface
 to interact with the currently downloading agent, and manage the queue.
 
@@ -79,7 +79,7 @@ pub enum DownloadManagerSignal {
     /// download and return
     Finish,
     /// Any error which occurs in the agent
-    Error(GameDownloadError)
+    Error(GameDownloadError),
 }
 pub enum DownloadManagerStatus {
     Downloading,
@@ -128,7 +128,6 @@ impl DownloadManager {
             match signal {
                 DownloadManagerSignal::Go => {
                     self.manage_go_signal();
-
                 }
                 DownloadManagerSignal::Stop => {
                     self.manage_stop_signal();
@@ -140,17 +139,14 @@ impl DownloadManager {
                     self.manage_queue_signal(game_id, version, target_download_dir);
                 }
                 DownloadManagerSignal::Finish => {
-                    match self.active_control_flag {
-                        Some(active_control_flag) => {
-                            active_control_flag.set(DownloadThreadControlFlag::Stop)
-                        }
-                        None => {}
+                    if let Some(active_control_flag) = self.active_control_flag {
+                        active_control_flag.set(DownloadThreadControlFlag::Stop)
                     }
                     return Ok(());
                 }
                 DownloadManagerSignal::Error(game_download_error) => {
                     self.manage_error_signal(game_download_error);
-                },
+                }
             };
         }
     }
@@ -171,18 +167,13 @@ impl DownloadManager {
                 self.download_queue.lock().unwrap().pop_front();
                 self.download_agent_registry.remove(&game_id);
                 self.active_control_flag = None;
-                *self.progress.lock().unwrap() = None;    
+                *self.progress.lock().unwrap() = None;
             }
         }
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
 
-    fn manage_queue_signal(
-        &mut self,
-        id: String,
-        version: String,
-        target_download_dir: usize,
-    ) {
+    fn manage_queue_signal(&mut self, id: String, version: String, target_download_dir: usize) {
         info!("Got signal Queue");
         let download_agent = Arc::new(GameDownloadAgent::new(
             id.clone(),
@@ -196,7 +187,10 @@ impl DownloadManager {
         });
         self.download_agent_registry
             .insert(interface_data.id.clone(), download_agent);
-        self.download_queue.lock().unwrap().push_back(interface_data);
+        self.download_queue
+            .lock()
+            .unwrap()
+            .push_back(interface_data);
     }
 
     fn manage_go_signal(&mut self) {
@@ -210,7 +204,8 @@ impl DownloadManager {
                     .unwrap()
                     .clone()
             };
-            let download_agent_interface = Arc::new(AgentInterfaceData::from(download_agent.clone()));
+            let download_agent_interface =
+                Arc::new(AgentInterfaceData::from(download_agent.clone()));
             self.current_game_interface = Some(download_agent_interface);
 
             let progress_object = download_agent.progress.clone();
@@ -224,12 +219,8 @@ impl DownloadManager {
             info!("Spawning download");
             spawn(move || {
                 let signal = match download_agent.download() {
-                    Ok(_) => {
-                        DownloadManagerSignal::Completed(download_agent.id.clone())  
-                    },
-                    Err(e) => {
-                        DownloadManagerSignal::Error(e)
-                    },
+                    Ok(_) => DownloadManagerSignal::Completed(download_agent.id.clone()),
+                    Err(e) => DownloadManagerSignal::Error(e),
                 };
                 sender.send(signal).unwrap();
             });

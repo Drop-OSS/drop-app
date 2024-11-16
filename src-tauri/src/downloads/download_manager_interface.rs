@@ -1,23 +1,30 @@
 use std::{
-    any::Any, collections::VecDeque, sync::{
+    any::Any,
+    collections::VecDeque,
+    sync::{
         mpsc::{SendError, Sender},
         Arc, Mutex, MutexGuard,
-    }, thread::JoinHandle
+    },
+    thread::JoinHandle,
 };
 
 use log::info;
 
-use super::{download_agent::GameDownloadAgent, download_manager::{DownloadManagerSignal, DownloadManagerStatus, GameDownloadStatus}, progress_object::ProgressObject};
+use super::{
+    download_agent::GameDownloadAgent,
+    download_manager::{DownloadManagerSignal, GameDownloadStatus},
+    progress_object::ProgressObject,
+};
 
 /// Accessible front-end for the DownloadManager
-/// 
+///
 /// The system works entirely through signals, both internally and externally,
-/// all of which are accessible through the DownloadManagerSignal type, but 
+/// all of which are accessible through the DownloadManagerSignal type, but
 /// should not be used directly. Rather, signals are abstracted through this
 /// interface.
-/// 
+///
 /// The actual download queue may be accessed through the .edit() function,
-/// which provides raw access to the underlying queue. 
+/// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManagerInterface {
     terminator: JoinHandle<Result<(), ()>>,
@@ -33,7 +40,7 @@ impl From<Arc<GameDownloadAgent>> for AgentInterfaceData {
     fn from(value: Arc<GameDownloadAgent>) -> Self {
         Self {
             id: value.id.clone(),
-            status: Mutex::from(GameDownloadStatus::Uninitialised)
+            status: Mutex::from(GameDownloadStatus::Uninitialised),
         }
     }
 }
@@ -102,15 +109,20 @@ impl DownloadManagerInterface {
     pub fn resume_downloads(&self) -> Result<(), SendError<DownloadManagerSignal>> {
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn ensure_terminated(self) -> Result<Result<(),()>, Box<dyn Any + Send>> {
-        self.command_sender.send(DownloadManagerSignal::Finish).unwrap();
+    pub fn ensure_terminated(self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
+        self.command_sender
+            .send(DownloadManagerSignal::Finish)
+            .unwrap();
         self.terminator.join()
     }
 }
 
 /// Takes in the locked value from .edit() and attempts to
 /// get the index of whatever game_id is passed in
-fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>>, id: String) -> Option<usize> {
+fn get_index_from_id(
+    queue: &mut MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>>,
+    id: String,
+) -> Option<usize> {
     queue
         .iter()
         .position(|download_agent| download_agent.id == id)
