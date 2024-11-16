@@ -148,7 +148,7 @@ pub fn download_game_chunk(
         .get(chunk_url)
         .header("Authorization", header)
         .send()
-        .map_err(|e| GameDownloadError::CommunicationError(RemoteAccessError::FetchError(e)))?;
+        .map_err(|e| GameDownloadError::CommunicationError(e.into()))?;
 
     let mut destination = DropWriter::new(ctx.path);
 

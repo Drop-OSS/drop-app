@@ -26,7 +26,7 @@ async function startGameDownload() {
   setInterval(() => {
     (async () => {
       const currentProgress = await invoke<number>(
-        "get_game_download_progress",
+        "get_current_game_download_progress",
         {
           gameId: gameId.value,
         }

@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter},
-    sync::Mutex,
+    sync::{Arc, Mutex},
 };
 
 use log::{info, warn};
@@ -9,9 +9,9 @@ use url::{ParseError, Url};
 
 use crate::{AppState, AppStatus, DB};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RemoteAccessError {
-    FetchError(reqwest::Error),
+    FetchError(Arc<reqwest::Error>),
     ParsingError(ParseError),
     InvalidCodeError(u16),
     GenericErrror(String),
@@ -32,7 +32,7 @@ impl Display for RemoteAccessError {
 
 impl From<reqwest::Error> for RemoteAccessError {
     fn from(err: reqwest::Error) -> Self {
-        RemoteAccessError::FetchError(err)
+        RemoteAccessError::FetchError(Arc::new(err))
     }
 }
 impl From<String> for RemoteAccessError {

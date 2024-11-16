@@ -10,8 +10,8 @@ use std::{
 use log::info;
 
 use super::{
-    download_agent::GameDownloadAgent,
-    download_manager_interface::DownloadManagerInterface,
+    download_agent::{GameDownloadAgent, GameDownloadError},
+    download_manager_interface::{AgentInterfaceData, DownloadManagerInterface},
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
     progress_object::ProgressObject,
 };
@@ -55,12 +55,13 @@ Behold, my madness - quexeky
 
 pub struct DownloadManager {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
-    download_queue: Arc<Mutex<VecDeque<String>>>,
+    download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
+    status: Arc<Mutex<DownloadManagerStatus>>,
 
-    current_game_id: Option<String>, // Should be the only game download agent in the map with the "Go" flag
+    current_game_interface: Option<Arc<AgentInterfaceData>>, // Should be the only game download agent in the map with the "Go" flag
     active_control_flag: Option<DownloadThreadControl>,
 }
 pub enum DownloadManagerSignal {
@@ -77,6 +78,21 @@ pub enum DownloadManagerSignal {
     /// Tells the Manager to stop the current
     /// download and return
     Finish,
+    /// Any error which occurs in the agent
+    Error(GameDownloadError)
+}
+pub enum DownloadManagerStatus {
+    Downloading,
+    Paused,
+    Empty,
+    Error(GameDownloadError),
+}
+#[derive(Clone)]
+pub enum GameDownloadStatus {
+    Downloading,
+    Paused,
+    Uninitialised,
+    Error(GameDownloadError),
 }
 
 impl DownloadManager {
@@ -84,13 +100,15 @@ impl DownloadManager {
         let queue = Arc::new(Mutex::new(VecDeque::new()));
         let (command_sender, command_receiver) = channel();
         let active_progress = Arc::new(Mutex::new(None));
+        let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
 
         let manager = Self {
             download_agent_registry: HashMap::new(),
             download_queue: queue.clone(),
             command_receiver,
-            current_game_id: None,
+            current_game_interface: None,
             active_control_flag: None,
+            status: status.clone(),
             sender: command_sender.clone(),
             progress: active_progress.clone(),
         };
@@ -110,6 +128,7 @@ impl DownloadManager {
             match signal {
                 DownloadManagerSignal::Go => {
                     self.manage_go_signal();
+
                 }
                 DownloadManagerSignal::Stop => {
                     self.manage_stop_signal();
@@ -129,6 +148,9 @@ impl DownloadManager {
                     }
                     return Ok(());
                 }
+                DownloadManagerSignal::Error(game_download_error) => {
+                    self.manage_error_signal(game_download_error);
+                },
             };
         }
     }
@@ -142,12 +164,15 @@ impl DownloadManager {
 
     fn manage_completed_signal(&mut self, game_id: String) {
         info!("Got signal 'Completed'");
-        if self.current_game_id == Some(game_id.clone()) {
-            info!("Popping consumed data");
-            self.download_queue.lock().unwrap().pop_front();
-            self.download_agent_registry.remove(&game_id);
-            self.active_control_flag = None;
-            *self.progress.lock().unwrap() = None;
+        if let Some(interface) = &self.current_game_interface {
+            // When if let chains are stabilised, combine these two statements
+            if interface.id == game_id {
+                info!("Popping consumed data");
+                self.download_queue.lock().unwrap().pop_front();
+                self.download_agent_registry.remove(&game_id);
+                self.active_control_flag = None;
+                *self.progress.lock().unwrap() = None;    
+            }
         }
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
@@ -164,9 +189,14 @@ impl DownloadManager {
             version,
             target_download_dir,
         ));
+        let agent_status = GameDownloadStatus::Uninitialised;
+        let interface_data = Arc::new(AgentInterfaceData {
+            id,
+            status: Mutex::new(agent_status),
+        });
         self.download_agent_registry
-            .insert(id.clone(), download_agent);
-        self.download_queue.lock().unwrap().push_back(id);
+            .insert(interface_data.id.clone(), download_agent);
+        self.download_queue.lock().unwrap().push_back(interface_data);
     }
 
     fn manage_go_signal(&mut self) {
@@ -176,11 +206,12 @@ impl DownloadManager {
             let download_agent = {
                 let lock = self.download_queue.lock().unwrap();
                 self.download_agent_registry
-                    .get(&lock.front().unwrap().clone())
+                    .get(&lock.front().unwrap().id)
                     .unwrap()
                     .clone()
             };
-            self.current_game_id = Some(download_agent.id.clone());
+            let download_agent_interface = Arc::new(AgentInterfaceData::from(download_agent.clone()));
+            self.current_game_interface = Some(download_agent_interface);
 
             let progress_object = download_agent.progress.clone();
             *self.progress.lock().unwrap() = Some(progress_object);
@@ -192,19 +223,34 @@ impl DownloadManager {
 
             info!("Spawning download");
             spawn(move || {
-                download_agent.download().unwrap();
-                sender
-                    .send(DownloadManagerSignal::Completed(download_agent.id.clone()))
-                    .unwrap();
+                let signal = match download_agent.download() {
+                    Ok(_) => {
+                        DownloadManagerSignal::Completed(download_agent.id.clone())  
+                    },
+                    Err(e) => {
+                        DownloadManagerSignal::Error(e)
+                    },
+                };
+                sender.send(signal).unwrap();
             });
             info!("Finished spawning Download");
 
             active_control_flag.set(DownloadThreadControlFlag::Go);
+            self.set_status(DownloadManagerStatus::Downloading);
         } else if let Some(active_control_flag) = self.active_control_flag.clone() {
             info!("Restarting current download");
             active_control_flag.set(DownloadThreadControlFlag::Go);
         } else {
             info!("Nothing was set");
         }
+    }
+    fn manage_error_signal(&self, error: GameDownloadError) {
+        let current_status = self.current_game_interface.clone().unwrap();
+        let mut lock = current_status.status.lock().unwrap();
+        *lock = GameDownloadStatus::Error(error.clone());
+        self.set_status(DownloadManagerStatus::Error(error));
+    }
+    fn set_status(&self, status: DownloadManagerStatus) {
+        *self.status.lock().unwrap() = status;
     }
 }

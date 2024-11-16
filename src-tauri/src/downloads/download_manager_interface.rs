@@ -7,7 +7,7 @@ use std::{
 
 use log::info;
 
-use super::{download_manager::DownloadManagerSignal, progress_object::ProgressObject};
+use super::{download_agent::GameDownloadAgent, download_manager::{DownloadManagerSignal, DownloadManagerStatus, GameDownloadStatus}, progress_object::ProgressObject};
 
 /// Accessible front-end for the DownloadManager
 /// 
@@ -21,15 +21,27 @@ use super::{download_manager::DownloadManagerSignal, progress_object::ProgressOb
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManagerInterface {
     terminator: JoinHandle<Result<(), ()>>,
-    download_queue: Arc<Mutex<VecDeque<String>>>,
+    download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
     command_sender: Sender<DownloadManagerSignal>,
+}
+pub struct AgentInterfaceData {
+    pub id: String,
+    pub status: Mutex<GameDownloadStatus>,
+}
+impl From<Arc<GameDownloadAgent>> for AgentInterfaceData {
+    fn from(value: Arc<GameDownloadAgent>) -> Self {
+        Self {
+            id: value.id.clone(),
+            status: Mutex::from(GameDownloadStatus::Uninitialised)
+        }
+    }
 }
 
 impl DownloadManagerInterface {
     pub fn new(
         terminator: JoinHandle<Result<(), ()>>,
-        download_queue: Arc<Mutex<VecDeque<String>>>,
+        download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
         progress: Arc<Mutex<Option<ProgressObject>>>,
         command_sender: Sender<DownloadManagerSignal>,
     ) -> Self {
@@ -55,8 +67,11 @@ impl DownloadManagerInterface {
         ))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<String>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
         self.download_queue.lock().unwrap()
+    }
+    pub fn read_queue(&self) -> VecDeque<Arc<AgentInterfaceData>> {
+        self.download_queue.lock().unwrap().clone()
     }
     pub fn get_current_game_download_progress(&self) -> Option<f64> {
         let progress_object = (*self.progress.lock().unwrap()).clone()?;
@@ -95,8 +110,8 @@ impl DownloadManagerInterface {
 
 /// Takes in the locked value from .edit() and attempts to
 /// get the index of whatever game_id is passed in
-fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<String>>, id: String) -> Option<usize> {
+fn get_index_from_id(queue: &mut MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>>, id: String) -> Option<usize> {
     queue
         .iter()
-        .position(|download_agent| download_agent == &id)
+        .position(|download_agent| download_agent.id == id)
 }

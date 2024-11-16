@@ -28,7 +28,7 @@ pub struct GameDownloadAgent {
     pub progress: ProgressObject,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GameDownloadError {
     CommunicationError(RemoteAccessError),
     ChecksumError,
@@ -50,11 +50,11 @@ impl Display for GameDownloadError {
 impl GameDownloadAgent {
     pub fn new(id: String, version: String, target_download_dir: usize) -> Self {
         // Don't run by default
-        let status = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
+        let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
         Self {
             id,
             version,
-            control_flag: status.clone(),
+            control_flag,
             manifest: Mutex::new(None),
             target_download_dir,
             contexts: Mutex::new(Vec::new()),
@@ -206,6 +206,7 @@ impl GameDownloadAgent {
             .num_threads(DOWNLOAD_MAX_THREADS)
             .build()
             .unwrap();
+
 
         pool.scope(move |scope| {
             let contexts = self.contexts.lock().unwrap();

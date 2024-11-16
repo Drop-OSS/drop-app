@@ -124,7 +124,7 @@ pub fn run() {
             add_new_download_dir,
             // Downloads
             download_game,
-            get_game_download_progress,
+            get_current_game_download_progress,
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

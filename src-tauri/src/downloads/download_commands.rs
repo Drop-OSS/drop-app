@@ -36,17 +36,9 @@ pub fn download_game(
 }
 
 #[tauri::command]
-pub fn get_game_download_progress(
+pub fn get_current_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String,
 ) -> Result<f64, String> {
-    /*
-    let download_agent = use_download_agent(state, game_id)?;
-
-    let progress = &download_agent.progress;
-
-    Ok(progress.get_progress())
-    */
     let progress = state
         .lock()
         .unwrap()
