@@ -6,7 +6,7 @@ Drop app is the companion app for [Drop](https://github.com/Drop-OSS/drop). It u
 
 Install dependencies with `yarn`
 
-Run the app in development with `yarn tauri dev`. NVIDIA users on Linux, use the environment variable in `.env`
+Run the app in development with `yarn tauri dev`. NVIDIA users on Linux, use shell script `./nvidia-prop-dev.sh`
 
 To manually specify the logging level, add the environment variable `RUST_LOG=[debug, info, warn, error]` to `yarn tauri dev`:
 
