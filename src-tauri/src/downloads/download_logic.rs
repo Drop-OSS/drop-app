@@ -148,7 +148,7 @@ pub fn download_game_chunk(
         .get(chunk_url)
         .header("Authorization", header)
         .send()
-        .map_err(|e| GameDownloadError::CommunicationError(e.into()))?;
+        .map_err(|e| GameDownloadError::Communication(e.into()))?;
 
     let mut destination = DropWriter::new(ctx.path);
 
@@ -160,11 +160,7 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        return Err(GameDownloadError::CommunicationError(
-            RemoteAccessError::GenericErrror(
-                "Invalid download endpoint, missing Content-Length header.".to_owned(),
-            ),
-        ));
+        return Err(GameDownloadError::Communication(RemoteAccessError::InvalidResponse));
     }
 
     let mut pipeline = DropDownloadPipeline::new(
@@ -184,7 +180,7 @@ pub fn download_game_chunk(
 
     let res = hex::encode(checksum.0);
     if res != ctx.checksum {
-        return Err(GameDownloadError::ChecksumError);
+        return Err(GameDownloadError::Checksum);
     }
 
     Ok(true)

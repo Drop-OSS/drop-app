@@ -1,52 +1,38 @@
 use std::sync::Mutex;
 
-use crate::AppState;
+use serde::Serialize;
+
+use crate::{AppError, AppState};
 
 #[tauri::command]
 pub fn download_game(
     game_id: String,
     game_version: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), String> {
-    /*
-    info!("beginning game download...");
-
-    let mut download_agent = GameDownloadAgent::new(game_id.clone(), game_version.clone(), 0);
-    // Setup download requires mutable
-    download_agent.setup_download().unwrap();
-
-    let mut lock: std::sync::MutexGuard<'_, AppState> = state.lock().unwrap();
-    let download_agent_ref = Arc::new(download_agent);
-    lock.download_manager
-        .insert(game_id, download_agent_ref.clone());
-
-    // Run it in another thread
-    spawn(move || {
-        // Run doesn't require mutable
-        download_agent_ref.clone().run();
-    });
-    */
+) -> Result<(), AppError> {
+    
     state
         .lock()
         .unwrap()
         .download_manager
         .queue_game(game_id, game_version, 0)
-        .unwrap();
-    Ok(())
+        .map_err(|_| AppError::Signal)
 }
 
 #[tauri::command]
 pub fn get_current_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<f64, String> {
-    let progress = state
+) -> Result<f64, AppError> {
+    match state
         .lock()
         .unwrap()
         .download_manager
         .get_current_game_download_progress()
-        .unwrap_or(0.0);
+        {
+            Some(progress) => Ok(progress),
+            None => Err(AppError::DoesNotExist),
+        }
 
-    Ok(progress)
 }
 /*
 fn use_download_agent(

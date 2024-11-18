@@ -7,6 +7,7 @@ use tauri::{AppHandle, Manager};
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
 use crate::remote::RemoteAccessError;
+use crate::AppError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
@@ -18,7 +19,7 @@ struct FetchGameStruct {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    id: String,
+    game_id: String,
     m_name: String,
     m_short_description: String,
     m_description: String,
@@ -54,12 +55,12 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
     for game in games.iter() {
-        handle.games.insert(game.id.clone(), game.clone());
-        if !db_handle.games.games_statuses.contains_key(&game.id) {
+        handle.games.insert(game.game_id.clone(), game.clone());
+        if !db_handle.games.games_statuses.contains_key(&game.game_id) {
             db_handle
                 .games
                 .games_statuses
-                .insert(game.id.clone(), DatabaseGameStatus::Remote);
+                .insert(game.game_id.clone(), DatabaseGameStatus::Remote);
         }
     }
 
@@ -69,14 +70,9 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<String, String> {
-    let result = fetch_library_logic(app);
-
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(result.unwrap())
+pub fn fetch_library(app: AppHandle) -> Result<String, AppError> {
+    fetch_library_logic(app)
+        .map_err(|e| AppError::RemoteAccess(e.to_string()))
 }
 
 fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {
@@ -92,7 +88,7 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
             status: db_handle
                 .games
                 .games_statuses
-                .get(&game.id)
+                .get(&game.game_id)
                 .unwrap()
                 .clone(),
         };
@@ -101,7 +97,7 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
     }
     // TODO request games that aren't found from remote server
 
-    Err("".to_string().into())
+    Err(RemoteAccessError::GameNotFound)
 }
 
 #[tauri::command]

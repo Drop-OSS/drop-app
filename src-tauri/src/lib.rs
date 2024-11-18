@@ -12,13 +12,13 @@ use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
-use downloads::download_manager::DownloadManager;
-use downloads::download_manager_interface::DownloadManagerInterface;
+use downloads::download_manager::DownloadManagerBuilder;
+use downloads::download_manager_interface::DownloadManager;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
 use log::info;
-use remote::{gen_drop_url, use_remote};
+use remote::{gen_drop_url, use_remote, RemoteAccessError};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::{
@@ -36,6 +36,13 @@ pub enum AppStatus {
     SignedInNeedsReauth,
     ServerUnavailable,
 }
+#[derive(Debug, Serialize)]
+pub enum AppError {
+    DoesNotExist,
+    Signal,
+    RemoteAccess(String)
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
@@ -54,11 +61,11 @@ pub struct AppState {
     games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
-    download_manager: Arc<DownloadManagerInterface>,
+    download_manager: Arc<DownloadManager>,
 }
 
 #[tauri::command]
-fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
+fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, AppError> {
     let guard = state.lock().unwrap();
     let cloned_state = guard.clone();
     drop(guard);
@@ -69,7 +76,7 @@ fn setup() -> AppState {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManager::generate());
+    let download_manager = Arc::new(DownloadManagerBuilder::build());
 
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {

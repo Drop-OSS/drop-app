@@ -93,9 +93,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let path_chunks: Vec<&str> = path.split("/").collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
-        return Err(RemoteAccessError::GenericErrror(
-            "Invalid number of handshake chunks".to_string(),
-        ));
+        return Err(RemoteAccessError::InvalidResponse);
     }
 
     let base_url = {
@@ -165,9 +163,7 @@ async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     let response = client.post(endpoint.to_string()).json(&body).send().await?;
 
     if response.status() != 200 {
-        return Err("Failed to create redirect URL. Please try again later."
-            .to_string()
-            .into());
+        return Err(RemoteAccessError::InvalidRedirect);
     }
 
     let redir_url = response.text().await?;

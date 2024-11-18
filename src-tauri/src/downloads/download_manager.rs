@@ -11,7 +11,7 @@ use log::info;
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
-    download_manager_interface::{AgentInterfaceData, DownloadManagerInterface},
+    download_manager_interface::{AgentInterfaceData, DownloadManager},
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
     progress_object::ProgressObject,
 };
@@ -53,7 +53,7 @@ Behold, my madness - quexeky
 
 */
 
-pub struct DownloadManager {
+pub struct DownloadManagerBuilder {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
     download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
     command_receiver: Receiver<DownloadManagerSignal>,
@@ -85,9 +85,8 @@ pub enum DownloadManagerStatus {
     Downloading,
     Paused,
     Empty,
-    Error(GameDownloadError),
+    Error,
 }
-#[derive(Clone)]
 pub enum GameDownloadStatus {
     Downloading,
     Paused,
@@ -95,8 +94,8 @@ pub enum GameDownloadStatus {
     Error(GameDownloadError),
 }
 
-impl DownloadManager {
-    pub fn generate() -> DownloadManagerInterface {
+impl DownloadManagerBuilder {
+    pub fn build() -> DownloadManager {
         let queue = Arc::new(Mutex::new(VecDeque::new()));
         let (command_sender, command_receiver) = channel();
         let active_progress = Arc::new(Mutex::new(None));
@@ -115,7 +114,7 @@ impl DownloadManager {
 
         let terminator = spawn(|| manager.manage_queue());
 
-        DownloadManagerInterface::new(terminator, queue, active_progress, command_sender)
+        DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
     fn manage_queue(mut self) -> Result<(), ()> {
@@ -238,8 +237,8 @@ impl DownloadManager {
     fn manage_error_signal(&self, error: GameDownloadError) {
         let current_status = self.current_game_interface.clone().unwrap();
         let mut lock = current_status.status.lock().unwrap();
-        *lock = GameDownloadStatus::Error(error.clone());
-        self.set_status(DownloadManagerStatus::Error(error));
+        *lock = GameDownloadStatus::Error(error);
+        self.set_status(DownloadManagerStatus::Error);
     }
     fn set_status(&self, status: DownloadManagerStatus) {
         *self.status.lock().unwrap() = status;

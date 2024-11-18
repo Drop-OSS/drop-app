@@ -26,7 +26,7 @@ use super::{
 /// The actual download queue may be accessed through the .edit() function,
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
-pub struct DownloadManagerInterface {
+pub struct DownloadManager {
     terminator: JoinHandle<Result<(), ()>>,
     download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
@@ -45,7 +45,7 @@ impl From<Arc<GameDownloadAgent>> for AgentInterfaceData {
     }
 }
 
-impl DownloadManagerInterface {
+impl DownloadManager {
     pub fn new(
         terminator: JoinHandle<Result<(), ()>>,
         download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,

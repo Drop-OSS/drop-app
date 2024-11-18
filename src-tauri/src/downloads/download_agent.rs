@@ -28,21 +28,26 @@ pub struct GameDownloadAgent {
     pub progress: ProgressObject,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum GameDownloadError {
-    CommunicationError(RemoteAccessError),
-    ChecksumError,
-    SetupError(String),
-    LockError,
+    Communication(RemoteAccessError),
+    Checksum,
+    Setup(SetupError),
+    Lock,
+}
+
+#[derive(Debug)]
+pub enum SetupError {
+    Context
 }
 
 impl Display for GameDownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            GameDownloadError::CommunicationError(error) => write!(f, "{}", error),
-            GameDownloadError::SetupError(error) => write!(f, "{}", error),
-            GameDownloadError::LockError => write!(f, "Failed to acquire lock. Something has gone very wrong internally. Please restart the application"),
-            GameDownloadError::ChecksumError => write!(f, "Checksum failed to validate for download"),
+            GameDownloadError::Communication(error) => write!(f, "{}", error),
+            GameDownloadError::Setup(error) => write!(f, "{:?}", error),
+            GameDownloadError::Lock => write!(f, "Failed to acquire lock. Something has gone very wrong internally. Please restart the application"),
+            GameDownloadError::Checksum => write!(f, "Checksum failed to validate for download"),
         }
     }
 }
@@ -114,13 +119,8 @@ impl GameDownloadAgent {
             .unwrap();
 
         if response.status() != 200 {
-            return Err(GameDownloadError::CommunicationError(
-                format!(
-                    "Failed to download game manifest: {} {}",
-                    response.status(),
-                    response.text().unwrap()
-                )
-                .into(),
+            return Err(GameDownloadError::Communication(
+                RemoteAccessError::ManifestDownloadFailed(response.status(), response.text().unwrap())
             ));
         }
 
@@ -143,7 +143,7 @@ impl GameDownloadAgent {
             return Ok(());
         }
 
-        Err(GameDownloadError::LockError)
+        Err(GameDownloadError::Lock)
     }
 
     pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
@@ -194,9 +194,7 @@ impl GameDownloadAgent {
             return Ok(());
         }
 
-        Err(GameDownloadError::SetupError(
-            "Failed to generate download contexts".to_owned(),
-        ))
+        Err(GameDownloadError::Setup(SetupError::Context))
     }
 
     pub fn run(&self) {

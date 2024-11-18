@@ -3,29 +3,45 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use http::StatusCode;
 use log::{info, warn};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::{ParseError, Url};
 
-use crate::{AppState, AppStatus, DB};
+use crate::{AppError, AppState, AppStatus, DB};
 
 #[derive(Debug, Clone)]
 pub enum RemoteAccessError {
     FetchError(Arc<reqwest::Error>),
     ParsingError(ParseError),
     InvalidCodeError(u16),
-    GenericErrror(String),
+    InvalidEndpoint,
+    HandshakeFailed,
+    GameNotFound,
+    InvalidResponse,
+    InvalidRedirect,
+    ManifestDownloadFailed(StatusCode, String)
 }
 
 impl Display for RemoteAccessError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             RemoteAccessError::FetchError(error) => write!(f, "{}", error),
-            RemoteAccessError::GenericErrror(error) => write!(f, "{}", error),
             RemoteAccessError::ParsingError(parse_error) => {
                 write!(f, "{}", parse_error)
             }
             RemoteAccessError::InvalidCodeError(error) => write!(f, "HTTP {}", error),
+            RemoteAccessError::ParsingError(parse_error) => todo!(),
+            RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
+            RemoteAccessError::HandshakeFailed => write!(f, "Failed to complete handshake"),
+            RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),
+            RemoteAccessError::InvalidResponse => write!(f, "Server returned an invalid response"),
+            RemoteAccessError::InvalidRedirect => write!(f, "Server redirect was invalid"),
+            RemoteAccessError::ManifestDownloadFailed(status, response) => 
+            write!(f, "Failed to download game manifest: {} {}",
+                status,
+                response
+            ),
         }
     }
 }
@@ -33,11 +49,6 @@ impl Display for RemoteAccessError {
 impl From<reqwest::Error> for RemoteAccessError {
     fn from(err: reqwest::Error) -> Self {
         RemoteAccessError::FetchError(Arc::new(err))
-    }
-}
-impl From<String> for RemoteAccessError {
-    fn from(err: String) -> Self {
-        RemoteAccessError::GenericErrror(err)
     }
 }
 impl From<ParseError> for RemoteAccessError {
@@ -74,7 +85,7 @@ async fn use_remote_logic<'a>(
 
     if result.app_name != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
-        return Err("Not a valid Drop endpoint".to_string().into());
+        return Err(RemoteAccessError::InvalidEndpoint);
     }
 
     let mut app_state = state.lock().unwrap();
