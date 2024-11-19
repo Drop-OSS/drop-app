@@ -141,8 +141,9 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/processing", ()).unwrap();
 
     let handshake_result = recieve_handshake_logic(&app, path);
-    if handshake_result.is_err() {
-        app.emit("auth/failed", ()).unwrap();
+    if let Err(e) = handshake_result {
+        warn!("error with authentication: {}", e);
+        app.emit("auth/failed", e.to_string()).unwrap();
         return;
     }
 
