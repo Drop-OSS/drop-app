@@ -7,7 +7,6 @@
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 import { useAppState } from "./composables/app-state.js";
-import { useRouter } from "#vue-router";
 import {
   initialNavigation,
   setupHooks,
