@@ -59,6 +59,9 @@ features = [
 
 [dependencies.openssl]
 version = "0.10.66"
+features = [
+    "vendored"
+]
 
 [dependencies.rustbreak]
 version = "2"
