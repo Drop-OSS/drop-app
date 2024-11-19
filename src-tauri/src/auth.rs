@@ -4,6 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use chrono::Utc;
 use log::{info, warn};
 use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
@@ -57,11 +58,7 @@ pub fn generate_authorization_header() -> String {
         db.auth.clone().unwrap()
     };
 
-    let start = SystemTime::now();
-    let timestamp = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    let nonce = timestamp.as_millis().to_string();
+    let nonce = Utc::now().timestamp_millis().to_string();
 
     let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
