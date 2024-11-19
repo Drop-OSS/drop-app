@@ -16,7 +16,7 @@ use downloads::download_commands::*;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
 use log::{info, LevelFilter};
-use log4rs::append::console::ConsoleAppender;
+use log4rs::append::console::{ConsoleAppender, Target};
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
@@ -83,7 +83,11 @@ fn setup() -> AppState {
             Appender::builder().build("logfile", Box::new(logfile)),
             Appender::builder().build("console", Box::new(console)),
         ])
-        .build(Root::builder().appender("logfile").build(LevelFilter::Info))
+        .build(
+            Root::builder()
+                .appenders(vec!["logfile", "console"])
+                .build(LevelFilter::Info),
+        )
         .unwrap();
 
     log4rs::init_config(config).unwrap();
