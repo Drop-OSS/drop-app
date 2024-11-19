@@ -74,6 +74,12 @@ impl DownloadManager {
         ))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
+    pub fn cancel_download(
+        &self,
+        id: String
+    ) {
+        todo!()
+    }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
         self.download_queue.lock().unwrap()
     }

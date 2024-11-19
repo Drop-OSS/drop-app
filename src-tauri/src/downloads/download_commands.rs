@@ -1,7 +1,5 @@
 use std::sync::Mutex;
 
-use serde::Serialize;
-
 use crate::{AppError, AppState};
 
 #[tauri::command]
@@ -32,7 +30,18 @@ pub fn get_current_game_download_progress(
             Some(progress) => Ok(progress),
             None => Err(AppError::DoesNotExist),
         }
+}
 
+#[tauri::command]
+pub fn stop_game_download(
+    state: tauri::State<'_, Mutex<AppState>>,
+    game_id: String
+) {
+    state
+        .lock()
+        .unwrap()
+        .download_manager
+        .cancel_download(game_id);
 }
 /*
 fn use_download_agent(

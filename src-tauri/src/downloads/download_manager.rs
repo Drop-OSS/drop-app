@@ -91,7 +91,7 @@ pub enum GameDownloadStatus {
     Downloading,
     Paused,
     Uninitialised,
-    Error(GameDownloadError),
+    Error,
 }
 
 impl DownloadManagerBuilder {
@@ -143,9 +143,9 @@ impl DownloadManagerBuilder {
                     }
                     return Ok(());
                 }
-                DownloadManagerSignal::Error(game_download_error) => {
-                    self.manage_error_signal(game_download_error);
-                }
+                DownloadManagerSignal::Error(e) => {
+                    self.manage_error_signal(e);
+                },
             };
         }
     }
@@ -178,6 +178,7 @@ impl DownloadManagerBuilder {
             id.clone(),
             version,
             target_download_dir,
+            self.sender.clone()
         ));
         let agent_status = GameDownloadStatus::Uninitialised;
         let interface_data = Arc::new(AgentInterfaceData {
@@ -217,11 +218,14 @@ impl DownloadManagerBuilder {
 
             info!("Spawning download");
             spawn(move || {
-                let signal = match download_agent.download() {
-                    Ok(_) => DownloadManagerSignal::Completed(download_agent.id.clone()),
-                    Err(e) => DownloadManagerSignal::Error(e),
+                match download_agent.download() {
+                    Ok(_) => {
+                        sender.send(DownloadManagerSignal::Completed(download_agent.id.clone()));
+                    },
+                    Err(_) => { 
+                        todo!() // Account for if the setup_download function fails
+                     },
                 };
-                sender.send(signal).unwrap();
             });
             info!("Finished spawning Download");
 
@@ -237,7 +241,7 @@ impl DownloadManagerBuilder {
     fn manage_error_signal(&self, error: GameDownloadError) {
         let current_status = self.current_game_interface.clone().unwrap();
         let mut lock = current_status.status.lock().unwrap();
-        *lock = GameDownloadStatus::Error(error);
+        *lock = GameDownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error);
     }
     fn set_status(&self, status: DownloadManagerStatus) {

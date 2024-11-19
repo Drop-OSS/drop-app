@@ -7,14 +7,17 @@ use log::info;
 use rayon::ThreadPoolBuilder;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
+use std::io;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::mpsc::Sender;
+use std::sync::{Arc, Mutex};
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};
 
 use super::download_logic::download_game_chunk;
+use super::download_manager::DownloadManagerSignal;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use super::progress_object::ProgressObject;
 
@@ -26,6 +29,7 @@ pub struct GameDownloadAgent {
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: ProgressObject,
+    sender: Sender<DownloadManagerSignal>
 }
 
 #[derive(Debug)]
@@ -34,6 +38,8 @@ pub enum GameDownloadError {
     Checksum,
     Setup(SetupError),
     Lock,
+    IoError(io::Error),
+    DownloadError
 }
 
 #[derive(Debug)]
@@ -48,12 +54,14 @@ impl Display for GameDownloadError {
             GameDownloadError::Setup(error) => write!(f, "{:?}", error),
             GameDownloadError::Lock => write!(f, "Failed to acquire lock. Something has gone very wrong internally. Please restart the application"),
             GameDownloadError::Checksum => write!(f, "Checksum failed to validate for download"),
+            GameDownloadError::IoError(error) => write!(f, "{}", error),
+            GameDownloadError::DownloadError => write!(f, "Download failed. See Download Manager status for specific error"),
         }
     }
 }
 
 impl GameDownloadAgent {
-    pub fn new(id: String, version: String, target_download_dir: usize) -> Self {
+    pub fn new(id: String, version: String, target_download_dir: usize, sender: Sender<DownloadManagerSignal>) -> Self {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
         Self {
@@ -64,11 +72,11 @@ impl GameDownloadAgent {
             target_download_dir,
             contexts: Mutex::new(Vec::new()),
             progress: ProgressObject::new(0, 0),
+            sender
         }
     }
 
     // Blocking
-    // Requires mutable self
     pub fn setup_download(&self) -> Result<(), GameDownloadError> {
         self.ensure_manifest_exists()?;
         info!("Ensured manifest exists");
@@ -84,7 +92,7 @@ impl GameDownloadAgent {
     // Blocking
     pub fn download(&self) -> Result<(), GameDownloadError> {
         self.setup_download()?;
-        self.run();
+        self.run().map_err(|_| GameDownloadError::DownloadError)?;
 
         Ok(())
     }
@@ -197,7 +205,7 @@ impl GameDownloadAgent {
         Err(GameDownloadError::Setup(SetupError::Context))
     }
 
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<(), ()> {
         const DOWNLOAD_MAX_THREADS: usize = 4;
 
         let pool = ThreadPoolBuilder::new()
@@ -205,22 +213,48 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
+        let new_contexts = Arc::new(Mutex::new(Vec::new()));
+        let new_contexts_ref = new_contexts.clone();
+
         pool.scope(move |scope| {
             let contexts = self.contexts.lock().unwrap();
+
 
             for (index, context) in contexts.iter().enumerate() {
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
                 let progress = self.progress.get(index); // Clone arcs
+                let new_contexts_ref = new_contexts_ref.clone();
 
                 scope.spawn(move |_| {
                     info!(
                         "starting download for file {} {}",
                         context.file_name, context.index
                     );
-                    download_game_chunk(context, control_flag, progress).unwrap();
+                    match download_game_chunk(context.clone(), control_flag, progress) {
+                        Ok(res) => {
+                            match res {
+                                true => {},
+                                false => new_contexts_ref.lock().unwrap().push(context),
+                            }
+                        },
+                        Err(e) => {
+                            info!("GameDownloadError: {}", e);
+                            self.sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                            new_contexts_ref.lock().unwrap().push(context);
+                        },
+                    }
                 });
             }
         });
+        info!("Acquiring lock");
+        if !new_contexts.lock().unwrap().is_empty() {
+            info!("New contexts not empty");
+            *self.contexts.lock().unwrap() = Arc::into_inner(new_contexts).unwrap().into_inner().unwrap();
+            info!("Contexts: {:?}", *self.contexts.lock().unwrap());
+            return Err(())
+        }
+        info!("Contexts: {:?}", *self.contexts.lock().unwrap());
+        Ok(())
     }
 }

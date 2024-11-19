@@ -171,12 +171,12 @@ pub fn download_game_chunk(
         content_length.unwrap().try_into().unwrap(),
     );
 
-    let completed = pipeline.copy().unwrap();
+    let completed = pipeline.copy().map_err(|e| GameDownloadError::IoError(e))?;
     if !completed {
         return Ok(false);
     };
 
-    let checksum = pipeline.finish().unwrap();
+    let checksum = pipeline.finish().map_err(|e| GameDownloadError::IoError(e))?;
 
     let res = hex::encode(checksum.0);
     if res != ctx.checksum {
