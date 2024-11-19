@@ -13,17 +13,16 @@ use crate::downloads::download_agent::GameDownloadAgent;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
 use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
-use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
 use log::{info, LevelFilter};
+use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
-use std::borrow::Borrow;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -70,21 +69,26 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 }
 
 fn setup() -> AppState {
-
     let logfile = FileAppender::builder()
-    .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
-    .build( DATA_ROOT_DIR.lock().unwrap().join("./drop.log")).unwrap();
+        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+        .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
+        .unwrap();
+
+    let console = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+        .build();
 
     let config = Config::builder()
-        .appender(Appender::builder().build("logfile", Box::new(logfile)))
-        .build(Root::builder()
-               .appender("logfile")
-               .build(LevelFilter::Info)).unwrap();
+        .appenders(vec![
+            Appender::builder().build("logfile", Box::new(logfile)),
+            Appender::builder().build("console", Box::new(console)),
+        ])
+        .build(Root::builder().appender("logfile").build(LevelFilter::Info))
+        .unwrap();
 
     log4rs::init_config(config).unwrap();
 
     //env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
-    
 
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {
