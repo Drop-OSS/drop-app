@@ -3,7 +3,7 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::info;
+use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
@@ -239,7 +239,7 @@ impl GameDownloadAgent {
                             }
                         },
                         Err(e) => {
-                            info!("GameDownloadError: {}", e);
+                            error!("GameDownloadError: {}", e);
                             self.sender.send(DownloadManagerSignal::Error(e)).unwrap();
                             new_contexts_ref.lock().unwrap().push(context);
                         },
@@ -247,11 +247,10 @@ impl GameDownloadAgent {
                 });
             }
         });
-        info!("Acquiring lock");
         if !new_contexts.lock().unwrap().is_empty() {
-            info!("New contexts not empty");
+            debug!("New contexts not empty");
             *self.contexts.lock().unwrap() = Arc::into_inner(new_contexts).unwrap().into_inner().unwrap();
-            info!("Contexts: {:?}", *self.contexts.lock().unwrap());
+            debug!("Contexts: {:?}", *self.contexts.lock().unwrap());
             return Err(())
         }
         info!("Contexts: {:?}", *self.contexts.lock().unwrap());

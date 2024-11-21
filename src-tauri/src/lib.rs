@@ -132,6 +132,7 @@ pub fn run() {
             // Downloads
             download_game,
             get_current_game_download_progress,
+            stop_game_download
         ])
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {

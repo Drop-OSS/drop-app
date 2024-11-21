@@ -1,5 +1,7 @@
 use std::sync::Mutex;
 
+use log::info;
+
 use crate::{AppError, AppState};
 
 #[tauri::command]
@@ -37,6 +39,7 @@ pub fn stop_game_download(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String
 ) {
+    info!("Cancelling game download {}", game_id);
     state
         .lock()
         .unwrap()

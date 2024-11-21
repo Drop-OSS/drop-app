@@ -76,9 +76,9 @@ impl DownloadManager {
     }
     pub fn cancel_download(
         &self,
-        id: String
+        game_id: String
     ) {
-        todo!()
+        self.command_sender.send(DownloadManagerSignal::Cancel(game_id)).unwrap();
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
         self.download_queue.lock().unwrap()

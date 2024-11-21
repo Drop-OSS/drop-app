@@ -7,7 +7,7 @@ use std::{
     thread::spawn,
 };
 
-use log::info;
+use log::{info, warn};
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
@@ -78,6 +78,7 @@ pub enum DownloadManagerSignal {
     /// Tells the Manager to stop the current
     /// download and return
     Finish,
+    Cancel(String),
     /// Any error which occurs in the agent
     Error(GameDownloadError),
 }
@@ -145,6 +146,9 @@ impl DownloadManagerBuilder {
                 }
                 DownloadManagerSignal::Error(e) => {
                     self.manage_error_signal(e);
+                },
+                DownloadManagerSignal::Cancel(id) => {
+                    self.manage_cancel_signal(id);
                 },
             };
         }
@@ -220,10 +224,11 @@ impl DownloadManagerBuilder {
             spawn(move || {
                 match download_agent.download() {
                     Ok(_) => {
-                        sender.send(DownloadManagerSignal::Completed(download_agent.id.clone()));
+                        sender.send(DownloadManagerSignal::Completed(download_agent.id.clone())).unwrap();
                     },
-                    Err(_) => { 
-                        todo!() // Account for if the setup_download function fails
+                    Err(e) => { 
+                        warn!("Download failed");
+                        //todo!() // Account for if the setup_download function fails
                      },
                 };
             });
@@ -243,6 +248,22 @@ impl DownloadManagerBuilder {
         let mut lock = current_status.status.lock().unwrap();
         *lock = GameDownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error);
+    }
+    fn manage_cancel_signal(&mut self, game_id: String) {
+        if let Some(current_flag) = &self.active_control_flag {
+            current_flag.set(DownloadThreadControlFlag::Stop);
+            self.active_control_flag = None;
+            *self.progress.lock().unwrap() = None;
+        }
+        self.download_agent_registry.remove(&game_id);
+        let mut lock = self.download_queue.lock().unwrap();
+        let index = match lock.iter().position(|interface| interface.id == game_id) {
+            Some(index) => index,
+            None => return,
+        };
+        lock.remove(index);
+        self.sender.send(DownloadManagerSignal::Go).unwrap();
+        info!("{:?}", self.download_agent_registry.iter().map(|x| x.0.clone()).collect::<String>());
     }
     fn set_status(&self, status: DownloadManagerStatus) {
         *self.status.lock().unwrap() = status;

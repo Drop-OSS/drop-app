@@ -9,7 +9,12 @@
     Download game
     <span v-if="progress != 0"> ({{ Math.floor(progress * 1000) / 10 }}%) </span>
   </button>
-</template>
+  <button
+    class="w-full rounded-md p-4 bg-blue-600 text-white"
+    @click="stopGameDownload"
+  >
+    Cancel game download
+  </button></template>
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
 
@@ -35,5 +40,8 @@ async function startGameDownload() {
       progress.value = currentProgress;
     })();
   }, 100);
+}
+async function stopGameDownload() {
+  await invoke("stop_game_download", { "gameId": gameId.value })
 }
 </script>
