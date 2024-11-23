@@ -13,7 +13,7 @@ use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
     download_manager_interface::{AgentInterfaceData, DownloadManager},
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
-    progress_object::ProgressObject,
+    progress_object::ProgressObject, queue::Queue,
 };
 
 /*
@@ -55,7 +55,7 @@ Behold, my madness - quexeky
 
 pub struct DownloadManagerBuilder {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
-    download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
+    download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
     progress: Arc<Mutex<Option<ProgressObject>>>,
@@ -97,7 +97,7 @@ pub enum GameDownloadStatus {
 
 impl DownloadManagerBuilder {
     pub fn build() -> DownloadManager {
-        let queue = Arc::new(Mutex::new(VecDeque::new()));
+        let queue = Queue::new();
         let (command_sender, command_receiver) = channel();
         let active_progress = Arc::new(Mutex::new(None));
         let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
@@ -167,7 +167,7 @@ impl DownloadManagerBuilder {
             // When if let chains are stabilised, combine these two statements
             if interface.id == game_id {
                 info!("Popping consumed data");
-                self.download_queue.lock().unwrap().pop_front();
+                self.download_queue.pop_front();
                 self.download_agent_registry.remove(&game_id);
                 self.active_control_flag = None;
                 *self.progress.lock().unwrap() = None;
@@ -185,16 +185,13 @@ impl DownloadManagerBuilder {
             self.sender.clone()
         ));
         let agent_status = GameDownloadStatus::Uninitialised;
-        let interface_data = Arc::new(AgentInterfaceData {
+        let interface_data = AgentInterfaceData {
             id,
             status: Mutex::new(agent_status),
-        });
+        };
         self.download_agent_registry
             .insert(interface_data.id.clone(), download_agent);
-        self.download_queue
-            .lock()
-            .unwrap()
-            .push_back(interface_data);
+        self.download_queue.append(interface_data);
     }
 
     fn manage_go_signal(&mut self) {
@@ -202,9 +199,9 @@ impl DownloadManagerBuilder {
         if self.active_control_flag.is_none() && !self.download_agent_registry.is_empty() {
             info!("Starting download agent");
             let download_agent = {
-                let lock = self.download_queue.lock().unwrap();
+                let front = self.download_queue.read().front().unwrap().clone();
                 self.download_agent_registry
-                    .get(&lock.front().unwrap().id)
+                    .get(&front.id)
                     .unwrap()
                     .clone()
             };
@@ -256,7 +253,7 @@ impl DownloadManagerBuilder {
             *self.progress.lock().unwrap() = None;
         }
         self.download_agent_registry.remove(&game_id);
-        let mut lock = self.download_queue.lock().unwrap();
+        let mut lock = self.download_queue.edit();
         let index = match lock.iter().position(|interface| interface.id == game_id) {
             Some(index) => index,
             None => return,

@@ -6,3 +6,4 @@ pub mod download_manager_interface;
 mod download_thread_control_flag;
 mod manifest;
 mod progress_object;
+pub mod queue;

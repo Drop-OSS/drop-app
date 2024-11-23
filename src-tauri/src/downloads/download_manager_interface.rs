@@ -13,7 +13,7 @@ use log::info;
 use super::{
     download_agent::GameDownloadAgent,
     download_manager::{DownloadManagerSignal, GameDownloadStatus},
-    progress_object::ProgressObject,
+    progress_object::ProgressObject, queue::Queue,
 };
 
 /// Accessible front-end for the DownloadManager
@@ -28,7 +28,7 @@ use super::{
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManager {
     terminator: JoinHandle<Result<(), ()>>,
-    download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
+    download_queue: Queue,
     progress: Arc<Mutex<Option<ProgressObject>>>,
     command_sender: Sender<DownloadManagerSignal>,
 }
@@ -48,7 +48,7 @@ impl From<Arc<GameDownloadAgent>> for AgentInterfaceData {
 impl DownloadManager {
     pub fn new(
         terminator: JoinHandle<Result<(), ()>>,
-        download_queue: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
+        download_queue: Queue,
         progress: Arc<Mutex<Option<ProgressObject>>>,
         command_sender: Sender<DownloadManagerSignal>,
     ) -> Self {
@@ -81,10 +81,10 @@ impl DownloadManager {
         self.command_sender.send(DownloadManagerSignal::Cancel(game_id)).unwrap();
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
-        self.download_queue.lock().unwrap()
+        self.download_queue.edit()
     }
     pub fn read_queue(&self) -> VecDeque<Arc<AgentInterfaceData>> {
-        self.download_queue.lock().unwrap().clone()
+        self.download_queue.read()
     }
     pub fn get_current_game_download_progress(&self) -> Option<f64> {
         let progress_object = (*self.progress.lock().unwrap()).clone()?;

@@ -8,7 +8,7 @@ use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
 use std::io::Read;
-use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
@@ -125,6 +125,7 @@ pub fn download_game_chunk(
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
         info!("Control flag is Stop");
+        progress.store(0, Ordering::Relaxed);
         return Ok(false);
     }
 
