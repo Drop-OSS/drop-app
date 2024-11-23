@@ -17,7 +17,7 @@ use downloads::download_manager_interface::DownloadManager;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_library, Game};
-use log::info;
+use log::{debug, info};
 use remote::{gen_drop_url, use_remote, RemoteAccessError};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -73,11 +73,13 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, App
 }
 
 fn setup() -> AppState {
+    debug!("Starting env");
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build());
 
+    debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {
         return AppState {
@@ -87,6 +89,8 @@ fn setup() -> AppState {
             download_manager,
         };
     }
+
+    debug!("Database is set up");
 
     let (app_status, user) = auth::setup().unwrap();
     AppState {

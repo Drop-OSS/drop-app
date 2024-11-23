@@ -1,12 +1,13 @@
-use std::sync::{
+use std::{sync::{
     atomic::{AtomicUsize, Ordering},
     Arc, Mutex,
-};
+}, time::Instant};
 
 #[derive(Clone)]
 pub struct ProgressObject {
     max: Arc<Mutex<usize>>,
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
+    start: Arc<Mutex<Instant>>
 }
 
 impl ProgressObject {
@@ -15,7 +16,11 @@ impl ProgressObject {
         Self {
             max: Arc::new(Mutex::new(max)),
             progress_instances: Arc::new(arr),
+            start: Arc::new(Mutex::new(Instant::now())),
         }
+    }
+    pub fn set_time_now(&self) {
+        *self.start.lock().unwrap() = Instant::now();
     }
     pub fn sum(&self) -> usize {
         self.progress_instances

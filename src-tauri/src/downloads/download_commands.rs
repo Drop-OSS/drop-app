@@ -46,6 +46,14 @@ pub fn stop_game_download(
         .download_manager
         .cancel_download(game_id);
 }
+#[tauri::command]
+pub fn get_current_write_speed(
+    state: tauri::State<'_, Mutex<AppState>>,
+) {
+    
+}
+
+
 /*
 fn use_download_agent(
     state: tauri::State<'_, Mutex<AppState>>,

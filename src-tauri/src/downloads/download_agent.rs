@@ -92,6 +92,7 @@ impl GameDownloadAgent {
     // Blocking
     pub fn download(&self) -> Result<(), GameDownloadError> {
         self.setup_download()?;
+        self.set_progress_object_params();
         self.run().map_err(|_| GameDownloadError::DownloadError)?;
 
         Ok(())
@@ -133,18 +134,6 @@ impl GameDownloadAgent {
         }
 
         let manifest_download = response.json::<DropManifest>().unwrap();
-        let length = manifest_download
-            .values()
-            .map(|chunk| {
-                return chunk.lengths.iter().sum::<usize>();
-            })
-            .sum::<usize>();
-        let chunk_count = manifest_download
-            .values()
-            .map(|chunk| chunk.lengths.len())
-            .sum();
-        self.progress.set_max(length);
-        self.progress.set_size(chunk_count);
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -152,6 +141,22 @@ impl GameDownloadAgent {
         }
 
         Err(GameDownloadError::Lock)
+    }
+
+    fn set_progress_object_params(&self) {
+        let lock = self.contexts.lock().unwrap();
+        let length = lock.len();
+
+        let chunk_count = lock.iter()
+            .map(|chunk| chunk.length)
+            .sum();
+
+        debug!("Setting ProgressObject max to {}", chunk_count);
+        self.progress.set_max(chunk_count);
+        debug!("Setting ProgressObject size to {}", length);
+        self.progress.set_size(length);
+        debug!("Setting ProgressObject time to now");
+        self.progress.set_time_now();
     }
 
     pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
@@ -187,6 +192,7 @@ impl GameDownloadAgent {
                     game_id: game_id.to_string(),
                     path: path.clone(),
                     checksum: chunk.checksums[i].clone(),
+                    length: *length
                 });
                 running_offset += *length as u64;
             }

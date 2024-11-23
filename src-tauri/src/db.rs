@@ -6,7 +6,9 @@ use std::{
 };
 
 use directories::BaseDirs;
+use log::debug;
 use rustbreak::{deser::Bincode, PathDatabase};
+use rustix::path::Arg;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -61,7 +63,9 @@ impl DatabaseImpls for DatabaseInterface {
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
 
+        debug!("Creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
+        debug!("Creating games directory");
         create_dir_all(games_base_dir.clone()).unwrap();
 
         let default = Database {
@@ -72,10 +76,15 @@ impl DatabaseImpls for DatabaseInterface {
                 games_statuses: HashMap::new(),
             },
         };
+
         #[allow(clippy::let_and_return)]
-        let db = match fs::exists(db_path.clone()).unwrap() {
+        let exists = fs::exists(db_path.clone()).unwrap();
+        let db = match exists {
             true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
-            false => PathDatabase::create_at_path(db_path, default).unwrap(),
+            false => {
+                debug!("Creating database at path {}", db_path.as_str().unwrap());
+                PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
+            },
         };
 
         db

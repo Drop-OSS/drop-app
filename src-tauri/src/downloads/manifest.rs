@@ -20,4 +20,5 @@ pub struct DropDownloadContext {
     pub game_id: String,
     pub path: PathBuf,
     pub checksum: String,
+    pub length: usize
 }
