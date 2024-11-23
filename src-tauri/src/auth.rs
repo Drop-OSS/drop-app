@@ -190,7 +190,6 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
 pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     let data = DB.borrow_data().unwrap();
 
-    // If we have certs, exit for now
     if data.auth.is_some() {
         let user_result = fetch_user();
         if user_result.is_err() {

@@ -61,9 +61,6 @@ impl DatabaseImpls for DatabaseInterface {
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
 
-        create_dir_all(data_root_dir.clone()).unwrap();
-        create_dir_all(games_base_dir.clone()).unwrap();
-
         let default = Database {
             auth: None,
             base_url: "".to_string(),
@@ -75,7 +72,12 @@ impl DatabaseImpls for DatabaseInterface {
         #[allow(clippy::let_and_return)]
         let db = match fs::exists(db_path.clone()).unwrap() {
             true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
-            false => PathDatabase::create_at_path(db_path, default).unwrap(),
+            false => {
+                create_dir_all(data_root_dir.clone()).unwrap();
+                create_dir_all(games_base_dir.clone()).unwrap();
+
+                PathDatabase::create_at_path(db_path, default).unwrap()
+            }
         };
 
         db
