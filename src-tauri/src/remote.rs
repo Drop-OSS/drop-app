@@ -8,7 +8,7 @@ use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use url::{ParseError, Url};
 
-use crate::{AppError, AppState, AppStatus, DB};
+use crate::{AppState, AppStatus, DB};
 
 #[derive(Debug, Clone)]
 pub enum RemoteAccessError {
@@ -31,7 +31,6 @@ impl Display for RemoteAccessError {
                 write!(f, "{}", parse_error)
             }
             RemoteAccessError::InvalidCodeError(error) => write!(f, "HTTP {}", error),
-            RemoteAccessError::ParsingError(parse_error) => todo!(),
             RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
             RemoteAccessError::HandshakeFailed => write!(f, "Failed to complete handshake"),
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),

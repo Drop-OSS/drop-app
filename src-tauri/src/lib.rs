@@ -10,7 +10,7 @@ mod tests;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
+use db::{add_new_download_dir, fetch_download_dir_stats, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManagerBuilder;
 use downloads::download_manager_interface::DownloadManager;
@@ -36,12 +36,6 @@ pub enum AppStatus {
     SignedInNeedsReauth,
     ServerUnavailable,
 }
-#[derive(Debug, Serialize)]
-pub enum AppError {
-    DoesNotExist,
-    Signal,
-    RemoteAccess(String)
-}
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -65,7 +59,7 @@ pub struct AppState {
 }
 
 #[tauri::command]
-fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, AppError> {
+fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
     let guard = state.lock().unwrap();
     let cloned_state = guard.clone();
     drop(guard);
@@ -133,12 +127,14 @@ pub fn run() {
             fetch_library,
             fetch_game,
             add_new_download_dir,
+            fetch_download_dir_stats,
             // Downloads
             download_game,
             get_current_game_download_progress,
             stop_game_download
         ])
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {

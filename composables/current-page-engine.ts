@@ -1,5 +1,5 @@
 import type { RouteLocationNormalized } from "vue-router";
-import type { NavigationItem } from "~/components/types";
+import type { NavigationItem } from "~/types";
 
 export const useCurrentNavigationIndex = (
   navigation: Array<NavigationItem>

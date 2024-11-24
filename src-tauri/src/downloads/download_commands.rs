@@ -2,43 +2,39 @@ use std::sync::Mutex;
 
 use log::info;
 
-use crate::{AppError, AppState};
+use crate::AppState;
 
 #[tauri::command]
 pub fn download_game(
     game_id: String,
     game_version: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), AppError> {
-    
+) -> Result<(), String> {
     state
         .lock()
         .unwrap()
         .download_manager
         .queue_game(game_id, game_version, 0)
-        .map_err(|_| AppError::Signal)
+        .map_err(|_| "An error occurred while communicating with the download manager.".to_string())
 }
 
 #[tauri::command]
 pub fn get_current_game_download_progress(
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<f64, AppError> {
+) -> Result<f64, String> {
     match state
         .lock()
         .unwrap()
         .download_manager
         .get_current_game_download_progress()
-        {
-            Some(progress) => Ok(progress),
-            None => Err(AppError::DoesNotExist),
-        }
+    {
+        Some(progress) => Ok(progress),
+        None => Err("Game does not exist".to_string()),
+    }
 }
 
 #[tauri::command]
-pub fn stop_game_download(
-    state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String
-) {
+pub fn stop_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
     info!("Cancelling game download {}", game_id);
     state
         .lock()
@@ -47,12 +43,7 @@ pub fn stop_game_download(
         .cancel_download(game_id);
 }
 #[tauri::command]
-pub fn get_current_write_speed(
-    state: tauri::State<'_, Mutex<AppState>>,
-) {
-    
-}
-
+pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}
 
 /*
 fn use_download_agent(

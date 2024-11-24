@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
@@ -7,7 +8,6 @@ use tauri::{AppHandle, Manager};
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
 use crate::remote::RemoteAccessError;
-use crate::AppError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
@@ -19,7 +19,7 @@ struct FetchGameStruct {
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    game_id: String,
+    id: String,
     m_name: String,
     m_short_description: String,
     m_description: String,
@@ -55,12 +55,12 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
     for game in games.iter() {
-        handle.games.insert(game.game_id.clone(), game.clone());
-        if !db_handle.games.games_statuses.contains_key(&game.game_id) {
+        handle.games.insert(game.id.clone(), game.clone());
+        if !db_handle.games.games_statuses.contains_key(&game.id) {
             db_handle
                 .games
                 .games_statuses
-                .insert(game.game_id.clone(), DatabaseGameStatus::Remote);
+                .insert(game.id.clone(), DatabaseGameStatus::Remote);
         }
     }
 
@@ -70,9 +70,8 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<String, AppError> {
-    fetch_library_logic(app)
-        .map_err(|e| AppError::RemoteAccess(e.to_string()))
+pub fn fetch_library(app: AppHandle) -> Result<String, String> {
+    fetch_library_logic(app).map_err(|e| e.to_string())
 }
 
 fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {
@@ -88,7 +87,7 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
             status: db_handle
                 .games
                 .games_statuses
-                .get(&game.game_id)
+                .get(&game.id)
                 .unwrap()
                 .clone(),
         };

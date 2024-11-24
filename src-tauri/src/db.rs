@@ -6,7 +6,7 @@ use std::{
 };
 
 use directories::BaseDirs;
-use log::debug;
+use log::{debug, info};
 use rustbreak::{deser::Bincode, PathDatabase};
 use rustix::path::Arg;
 use serde::{Deserialize, Serialize};
@@ -68,23 +68,23 @@ impl DatabaseImpls for DatabaseInterface {
         debug!("Creating games directory");
         create_dir_all(games_base_dir.clone()).unwrap();
 
-        let default = Database {
-            auth: None,
-            base_url: "".to_string(),
-            games: DatabaseGames {
-                install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-                games_statuses: HashMap::new(),
-            },
-        };
-
         #[allow(clippy::let_and_return)]
         let exists = fs::exists(db_path.clone()).unwrap();
         let db = match exists {
             true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
             false => {
+                let default = Database {
+                    auth: None,
+                    base_url: "".to_string(),
+                    games: DatabaseGames {
+                        install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
+                        games_statuses: HashMap::new(),
+                    },
+                };
                 debug!("Creating database at path {}", db_path.as_str().unwrap());
-                PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
-            },
+                PathDatabase::create_at_path(db_path, default)
+                    .expect("Database could not be created")
+            }
         };
 
         db
@@ -114,8 +114,8 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
         let dir_contents = new_dir_path
             .read_dir()
             .map_err(|e| format!("Unable to check directory contents: {}", e))?;
-        if dir_contents.count() == 0 {
-            return Err("Path is not empty".to_string());
+        if dir_contents.count() != 0 {
+            return Err("Directory is not empty".to_string());
         }
     } else {
         create_dir_all(new_dir_path)
@@ -126,6 +126,18 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
     let mut lock = DB.borrow_data_mut().unwrap();
     lock.games.install_dirs.push(new_dir);
     drop(lock);
+    DB.save().unwrap();
 
     Ok(())
+}
+
+// Will, in future, return disk/remaining size
+// Just returns the directories that have been set up
+#[tauri::command]
+pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
+    let lock = DB.borrow_data().unwrap();
+    let directories = lock.games.install_dirs.clone();
+    drop(lock);
+
+    Ok(directories)
 }

@@ -3,7 +3,7 @@
     class="mx-auto w-full relative flex flex-col justify-center pt-64 z-10 overflow-hidden"
   >
     <!-- banner image -->
-    <div class="absolute flex top-0 h-fit inset-x-0 -z-[20]">
+    <div class="absolute flex top-0 h-fit inset-x-0 z-[-20]">
       <img :src="bannerUrl" class="w-full h-auto object-cover" />
       <h1
         class="absolute inset-x-0 w-full text-center top-32 -translate-y-[50%] text-4xl text-zinc-100 font-bold font-display z-50"
