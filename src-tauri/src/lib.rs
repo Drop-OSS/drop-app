@@ -10,7 +10,7 @@ mod tests;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{add_new_download_dir, fetch_download_dir_stats, DatabaseInterface, DATA_ROOT_DIR};
+use db::{add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManagerBuilder;
 use downloads::download_manager_interface::DownloadManager;
@@ -126,7 +126,8 @@ pub fn run() {
             // Library
             fetch_library,
             fetch_game,
-            add_new_download_dir,
+            add_download_dir,
+            delete_download_dir,
             fetch_download_dir_stats,
             // Downloads
             download_game,

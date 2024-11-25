@@ -27,7 +27,7 @@
     </div>
     <ul role="list" class="divide-y divide-gray-800">
       <li
-        v-for="dir in dirs"
+        v-for="(dir, dirIdx) in dirs"
         :key="dir"
         class="flex justify-between gap-x-6 py-5"
       >
@@ -43,7 +43,16 @@
           </div>
         </div>
         <div class="flex shrink-0 items-center gap-x-6">
-          <button class="-m-2.5 block p-2.5 text-zinc-400 hover:text-zinc-100">
+          <button
+            @click="() => deleteDirectory(dirIdx)"
+            :disabled="dirs.length <= 1"
+            :class="[
+              dirs.length <= 1
+                ? 'text-zinc-700'
+                : 'text-zinc-400 hover:text-zinc-100',
+              '-m-2.5 block p-2.5',
+            ]"
+          >
             <span class="sr-only">Open options</span>
             <TrashIcon class="size-5" aria-hidden="true" />
           </button>
@@ -169,7 +178,14 @@ const currentDirectory = ref<string | undefined>(undefined);
 const error = ref<string | undefined>(undefined);
 const createDirectoryLoading = ref(false);
 
-const dirs = ref(await invoke<Array<string>>("fetch_download_dir_stats"));
+const dirs = ref<Array<string>>([]);
+
+async function updateDirs() {
+  const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");
+  dirs.value = newDirs;
+}
+
+await updateDirs();
 
 async function selectDirectoryDialog(): Promise<string> {
   const res = await invoke("plugin:dialog|open", {
@@ -201,17 +217,22 @@ async function submitDirectory() {
     createDirectoryLoading.value = true;
 
     // Add directory
-    await invoke("add_new_download_dir", { newDir: currentDirectory.value });
+    await invoke("add_download_dir", { newDir: currentDirectory.value });
 
     // Update list
-    const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");
-    dirs.value = newDirs;
+    await updateDirs();
 
+    currentDirectory.value = undefined;
     createDirectoryLoading.value = false;
     open.value = false;
   } catch (e) {
     error.value = e as string;
     createDirectoryLoading.value = false;
   }
+}
+
+async function deleteDirectory(index: number) {
+  await invoke("delete_download_dir", { index });
+  await updateDirs();
 }
 </script>

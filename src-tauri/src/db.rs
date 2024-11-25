@@ -101,7 +101,7 @@ impl DatabaseImpls for DatabaseInterface {
 }
 
 #[tauri::command]
-pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
+pub fn add_download_dir(new_dir: String) -> Result<(), String> {
     // Check the new directory is all good
     let new_dir_path = Path::new(&new_dir);
     if new_dir_path.exists() {
@@ -124,7 +124,20 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
 
     // Add it to the dictionary
     let mut lock = DB.borrow_data_mut().unwrap();
+    if lock.games.install_dirs.contains(&new_dir) {
+        return Err("Download directory already used".to_string());
+    }
     lock.games.install_dirs.push(new_dir);
+    drop(lock);
+    DB.save().unwrap();
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn delete_download_dir(index: usize) -> Result<(), String> {
+    let mut lock = DB.borrow_data_mut().unwrap();
+    lock.games.install_dirs.remove(index);
     drop(lock);
     DB.save().unwrap();
 
