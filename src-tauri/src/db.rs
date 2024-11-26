@@ -28,7 +28,6 @@ pub enum DatabaseGameStatus {
     Downloading,
     Installed,
     Updating,
-
     Uninstalling,
 }
 

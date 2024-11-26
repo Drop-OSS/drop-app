@@ -10,13 +10,16 @@ mod tests;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
-use db::{add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, DATA_ROOT_DIR};
+use db::{
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
+    DATA_ROOT_DIR,
+};
 use downloads::download_commands::*;
-use downloads::download_manager::DownloadManagerBuilder;
-use downloads::download_manager_interface::DownloadManager;
+use downloads::download_manager_builder::DownloadManagerBuilder;
+use downloads::download_manager::DownloadManager;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{fetch_game, fetch_library, Game};
+use library::{fetch_game, fetch_game_status, fetch_library, Game};
 use log::{debug, info};
 use remote::{gen_drop_url, use_remote, RemoteAccessError};
 use serde::{Deserialize, Serialize};
@@ -130,6 +133,7 @@ pub fn run() {
             add_download_dir,
             delete_download_dir,
             fetch_download_dir_stats,
+            fetch_game_status,
             // Downloads
             download_game,
             get_current_game_download_progress,

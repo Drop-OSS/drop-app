@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tauri::{AppHandle, Manager};
 
+use crate::db;
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
 use crate::remote::RemoteAccessError;
@@ -108,4 +109,18 @@ pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
     }
 
     Ok(result.unwrap())
+}
+
+#[tauri::command]
+pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
+    let db_handle = DB.borrow_data().unwrap();
+    let status = db_handle
+        .games
+        .games_statuses
+        .get(&id)
+        .unwrap_or(&DatabaseGameStatus::Remote)
+        .clone();
+    drop(db_handle);
+
+    return Ok(status);
 }

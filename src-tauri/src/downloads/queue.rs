@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, sync::{Arc, Mutex, MutexGuard}};
 
-use super::download_manager_interface::AgentInterfaceData;
+use super::download_manager::AgentInterfaceData;
 
 #[derive(Clone)]
 pub struct Queue {
