@@ -1,7 +1,5 @@
 use std::{
-    env,
-    sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
+    borrow::BorrowMut, env, sync::Mutex, time::{SystemTime, UNIX_EPOCH}
 };
 
 use log::{info, warn};
@@ -11,7 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    db::{DatabaseAuth, DatabaseImpls},
+    db::{self, DatabaseAuth, DatabaseImpls},
     remote::RemoteAccessError,
     AppState, AppStatus, User, DB,
 };
@@ -181,6 +179,18 @@ pub async fn auth_initiate<'a>() -> Result<(), String> {
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
     }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
+    let (app_status, user) = setup()?;
+
+    let mut guard = state.lock().unwrap();
+    guard.status = app_status;
+    guard.user = user;
+    drop(guard);
 
     Ok(())
 }

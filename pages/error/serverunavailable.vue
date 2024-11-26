@@ -20,9 +20,15 @@
           We were unable to contact your Drop instance. See if you can open it
           in your web browser, or contact your server admin for help.
         </p>
-        <div class="mt-10">
+        <div class="mt-10 space-x-10">
+          <button
+          @click="() => retry()"
+            class="inline-flex gap-x-2 items-center text-sm text-left font-semibold leading-7 text-white"
+          >
+            Retry <ArrowPathIcon class="w-5 h-5" />
+          </button>
           <NuxtLink
-          to="/setup"
+            to="/setup"
             class="text-sm text-left font-semibold leading-7 text-blue-600"
           >
             Connect to different instance <span aria-hidden="true">&rarr;</span>
@@ -68,7 +74,15 @@
 </template>
 
 <script setup lang="ts">
+import { ArrowPathIcon } from "@heroicons/vue/24/outline";
+import { invoke } from "@tauri-apps/api/core";
+
 definePageMeta({
   layout: "mini",
 });
+
+async function retry() {
+  await invoke("retry_connect");
+  location.reload();
+}
 </script>

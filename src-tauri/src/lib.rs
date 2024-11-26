@@ -9,7 +9,7 @@ mod settings;
 mod tests;
 
 use crate::db::DatabaseImpls;
-use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
+use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
 use db::{add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, DATA_ROOT_DIR};
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManagerBuilder;
@@ -120,6 +120,7 @@ pub fn run() {
             fetch_state,
             // Auth
             auth_initiate,
+            retry_connect,
             // Remote
             use_remote,
             gen_drop_url,
