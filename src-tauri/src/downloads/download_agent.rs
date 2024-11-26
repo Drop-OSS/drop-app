@@ -212,7 +212,7 @@ impl GameDownloadAgent {
     }
 
     pub fn run(&self) -> Result<(), ()> {
-        const DOWNLOAD_MAX_THREADS: usize = 4;
+        const DOWNLOAD_MAX_THREADS: usize = 1;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(DOWNLOAD_MAX_THREADS)

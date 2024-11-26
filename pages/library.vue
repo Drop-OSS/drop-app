@@ -13,7 +13,7 @@
         >
           <div class="flex items-center min-w-0 gap-x-2">
             <img
-              class="h-5 w-5 flex-none object-cover rounded-sm bg-zinc-900"
+              class="h-5 w-auto flex-none object-cover rounded-sm bg-zinc-900"
               :src="icons[navIdx]"
               alt=""
             />

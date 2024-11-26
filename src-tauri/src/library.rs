@@ -1,3 +1,4 @@
+use std::fmt::format;
 use std::sync::Mutex;
 
 use log::info;
@@ -8,6 +9,7 @@ use tauri::{AppHandle, Manager};
 use crate::db;
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
+use crate::downloads::download_manager::GameDownloadStatus;
 use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
@@ -77,9 +79,9 @@ pub fn fetch_library(app: AppHandle) -> Result<String, String> {
 
 fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {
     let state = app.state::<Mutex<AppState>>();
-    let handle = state.lock().unwrap();
+    let mut state_handle = state.lock().unwrap();
 
-    let game = handle.games.get(&id);
+    let game = state_handle.games.get(&id);
     if let Some(game) = game {
         let db_handle = DB.borrow_data().unwrap();
 
@@ -95,9 +97,50 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
 
         return Ok(json!(data).to_string());
     }
-    // TODO request games that aren't found from remote server
 
-    Err(RemoteAccessError::GameNotFound)
+    let base_url = DB.fetch_base_url();
+
+    let endpoint = base_url.join(&format!("/api/v1/game/{}", id))?;
+    let header = generate_authorization_header();
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(endpoint.to_string())
+        .header("Authorization", header)
+        .send()?;
+
+    if response.status() == 404 {
+        return Err(RemoteAccessError::GameNotFound);
+    }
+    if response.status() != 200 {
+        return Err(RemoteAccessError::InvalidCodeError(
+            response.status().into(),
+        ));
+    }
+
+    let game = response.json::<Game>()?;
+    state_handle.games.insert(id.clone(), game.clone());
+
+    let mut db_handle = DB.borrow_data_mut().unwrap();
+
+    if !db_handle.games.games_statuses.contains_key(&id) {
+        db_handle
+            .games
+            .games_statuses
+            .insert(id, DatabaseGameStatus::Remote);
+    }
+
+    let data = FetchGameStruct {
+        game: game.clone(),
+        status: db_handle
+            .games
+            .games_statuses
+            .get(&game.id)
+            .unwrap()
+            .clone(),
+    };
+
+    return Ok(json!(data).to_string());
 }
 
 #[tauri::command]

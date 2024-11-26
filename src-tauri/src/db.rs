@@ -35,6 +35,7 @@ pub enum DatabaseGameStatus {
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseGames {
     pub install_dirs: Vec<String>,
+    // Guaranteed to exist if the game also exists in the app state map
     pub games_statuses: HashMap<String, DatabaseGameStatus>,
 }
 
