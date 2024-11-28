@@ -27,6 +27,7 @@ export enum AppStatus {
 
 export enum GameStatus {
   Remote = "Remote",
+  Queued = "Queued",
   Downloading = "Downloading",
   Installed = "Installed",
   Updating = "Updating",

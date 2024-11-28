@@ -33,6 +33,11 @@ pub struct Game {
     m_cover_id: String,
     m_image_library: Vec<String>,
 }
+#[derive(serde::Serialize, Clone)]
+pub struct GameUpdateEvent {
+    pub game_id: String,
+    pub status: DatabaseGameStatus,
+}
 
 fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
     let base_url = DB.fetch_base_url();

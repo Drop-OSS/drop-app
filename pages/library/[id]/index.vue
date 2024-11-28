@@ -18,7 +18,7 @@
     <div class="w-full min-h-screen mx-auto bg-zinc-900 px-5 py-6">
       <!-- game toolbar -->
       <div>
-        <GameButton v-model="status" />
+        <GameStatusButton :status="status" />
       </div>
     </div>
   </div>
@@ -27,15 +27,22 @@
 <script setup lang="ts">
 import type { Game } from "@prisma/client";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
+import type { GameStatus } from "~/types";
 
 const route = useRoute();
 const id = route.params.id;
 
-const raw: { game: Game; status: any } = JSON.parse(
+const raw: { game: Game; status: GameStatus } = JSON.parse(
   await invoke<string>("fetch_game", { id: id })
 );
 const game = ref(raw.game);
 const status = ref(raw.status);
+
+listen(`update_game/${game.value.id}`, (event) => {
+  const payload: { status: GameStatus } = event.payload as any;
+  status.value = payload.status;
+});
 
 const bannerUrl = await useObject(game.value.mBannerId);
 </script>

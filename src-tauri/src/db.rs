@@ -25,6 +25,7 @@ pub struct DatabaseAuth {
 #[derive(Serialize, Clone, Deserialize)]
 pub enum DatabaseGameStatus {
     Remote,
+    Queued,
     Downloading,
     Installed,
     Updating,

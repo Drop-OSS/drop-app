@@ -28,6 +28,7 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
+use tauri::{AppHandle, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
@@ -69,12 +70,12 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
     Ok(cloned_state)
 }
 
-fn setup() -> AppState {
+fn setup(handle: AppHandle) -> AppState {
     debug!("Starting env");
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build());
+    let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
 
     debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -102,9 +103,6 @@ pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::se
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let state = setup();
-    info!("initialized drop client");
-
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(desktop)]
@@ -117,7 +115,6 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_deep_link::init())
-        .manage(Mutex::new(state))
         .invoke_handler(tauri::generate_handler![
             // DB
             fetch_state,
@@ -144,6 +141,11 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let handle = app.handle().clone();
+            let state = setup(handle);
+            info!("initialized drop client");
+            app.manage(Mutex::new(state));
+
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;

@@ -6,8 +6,7 @@
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-// @ts-expect-error
-import { AppStatus, type AppState } from "./types.d.ts";
+import { AppStatus } from "~/types";
 import { listen } from "@tauri-apps/api/event";
 import { useAppState } from "./composables/app-state.js";
 import { useRouter } from "#vue-router";
