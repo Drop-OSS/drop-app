@@ -1,19 +1,22 @@
-use std::{collections::VecDeque, sync::{Arc, Mutex, MutexGuard}};
+use std::{
+    collections::VecDeque,
+    sync::{Arc, Mutex, MutexGuard},
+};
 
 use super::download_manager::AgentInterfaceData;
 
 #[derive(Clone)]
 pub struct Queue {
-    inner: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>
+    inner: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
 }
 
 impl Queue {
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(VecDeque::new()))
+            inner: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
-    pub fn read(&self)  -> VecDeque<Arc<AgentInterfaceData>> {
+    pub fn read(&self) -> VecDeque<Arc<AgentInterfaceData>> {
         self.inner.lock().unwrap().clone()
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
@@ -22,13 +25,15 @@ impl Queue {
     pub fn pop_front(&self) -> Option<Arc<AgentInterfaceData>> {
         self.edit().pop_front()
     }
+    pub fn empty(&self) -> bool {
+        self.inner.lock().unwrap().len() == 0
+    }
     /// Either inserts `interface` at the specified index, or appends to
     /// the back of the deque if index is greater than the length of the deque
     pub fn insert(&self, interface: AgentInterfaceData, index: usize) {
         if self.read().len() > index {
             self.append(interface);
-        }
-        else {
+        } else {
             self.edit().insert(index, Arc::new(interface));
         }
     }
@@ -44,7 +49,7 @@ impl Queue {
         if front.id == game_id {
             return queue.pop_front();
         }
-        return None
+        return None;
     }
     pub fn get_by_id(&self, game_id: String) -> Option<usize> {
         self.read().iter().position(|data| data.id == game_id)

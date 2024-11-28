@@ -12,7 +12,8 @@ use log::info;
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
-    progress_object::ProgressObject, queue::Queue,
+    progress_object::ProgressObject,
+    queue::Queue,
 };
 
 pub enum DownloadManagerSignal {
@@ -20,8 +21,7 @@ pub enum DownloadManagerSignal {
     Go,
     /// Pauses the DownloadManager
     Stop,
-    /// Called when a GameDownloadAgent has finished.
-    /// Triggers the next download cycle to begin
+    /// Called when a GameDownloadAgent has fully completed a download.
     Completed(String),
     /// Generates and appends a GameDownloadAgent
     /// to the registry and queue
@@ -104,11 +104,10 @@ impl DownloadManager {
         ))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn cancel_download(
-        &self,
-        game_id: String
-    ) {
-        self.command_sender.send(DownloadManagerSignal::Cancel(game_id)).unwrap();
+    pub fn cancel_download(&self, game_id: String) {
+        self.command_sender
+            .send(DownloadManagerSignal::Cancel(game_id))
+            .unwrap();
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
         self.download_queue.edit()
@@ -139,11 +138,13 @@ impl DownloadManager {
         let current_index = get_index_from_id(&mut queue, id).unwrap();
         queue.remove(current_index);
     }
-    pub fn pause_downloads(&self) -> Result<(), SendError<DownloadManagerSignal>> {
-        self.command_sender.send(DownloadManagerSignal::Stop)
+    pub fn pause_downloads(&self) {
+        self.command_sender
+            .send(DownloadManagerSignal::Stop)
+            .unwrap();
     }
-    pub fn resume_downloads(&self) -> Result<(), SendError<DownloadManagerSignal>> {
-        self.command_sender.send(DownloadManagerSignal::Go)
+    pub fn resume_downloads(&self) {
+        self.command_sender.send(DownloadManagerSignal::Go).unwrap();
     }
     pub fn ensure_terminated(self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
         self.command_sender

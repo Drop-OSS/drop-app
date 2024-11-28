@@ -34,7 +34,7 @@ pub fn get_current_game_download_progress(
 }
 
 #[tauri::command]
-pub fn stop_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
+pub fn cancel_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
     info!("Cancelling game download {}", game_id);
     state
         .lock()
@@ -42,6 +42,17 @@ pub fn stop_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: Str
         .download_manager
         .cancel_download(game_id);
 }
+
+#[tauri::command]
+pub fn pause_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
+    state.lock().unwrap().download_manager.pause_downloads()
+}
+
+#[tauri::command]
+pub fn resume_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
+    state.lock().unwrap().download_manager.resume_downloads()
+}
+
 #[tauri::command]
 pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}
 

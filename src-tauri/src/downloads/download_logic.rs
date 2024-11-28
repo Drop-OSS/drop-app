@@ -124,7 +124,6 @@ pub fn download_game_chunk(
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
-        info!("Control flag is Stop");
         progress.store(0, Ordering::Relaxed);
         return Ok(false);
     }

@@ -170,15 +170,15 @@ impl DownloadManagerBuilder {
 
     fn manage_go_signal(&mut self) {
         info!("Got signal 'Go'");
-        if self.active_control_flag.is_none() && !self.download_agent_registry.is_empty() {
+        if !self.download_agent_registry.is_empty() && !self.download_queue.empty() {
             info!("Starting download agent");
-            let download_agent = {
-                let front = self.download_queue.read().front().unwrap().clone();
-                self.download_agent_registry.get(&front.id).unwrap().clone()
-            };
-            let download_agent_interface =
-                Arc::new(AgentInterfaceData::from(download_agent.clone()));
-            self.current_game_interface = Some(download_agent_interface);
+            let agent_data = self.download_queue.read().front().unwrap().clone();
+            let download_agent = self
+                .download_agent_registry
+                .get(&agent_data.id)
+                .unwrap()
+                .clone();
+            self.current_game_interface = Some(agent_data);
 
             let progress_object = download_agent.progress.clone();
             *self.progress.lock().unwrap() = Some(progress_object);
@@ -191,29 +191,20 @@ impl DownloadManagerBuilder {
             info!("Spawning download");
             spawn(move || {
                 match download_agent.download() {
-                    Ok(_) => {
-                        // TODO wrap this pattern in a macro
-                        let result = sender
-                            .send(DownloadManagerSignal::Completed(download_agent.id.clone()));
-                        if let Err(err) = result {
-                            error!("{}", err);
-                        }
-                    }
+                    // Returns once we've exited the download
+                    // (not necessarily completed)
+                    // The download agent will fire the completed event for us
+                    Ok(_) => {}
+                    // If an error occurred while *starting* the download
                     Err(err) => {
-                        let result = sender.send(DownloadManagerSignal::Error(err));
-                        if let Err(err) = result {
-                            error!("{}", err);
-                        }
+                        error!("error while managing download: {}", err);
+                        sender.send(DownloadManagerSignal::Error(err)).unwrap();
                     }
                 };
             });
-            info!("Finished spawning Download");
 
             active_control_flag.set(DownloadThreadControlFlag::Go);
             self.set_status(DownloadManagerStatus::Downloading);
-        } else if let Some(active_control_flag) = self.active_control_flag.clone() {
-            info!("Restarting current download");
-            active_control_flag.set(DownloadThreadControlFlag::Go);
         } else {
             info!("Nothing was set");
         }
@@ -230,6 +221,8 @@ impl DownloadManagerBuilder {
             self.active_control_flag = None;
             *self.progress.lock().unwrap() = None;
         }
+        // TODO wait until current download exits
+
         self.download_agent_registry.remove(&game_id);
         let mut lock = self.download_queue.edit();
         let index = match lock.iter().position(|interface| interface.id == game_id) {
@@ -237,6 +230,8 @@ impl DownloadManagerBuilder {
             None => return,
         };
         lock.remove(index);
+
+        // Start next download
         self.sender.send(DownloadManagerSignal::Go).unwrap();
         info!(
             "{:?}",

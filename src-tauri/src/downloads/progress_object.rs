@@ -1,13 +1,16 @@
-use std::{sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc, Mutex,
-}, time::Instant};
+use std::{
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
+    time::Instant,
+};
 
 #[derive(Clone)]
 pub struct ProgressObject {
     max: Arc<Mutex<usize>>,
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
-    start: Arc<Mutex<Instant>>
+    start: Arc<Mutex<Instant>>,
 }
 
 impl ProgressObject {

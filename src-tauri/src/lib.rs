@@ -15,8 +15,8 @@ use db::{
     DATA_ROOT_DIR,
 };
 use downloads::download_commands::*;
-use downloads::download_manager_builder::DownloadManagerBuilder;
 use downloads::download_manager::DownloadManager;
+use downloads::download_manager_builder::DownloadManagerBuilder;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_game_status, fetch_library, Game};
@@ -137,7 +137,9 @@ pub fn run() {
             // Downloads
             download_game,
             get_current_game_download_progress,
-            stop_game_download
+            cancel_game_download,
+            pause_game_downloads,
+            resume_game_downloads,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
