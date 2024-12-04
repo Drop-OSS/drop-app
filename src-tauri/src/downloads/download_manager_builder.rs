@@ -103,6 +103,8 @@ impl DownloadManagerBuilder {
             .games
             .games_statuses
             .insert(id.clone(), status.clone());
+        drop(db_handle);
+        DB.save().unwrap();
         self.app_handle
             .emit(
                 &format!("update_game/{}", id),
