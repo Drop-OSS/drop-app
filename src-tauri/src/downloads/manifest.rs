@@ -9,6 +9,7 @@ pub struct DropChunk {
     pub ids: Vec<String>,
     pub checksums: Vec<String>,
     pub lengths: Vec<usize>,
+    pub versionName: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

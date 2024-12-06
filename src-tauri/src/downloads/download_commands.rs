@@ -8,13 +8,14 @@ use crate::AppState;
 pub fn download_game(
     game_id: String,
     game_version: String,
+    install_dir: usize,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     state
         .lock()
         .unwrap()
         .download_manager
-        .queue_game(game_id, game_version, 0)
+        .queue_game(game_id, game_version, install_dir)
         .map_err(|_| "An error occurred while communicating with the download manager.".to_string())
 }
 

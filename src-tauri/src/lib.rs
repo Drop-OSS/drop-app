@@ -19,7 +19,7 @@ use downloads::download_manager::DownloadManager;
 use downloads::download_manager_builder::DownloadManagerBuilder;
 use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{fetch_game, fetch_game_status, fetch_library, Game};
+use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, Game};
 use log::{debug, info};
 use remote::{gen_drop_url, use_remote, RemoteAccessError};
 use serde::{Deserialize, Serialize};
@@ -131,6 +131,7 @@ pub fn run() {
             delete_download_dir,
             fetch_download_dir_stats,
             fetch_game_status,
+            fetch_game_verion_options,
             // Downloads
             download_game,
             get_current_game_download_progress,

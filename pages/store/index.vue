@@ -39,11 +39,6 @@ const versionName = ref("");
 const progress = ref(0);
 
 async function startGameDownload() {
-  await invoke("download_game", {
-    gameId: gameId.value,
-    gameVersion: versionName.value,
-  });
-
   setInterval(() => {
     (async () => {
       const currentProgress = await invoke<number>(

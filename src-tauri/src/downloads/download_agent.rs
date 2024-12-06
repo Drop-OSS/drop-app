@@ -172,7 +172,6 @@ impl GameDownloadAgent {
 
     pub fn ensure_contexts(&self) -> Result<(), GameDownloadError> {
         let context_lock = self.contexts.lock().unwrap();
-        info!("{:?} {}", context_lock, context_lock.is_empty());
         if !context_lock.is_empty() {
             return Ok(());
         }
@@ -209,7 +208,7 @@ impl GameDownloadAgent {
             for (i, length) in chunk.lengths.iter().enumerate() {
                 contexts.push(DropDownloadContext {
                     file_name: raw_path.to_string(),
-                    version: version.to_string(),
+                    version: chunk.versionName.to_string(),
                     offset: running_offset,
                     index: i,
                     game_id: game_id.to_string(),

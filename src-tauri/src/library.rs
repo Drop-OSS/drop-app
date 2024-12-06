@@ -39,6 +39,19 @@ pub struct GameUpdateEvent {
     pub status: DatabaseGameStatus,
 }
 
+// Game version with some fields missing and size information
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GameVersionOption {
+    version_index: usize,
+    version_name: String,
+    platform: String,
+    setup_command: String,
+    launch_command: String,
+    delta: bool,
+    // total_size: usize,
+}
+
 fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
     let library_url = base_url.join("/api/v1/client/user/library")?;
@@ -171,4 +184,33 @@ pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
     drop(db_handle);
 
     return Ok(status);
+}
+
+fn fetch_game_verion_options_logic(game_id: String) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
+    let base_url = DB.fetch_base_url();
+
+    let endpoint =
+        base_url.join(format!("/api/v1/client/metadata/versions?id={}", game_id).as_str())?;
+    let header = generate_authorization_header();
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(endpoint.to_string())
+        .header("Authorization", header)
+        .send()?;
+
+    if response.status() != 200 {
+        return Err(RemoteAccessError::InvalidCodeError(
+            response.status().into(),
+        ));
+    }
+
+    let data = response.json::<Vec<GameVersionOption>>()?;
+
+    return Ok(data);
+}
+
+#[tauri::command]
+pub fn fetch_game_verion_options(game_id: String) -> Result<Vec<GameVersionOption>, String> {
+    fetch_game_verion_options_logic(game_id).map_err(|e| e.to_string())
 }

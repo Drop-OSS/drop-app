@@ -8,6 +8,7 @@ use std::{
 };
 
 use log::{error, info, warn};
+use rustbreak::Database;
 use tauri::{AppHandle, Emitter};
 
 use crate::{db::DatabaseGameStatus, library::GameUpdateEvent, DB};
@@ -247,6 +248,11 @@ impl DownloadManagerBuilder {
         let mut lock = current_status.status.lock().unwrap();
         *lock = GameDownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error(error));
+
+        self.set_game_status(
+            self.current_game_interface.as_ref().unwrap().id.clone(),
+            DatabaseGameStatus::Remote,
+        );
     }
     fn manage_cancel_signal(&mut self, game_id: String) {
         if let Some(current_flag) = &self.active_control_flag {

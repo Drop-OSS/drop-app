@@ -3,7 +3,7 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::info;
+use log::{info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
@@ -150,6 +150,13 @@ pub fn download_game_chunk(
         .send()
         .map_err(|e| GameDownloadError::Communication(e.into()))?;
 
+    if response.status() != 200 {
+        warn!("{}", response.text().unwrap());
+        return Err(GameDownloadError::Communication(
+            RemoteAccessError::InvalidCodeError(400),
+        ));
+    }
+
     let mut destination = DropWriter::new(ctx.path);
 
     if ctx.offset != 0 {
@@ -160,7 +167,9 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        return Err(GameDownloadError::Communication(RemoteAccessError::InvalidResponse));
+        return Err(GameDownloadError::Communication(
+            RemoteAccessError::InvalidResponse,
+        ));
     }
 
     let mut pipeline = DropDownloadPipeline::new(
@@ -176,7 +185,9 @@ pub fn download_game_chunk(
         return Ok(false);
     };
 
-    let checksum = pipeline.finish().map_err(|e| GameDownloadError::IoError(e))?;
+    let checksum = pipeline
+        .finish()
+        .map_err(|e| GameDownloadError::IoError(e))?;
 
     let res = hex::encode(checksum.0);
     if res != ctx.checksum {
