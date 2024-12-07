@@ -9,9 +9,11 @@ use std::{
 };
 
 use log::info;
+use serde::Serialize;
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
+    download_manager_builder::CurrentProgressObject,
     progress_object::ProgressObject,
     queue::Queue,
 };
@@ -32,6 +34,8 @@ pub enum DownloadManagerSignal {
     Cancel(String),
     /// Any error which occurs in the agent
     Error(GameDownloadError),
+    /// Pushes UI update
+    Update,
 }
 pub enum DownloadManagerStatus {
     Downloading,
@@ -39,10 +43,12 @@ pub enum DownloadManagerStatus {
     Empty,
     Error(GameDownloadError),
 }
+
+#[derive(Serialize, Clone)]
 pub enum GameDownloadStatus {
+    Queued,
     Downloading,
     Paused,
-    Uninitialised,
     Error,
 }
 
@@ -59,18 +65,20 @@ pub enum GameDownloadStatus {
 pub struct DownloadManager {
     terminator: JoinHandle<Result<(), ()>>,
     download_queue: Queue,
-    progress: Arc<Mutex<Option<ProgressObject>>>,
+    progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
 }
-pub struct AgentInterfaceData {
+pub struct GameDownloadAgentQueueStandin {
     pub id: String,
     pub status: Mutex<GameDownloadStatus>,
+    pub progress: Arc<ProgressObject>,
 }
-impl From<Arc<GameDownloadAgent>> for AgentInterfaceData {
+impl From<Arc<GameDownloadAgent>> for GameDownloadAgentQueueStandin {
     fn from(value: Arc<GameDownloadAgent>) -> Self {
         Self {
             id: value.id.clone(),
-            status: Mutex::from(GameDownloadStatus::Uninitialised),
+            status: Mutex::from(GameDownloadStatus::Queued),
+            progress: value.progress.clone(),
         }
     }
 }
@@ -79,7 +87,7 @@ impl DownloadManager {
     pub fn new(
         terminator: JoinHandle<Result<(), ()>>,
         download_queue: Queue,
-        progress: Arc<Mutex<Option<ProgressObject>>>,
+        progress: CurrentProgressObject,
         command_sender: Sender<DownloadManagerSignal>,
     ) -> Self {
         Self {
@@ -109,10 +117,10 @@ impl DownloadManager {
             .send(DownloadManagerSignal::Cancel(game_id))
             .unwrap();
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>> {
         self.download_queue.edit()
     }
-    pub fn read_queue(&self) -> VecDeque<Arc<AgentInterfaceData>> {
+    pub fn read_queue(&self) -> VecDeque<Arc<GameDownloadAgentQueueStandin>> {
         self.download_queue.read()
     }
     pub fn get_current_game_download_progress(&self) -> Option<f64> {
@@ -157,7 +165,7 @@ impl DownloadManager {
 /// Takes in the locked value from .edit() and attempts to
 /// get the index of whatever game_id is passed in
 fn get_index_from_id(
-    queue: &mut MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>>,
+    queue: &mut MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>>,
     id: String,
 ) -> Option<usize> {
     queue

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fmt::format;
 use std::sync::Mutex;
 
@@ -40,6 +40,18 @@ pub struct Game {
 pub struct GameUpdateEvent {
     pub game_id: String,
     pub status: DatabaseGameStatus,
+}
+
+#[derive(Serialize, Clone)]
+pub struct QueueUpdateEventQueueData {
+    pub id: String,
+    pub status: GameDownloadStatus,
+    pub progress: f64,
+}
+
+#[derive(serde::Serialize, Clone)]
+pub struct QueueUpdateEvent {
+    pub queue: Vec<QueueUpdateEventQueueData>,
 }
 
 // Game version with some fields missing and size information

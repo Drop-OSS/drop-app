@@ -1,6 +1,7 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
+use crate::downloads::progress_object::ProgressHandle;
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
@@ -28,7 +29,7 @@ pub struct GameDownloadAgent {
     pub target_download_dir: usize,
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub manifest: Mutex<Option<DropManifest>>,
-    pub progress: ProgressObject,
+    pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
 }
 
@@ -76,7 +77,7 @@ impl GameDownloadAgent {
             manifest: Mutex::new(None),
             target_download_dir,
             contexts: Mutex::new(Vec::new()),
-            progress: ProgressObject::new(0, 0),
+            progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
         }
     }
@@ -234,7 +235,7 @@ impl GameDownloadAgent {
 
     pub fn run(&self) -> Result<(), ()> {
         info!("downloading game: {}", self.id);
-        const DOWNLOAD_MAX_THREADS: usize = 4;
+        const DOWNLOAD_MAX_THREADS: usize = 1;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(DOWNLOAD_MAX_THREADS)
@@ -251,10 +252,11 @@ impl GameDownloadAgent {
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
                 let progress = self.progress.get(index); // Clone arcs
+                let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 let completed_indexes_ref = completed_indexes_loop_arc.clone();
 
                 scope.spawn(move |_| {
-                    match download_game_chunk(context.clone(), control_flag, progress) {
+                    match download_game_chunk(context.clone(), control_flag, progress_handle) {
                         Ok(res) => match res {
                             true => {
                                 let mut lock = completed_indexes_ref.lock().unwrap();

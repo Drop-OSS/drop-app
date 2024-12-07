@@ -7,21 +7,20 @@ use std::{
     thread::spawn,
 };
 
-use log::{error, info, warn};
-use rustbreak::Database;
+use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
     db::DatabaseGameStatus,
-    library::{on_game_complete, GameUpdateEvent},
+    library::{on_game_complete, GameUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData},
     DB,
 };
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
     download_manager::{
-        AgentInterfaceData, DownloadManager, DownloadManagerSignal, DownloadManagerStatus,
-        GameDownloadStatus,
+        DownloadManager, DownloadManagerSignal, DownloadManagerStatus,
+        GameDownloadAgentQueueStandin, GameDownloadStatus,
     },
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
     progress_object::ProgressObject,
@@ -65,16 +64,19 @@ Behold, my madness - quexeky
 
 */
 
+// Refactored to consolidate this type. It's a monster.
+pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
+
 pub struct DownloadManagerBuilder {
     download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
     download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
-    progress: Arc<Mutex<Option<ProgressObject>>>,
+    progress: CurrentProgressObject,
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
 
-    current_game_interface: Option<Arc<AgentInterfaceData>>, // Should be the only game download agent in the map with the "Go" flag
+    current_game_interface: Option<Arc<GameDownloadAgentQueueStandin>>, // Should be the only game download agent in the map with the "Go" flag
     active_control_flag: Option<DownloadThreadControl>,
 }
 
@@ -121,6 +123,21 @@ impl DownloadManagerBuilder {
             .unwrap();
     }
 
+    fn push_manager_update(&self) {
+        let queue = self.download_queue.read();
+        let queue_objs: Vec<QueueUpdateEventQueueData> = queue
+            .iter()
+            .map(|interface| QueueUpdateEventQueueData {
+                id: interface.id.clone(),
+                status: interface.status.lock().unwrap().clone(),
+                progress: interface.progress.get_progress(),
+            })
+            .collect();
+
+        let event_data = QueueUpdateEvent { queue: queue_objs };
+        self.app_handle.emit("update_queue", event_data).unwrap();
+    }
+
     fn manage_queue(mut self) -> Result<(), ()> {
         loop {
             let signal = match self.command_receiver.recv() {
@@ -153,6 +170,9 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel(id) => {
                     self.manage_cancel_signal(id);
                 }
+                DownloadManagerSignal::Update => {
+                    self.push_manager_update();
+                }
             };
         }
     }
@@ -175,9 +195,18 @@ impl DownloadManagerBuilder {
                 self.active_control_flag = None;
                 *self.progress.lock().unwrap() = None;
 
-                on_game_complete(game_id, download_agent.version.clone(), &self.app_handle);
+                if let Err(error) =
+                    on_game_complete(game_id, download_agent.version.clone(), &self.app_handle)
+                {
+                    self.sender
+                        .send(DownloadManagerSignal::Error(
+                            GameDownloadError::Communication(error),
+                        ))
+                        .unwrap();
+                }
             }
         }
+        self.sender.send(DownloadManagerSignal::Update).unwrap();
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
 
@@ -189,10 +218,11 @@ impl DownloadManagerBuilder {
             target_download_dir,
             self.sender.clone(),
         ));
-        let agent_status = GameDownloadStatus::Uninitialised;
-        let interface_data = AgentInterfaceData {
+        let agent_status = GameDownloadStatus::Queued;
+        let interface_data = GameDownloadAgentQueueStandin {
             id: id.clone(),
             status: Mutex::new(agent_status),
+            progress: download_agent.progress.clone(),
         };
         let version_name = download_agent.version.clone();
         self.download_agent_registry
@@ -200,6 +230,7 @@ impl DownloadManagerBuilder {
         self.download_queue.append(interface_data);
 
         self.set_game_status(id, DatabaseGameStatus::Queued { version_name });
+        self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
 
     fn manage_go_signal(&mut self) {
@@ -217,6 +248,8 @@ impl DownloadManagerBuilder {
             .unwrap()
             .clone();
         self.current_game_interface = Some(agent_data);
+        // Cloning option should be okay because it only clones the Arc inside, not the AgentInterfaceData
+        let agent_data = self.current_game_interface.clone().unwrap();
 
         let version_name = download_agent.version.clone();
 
@@ -243,6 +276,11 @@ impl DownloadManagerBuilder {
             };
         });
 
+        // Set status for game
+        let mut status_handle = agent_data.status.lock().unwrap();
+        *status_handle = GameDownloadStatus::Downloading;
+
+        // Set flags for download manager
         active_control_flag.set(DownloadThreadControlFlag::Go);
         self.set_status(DownloadManagerStatus::Downloading);
         self.set_game_status(
@@ -260,6 +298,8 @@ impl DownloadManagerBuilder {
             self.current_game_interface.as_ref().unwrap().id.clone(),
             DatabaseGameStatus::Remote {},
         );
+
+        self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
     fn manage_cancel_signal(&mut self, game_id: String) {
         if let Some(current_flag) = &self.active_control_flag {

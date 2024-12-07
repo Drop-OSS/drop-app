@@ -5,6 +5,8 @@
 </template>
 
 <script setup lang="ts">
+import "~/composables/queue";
+
 import { invoke } from "@tauri-apps/api/core";
 import { AppStatus } from "~/types";
 import { listen } from "@tauri-apps/api/event";

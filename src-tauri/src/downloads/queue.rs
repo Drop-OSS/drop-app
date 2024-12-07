@@ -3,11 +3,11 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use super::download_manager::AgentInterfaceData;
+use super::download_manager::GameDownloadAgentQueueStandin;
 
 #[derive(Clone)]
 pub struct Queue {
-    inner: Arc<Mutex<VecDeque<Arc<AgentInterfaceData>>>>,
+    inner: Arc<Mutex<VecDeque<Arc<GameDownloadAgentQueueStandin>>>>,
 }
 
 impl Queue {
@@ -16,13 +16,13 @@ impl Queue {
             inner: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
-    pub fn read(&self) -> VecDeque<Arc<AgentInterfaceData>> {
+    pub fn read(&self) -> VecDeque<Arc<GameDownloadAgentQueueStandin>> {
         self.inner.lock().unwrap().clone()
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<AgentInterfaceData>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>> {
         self.inner.lock().unwrap()
     }
-    pub fn pop_front(&self) -> Option<Arc<AgentInterfaceData>> {
+    pub fn pop_front(&self) -> Option<Arc<GameDownloadAgentQueueStandin>> {
         self.edit().pop_front()
     }
     pub fn empty(&self) -> bool {
@@ -30,17 +30,17 @@ impl Queue {
     }
     /// Either inserts `interface` at the specified index, or appends to
     /// the back of the deque if index is greater than the length of the deque
-    pub fn insert(&self, interface: AgentInterfaceData, index: usize) {
+    pub fn insert(&self, interface: GameDownloadAgentQueueStandin, index: usize) {
         if self.read().len() > index {
             self.append(interface);
         } else {
             self.edit().insert(index, Arc::new(interface));
         }
     }
-    pub fn append(&self, interface: AgentInterfaceData) {
+    pub fn append(&self, interface: GameDownloadAgentQueueStandin) {
         self.edit().push_back(Arc::new(interface));
     }
-    pub fn pop_front_if_equal(&self, game_id: String) -> Option<Arc<AgentInterfaceData>> {
+    pub fn pop_front_if_equal(&self, game_id: String) -> Option<Arc<GameDownloadAgentQueueStandin>> {
         let mut queue = self.edit();
         let front = match queue.front() {
             Some(front) => front,

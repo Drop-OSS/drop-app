@@ -19,6 +19,7 @@ use urlencoding::encode;
 
 use super::download_agent::GameDownloadError;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use super::progress_object::{ProgressHandle, ProgressObject};
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -65,7 +66,7 @@ pub struct DropDownloadPipeline<R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
     pub control_flag: DownloadThreadControl,
-    pub progress: Arc<AtomicUsize>,
+    pub progress: ProgressHandle,
     pub size: usize,
 }
 impl DropDownloadPipeline<Response, File> {
@@ -73,7 +74,7 @@ impl DropDownloadPipeline<Response, File> {
         source: Response,
         destination: DropWriter<File>,
         control_flag: DownloadThreadControl,
-        progress: Arc<AtomicUsize>,
+        progress: ProgressHandle,
         size: usize,
     ) -> Self {
         Self {
@@ -100,8 +101,7 @@ impl DropDownloadPipeline<Response, File> {
             current_size += bytes_read;
 
             buf_writer.write_all(&copy_buf[0..bytes_read])?;
-            self.progress
-                .fetch_add(bytes_read, std::sync::atomic::Ordering::Relaxed);
+            self.progress.add(bytes_read);
 
             if current_size == self.size {
                 break;
@@ -120,11 +120,11 @@ impl DropDownloadPipeline<Response, File> {
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
     control_flag: DownloadThreadControl,
-    progress: Arc<AtomicUsize>,
+    progress: ProgressHandle,
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
-        progress.store(0, Ordering::Relaxed);
+        progress.set(0);
         return Ok(false);
     }
 

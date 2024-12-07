@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .nuxt
 .output
+
+src-tauri/flamegraph.svg
+src-tuair/perf*

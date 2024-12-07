@@ -1,27 +1,84 @@
 use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
+        mpsc::Sender,
         Arc, Mutex,
     },
     time::Instant,
 };
+
+use log::info;
+
+use super::download_manager::DownloadManagerSignal;
 
 #[derive(Clone)]
 pub struct ProgressObject {
     max: Arc<Mutex<usize>>,
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
     start: Arc<Mutex<Instant>>,
+    sender: Sender<DownloadManagerSignal>,
+
+    points_towards_update: Arc<AtomicUsize>,
+    points_to_push_update: Arc<Mutex<usize>>,
 }
 
+pub struct ProgressHandle {
+    progress: Arc<AtomicUsize>,
+    progress_object: Arc<ProgressObject>,
+}
+
+impl ProgressHandle {
+    pub fn new(progress: Arc<AtomicUsize>, progress_object: Arc<ProgressObject>) -> Self {
+        Self {
+            progress,
+            progress_object,
+        }
+    }
+    pub fn set(&self, amount: usize) {
+        self.progress.store(amount, Ordering::Relaxed);
+    }
+    pub fn add(&self, amount: usize) {
+        self.progress
+            .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
+        self.progress_object.check_push_update(amount);
+    }
+}
+
+static PROGRESS_UPDATES: usize = 100;
+
 impl ProgressObject {
-    pub fn new(max: usize, length: usize) -> Self {
+    pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
         let arr = Mutex::new((0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect());
+        // TODO: consolidate this calculate with the set_max function below
+        let points_to_push_update = max / PROGRESS_UPDATES;
         Self {
             max: Arc::new(Mutex::new(max)),
             progress_instances: Arc::new(arr),
             start: Arc::new(Mutex::new(Instant::now())),
+            sender,
+
+            points_towards_update: Arc::new(AtomicUsize::new(0)),
+            points_to_push_update: Arc::new(Mutex::new(points_to_push_update)),
         }
     }
+
+    pub fn check_push_update(&self, amount_added: usize) {
+        let current_amount = self
+            .points_towards_update
+            .fetch_add(amount_added, Ordering::Relaxed);
+
+        let to_update_handle = self.points_to_push_update.lock().unwrap();
+        let to_update = to_update_handle.clone();
+        drop(to_update_handle);
+
+        if current_amount < to_update {
+            return;
+        }
+        self.points_towards_update
+            .fetch_sub(to_update, Ordering::Relaxed);
+        self.sender.send(DownloadManagerSignal::Update).unwrap();
+    }
+
     pub fn set_time_now(&self) {
         *self.start.lock().unwrap() = Instant::now();
     }
@@ -37,13 +94,14 @@ impl ProgressObject {
         *self.max.lock().unwrap()
     }
     pub fn set_max(&self, new_max: usize) {
-        *self.max.lock().unwrap() = new_max
+        *self.max.lock().unwrap() = new_max;
+        *self.points_to_push_update.lock().unwrap() = new_max / PROGRESS_UPDATES;
+        info!("points to push update: {}", new_max / PROGRESS_UPDATES);
     }
     pub fn set_size(&self, length: usize) {
         *self.progress_instances.lock().unwrap() =
             (0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect();
     }
-
     pub fn get_progress(&self) -> f64 {
         self.sum() as f64 / self.get_max() as f64
     }
