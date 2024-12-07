@@ -187,7 +187,6 @@ impl GameDownloadAgent {
         drop(db_lock);
 
         let manifest = self.manifest.lock().unwrap().clone().unwrap();
-        let version = self.version.clone();
         let game_id = self.id.clone();
 
         let data_base_dir_path = Path::new(&data_base_dir);

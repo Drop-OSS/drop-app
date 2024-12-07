@@ -1,14 +1,17 @@
+use std::collections::HashMap;
 use std::fmt::format;
 use std::sync::Mutex;
 
 use log::info;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use tauri::Emitter;
 use tauri::{AppHandle, Manager};
+use urlencoding::encode;
 
-use crate::db;
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
+use crate::db::{self, GameVersion};
 use crate::downloads::download_manager::GameDownloadStatus;
 use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
@@ -68,7 +71,7 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
         return Err(response.status().as_u16().into());
     }
 
-    let games = response.json::<Vec<Game>>()?;
+    let games: Vec<Game> = response.json::<Vec<Game>>()?;
 
     let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
@@ -81,7 +84,7 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
             db_handle
                 .games
                 .games_statuses
-                .insert(game.id.clone(), DatabaseGameStatus::Remote);
+                .insert(game.id.clone(), DatabaseGameStatus::Remote {});
         }
     }
 
@@ -145,7 +148,7 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
         db_handle
             .games
             .games_statuses
-            .insert(id, DatabaseGameStatus::Remote);
+            .insert(id, DatabaseGameStatus::Remote {});
     }
 
     let data = FetchGameStruct {
@@ -179,14 +182,16 @@ pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
         .games
         .games_statuses
         .get(&id)
-        .unwrap_or(&DatabaseGameStatus::Remote)
+        .unwrap_or(&DatabaseGameStatus::Remote {})
         .clone();
     drop(db_handle);
 
     return Ok(status);
 }
 
-fn fetch_game_verion_options_logic(game_id: String) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
+fn fetch_game_verion_options_logic(
+    game_id: String,
+) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
     let endpoint =
@@ -213,4 +218,66 @@ fn fetch_game_verion_options_logic(game_id: String) -> Result<Vec<GameVersionOpt
 #[tauri::command]
 pub fn fetch_game_verion_options(game_id: String) -> Result<Vec<GameVersionOption>, String> {
     fetch_game_verion_options_logic(game_id).map_err(|e| e.to_string())
+}
+
+pub fn on_game_complete(
+    game_id: String,
+    version_name: String,
+    app_handle: &AppHandle,
+) -> Result<(), RemoteAccessError> {
+    // Fetch game version information from remote
+    let base_url = DB.fetch_base_url();
+
+    let endpoint = base_url.join(
+        format!(
+            "/api/v1/client/metadata/version?id={}&version={}",
+            game_id,
+            encode(&version_name)
+        )
+        .as_str(),
+    )?;
+    let header = generate_authorization_header();
+
+    let client = reqwest::blocking::Client::new();
+    let response = client
+        .get(endpoint.to_string())
+        .header("Authorization", header)
+        .send()?;
+
+    let data = response.json::<GameVersion>()?;
+
+    let mut handle = DB.borrow_data_mut().unwrap();
+    handle
+        .games
+        .game_versions
+        .entry(game_id.clone())
+        .or_insert(HashMap::new())
+        .insert(version_name.clone(), data.clone());
+    drop(handle);
+    DB.save().unwrap();
+
+    let status = if data.setup_command.is_empty() {
+        DatabaseGameStatus::Installed { version_name }
+    } else {
+        DatabaseGameStatus::SetupRequired { version_name }
+    };
+
+    let mut db_handle = DB.borrow_data_mut().unwrap();
+    db_handle
+        .games
+        .games_statuses
+        .insert(game_id.clone(), status.clone());
+    drop(db_handle);
+    DB.save().unwrap();
+    app_handle
+        .emit(
+            &format!("update_game/{}", game_id),
+            GameUpdateEvent {
+                game_id: game_id,
+                status: status,
+            },
+        )
+        .unwrap();
+
+    Ok(())
 }

@@ -6,10 +6,11 @@ use std::{
 };
 
 use directories::BaseDirs;
-use log::{debug, info};
-use rustbreak::{deser::Bincode, PathDatabase};
+use log::debug;
+use rustbreak::{DeSerError, DeSerializer, PathDatabase};
 use rustix::path::Arg;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::json;
 use url::Url;
 
 use crate::DB;
@@ -22,14 +23,27 @@ pub struct DatabaseAuth {
     pub client_id: String,
 }
 
+// Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
+#[serde(tag = "type")]
 pub enum DatabaseGameStatus {
-    Remote,
-    Queued,
-    Downloading,
-    Installed,
-    Updating,
-    Uninstalling,
+    Remote {},
+    Queued { version_name: String },
+    Downloading { version_name: String },
+    SetupRequired { version_name: String },
+    Installed { version_name: String },
+    Updating { version_name: String },
+    Uninstalling {},
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GameVersion {
+    pub version_index: usize,
+    pub version_name: String,
+    pub launch_command: String,
+    pub setup_command: String,
+    pub platform: String,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -38,6 +52,7 @@ pub struct DatabaseGames {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
     pub games_statuses: HashMap<String, DatabaseGameStatus>,
+    pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -50,8 +65,22 @@ pub struct Database {
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
 
+// Custom JSON serializer to support everything we need
+#[derive(Debug, Default, Clone)]
+pub struct DropDatabaseSerializer;
+
+impl<T: Serialize + DeserializeOwned> DeSerializer<T> for DropDatabaseSerializer {
+    fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
+        serde_json::to_vec(val).map_err(|e| DeSerError::Internal(e.to_string()))
+    }
+
+    fn deserialize<R: std::io::Read>(&self, s: R) -> rustbreak::error::DeSerResult<T> {
+        serde_json::from_reader(s).map_err(|e| DeSerError::Internal(e.to_string()))
+    }
+}
+
 pub type DatabaseInterface =
-    rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
+    rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;
 
 pub trait DatabaseImpls {
     fn set_up_database() -> DatabaseInterface;
@@ -80,6 +109,7 @@ impl DatabaseImpls for DatabaseInterface {
                     games: DatabaseGames {
                         install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
                         games_statuses: HashMap::new(),
+                        game_versions: HashMap::new(),
                     },
                 };
                 debug!("Creating database at path {}", db_path.as_str().unwrap());

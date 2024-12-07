@@ -275,7 +275,11 @@
               >
                 <LoadingButton
                   :disabled="
-                    !(versionOptions && versionOptions.length > 0 && !installDir)
+                    !(
+                      versionOptions &&
+                      versionOptions.length > 0 &&
+                      !installDir
+                    )
                   "
                   :loading="installLoading"
                   type="submit"

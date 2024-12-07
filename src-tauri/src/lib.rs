@@ -1,3 +1,5 @@
+#![feature(map_try_insert)]
+
 mod auth;
 mod db;
 mod downloads;

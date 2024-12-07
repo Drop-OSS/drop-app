@@ -39,15 +39,17 @@ hex = "0.4.3"
 tauri-plugin-dialog = "2"
 env_logger = "0.11.5"
 http = "1.1.0"
-tokio = { version = "1.40.0", features = ["rt", "tokio-macros", "signal"] }
 urlencoding = "2.1.3"
 md5 = "0.7.0"
 
+[dependencies.tokio]
+version = "1.40.0"
+features = ["rt", "tokio-macros", "signal"]
+
+
 [dependencies.rustix]
 version = "0.38.37"
-features = [
-    "fs"
-]
+features = ["fs"]
 
 [dependencies.uuid]
 version = "1.10.0"
@@ -62,7 +64,7 @@ version = "0.10.66"
 
 [dependencies.rustbreak]
 version = "2"
-features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
+features = [] # You can also use "yaml_enc" or "bin_enc"
 
 [dependencies.reqwest]
 version = "0.12"

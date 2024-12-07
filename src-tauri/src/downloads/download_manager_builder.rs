@@ -11,7 +11,11 @@ use log::{error, info, warn};
 use rustbreak::Database;
 use tauri::{AppHandle, Emitter};
 
-use crate::{db::DatabaseGameStatus, library::GameUpdateEvent, DB};
+use crate::{
+    db::DatabaseGameStatus,
+    library::{on_game_complete, GameUpdateEvent},
+    DB,
+};
 
 use super::{
     download_agent::{GameDownloadAgent, GameDownloadError},
@@ -167,11 +171,11 @@ impl DownloadManagerBuilder {
             if interface.id == game_id {
                 info!("Popping consumed data");
                 self.download_queue.pop_front();
-                self.download_agent_registry.remove(&game_id);
+                let download_agent = self.download_agent_registry.remove(&game_id).unwrap();
                 self.active_control_flag = None;
                 *self.progress.lock().unwrap() = None;
 
-                self.set_game_status(game_id, DatabaseGameStatus::Installed);
+                on_game_complete(game_id, download_agent.version.clone(), &self.app_handle);
             }
         }
         self.sender.send(DownloadManagerSignal::Go).unwrap();
@@ -190,11 +194,12 @@ impl DownloadManagerBuilder {
             id: id.clone(),
             status: Mutex::new(agent_status),
         };
+        let version_name = download_agent.version.clone();
         self.download_agent_registry
             .insert(interface_data.id.clone(), download_agent);
         self.download_queue.append(interface_data);
 
-        self.set_game_status(id, DatabaseGameStatus::Queued);
+        self.set_game_status(id, DatabaseGameStatus::Queued { version_name });
     }
 
     fn manage_go_signal(&mut self) {
@@ -212,6 +217,8 @@ impl DownloadManagerBuilder {
             .unwrap()
             .clone();
         self.current_game_interface = Some(agent_data);
+
+        let version_name = download_agent.version.clone();
 
         let progress_object = download_agent.progress.clone();
         *self.progress.lock().unwrap() = Some(progress_object);
@@ -240,7 +247,7 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Downloading);
         self.set_game_status(
             self.current_game_interface.as_ref().unwrap().id.clone(),
-            DatabaseGameStatus::Downloading,
+            DatabaseGameStatus::Downloading { version_name },
         );
     }
     fn manage_error_signal(&self, error: GameDownloadError) {
@@ -251,7 +258,7 @@ impl DownloadManagerBuilder {
 
         self.set_game_status(
             self.current_game_interface.as_ref().unwrap().id.clone(),
-            DatabaseGameStatus::Remote,
+            DatabaseGameStatus::Remote {},
         );
     }
     fn manage_cancel_signal(&mut self, game_id: String) {

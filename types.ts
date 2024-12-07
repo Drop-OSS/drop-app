@@ -25,11 +25,17 @@ export enum AppStatus {
   ServerUnavailable = "ServerUnavailable",
 }
 
-export enum GameStatus {
+export enum GameStatusEnum {
   Remote = "Remote",
   Queued = "Queued",
   Downloading = "Downloading",
   Installed = "Installed",
   Updating = "Updating",
   Uninstalling = "Uninstalling",
+  SetupRequired = "SetupRequired",
 }
+
+export type GameStatus = {
+  type: GameStatusEnum;
+  version_name?: string;
+};
