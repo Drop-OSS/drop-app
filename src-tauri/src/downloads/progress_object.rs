@@ -49,7 +49,7 @@ static PROGRESS_UPDATES: usize = 100;
 impl ProgressObject {
     pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
         let arr = Mutex::new((0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect());
-        // TODO: consolidate this calculate with the set_max function below
+        // TODO: consolidate this calculation with the set_max function below
         let points_to_push_update = max / PROGRESS_UPDATES;
         Self {
             max: Arc::new(Mutex::new(max)),

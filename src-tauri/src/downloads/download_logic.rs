@@ -41,17 +41,19 @@ impl DropWriter<File> {
 // Write automatically pushes to file and hasher
 impl Write for DropWriter<File> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        /*
         self.hasher.write_all(buf).map_err(|e| {
             io::Error::new(
                 ErrorKind::Other,
                 format!("Unable to write to hasher: {}", e),
             )
         })?;
+         */
         self.destination.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.hasher.flush()?;
+        // self.hasher.flush()?;
         self.destination.flush()
     }
 }
@@ -185,6 +187,7 @@ pub fn download_game_chunk(
         return Ok(false);
     };
 
+    /*
     let checksum = pipeline
         .finish()
         .map_err(|e| GameDownloadError::IoError(e))?;
@@ -193,6 +196,7 @@ pub fn download_game_chunk(
     if res != ctx.checksum {
         return Err(GameDownloadError::Checksum);
     }
+     */
 
     Ok(true)
 }

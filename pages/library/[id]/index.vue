@@ -227,7 +227,7 @@
                                       : 'font-normal',
                                     'block truncate',
                                   ]"
-                                  >{{ dir }}}</span
+                                  >{{ dir }}</span
                                 >
 
                                 <span

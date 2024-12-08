@@ -2,8 +2,6 @@
   <div class="flex flex-col bg-zinc-900 overflow-hidden">
     <Header class="select-none" />
     <div class="grow overflow-y-auto">
-      <span class="text-white">{{ queueState }}</span>
-
       <slot />
     </div>
   </div>

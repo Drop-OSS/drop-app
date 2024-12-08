@@ -26,4 +26,4 @@ dist-ssr
 .output
 
 src-tauri/flamegraph.svg
-src-tuair/perf*
+src-tauri/perf*
