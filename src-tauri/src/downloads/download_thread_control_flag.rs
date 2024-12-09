@@ -8,14 +8,18 @@ pub enum DownloadThreadControlFlag {
     Stop,
     Go,
 }
+/// Go => true
+/// Stop => false
 impl From<DownloadThreadControlFlag> for bool {
     fn from(value: DownloadThreadControlFlag) -> Self {
         match value {
-            DownloadThreadControlFlag::Stop => false,
             DownloadThreadControlFlag::Go => true,
+            DownloadThreadControlFlag::Stop => false,
         }
     }
 }
+/// true => Go
+/// false => Stop
 impl From<bool> for DownloadThreadControlFlag {
     fn from(value: bool) -> Self {
         match value {

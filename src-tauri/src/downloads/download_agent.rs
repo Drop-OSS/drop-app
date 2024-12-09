@@ -205,15 +205,15 @@ impl GameDownloadAgent {
             let file = File::create(path.clone()).unwrap();
             let mut running_offset = 0;
 
-            for (i, length) in chunk.lengths.iter().enumerate() {
+            for (index, length) in chunk.lengths.iter().enumerate() {
                 contexts.push(DropDownloadContext {
                     file_name: raw_path.to_string(),
                     version: chunk.version_name.to_string(),
                     offset: running_offset,
-                    index: i,
+                    index,
                     game_id: game_id.to_string(),
                     path: path.clone(),
-                    checksum: chunk.checksums[i].clone(),
+                    checksum: chunk.checksums[index].clone(),
                     length: *length,
                 });
                 running_offset += *length as u64;

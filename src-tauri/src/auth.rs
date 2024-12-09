@@ -4,6 +4,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use chrono::Utc;
 use log::{info, warn};
 use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
@@ -57,11 +58,7 @@ pub fn generate_authorization_header() -> String {
         db.auth.clone().unwrap()
     };
 
-    let start = SystemTime::now();
-    let timestamp = start
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards");
-    let nonce = timestamp.as_millis().to_string();
+    let nonce = Utc::now().timestamp_millis().to_string();
 
     let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
@@ -139,8 +136,9 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/processing", ()).unwrap();
 
     let handshake_result = recieve_handshake_logic(&app, path);
-    if handshake_result.is_err() {
-        app.emit("auth/failed", ()).unwrap();
+    if let Err(e) = handshake_result {
+        warn!("error with authentication: {}", e);
+        app.emit("auth/failed", e.to_string()).unwrap();
         return;
     }
 
@@ -200,7 +198,6 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()>
 pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     let data = DB.borrow_data().unwrap();
 
-    // If we have certs, exit for now
     if data.auth.is_some() {
         let user_result = fetch_user();
         if user_result.is_err() {

@@ -17,10 +17,14 @@ use db::{
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManager;
 use downloads::download_manager_builder::DownloadManagerBuilder;
-use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, Game};
-use log::{debug, info};
+use log::{debug, info, LevelFilter};
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::file::FileAppender;
+use log4rs::config::{Appender, Root};
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::Config;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -71,8 +75,28 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 }
 
 fn setup(handle: AppHandle) -> AppState {
-    debug!("Starting env");
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}")))
+        .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
+        .unwrap();
+
+    let console = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}\n")))
+        .build();
+
+    let config = Config::builder()
+        .appenders(vec![
+            Appender::builder().build("logfile", Box::new(logfile)),
+            Appender::builder().build("console", Box::new(console)),
+        ])
+        .build(
+            Root::builder()
+                .appenders(vec!["logfile", "console"])
+                .build(LevelFilter::Info),
+        )
+        .unwrap();
+
+    log4rs::init_config(config).unwrap();
 
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
