@@ -135,7 +135,6 @@ pub fn run() {
             // Downloads
             download_game,
             move_game_in_queue,
-            cancel_game_download,
             pause_game_downloads,
             resume_game_downloads,
         ])

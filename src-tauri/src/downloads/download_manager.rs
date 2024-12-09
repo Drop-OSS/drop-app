@@ -1,6 +1,7 @@
 use std::{
     any::Any,
     collections::VecDeque,
+    fmt::Debug,
     sync::{
         mpsc::{SendError, Sender},
         Arc, Mutex, MutexGuard,
@@ -31,7 +32,7 @@ pub enum DownloadManagerSignal {
     /// Tells the Manager to stop the current
     /// download and return
     Finish,
-    Cancel(String),
+    Cancel,
     /// Any error which occurs in the agent
     Error(GameDownloadError),
     /// Pushes UI update
@@ -82,6 +83,13 @@ impl From<Arc<GameDownloadAgent>> for GameDownloadAgentQueueStandin {
         }
     }
 }
+impl Debug for GameDownloadAgentQueueStandin {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GameDownloadAgentQueueStandin")
+            .field("id", &self.id)
+            .finish()
+    }
+}
 
 impl DownloadManager {
     pub fn new(
@@ -112,11 +120,6 @@ impl DownloadManager {
         ))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn cancel_download(&self, game_id: String) {
-        self.command_sender
-            .send(DownloadManagerSignal::Cancel(game_id))
-            .unwrap();
-    }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>> {
         self.download_queue.edit()
     }
@@ -132,23 +135,32 @@ impl DownloadManager {
         let current_index = get_index_from_id(&mut queue, id).unwrap();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
-        self.command_sender.send(DownloadManagerSignal::Update);
+        self.command_sender
+            .send(DownloadManagerSignal::Update)
+            .unwrap();
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
+        let needs_pause = current_index == 0 || new_index == 0;
+        if needs_pause {
+            self.command_sender
+                .send(DownloadManagerSignal::Cancel)
+                .unwrap();
+        }
+
+        info!("moving {} to {}", current_index, new_index);
+
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
-        self.command_sender.send(DownloadManagerSignal::Update);
-    }
-    pub fn remove_from_queue(&self, index: usize) {
-        self.edit().remove(index);
-        self.command_sender.send(DownloadManagerSignal::Update);
-    }
-    pub fn remove_from_queue_string(&self, id: String) {
-        let mut queue = self.edit();
-        let current_index = get_index_from_id(&mut queue, id).unwrap();
-        queue.remove(current_index);
-        self.command_sender.send(DownloadManagerSignal::Update);
+
+        info!("new queue: {:?}", queue);
+
+        if needs_pause {
+            self.command_sender.send(DownloadManagerSignal::Go).unwrap();
+        }
+        self.command_sender
+            .send(DownloadManagerSignal::Update)
+            .unwrap();
     }
     pub fn pause_downloads(&self) {
         self.command_sender

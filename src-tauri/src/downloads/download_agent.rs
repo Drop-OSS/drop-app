@@ -285,7 +285,7 @@ impl GameDownloadAgent {
 
         // If we're not out of contexts, we're not done, so we don't fire completed
         if !context_lock.is_empty() {
-            info!("Download agent didn't finish, not sending completed signal");
+            info!("da for {} exited without completing", self.id.clone());
             return Ok(());
         }
 

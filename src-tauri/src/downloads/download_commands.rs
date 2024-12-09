@@ -20,16 +20,6 @@ pub fn download_game(
 }
 
 #[tauri::command]
-pub fn cancel_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
-    info!("Cancelling game download {}", game_id);
-    state
-        .lock()
-        .unwrap()
-        .download_manager
-        .cancel_download(game_id);
-}
-
-#[tauri::command]
 pub fn pause_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
     state.lock().unwrap().download_manager.pause_downloads()
 }
