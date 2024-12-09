@@ -8,7 +8,6 @@ use std::{
 use directories::BaseDirs;
 use log::debug;
 use rustbreak::{DeSerError, DeSerializer, PathDatabase};
-use rustix::path::Arg;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
@@ -112,7 +111,7 @@ impl DatabaseImpls for DatabaseInterface {
                         game_versions: HashMap::new(),
                     },
                 };
-                debug!("Creating database at path {}", db_path.as_str().unwrap());
+                debug!("Creating database at path {}", db_path.as_os_str().to_str().unwrap());
                 PathDatabase::create_at_path(db_path, default)
                     .expect("Database could not be created")
             }
