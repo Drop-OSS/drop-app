@@ -1,7 +1,5 @@
 use std::sync::Mutex;
 
-use log::info;
-
 use crate::AppState;
 
 #[tauri::command]
@@ -42,8 +40,10 @@ pub fn move_game_in_queue(
         .rearrange(old_index, new_index)
 }
 
+/*
 #[tauri::command]
 pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}
+*/
 
 /*
 fn use_download_agent(

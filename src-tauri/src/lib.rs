@@ -2,7 +2,7 @@ mod auth;
 mod db;
 mod downloads;
 mod library;
-mod p2p;
+// mod p2p;
 mod remote;
 mod settings;
 #[cfg(test)]
@@ -21,7 +21,7 @@ use env_logger::Env;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, Game};
 use log::{debug, info};
-use remote::{gen_drop_url, use_remote, RemoteAccessError};
+use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::{

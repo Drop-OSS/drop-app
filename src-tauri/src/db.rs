@@ -10,7 +10,6 @@ use log::debug;
 use rustbreak::{DeSerError, DeSerializer, PathDatabase};
 use rustix::path::Arg;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::json;
 use url::Url;
 
 use crate::DB;
@@ -100,7 +99,8 @@ impl DatabaseImpls for DatabaseInterface {
 
         #[allow(clippy::let_and_return)]
         let exists = fs::exists(db_path.clone()).unwrap();
-        let db = match exists {
+
+        match exists {
             true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
             false => {
                 let default = Database {
@@ -116,9 +116,7 @@ impl DatabaseImpls for DatabaseInterface {
                 PathDatabase::create_at_path(db_path, default)
                     .expect("Database could not be created")
             }
-        };
-
-        db
+        }
     }
 
     fn database_is_set_up(&self) -> bool {

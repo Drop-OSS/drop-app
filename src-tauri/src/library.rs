@@ -1,17 +1,13 @@
-use std::collections::{HashMap, VecDeque};
-use std::fmt::format;
 use std::sync::Mutex;
 
-use log::info;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
 use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
-use crate::db::{self, GameVersion};
+use crate::db::GameVersion;
 use crate::downloads::download_manager::GameDownloadStatus;
 use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
@@ -159,12 +155,11 @@ fn fetch_game_logic(
 
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
-    if !db_handle.games.games_statuses.contains_key(&id) {
-        db_handle
-            .games
-            .games_statuses
-            .insert(id, DatabaseGameStatus::Remote {});
-    }
+    db_handle
+        .games
+        .games_statuses
+        .entry(id)
+        .or_insert(DatabaseGameStatus::Remote {});
 
     let data = FetchGameStruct {
         game: game.clone(),
@@ -176,7 +171,7 @@ fn fetch_game_logic(
             .clone(),
     };
 
-    return Ok(data);
+    Ok(data)
 }
 
 #[tauri::command]
@@ -201,7 +196,7 @@ pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
         .clone();
     drop(db_handle);
 
-    return Ok(status);
+    Ok(status)
 }
 
 fn fetch_game_verion_options_logic(
@@ -227,7 +222,7 @@ fn fetch_game_verion_options_logic(
 
     let data = response.json::<Vec<GameVersionOption>>()?;
 
-    return Ok(data);
+    Ok(data)
 }
 
 #[tauri::command]
@@ -266,7 +261,7 @@ pub fn on_game_complete(
         .games
         .game_versions
         .entry(game_id.clone())
-        .or_insert(HashMap::new())
+        .or_default()
         .insert(version_name.clone(), data.clone());
     drop(handle);
     DB.save().unwrap();
@@ -287,10 +282,7 @@ pub fn on_game_complete(
     app_handle
         .emit(
             &format!("update_game/{}", game_id),
-            GameUpdateEvent {
-                game_id: game_id,
-                status: status,
-            },
+            GameUpdateEvent { game_id, status },
         )
         .unwrap();
 

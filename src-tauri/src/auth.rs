@@ -1,5 +1,7 @@
 use std::{
-    borrow::BorrowMut, env, sync::Mutex, time::{SystemTime, UNIX_EPOCH}
+    env,
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use log::{info, warn};
@@ -9,7 +11,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    db::{self, DatabaseAuth, DatabaseImpls},
+    db::{DatabaseAuth, DatabaseImpls},
     remote::RemoteAccessError,
     AppState, AppStatus, User, DB,
 };

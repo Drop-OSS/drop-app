@@ -3,23 +3,21 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::{info, warn};
+use log::warn;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
 use std::io::Read;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
+    io::{self, BufWriter, Seek, SeekFrom, Write},
     path::PathBuf,
-    sync::Arc,
 };
 use urlencoding::encode;
 
 use super::download_agent::GameDownloadError;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
-use super::progress_object::{ProgressHandle, ProgressObject};
+use super::progress_object::ProgressHandle;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -182,7 +180,7 @@ pub fn download_game_chunk(
         content_length.unwrap().try_into().unwrap(),
     );
 
-    let completed = pipeline.copy().map_err(|e| GameDownloadError::IoError(e))?;
+    let completed = pipeline.copy().map_err(GameDownloadError::IoError)?;
     if !completed {
         return Ok(false);
     };

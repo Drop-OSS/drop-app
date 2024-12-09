@@ -10,6 +10,7 @@ pub struct Queue {
     inner: Arc<Mutex<VecDeque<Arc<GameDownloadAgentQueueStandin>>>>,
 }
 
+#[allow(dead_code)]
 impl Queue {
     pub fn new() -> Self {
         Self {
@@ -40,7 +41,10 @@ impl Queue {
     pub fn append(&self, interface: GameDownloadAgentQueueStandin) {
         self.edit().push_back(Arc::new(interface));
     }
-    pub fn pop_front_if_equal(&self, game_id: String) -> Option<Arc<GameDownloadAgentQueueStandin>> {
+    pub fn pop_front_if_equal(
+        &self,
+        game_id: String,
+    ) -> Option<Arc<GameDownloadAgentQueueStandin>> {
         let mut queue = self.edit();
         let front = match queue.front() {
             Some(front) => front,
@@ -49,7 +53,7 @@ impl Queue {
         if front.id == game_id {
             return queue.pop_front();
         }
-        return None;
+        None
     }
     pub fn get_by_id(&self, game_id: String) -> Option<usize> {
         self.read().iter().position(|data| data.id == game_id)

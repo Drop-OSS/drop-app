@@ -120,7 +120,7 @@ impl DownloadManagerBuilder {
                 &format!("update_game/{}", id),
                 GameUpdateEvent {
                     game_id: id,
-                    status: status,
+                    status,
                 },
             )
             .unwrap();
@@ -145,7 +145,7 @@ impl DownloadManagerBuilder {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(game_id).unwrap();
         self.cleanup_current_download();
-        return download_agent;
+        download_agent
     }
 
     // CAREFUL WITH THIS FUNCTION

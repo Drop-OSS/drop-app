@@ -5,7 +5,7 @@ use std::{
 
 use http::StatusCode;
 use log::{info, warn};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use url::{ParseError, Url};
 
 use crate::{AppState, AppStatus, DB};
@@ -20,7 +20,7 @@ pub enum RemoteAccessError {
     GameNotFound,
     InvalidResponse,
     InvalidRedirect,
-    ManifestDownloadFailed(StatusCode, String)
+    ManifestDownloadFailed(StatusCode, String),
 }
 
 impl Display for RemoteAccessError {
@@ -36,10 +36,10 @@ impl Display for RemoteAccessError {
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),
             RemoteAccessError::InvalidResponse => write!(f, "Server returned an invalid response"),
             RemoteAccessError::InvalidRedirect => write!(f, "Server redirect was invalid"),
-            RemoteAccessError::ManifestDownloadFailed(status, response) => 
-            write!(f, "Failed to download game manifest: {} {}",
-                status,
-                response
+            RemoteAccessError::ManifestDownloadFailed(status, response) => write!(
+                f,
+                "Failed to download game manifest: {} {}",
+                status, response
             ),
         }
     }

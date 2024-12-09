@@ -179,7 +179,7 @@ impl GameDownloadAgent {
         drop(context_lock);
 
         self.generate_contexts()?;
-        return Ok(());
+        Ok(())
     }
 
     pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
@@ -208,7 +208,7 @@ impl GameDownloadAgent {
             for (i, length) in chunk.lengths.iter().enumerate() {
                 contexts.push(DropDownloadContext {
                     file_name: raw_path.to_string(),
-                    version: chunk.versionName.to_string(),
+                    version: chunk.version_name.to_string(),
                     offset: running_offset,
                     index: i,
                     game_id: game_id.to_string(),
@@ -257,13 +257,12 @@ impl GameDownloadAgent {
 
                 scope.spawn(move |_| {
                     match download_game_chunk(context.clone(), control_flag, progress_handle) {
-                        Ok(res) => match res {
-                            true => {
+                        Ok(res) => {
+                            if res {
                                 let mut lock = completed_indexes_ref.lock().unwrap();
                                 lock.push(index);
                             }
-                            false => {}
-                        },
+                        }
                         Err(e) => {
                             error!("GameDownloadError: {}", e);
                             self.sender.send(DownloadManagerSignal::Error(e)).unwrap();

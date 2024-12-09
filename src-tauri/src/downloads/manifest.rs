@@ -4,12 +4,13 @@ use std::path::PathBuf;
 
 pub type DropManifest = HashMap<String, DropChunk>;
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct DropChunk {
     pub permissions: usize,
     pub ids: Vec<String>,
     pub checksums: Vec<String>,
     pub lengths: Vec<usize>,
-    pub versionName: String,
+    pub version_name: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -21,5 +22,5 @@ pub struct DropDownloadContext {
     pub game_id: String,
     pub path: PathBuf,
     pub checksum: String,
-    pub length: usize
+    pub length: usize,
 }

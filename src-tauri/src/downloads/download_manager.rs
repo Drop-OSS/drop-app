@@ -91,6 +91,7 @@ impl Debug for GameDownloadAgentQueueStandin {
     }
 }
 
+#[allow(dead_code)]
 impl DownloadManager {
     pub fn new(
         terminator: JoinHandle<Result<(), ()>>,

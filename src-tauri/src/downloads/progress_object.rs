@@ -68,7 +68,7 @@ impl ProgressObject {
             .fetch_add(amount_added, Ordering::Relaxed);
 
         let to_update_handle = self.points_to_push_update.lock().unwrap();
-        let to_update = to_update_handle.clone();
+        let to_update = *to_update_handle;
         drop(to_update_handle);
 
         if current_amount < to_update {
