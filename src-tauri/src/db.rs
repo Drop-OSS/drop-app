@@ -6,8 +6,9 @@ use std::{
 };
 
 use directories::BaseDirs;
-use rustbreak::{deser::Bincode, PathDatabase};
-use serde::{Deserialize, Serialize};
+use log::debug;
+use rustbreak::{DeSerError, DeSerializer, PathDatabase};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
 use crate::DB;
@@ -20,21 +21,36 @@ pub struct DatabaseAuth {
     pub client_id: String,
 }
 
+// Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
+#[serde(tag = "type")]
 pub enum DatabaseGameStatus {
-    Remote,
-    Downloading,
-    Installed,
-    Updating,
+    Remote {},
+    Queued { version_name: String },
+    Downloading { version_name: String },
+    SetupRequired { version_name: String },
+    Installed { version_name: String },
+    Updating { version_name: String },
+    Uninstalling {},
+}
 
-    Uninstalling,
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GameVersion {
+    pub version_index: usize,
+    pub version_name: String,
+    pub launch_command: String,
+    pub setup_command: String,
+    pub platform: String,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseGames {
     pub install_dirs: Vec<String>,
+    // Guaranteed to exist if the game also exists in the app state map
     pub games_statuses: HashMap<String, DatabaseGameStatus>,
+    pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -47,8 +63,22 @@ pub struct Database {
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
 
+// Custom JSON serializer to support everything we need
+#[derive(Debug, Default, Clone)]
+pub struct DropDatabaseSerializer;
+
+impl<T: Serialize + DeserializeOwned> DeSerializer<T> for DropDatabaseSerializer {
+    fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
+        serde_json::to_vec(val).map_err(|e| DeSerError::Internal(e.to_string()))
+    }
+
+    fn deserialize<R: std::io::Read>(&self, s: R) -> rustbreak::error::DeSerResult<T> {
+        serde_json::from_reader(s).map_err(|e| DeSerError::Internal(e.to_string()))
+    }
+}
+
 pub type DatabaseInterface =
-    rustbreak::Database<Database, rustbreak::backend::PathBackend, Bincode>;
+    rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;
 
 pub trait DatabaseImpls {
     fn set_up_database() -> DatabaseInterface;
@@ -61,26 +91,31 @@ impl DatabaseImpls for DatabaseInterface {
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
 
-        let default = Database {
-            auth: None,
-            base_url: "".to_string(),
-            games: DatabaseGames {
-                install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-                games_statuses: HashMap::new(),
-            },
-        };
+        debug!("Creating data directory at {:?}", data_root_dir);
+        create_dir_all(data_root_dir.clone()).unwrap();
+        debug!("Creating games directory");
+        create_dir_all(games_base_dir.clone()).unwrap();
+
         #[allow(clippy::let_and_return)]
-        let db = match fs::exists(db_path.clone()).unwrap() {
+        let exists = fs::exists(db_path.clone()).unwrap();
+
+        match exists {
             true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
             false => {
-                create_dir_all(data_root_dir.clone()).unwrap();
-                create_dir_all(games_base_dir.clone()).unwrap();
-
-                PathDatabase::create_at_path(db_path, default).unwrap()
+                let default = Database {
+                    auth: None,
+                    base_url: "".to_string(),
+                    games: DatabaseGames {
+                        install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
+                        games_statuses: HashMap::new(),
+                        game_versions: HashMap::new(),
+                    },
+                };
+                debug!("Creating database at path {}", db_path.as_os_str().to_str().unwrap());
+                PathDatabase::create_at_path(db_path, default)
+                    .expect("Database could not be created")
             }
-        };
-
-        db
+        }
     }
 
     fn database_is_set_up(&self) -> bool {
@@ -94,7 +129,7 @@ impl DatabaseImpls for DatabaseInterface {
 }
 
 #[tauri::command]
-pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
+pub fn add_download_dir(new_dir: String) -> Result<(), String> {
     // Check the new directory is all good
     let new_dir_path = Path::new(&new_dir);
     if new_dir_path.exists() {
@@ -107,8 +142,8 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
         let dir_contents = new_dir_path
             .read_dir()
             .map_err(|e| format!("Unable to check directory contents: {}", e))?;
-        if dir_contents.count() == 0 {
-            return Err("Path is not empty".to_string());
+        if dir_contents.count() != 0 {
+            return Err("Directory is not empty".to_string());
         }
     } else {
         create_dir_all(new_dir_path)
@@ -117,8 +152,33 @@ pub fn add_new_download_dir(new_dir: String) -> Result<(), String> {
 
     // Add it to the dictionary
     let mut lock = DB.borrow_data_mut().unwrap();
+    if lock.games.install_dirs.contains(&new_dir) {
+        return Err("Download directory already used".to_string());
+    }
     lock.games.install_dirs.push(new_dir);
     drop(lock);
+    DB.save().unwrap();
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn delete_download_dir(index: usize) -> Result<(), String> {
+    let mut lock = DB.borrow_data_mut().unwrap();
+    lock.games.install_dirs.remove(index);
+    drop(lock);
+    DB.save().unwrap();
+
+    Ok(())
+}
+
+// Will, in future, return disk/remaining size
+// Just returns the directories that have been set up
+#[tauri::command]
+pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
+    let lock = DB.borrow_data().unwrap();
+    let directories = lock.games.install_dirs.clone();
+    drop(lock);
+
+    Ok(directories)
 }

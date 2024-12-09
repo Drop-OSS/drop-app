@@ -13,7 +13,7 @@
         >
           <div class="flex items-center min-w-0 gap-x-2">
             <img
-              class="h-5 w-5 flex-none object-cover rounded-sm bg-zinc-900"
+              class="h-5 w-auto flex-none object-cover rounded-sm bg-zinc-900"
               :src="icons[navIdx]"
               alt=""
             />
@@ -40,12 +40,10 @@
 </template>
 
 <script setup lang="ts">
-import type { Game } from "@prisma/client";
 import { invoke } from "@tauri-apps/api/core";
-import type { NavigationItem } from "~/types";
+import type { Game, NavigationItem } from "~/types";
 
-const rawGames = await invoke<string>("fetch_library");
-const games: Array<Game> = JSON.parse(rawGames);
+const games: Array<Game> = await invoke("fetch_library");
 const icons = await Promise.all(games.map((e) => useObject(e.mIconId)));
 
 const navigation = games.map((e) => {

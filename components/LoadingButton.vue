@@ -1,7 +1,7 @@
 <template>
   <button
     type="submit"
-    class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+    class="inline-flex h-9 items-center justify-center rounded-md bg-blue-600 hover:bg-blue-500 disabled:text-zinc-500 disabled:bg-blue-900 disabled:hover:bg-blue-900 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
   >
     <div v-if="props.loading" role="status">
       <svg

@@ -2,21 +2,25 @@ mod auth;
 mod db;
 mod downloads;
 mod library;
-mod p2p;
+// mod p2p;
 mod remote;
 mod settings;
 #[cfg(test)]
 mod tests;
 
 use crate::db::DatabaseImpls;
-use crate::downloads::download_agent::GameDownloadAgent;
-use auth::{auth_initiate, generate_authorization_header, recieve_handshake};
-use db::{add_new_download_dir, DatabaseInterface, DATA_ROOT_DIR};
+use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
+use db::{
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
+    DATA_ROOT_DIR,
+};
 use downloads::download_commands::*;
+use downloads::download_manager::DownloadManager;
+use downloads::download_manager_builder::DownloadManagerBuilder;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{fetch_game, fetch_library, Game};
-use log::{info, LevelFilter};
-use log4rs::append::console::{ConsoleAppender, Target};
+use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, Game};
+use log::{debug, info, LevelFilter};
+use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
@@ -28,6 +32,7 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
+use tauri::{AppHandle, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
@@ -39,6 +44,7 @@ pub enum AppStatus {
     SignedInNeedsReauth,
     ServerUnavailable,
 }
+
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
@@ -57,7 +63,7 @@ pub struct AppState {
     games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
-    game_downloads: HashMap<String, Arc<GameDownloadAgent>>,
+    download_manager: Arc<DownloadManager>,
 }
 
 #[tauri::command]
@@ -68,14 +74,14 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
     Ok(cloned_state)
 }
 
-fn setup() -> AppState {
+fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}")))
         .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{l} - {m}\n")))
+        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}\n")))
         .build();
 
     let config = Config::builder()
@@ -92,24 +98,28 @@ fn setup() -> AppState {
 
     log4rs::init_config(config).unwrap();
 
-    //env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+    let games = HashMap::new();
+    let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
 
+    debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
             user: None,
-            games: HashMap::new(),
-            game_downloads: HashMap::new(),
+            games,
+            download_manager,
         };
     }
+
+    debug!("Database is set up");
 
     let (app_status, user) = auth::setup().unwrap();
     AppState {
         status: app_status,
         user,
-        games: HashMap::new(),
-        game_downloads: HashMap::new(),
+        games,
+        download_manager,
     }
 }
 
@@ -117,9 +127,6 @@ pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::se
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let state = setup();
-    info!("initialized drop client");
-
     let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
 
     #[cfg(desktop)]
@@ -132,25 +139,37 @@ pub fn run() {
 
     builder
         .plugin(tauri_plugin_deep_link::init())
-        .manage(Mutex::new(state))
         .invoke_handler(tauri::generate_handler![
             // DB
             fetch_state,
             // Auth
             auth_initiate,
+            retry_connect,
             // Remote
             use_remote,
             gen_drop_url,
             // Library
             fetch_library,
             fetch_game,
-            add_new_download_dir,
+            add_download_dir,
+            delete_download_dir,
+            fetch_download_dir_stats,
+            fetch_game_status,
+            fetch_game_verion_options,
             // Downloads
             download_game,
-            get_game_download_progress,
+            move_game_in_queue,
+            pause_game_downloads,
+            resume_game_downloads,
         ])
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
+            let handle = app.handle().clone();
+            let state = setup(handle);
+            info!("initialized drop client");
+            app.manage(Mutex::new(state));
+
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;

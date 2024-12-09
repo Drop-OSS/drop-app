@@ -3,21 +3,21 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
+use log::warn;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
 use std::io::Read;
-use std::sync::atomic::AtomicUsize;
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufWriter, ErrorKind, Seek, SeekFrom, Write},
+    io::{self, BufWriter, Seek, SeekFrom, Write},
     path::PathBuf,
-    sync::Arc,
 };
 use urlencoding::encode;
 
 use super::download_agent::GameDownloadError;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use super::progress_object::ProgressHandle;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -39,17 +39,19 @@ impl DropWriter<File> {
 // Write automatically pushes to file and hasher
 impl Write for DropWriter<File> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        /*
         self.hasher.write_all(buf).map_err(|e| {
             io::Error::new(
                 ErrorKind::Other,
                 format!("Unable to write to hasher: {}", e),
             )
         })?;
+         */
         self.destination.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.hasher.flush()?;
+        // self.hasher.flush()?;
         self.destination.flush()
     }
 }
@@ -64,7 +66,7 @@ pub struct DropDownloadPipeline<R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
     pub control_flag: DownloadThreadControl,
-    pub progress: Arc<AtomicUsize>,
+    pub progress: ProgressHandle,
     pub size: usize,
 }
 impl DropDownloadPipeline<Response, File> {
@@ -72,7 +74,7 @@ impl DropDownloadPipeline<Response, File> {
         source: Response,
         destination: DropWriter<File>,
         control_flag: DownloadThreadControl,
-        progress: Arc<AtomicUsize>,
+        progress: ProgressHandle,
         size: usize,
     ) -> Self {
         Self {
@@ -99,8 +101,7 @@ impl DropDownloadPipeline<Response, File> {
             current_size += bytes_read;
 
             buf_writer.write_all(&copy_buf[0..bytes_read])?;
-            self.progress
-                .fetch_add(bytes_read, std::sync::atomic::Ordering::Relaxed);
+            self.progress.add(bytes_read);
 
             if current_size == self.size {
                 break;
@@ -119,10 +120,11 @@ impl DropDownloadPipeline<Response, File> {
 pub fn download_game_chunk(
     ctx: DropDownloadContext,
     control_flag: DownloadThreadControl,
-    progress: Arc<AtomicUsize>,
+    progress: ProgressHandle,
 ) -> Result<bool, GameDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
+        progress.set(0);
         return Ok(false);
     }
 
@@ -146,7 +148,14 @@ pub fn download_game_chunk(
         .get(chunk_url)
         .header("Authorization", header)
         .send()
-        .map_err(|e| GameDownloadError::CommunicationError(RemoteAccessError::FetchError(e)))?;
+        .map_err(|e| GameDownloadError::Communication(e.into()))?;
+
+    if response.status() != 200 {
+        warn!("{}", response.text().unwrap());
+        return Err(GameDownloadError::Communication(
+            RemoteAccessError::InvalidCodeError(400),
+        ));
+    }
 
     let mut destination = DropWriter::new(ctx.path);
 
@@ -158,10 +167,8 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        return Err(GameDownloadError::CommunicationError(
-            RemoteAccessError::GenericErrror(
-                "Invalid download endpoint, missing Content-Length header.".to_owned(),
-            ),
+        return Err(GameDownloadError::Communication(
+            RemoteAccessError::InvalidResponse,
         ));
     }
 
@@ -173,17 +180,21 @@ pub fn download_game_chunk(
         content_length.unwrap().try_into().unwrap(),
     );
 
-    let completed = pipeline.copy().unwrap();
+    let completed = pipeline.copy().map_err(GameDownloadError::IoError)?;
     if !completed {
         return Ok(false);
     };
 
-    let checksum = pipeline.finish().unwrap();
+    /*
+    let checksum = pipeline
+        .finish()
+        .map_err(|e| GameDownloadError::IoError(e))?;
 
     let res = hex::encode(checksum.0);
     if res != ctx.checksum {
-        return Err(GameDownloadError::ChecksumError);
+        return Err(GameDownloadError::Checksum);
     }
+     */
 
     Ok(true)
 }

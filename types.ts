@@ -1,4 +1,3 @@
-import type { User } from "@prisma/client";
 import type { Component } from "vue";
 
 export type NavigationItem = {
@@ -12,9 +11,29 @@ export type QuickActionNav = {
   notifications?: number;
   action: () => Promise<void>;
 };
+
+export type User = {
+  id: string;
+  username: string;
+  admin: boolean;
+  displayName: string;
+  profilePicture: string;
+};
+
 export type AppState = {
   status: AppStatus;
   user?: User;
+};
+
+export type Game = {
+  id: string;
+  mName: string;
+  mShortDescription: string;
+  mDescription: string;
+  mIconId: string;
+  mBannerId: string;
+  mCoverId: string;
+  mImageLibrary: string[];
 };
 
 export enum AppStatus {
@@ -25,10 +44,17 @@ export enum AppStatus {
   ServerUnavailable = "ServerUnavailable",
 }
 
-export enum GameStatus {
+export enum GameStatusEnum {
   Remote = "Remote",
+  Queued = "Queued",
   Downloading = "Downloading",
   Installed = "Installed",
   Updating = "Updating",
   Uninstalling = "Uninstalling",
+  SetupRequired = "SetupRequired",
 }
+
+export type GameStatus = {
+  type: GameStatusEnum;
+  version_name?: string;
+};

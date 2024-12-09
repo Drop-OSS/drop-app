@@ -68,7 +68,7 @@ features = ["vendored"]
 
 [dependencies.rustbreak]
 version = "2"
-features = ["bin_enc"] # You can also use "yaml_enc" or "bin_enc"
+features = [] # You can also use "yaml_enc" or "bin_enc"
 
 [dependencies.reqwest]
 version = "0.12"

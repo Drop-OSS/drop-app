@@ -1,53 +1,57 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
-use log::info;
-use rayon::spawn;
-
-use crate::{downloads::download_agent::GameDownloadAgent, AppState};
+use crate::AppState;
 
 #[tauri::command]
 pub fn download_game(
     game_id: String,
     game_version: String,
+    install_dir: usize,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
-    info!("beginning game download...");
-
-    let mut download_agent = GameDownloadAgent::new(game_id.clone(), game_version.clone(), 0);
-    // Setup download requires mutable
-    download_agent.setup_download().unwrap();
-
-    let mut lock: std::sync::MutexGuard<'_, AppState> = state.lock().unwrap();
-    let download_agent_ref = Arc::new(download_agent);
-    lock.game_downloads
-        .insert(game_id, download_agent_ref.clone());
-
-    // Run it in another thread
-    spawn(move || {
-        // Run doesn't require mutable
-        download_agent_ref.clone().run();
-    });
-
-    Ok(())
+    state
+        .lock()
+        .unwrap()
+        .download_manager
+        .queue_game(game_id, game_version, install_dir)
+        .map_err(|_| "An error occurred while communicating with the download manager.".to_string())
 }
 
 #[tauri::command]
-pub fn get_game_download_progress(
-    state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String,
-) -> Result<f64, String> {
-    let download_agent = use_download_agent(state, game_id)?;
-
-    let progress = &download_agent.progress;
-
-    Ok(progress.get_progress())
+pub fn pause_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
+    state.lock().unwrap().download_manager.pause_downloads()
 }
 
+#[tauri::command]
+pub fn resume_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
+    state.lock().unwrap().download_manager.resume_downloads()
+}
+
+#[tauri::command]
+pub fn move_game_in_queue(
+    state: tauri::State<'_, Mutex<AppState>>,
+    old_index: usize,
+    new_index: usize,
+) {
+    state
+        .lock()
+        .unwrap()
+        .download_manager
+        .rearrange(old_index, new_index)
+}
+
+/*
+#[tauri::command]
+pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}
+*/
+
+/*
 fn use_download_agent(
     state: tauri::State<'_, Mutex<AppState>>,
     game_id: String,
 ) -> Result<Arc<GameDownloadAgent>, String> {
     let lock = state.lock().unwrap();
-    let download_agent = lock.game_downloads.get(&game_id).ok_or("Invalid game ID")?;
+    let download_agent = lock.download_manager.get(&game_id).ok_or("Invalid game ID")?;
     Ok(download_agent.clone()) // Clones the Arc, not the underlying data structure
 }
+*/

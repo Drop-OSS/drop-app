@@ -6,3 +6,7 @@
     </div>
   </div>
 </template>
+
+<script setup lang="ts">
+const queueState = useQueueState();
+</script>

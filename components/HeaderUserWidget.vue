@@ -21,7 +21,7 @@
       leave-to-class="transform opacity-0 scale-95"
     >
       <MenuItems
-        class="absolute bg-zinc-900 right-0 top-10 z-10 w-56 origin-top-right focus:outline-none shadow-md"
+        class="absolute bg-zinc-900 right-0 top-10 z-50 w-56 origin-top-right focus:outline-none shadow-md"
       >
         <PanelWidget class="flex-col gap-y-2">
           <NuxtLink
