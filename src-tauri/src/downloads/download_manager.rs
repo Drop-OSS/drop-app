@@ -132,19 +132,23 @@ impl DownloadManager {
         let current_index = get_index_from_id(&mut queue, id).unwrap();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
+        self.command_sender.send(DownloadManagerSignal::Update);
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
+        self.command_sender.send(DownloadManagerSignal::Update);
     }
     pub fn remove_from_queue(&self, index: usize) {
         self.edit().remove(index);
+        self.command_sender.send(DownloadManagerSignal::Update);
     }
     pub fn remove_from_queue_string(&self, id: String) {
         let mut queue = self.edit();
         let current_index = get_index_from_id(&mut queue, id).unwrap();
         queue.remove(current_index);
+        self.command_sender.send(DownloadManagerSignal::Update);
     }
     pub fn pause_downloads(&self) {
         self.command_sender

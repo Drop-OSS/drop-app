@@ -318,25 +318,15 @@ import {
 } from "@headlessui/vue";
 import { CheckIcon, ChevronUpDownIcon } from "@heroicons/vue/20/solid";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
-
-import type { Game } from "@prisma/client";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { GameStatus } from "~/types";
+import type { Game, GameStatus } from "~/types";
 
 const route = useRoute();
-const id = route.params.id;
+const id = route.params.id.toString();
 
-const raw: { game: Game; status: GameStatus } = JSON.parse(
-  await invoke<string>("fetch_game", { id: id })
-);
-const game = ref(raw.game);
-const status = ref(raw.status);
-
-listen(`update_game/${game.value.id}`, (event) => {
-  const payload: { status: GameStatus } = event.payload as any;
-  status.value = payload.status;
-});
+const { game: rawGame, status } = await useGame(id);
+const game = ref(rawGame);
 
 const bannerUrl = await useObject(game.value.mBannerId);
 

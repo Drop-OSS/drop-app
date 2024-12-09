@@ -20,21 +20,6 @@ pub fn download_game(
 }
 
 #[tauri::command]
-pub fn get_current_game_download_progress(
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<f64, String> {
-    match state
-        .lock()
-        .unwrap()
-        .download_manager
-        .get_current_game_download_progress()
-    {
-        Some(progress) => Ok(progress),
-        None => Err("Game does not exist".to_string()),
-    }
-}
-
-#[tauri::command]
 pub fn cancel_game_download(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
     info!("Cancelling game download {}", game_id);
     state
@@ -52,6 +37,19 @@ pub fn pause_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
 #[tauri::command]
 pub fn resume_game_downloads(state: tauri::State<'_, Mutex<AppState>>) {
     state.lock().unwrap().download_manager.resume_downloads()
+}
+
+#[tauri::command]
+pub fn move_game_in_queue(
+    state: tauri::State<'_, Mutex<AppState>>,
+    old_index: usize,
+    new_index: usize,
+) {
+    state
+        .lock()
+        .unwrap()
+        .download_manager
+        .rearrange(old_index, new_index)
 }
 
 #[tauri::command]

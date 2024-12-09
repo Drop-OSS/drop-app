@@ -17,7 +17,7 @@ use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
-struct FetchGameStruct {
+pub struct FetchGameStruct {
     game: Game,
     status: DatabaseGameStatus,
 }
@@ -67,7 +67,7 @@ pub struct GameVersionOption {
     // total_size: usize,
 }
 
-fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
+fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
     let library_url = base_url.join("/api/v1/client/user/library")?;
 
@@ -102,15 +102,18 @@ fn fetch_library_logic(app: AppHandle) -> Result<String, RemoteAccessError> {
 
     drop(handle);
 
-    Ok(json!(games.clone()).to_string())
+    Ok(games)
 }
 
 #[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<String, String> {
+pub fn fetch_library(app: AppHandle) -> Result<Vec<Game>, String> {
     fetch_library_logic(app).map_err(|e| e.to_string())
 }
 
-fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteAccessError> {
+fn fetch_game_logic(
+    id: String,
+    app: tauri::AppHandle,
+) -> Result<FetchGameStruct, RemoteAccessError> {
     let state = app.state::<Mutex<AppState>>();
     let mut state_handle = state.lock().unwrap();
 
@@ -128,7 +131,7 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
                 .clone(),
         };
 
-        return Ok(json!(data).to_string());
+        return Ok(data);
     }
 
     let base_url = DB.fetch_base_url();
@@ -173,11 +176,11 @@ fn fetch_game_logic(id: String, app: tauri::AppHandle) -> Result<String, RemoteA
             .clone(),
     };
 
-    return Ok(json!(data).to_string());
+    return Ok(data);
 }
 
 #[tauri::command]
-pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<String, String> {
+pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
     let result = fetch_game_logic(id, app);
 
     if result.is_err() {

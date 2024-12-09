@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 
 export type QueueState = {
-  queue: Array<{ id: string; status: string, progress: number }>;
+  queue: Array<{ id: string; status: string, progress: number | null }>;
 };
 
 export const useQueueState = () =>

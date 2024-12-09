@@ -134,7 +134,7 @@ pub fn run() {
             fetch_game_verion_options,
             // Downloads
             download_game,
-            get_current_game_download_progress,
+            move_game_in_queue,
             cancel_game_download,
             pause_game_downloads,
             resume_game_downloads,

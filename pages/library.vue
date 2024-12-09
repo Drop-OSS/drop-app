@@ -40,12 +40,10 @@
 </template>
 
 <script setup lang="ts">
-import type { Game } from "@prisma/client";
 import { invoke } from "@tauri-apps/api/core";
-import type { NavigationItem } from "~/types";
+import type { Game, NavigationItem } from "~/types";
 
-const rawGames = await invoke<string>("fetch_library");
-const games: Array<Game> = JSON.parse(rawGames);
+const games: Array<Game> = await invoke("fetch_library");
 const icons = await Promise.all(games.map((e) => useObject(e.mIconId)));
 
 const navigation = games.map((e) => {

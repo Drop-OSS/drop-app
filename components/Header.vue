@@ -29,7 +29,6 @@
       <div class="inline-flex items-center">
         <ol class="inline-flex gap-3">
           <HeaderQueueWidget
-            v-if="currentQueueObject"
             :object="currentQueueObject"
           />
           <li v-for="(item, itemIdx) in quickActions">
