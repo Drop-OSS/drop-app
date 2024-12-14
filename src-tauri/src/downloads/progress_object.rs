@@ -44,7 +44,7 @@ impl ProgressHandle {
     }
 }
 
-static PROGRESS_UPDATES: usize = 100;
+pub const PROGRESS_UPDATES: usize = 100;
 
 impl ProgressObject {
     pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
