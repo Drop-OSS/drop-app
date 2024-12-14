@@ -6,12 +6,14 @@ use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
+use core::time;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::io;
 use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
@@ -99,8 +101,10 @@ impl GameDownloadAgent {
     pub fn download(&self) -> Result<(), GameDownloadError> {
         self.setup_download()?;
         self.set_progress_object_params();
+        let timer = Instant::now();
         self.run().map_err(|_| GameDownloadError::DownloadError)?;
 
+        info!("{} took {}ms to download", self.id, timer.elapsed().as_millis());
         Ok(())
     }
 

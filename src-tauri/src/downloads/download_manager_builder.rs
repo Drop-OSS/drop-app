@@ -201,6 +201,7 @@ impl DownloadManagerBuilder {
 
     fn manage_stop_signal(&mut self) {
         info!("Got signal 'Stop'");
+        self.set_status(DownloadManagerStatus::Paused);
         if let Some(active_control_flag) = self.active_control_flag.clone() {
             active_control_flag.set(DownloadThreadControlFlag::Stop);
         }
@@ -327,6 +328,7 @@ impl DownloadManagerBuilder {
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
     fn manage_cancel_signal(&mut self) {
+        self.set_status(DownloadManagerStatus::Paused);
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
         }

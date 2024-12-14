@@ -76,12 +76,12 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 
 fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
         .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}\n")))
+        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}\n")))
         .build();
 
     let config = Config::builder()
