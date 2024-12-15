@@ -11,7 +11,7 @@ use rustbreak::{DeSerError, DeSerializer, PathDatabase};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
-use crate::DB;
+use crate::{process::process_manager::Platform, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,11 +26,21 @@ pub struct DatabaseAuth {
 #[serde(tag = "type")]
 pub enum DatabaseGameStatus {
     Remote {},
-    Queued { version_name: String },
-    Downloading { version_name: String },
-    SetupRequired { version_name: String },
-    Installed { version_name: String },
-    Updating { version_name: String },
+    Queued {
+        version_name: String,
+    },
+    Downloading {
+        version_name: String,
+    },
+    SetupRequired {
+        version_name: String,
+    },
+    Installed {
+        version_name: String,
+    },
+    Updating {
+        version_name: String,
+    },
     Uninstalling {},
 }
 
@@ -41,7 +51,7 @@ pub struct GameVersion {
     pub version_name: String,
     pub launch_command: String,
     pub setup_command: String,
-    pub platform: String,
+    pub platform: Platform,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -111,7 +121,10 @@ impl DatabaseImpls for DatabaseInterface {
                         game_versions: HashMap::new(),
                     },
                 };
-                debug!("Creating database at path {}", db_path.as_os_str().to_str().unwrap());
+                debug!(
+                    "Creating database at path {}",
+                    db_path.as_os_str().to_str().unwrap()
+                );
                 PathDatabase::create_at_path(db_path, default)
                     .expect("Database could not be created")
             }

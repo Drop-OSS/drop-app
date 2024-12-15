@@ -2,7 +2,8 @@ mod auth;
 mod db;
 mod downloads;
 mod library;
-// mod p2p;
+
+mod process;
 mod remote;
 mod settings;
 #[cfg(test)]
@@ -25,6 +26,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
+use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -64,6 +66,8 @@ pub struct AppState {
 
     #[serde(skip_serializing)]
     download_manager: Arc<DownloadManager>,
+    #[serde(skip_serializing)]
+    process_manager: Arc<ProcessManager>,
 }
 
 #[tauri::command]
@@ -81,7 +85,7 @@ fn setup(handle: AppHandle) -> AppState {
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}\n")))
+        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}")))
         .build();
 
     let config = Config::builder()
@@ -100,6 +104,7 @@ fn setup(handle: AppHandle) -> AppState {
 
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
+    let process_manager = Arc::new(ProcessManager::new());
 
     debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -109,6 +114,7 @@ fn setup(handle: AppHandle) -> AppState {
             user: None,
             games,
             download_manager,
+            process_manager,
         };
     }
 
@@ -120,6 +126,7 @@ fn setup(handle: AppHandle) -> AppState {
         user,
         games,
         download_manager,
+        process_manager,
     }
 }
 
@@ -234,4 +241,6 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    info!("exiting drop application...");
 }

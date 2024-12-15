@@ -37,6 +37,8 @@ pub enum DownloadManagerSignal {
     Error(GameDownloadError),
     /// Pushes UI update
     Update,
+    /// Causes the Download Agent status to be synced to disk
+    Sync(usize),
 }
 pub enum DownloadManagerStatus {
     Downloading,

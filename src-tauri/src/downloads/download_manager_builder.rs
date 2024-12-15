@@ -141,6 +141,8 @@ impl DownloadManagerBuilder {
         self.app_handle.emit("update_queue", event_data).unwrap();
     }
 
+    fn sync_download_agent(&self) {}
+
     fn remove_and_cleanup_game(&mut self, game_id: &String) -> Arc<GameDownloadAgent> {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(game_id).unwrap();
@@ -194,6 +196,9 @@ impl DownloadManagerBuilder {
                 }
                 DownloadManagerSignal::Update => {
                     self.push_manager_update();
+                }
+                DownloadManagerSignal::Sync(index) => {
+                    self.sync_download_agent();
                 }
             };
         }

@@ -168,7 +168,7 @@
                       </div>
                       <div class="ml-3">
                         <h3 class="text-sm font-medium text-red-600">
-                          There are no versions to install. Please contact your
+                          There are no supported versions to install. Please contact your
                           server admin or try again later.
                         </h3>
                       </div>

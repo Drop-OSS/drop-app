@@ -9,6 +9,7 @@ use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
 use crate::db::GameVersion;
 use crate::downloads::download_manager::GameDownloadStatus;
+use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;
 use crate::{auth::generate_authorization_header, AppState, DB};
 
@@ -56,7 +57,7 @@ pub struct QueueUpdateEvent {
 pub struct GameVersionOption {
     version_index: usize,
     version_name: String,
-    platform: String,
+    platform: Platform,
     setup_command: String,
     launch_command: String,
     delta: bool,
@@ -199,8 +200,9 @@ pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
     Ok(status)
 }
 
-fn fetch_game_verion_options_logic(
+fn fetch_game_verion_options_logic<'a>(
     game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
@@ -222,12 +224,27 @@ fn fetch_game_verion_options_logic(
 
     let data = response.json::<Vec<GameVersionOption>>()?;
 
+    let state_lock = state.lock().unwrap();
+    let data = data
+        .into_iter()
+        .filter(|v| {
+            state_lock
+                .process_manager
+                .valid_platform(&v.platform)
+                .unwrap()
+        })
+        .collect::<Vec<GameVersionOption>>();
+    drop(state_lock);
+
     Ok(data)
 }
 
 #[tauri::command]
-pub fn fetch_game_verion_options(game_id: String) -> Result<Vec<GameVersionOption>, String> {
-    fetch_game_verion_options_logic(game_id).map_err(|e| e.to_string())
+pub fn fetch_game_verion_options<'a>(
+    game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<Vec<GameVersionOption>, String> {
+    fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
 }
 
 pub fn on_game_complete(
