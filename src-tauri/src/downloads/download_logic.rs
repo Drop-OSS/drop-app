@@ -6,8 +6,11 @@ use crate::DB;
 use log::warn;
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
+use tauri::utils::acl::Permission;
 
+use std::fs::{set_permissions, Permissions};
 use std::io::Read;
+use std::os::unix::fs::PermissionsExt;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -157,7 +160,7 @@ pub fn download_game_chunk(
         ));
     }
 
-    let mut destination = DropWriter::new(ctx.path);
+    let mut destination = DropWriter::new(ctx.path.clone());
 
     if ctx.offset != 0 {
         destination
@@ -184,6 +187,13 @@ pub fn download_game_chunk(
     if !completed {
         return Ok(false);
     };
+
+    // If we complete the file, set the permissions (if on Linux)
+    #[cfg(unix)]
+    {
+        let permissions = Permissions::from_mode(ctx.permissions);
+        set_permissions(ctx.path, permissions).unwrap();
+    }
 
     /*
     let checksum = pipeline

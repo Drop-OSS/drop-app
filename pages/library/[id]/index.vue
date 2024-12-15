@@ -18,7 +18,11 @@
     <div class="w-full min-h-screen mx-auto bg-zinc-900 px-5 py-6">
       <!-- game toolbar -->
       <div>
-        <GameStatusButton @install="() => installFlow()" :status="status" />
+        <GameStatusButton
+          @install="() => installFlow()"
+          @play="() => play()"
+          :status="status"
+        />
       </div>
     </div>
   </div>
@@ -168,8 +172,8 @@
                       </div>
                       <div class="ml-3">
                         <h3 class="text-sm font-medium text-red-600">
-                          There are no supported versions to install. Please contact your
-                          server admin or try again later.
+                          There are no supported versions to install. Please
+                          contact your server admin or try again later.
                         </h3>
                       </div>
                     </div>
@@ -367,6 +371,15 @@ async function install() {
     installFlowOpen.value = false;
   } catch (error) {
     installError.value = (error as string).toString();
+  }
+}
+
+async function play() {
+  try {
+    await invoke("launch_game", { gameId: game.value.id });
+  } catch (e) {
+    game.value.mName = e as string;
+    console.error(e);
   }
 }
 </script>

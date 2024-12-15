@@ -4,9 +4,9 @@ use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::downloads::progress_object::ProgressHandle;
 use crate::remote::RemoteAccessError;
 use crate::DB;
+use core::time;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
-use core::time;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::io;
@@ -28,7 +28,7 @@ pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
     pub control_flag: DownloadThreadControl,
-    pub target_download_dir: usize,
+    pub base_dir: String,
     contexts: Mutex<Vec<DropDownloadContext>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
@@ -72,12 +72,20 @@ impl GameDownloadAgent {
     ) -> Self {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
+
+        let db_lock = DB.borrow_data().unwrap();
+        let base_dir = db_lock.games.install_dirs[target_download_dir].clone();
+        drop(db_lock);
+
+        let base_dir_path = Path::new(&base_dir);
+        let data_base_dir_path = base_dir_path.join(id.clone());
+
         Self {
             id,
             version,
             control_flag,
             manifest: Mutex::new(None),
-            target_download_dir,
+            base_dir: data_base_dir_path.to_str().unwrap().to_owned(),
             contexts: Mutex::new(Vec::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
@@ -104,7 +112,11 @@ impl GameDownloadAgent {
         let timer = Instant::now();
         self.run().map_err(|_| GameDownloadError::DownloadError)?;
 
-        info!("{} took {}ms to download", self.id, timer.elapsed().as_millis());
+        info!(
+            "{} took {}ms to download",
+            self.id,
+            timer.elapsed().as_millis()
+        );
         Ok(())
     }
 
@@ -187,18 +199,12 @@ impl GameDownloadAgent {
     }
 
     pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
-        let db_lock = DB.borrow_data().unwrap();
-        let data_base_dir = db_lock.games.install_dirs[self.target_download_dir].clone();
-        drop(db_lock);
-
         let manifest = self.manifest.lock().unwrap().clone().unwrap();
         let game_id = self.id.clone();
 
-        let data_base_dir_path = Path::new(&data_base_dir);
-
         let mut contexts = Vec::new();
-        let base_path = data_base_dir_path.join(game_id.clone()).clone();
-        create_dir_all(base_path.clone()).unwrap();
+        let base_path = Path::new(&self.base_dir);
+        create_dir_all(base_path).unwrap();
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -219,6 +225,7 @@ impl GameDownloadAgent {
                     path: path.clone(),
                     checksum: chunk.checksums[index].clone(),
                     length: *length,
+                    permissions: chunk.permissions,
                 });
                 running_offset += *length as u64;
             }

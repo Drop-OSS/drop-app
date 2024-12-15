@@ -6,7 +6,7 @@ pub type DropManifest = HashMap<String, DropChunk>;
 #[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DropChunk {
-    pub permissions: usize,
+    pub permissions: u32,
     pub ids: Vec<String>,
     pub checksums: Vec<String>,
     pub lengths: Vec<usize>,
@@ -23,4 +23,5 @@ pub struct DropDownloadContext {
     pub path: PathBuf,
     pub checksum: String,
     pub length: usize,
+    pub permissions: u32,
 }

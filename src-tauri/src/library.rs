@@ -225,15 +225,12 @@ fn fetch_game_verion_options_logic<'a>(
     let data = response.json::<Vec<GameVersionOption>>()?;
 
     let state_lock = state.lock().unwrap();
+    let process_manager_lock = state_lock.process_manager.lock().unwrap();
     let data = data
         .into_iter()
-        .filter(|v| {
-            state_lock
-                .process_manager
-                .valid_platform(&v.platform)
-                .unwrap()
-        })
+        .filter(|v| process_manager_lock.valid_platform(&v.platform).unwrap())
         .collect::<Vec<GameVersionOption>>();
+    drop(process_manager_lock);
     drop(state_lock);
 
     Ok(data)
@@ -250,6 +247,7 @@ pub fn fetch_game_verion_options<'a>(
 pub fn on_game_complete(
     game_id: String,
     version_name: String,
+    install_dir: String,
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
@@ -284,9 +282,15 @@ pub fn on_game_complete(
     DB.save().unwrap();
 
     let status = if data.setup_command.is_empty() {
-        DatabaseGameStatus::Installed { version_name }
+        DatabaseGameStatus::Installed {
+            version_name,
+            install_dir,
+        }
     } else {
-        DatabaseGameStatus::SetupRequired { version_name }
+        DatabaseGameStatus::SetupRequired {
+            version_name,
+            install_dir,
+        }
     };
 
     let mut db_handle = DB.borrow_data_mut().unwrap();

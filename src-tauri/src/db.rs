@@ -34,9 +34,11 @@ pub enum DatabaseGameStatus {
     },
     SetupRequired {
         version_name: String,
+        install_dir: String,
     },
     Installed {
         version_name: String,
+        install_dir: String,
     },
     Updating {
         version_name: String,
@@ -100,11 +102,14 @@ impl DatabaseImpls for DatabaseInterface {
         let data_root_dir = DATA_ROOT_DIR.lock().unwrap();
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
+        let logs_root_dir = data_root_dir.join("logs");
 
         debug!("Creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
         debug!("Creating games directory");
         create_dir_all(games_base_dir.clone()).unwrap();
+        debug!("Creating logs directory");
+        create_dir_all(logs_root_dir.clone()).unwrap();
 
         #[allow(clippy::let_and_return)]
         let exists = fs::exists(db_path.clone()).unwrap();

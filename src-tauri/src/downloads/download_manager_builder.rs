@@ -220,9 +220,12 @@ impl DownloadManagerBuilder {
                 info!("Popping consumed data");
                 let download_agent = self.remove_and_cleanup_game(&game_id);
 
-                if let Err(error) =
-                    on_game_complete(game_id, download_agent.version.clone(), &self.app_handle)
-                {
+                if let Err(error) = on_game_complete(
+                    game_id,
+                    download_agent.version.clone(),
+                    download_agent.base_dir.clone(),
+                    &self.app_handle,
+                ) {
                     self.sender
                         .send(DownloadManagerSignal::Error(
                             GameDownloadError::Communication(error),
