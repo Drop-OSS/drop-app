@@ -26,9 +26,6 @@ pub struct DatabaseAuth {
 #[serde(tag = "type")]
 pub enum DatabaseGameStatus {
     Remote {},
-    Queued {
-        version_name: String,
-    },
     Downloading {
         version_name: String,
     },

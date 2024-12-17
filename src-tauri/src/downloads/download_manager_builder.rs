@@ -257,7 +257,7 @@ impl DownloadManagerBuilder {
             .insert(interface_data.id.clone(), download_agent);
         self.download_queue.append(interface_data);
 
-        self.set_game_status(id, DatabaseGameStatus::Queued { version_name });
+        self.set_game_status(id, DatabaseGameStatus::Downloading { version_name });
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
 
@@ -309,9 +309,16 @@ impl DownloadManagerBuilder {
             };
         }));
 
-        // Set status for game
-        let mut status_handle = agent_data.status.lock().unwrap();
-        *status_handle = GameDownloadStatus::Downloading;
+        // Set status for games
+        for queue_game in self.download_queue.read() {
+            let mut status_handle = queue_game.status.lock().unwrap();
+            if queue_game.id == agent_data.id {
+                *status_handle = GameDownloadStatus::Downloading;
+            } else {
+                *status_handle = GameDownloadStatus::Queued;
+            }
+            drop(status_handle);
+        }
 
         // Set flags for download manager
         active_control_flag.set(DownloadThreadControlFlag::Go);
@@ -320,6 +327,8 @@ impl DownloadManagerBuilder {
             self.current_download_agent.as_ref().unwrap().id.clone(),
             DatabaseGameStatus::Downloading { version_name },
         );
+
+        self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
     fn manage_error_signal(&mut self, error: GameDownloadError) {
         let current_status = self.current_download_agent.clone().unwrap();

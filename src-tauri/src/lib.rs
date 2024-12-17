@@ -195,7 +195,7 @@ pub fn run() {
                 tauri::WebviewUrl::App("index.html".into()),
             )
             .title("Drop Desktop App")
-            .min_inner_size(900.0, 900.0)
+            .min_inner_size(1000.0, 500.0)
             .inner_size(1536.0, 864.0)
             .decorations(false)
             .data_directory(DATA_ROOT_DIR.lock().unwrap().join(".webview"))

@@ -176,7 +176,10 @@ fn fetch_game_logic(
 }
 
 #[tauri::command]
-pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
+pub fn fetch_game(
+    id: String,
+    app: tauri::AppHandle,
+) -> Result<FetchGameStruct, String> {
     let result = fetch_game_logic(id, app);
 
     if result.is_err() {

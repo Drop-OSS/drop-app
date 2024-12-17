@@ -11,6 +11,8 @@ use tauri::utils::acl::Permission;
 use std::fs::{set_permissions, Permissions};
 use std::io::Read;
 use std::os::unix::fs::PermissionsExt;
+use std::thread::sleep;
+use std::time::Duration;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},

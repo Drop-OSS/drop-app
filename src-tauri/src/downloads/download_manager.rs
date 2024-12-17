@@ -51,7 +51,6 @@ pub enum DownloadManagerStatus {
 pub enum GameDownloadStatus {
     Queued,
     Downloading,
-    Paused,
     Error,
 }
 
@@ -143,6 +142,10 @@ impl DownloadManager {
             .unwrap();
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
+        if current_index == new_index {
+            return;
+        };
+
         let needs_pause = current_index == 0 || new_index == 0;
         if needs_pause {
             self.command_sender
