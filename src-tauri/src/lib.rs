@@ -35,6 +35,8 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
+use tauri::menu::{Menu, MenuItem, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
 
@@ -145,7 +147,7 @@ pub fn run() {
         }));
     }
 
-    builder
+    let mut app = builder
         .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
             // DB
@@ -211,6 +213,22 @@ pub fn run() {
                 }
             });
 
+            let menu = Menu::with_items(
+                app,
+                &[
+                    &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
+                    &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
+                ],
+            )?;
+
+            let tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .build(app)
+                .expect("error while setting up tray menu");
+
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
@@ -242,8 +260,12 @@ pub fn run() {
 
             responder.respond(resp);
         })
-        .run(tauri::generate_context!())
+        .build(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    app.run(|app_handle, e| match e {
+        _ => {}
+    });
 
     info!("exiting drop application...");
 }
