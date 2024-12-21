@@ -35,10 +35,11 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
-use tauri::menu::{Menu, MenuItem, MenuItemBuilder};
+use tauri::menu::{Menu, MenuItem, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
+use url::Url;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -133,6 +134,12 @@ fn setup(handle: AppHandle) -> AppState {
     }
 }
 
+pub fn cleanup_and_exit(app: &AppHandle) {
+    info!("exiting drop application...");
+
+    app.exit(0);
+}
+
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -216,9 +223,13 @@ pub fn run() {
             let menu = Menu::with_items(
                 app,
                 &[
+                    &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
+                    /*
                     &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
                     &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
+                    &PredefinedMenuItem::separator(app)?,
+                     */
                     &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
                 ],
             )?;
@@ -226,6 +237,18 @@ pub fn run() {
             let tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "open" => {
+                        app.webview_windows().get("main").unwrap().show().unwrap();
+                    }
+                    "quit" => {
+                        cleanup_and_exit(app);
+                    }
+
+                    _ => {
+                        println!("Menu event not handled: {:?}", event.id);
+                    }
+                })
                 .build(app)
                 .expect("error while setting up tray menu");
 
@@ -260,12 +283,22 @@ pub fn run() {
 
             responder.respond(resp);
         })
+        .on_window_event(|window, event| match event {
+            WindowEvent::CloseRequested { api, .. } => {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
+            _ => (),
+        })
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, e| match e {
+    app.run(|app_handle, event| match event {
+        RunEvent::ExitRequested { code, api, .. } => {
+            if code.is_none() {
+                api.prevent_exit();
+            }
+        }
         _ => {}
     });
-
-    info!("exiting drop application...");
 }

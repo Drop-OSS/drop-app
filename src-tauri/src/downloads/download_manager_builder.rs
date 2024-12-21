@@ -141,6 +141,19 @@ impl DownloadManagerBuilder {
         self.app_handle.emit("update_queue", event_data).unwrap();
     }
 
+    fn stop_and_wait_current_download(&self) {
+        self.set_status(DownloadManagerStatus::Paused);
+        if let Some(current_flag) = &self.active_control_flag {
+            current_flag.set(DownloadThreadControlFlag::Stop);
+        }
+
+        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        if let Some(current_download_thread) = download_thread_lock.take() {
+            current_download_thread.join().unwrap();
+        }
+        drop(download_thread_lock);
+    }
+
     fn sync_download_agent(&self) {}
 
     fn remove_and_cleanup_game(&mut self, game_id: &String) -> Arc<GameDownloadAgent> {
@@ -182,12 +195,6 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Queue(game_id, version, target_download_dir) => {
                     self.manage_queue_signal(game_id, version, target_download_dir);
                 }
-                DownloadManagerSignal::Finish => {
-                    if let Some(active_control_flag) = self.active_control_flag {
-                        active_control_flag.set(DownloadThreadControlFlag::Stop)
-                    }
-                    return Ok(());
-                }
                 DownloadManagerSignal::Error(e) => {
                     self.manage_error_signal(e);
                 }
@@ -197,8 +204,9 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Update => {
                     self.push_manager_update();
                 }
-                DownloadManagerSignal::Sync(index) => {
-                    self.sync_download_agent();
+                DownloadManagerSignal::Finish => {
+                    self.stop_and_wait_current_download();
+                    return Ok(());
                 }
             };
         }
@@ -345,16 +353,7 @@ impl DownloadManagerBuilder {
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
     fn manage_cancel_signal(&mut self) {
-        self.set_status(DownloadManagerStatus::Paused);
-        if let Some(current_flag) = &self.active_control_flag {
-            current_flag.set(DownloadThreadControlFlag::Stop);
-        }
-
-        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
-        if let Some(current_download_thread) = download_thread_lock.take() {
-            current_download_thread.join().unwrap();
-        }
-        drop(download_thread_lock);
+        self.stop_and_wait_current_download();
 
         info!("cancel waited for download to finish");
 

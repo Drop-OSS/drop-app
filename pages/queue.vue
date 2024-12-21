@@ -49,6 +49,12 @@
         <p v-else>Loading...</p>
       </template>
     </draggable>
+    <div
+      class="text-zinc-600 uppercase font-semibold font-display w-full text-center"
+      v-if="queue.queue.length == 0"
+    >
+      No items in the queue
+    </div>
   </div>
 </template>
 

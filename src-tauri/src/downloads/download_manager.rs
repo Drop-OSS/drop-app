@@ -30,21 +30,22 @@ pub enum DownloadManagerSignal {
     /// to the registry and queue
     Queue(String, String, usize),
     /// Tells the Manager to stop the current
-    /// download and return
+    /// download, sync everything to disk, and
+    /// then exit
     Finish,
     Cancel,
     /// Any error which occurs in the agent
     Error(GameDownloadError),
     /// Pushes UI update
     Update,
-    /// Causes the Download Agent status to be synced to disk
-    Sync(usize),
 }
+
 pub enum DownloadManagerStatus {
     Downloading,
     Paused,
     Empty,
     Error(GameDownloadError),
+    Finished,
 }
 
 #[derive(Serialize, Clone)]

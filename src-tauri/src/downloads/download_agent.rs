@@ -7,6 +7,8 @@ use crate::DB;
 use core::time;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
+use serde::ser::{Error, SerializeMap};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::io;
@@ -90,6 +92,30 @@ impl GameDownloadAgent {
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
         }
+    }
+
+    pub fn from_contexts(
+        id: String,
+        version: String,
+        base_dir: String,
+        manifest: DropManifest,
+        contexts: Vec<DropDownloadContext>,
+        sender: Sender<DownloadManagerSignal>,
+    ) -> Self {
+        let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
+
+        let me = Self {
+            id,
+            version,
+            control_flag,
+            manifest: Mutex::new(Some(manifest)),
+            base_dir,
+            contexts: Mutex::new(contexts),
+            progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
+            sender,
+        };
+        me.set_progress_object_params();
+        me
     }
 
     // Blocking
@@ -305,5 +331,27 @@ impl GameDownloadAgent {
             .unwrap();
 
         Ok(())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GameDownloadAgentOfflineState {
+    id: String,
+    version: String,
+    base_dir: String,
+    manifest: DropManifest,
+    contexts: Vec<DropDownloadContext>,
+}
+
+impl GameDownloadAgentOfflineState {
+    fn to_download_agent(self, sender: Sender<DownloadManagerSignal>) -> GameDownloadAgent {
+        GameDownloadAgent::from_contexts(
+            self.id,
+            self.version,
+            self.base_dir,
+            self.manifest,
+            self.contexts,
+            sender,
+        )
     }
 }
