@@ -68,7 +68,7 @@ Behold, my madness - quexeky
 pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
 
 pub struct DownloadManagerBuilder {
-    download_agent_registry: HashMap<String, Arc<GameDownloadAgent>>,
+    download_agent_registry: HashMap<String, Arc<Mutex<GameDownloadAgent>>>,
     download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
@@ -156,7 +156,7 @@ impl DownloadManagerBuilder {
 
     fn sync_download_agent(&self) {}
 
-    fn remove_and_cleanup_game(&mut self, game_id: &String) -> Arc<GameDownloadAgent> {
+    fn remove_and_cleanup_game(&mut self, game_id: &String) -> Arc<Mutex<GameDownloadAgent>> {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(game_id).unwrap();
         self.cleanup_current_download();
@@ -227,13 +227,16 @@ impl DownloadManagerBuilder {
             if interface.id == game_id {
                 info!("Popping consumed data");
                 let download_agent = self.remove_and_cleanup_game(&game_id);
+                let download_agent_lock = download_agent.lock().unwrap();
 
-                if let Err(error) = on_game_complete(
-                    game_id,
-                    download_agent.version.clone(),
-                    download_agent.base_dir.clone(),
-                    &self.app_handle,
-                ) {
+                let version = download_agent_lock.version.clone();
+                let install_dir = download_agent_lock.base_dir.clone();
+
+                drop(download_agent_lock);
+
+                if let Err(error) =
+                    on_game_complete(game_id, version, install_dir, &self.app_handle)
+                {
                     self.sender
                         .send(DownloadManagerSignal::Error(
                             GameDownloadError::Communication(error),
@@ -248,19 +251,24 @@ impl DownloadManagerBuilder {
 
     fn manage_queue_signal(&mut self, id: String, version: String, target_download_dir: usize) {
         info!("Got signal Queue");
-        let download_agent = Arc::new(GameDownloadAgent::new(
+        let download_agent = Arc::new(Mutex::new(GameDownloadAgent::new(
             id.clone(),
             version,
             target_download_dir,
             self.sender.clone(),
-        ));
+        )));
+        let download_agent_lock = download_agent.lock().unwrap();
+
         let agent_status = GameDownloadStatus::Queued;
         let interface_data = GameDownloadAgentQueueStandin {
             id: id.clone(),
             status: Mutex::new(agent_status),
-            progress: download_agent.progress.clone(),
+            progress: download_agent_lock.progress.clone(),
         };
-        let version_name = download_agent.version.clone();
+        let version_name = download_agent_lock.version.clone();
+
+        drop(download_agent_lock);
+
         self.download_agent_registry
             .insert(interface_data.id.clone(), download_agent);
         self.download_queue.append(interface_data);
@@ -287,24 +295,28 @@ impl DownloadManagerBuilder {
             .get(&agent_data.id)
             .unwrap()
             .clone();
+        let download_agent_lock = download_agent.lock().unwrap();
         self.current_download_agent = Some(agent_data);
         // Cloning option should be okay because it only clones the Arc inside, not the AgentInterfaceData
         let agent_data = self.current_download_agent.clone().unwrap();
 
-        let version_name = download_agent.version.clone();
+        let version_name = download_agent_lock.version.clone();
 
-        let progress_object = download_agent.progress.clone();
+        let progress_object = download_agent_lock.progress.clone();
         *self.progress.lock().unwrap() = Some(progress_object);
 
-        let active_control_flag = download_agent.control_flag.clone();
+        let active_control_flag = download_agent_lock.control_flag.clone();
         self.active_control_flag = Some(active_control_flag.clone());
 
         let sender = self.sender.clone();
 
+        drop(download_agent_lock);
+
         info!("Spawning download");
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
         *download_thread_lock = Some(spawn(move || {
-            match download_agent.download() {
+            let mut download_agent_lock = download_agent.lock().unwrap();
+            match download_agent_lock.download() {
                 // Returns once we've exited the download
                 // (not necessarily completed)
                 // The download agent will fire the completed event for us
@@ -315,6 +327,7 @@ impl DownloadManagerBuilder {
                     sender.send(DownloadManagerSignal::Error(err)).unwrap();
                 }
             };
+            drop(download_agent_lock);
         }));
 
         // Set status for games
@@ -347,7 +360,7 @@ impl DownloadManagerBuilder {
         *lock = GameDownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error(error));
 
-        let game_id = self.current_download_agent.as_ref().unwrap().id.clone();
+        let game_id = current_status.id.clone();
         self.set_game_status(game_id, DatabaseGameStatus::Remote {});
 
         self.sender.send(DownloadManagerSignal::Update).unwrap();

@@ -31,7 +31,8 @@ pub struct GameDownloadAgent {
     pub version: String,
     pub control_flag: DownloadThreadControl,
     pub base_dir: String,
-    contexts: Mutex<Vec<DropDownloadContext>>,
+    contexts: Vec<DropDownloadContext>,
+    completed_contexts: Mutex<Vec<usize>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -56,11 +57,19 @@ impl Display for GameDownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             GameDownloadError::Communication(error) => write!(f, "{}", error),
-            GameDownloadError::Setup(error) => write!(f, "{:?}", error),
+            GameDownloadError::Setup(error) => write!(f, "An error occurred while setting up the download: {}", error),
             GameDownloadError::Lock => write!(f, "Failed to acquire lock. Something has gone very wrong internally. Please restart the application"),
             GameDownloadError::Checksum => write!(f, "Checksum failed to validate for download"),
             GameDownloadError::IoError(error) => write!(f, "{}", error),
             GameDownloadError::DownloadError => write!(f, "Download failed. See Download Manager status for specific error"),
+        }
+    }
+}
+
+impl Display for SetupError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SetupError::Context => write!(f, "Failed to generate contexts for download"),
         }
     }
 }
@@ -88,38 +97,15 @@ impl GameDownloadAgent {
             control_flag,
             manifest: Mutex::new(None),
             base_dir: data_base_dir_path.to_str().unwrap().to_owned(),
-            contexts: Mutex::new(Vec::new()),
+            contexts: Vec::new(),
+            completed_contexts: Mutex::new(Vec::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
         }
     }
 
-    pub fn from_contexts(
-        id: String,
-        version: String,
-        base_dir: String,
-        manifest: DropManifest,
-        contexts: Vec<DropDownloadContext>,
-        sender: Sender<DownloadManagerSignal>,
-    ) -> Self {
-        let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
-
-        let me = Self {
-            id,
-            version,
-            control_flag,
-            manifest: Mutex::new(Some(manifest)),
-            base_dir,
-            contexts: Mutex::new(contexts),
-            progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
-            sender,
-        };
-        me.set_progress_object_params();
-        me
-    }
-
     // Blocking
-    pub fn setup_download(&self) -> Result<(), GameDownloadError> {
+    pub fn setup_download(&mut self) -> Result<(), GameDownloadError> {
         self.ensure_manifest_exists()?;
         info!("Ensured manifest exists");
 
@@ -132,7 +118,7 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&self) -> Result<(), GameDownloadError> {
+    pub fn download(&mut self) -> Result<(), GameDownloadError> {
         self.setup_download()?;
         self.set_progress_object_params();
         let timer = Instant::now();
@@ -200,10 +186,9 @@ impl GameDownloadAgent {
             return;
         }
 
-        let lock = self.contexts.lock().unwrap();
-        let length = lock.len();
+        let length = self.contexts.len();
 
-        let chunk_count = lock.iter().map(|chunk| chunk.length).sum();
+        let chunk_count = self.contexts.iter().map(|chunk| chunk.length).sum();
 
         debug!("Setting ProgressObject max to {}", chunk_count);
         self.progress.set_max(chunk_count);
@@ -213,18 +198,16 @@ impl GameDownloadAgent {
         self.progress.set_time_now();
     }
 
-    pub fn ensure_contexts(&self) -> Result<(), GameDownloadError> {
-        let context_lock = self.contexts.lock().unwrap();
-        if !context_lock.is_empty() {
+    pub fn ensure_contexts(&mut self) -> Result<(), GameDownloadError> {
+        if !self.contexts.is_empty() {
             return Ok(());
         }
-        drop(context_lock);
 
         self.generate_contexts()?;
         Ok(())
     }
 
-    pub fn generate_contexts(&self) -> Result<(), GameDownloadError> {
+    pub fn generate_contexts(&mut self) -> Result<(), GameDownloadError> {
         let manifest = self.manifest.lock().unwrap().clone().unwrap();
         let game_id = self.id.clone();
 
@@ -261,13 +244,9 @@ impl GameDownloadAgent {
                 let _ = fallocate(file, FallocateFlags::empty(), 0, running_offset);
             }
         }
+        self.contexts = contexts;
 
-        if let Ok(mut context_lock) = self.contexts.lock() {
-            *context_lock = contexts;
-            return Ok(());
-        }
-
-        Err(GameDownloadError::Setup(SetupError::Context))
+        Ok(())
     }
 
     pub fn run(&self) -> Result<(), ()> {
@@ -283,9 +262,14 @@ impl GameDownloadAgent {
         let completed_indexes_loop_arc = completed_indexes.clone();
 
         pool.scope(move |scope| {
-            let contexts = self.contexts.lock().unwrap();
+            let completed_lock = self.completed_contexts.lock().unwrap();
 
-            for (index, context) in contexts.iter().enumerate() {
+            for (index, context) in self.contexts.iter().enumerate() {
+                // If we've done this one already, skip it
+                if completed_lock.contains(&index) {
+                    continue;
+                }
+
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
                 let progress = self.progress.get(index); // Clone arcs
@@ -309,18 +293,13 @@ impl GameDownloadAgent {
             }
         });
 
-        let mut context_lock = self.contexts.lock().unwrap();
-        let mut completed_lock = completed_indexes.lock().unwrap();
+        let mut completed_lock = self.completed_contexts.lock().unwrap();
+        let newly_completed_lock = completed_indexes.lock().unwrap();
 
-        // Sort desc so we don't have to modify indexes
-        completed_lock.sort_by(|a, b| b.cmp(a));
-
-        for index in completed_lock.iter() {
-            context_lock.remove(*index);
-        }
+        completed_lock.extend(newly_completed_lock.iter());
 
         // If we're not out of contexts, we're not done, so we don't fire completed
-        if !context_lock.is_empty() {
+        if completed_lock.len() != self.contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
             return Ok(());
         }
@@ -331,27 +310,5 @@ impl GameDownloadAgent {
             .unwrap();
 
         Ok(())
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GameDownloadAgentOfflineState {
-    id: String,
-    version: String,
-    base_dir: String,
-    manifest: DropManifest,
-    contexts: Vec<DropDownloadContext>,
-}
-
-impl GameDownloadAgentOfflineState {
-    fn to_download_agent(self, sender: Sender<DownloadManagerSignal>) -> GameDownloadAgent {
-        GameDownloadAgent::from_contexts(
-            self.id,
-            self.version,
-            self.base_dir,
-            self.manifest,
-            self.contexts,
-            sender,
-        )
     }
 }
