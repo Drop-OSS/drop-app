@@ -101,7 +101,6 @@ impl ProcessManager {
 
         let current_time = chrono::offset::Local::now();
         let mut log_file = OpenOptions::new()
-            .write(true)
             .append(true)
             .read(true)
             .create(true)
