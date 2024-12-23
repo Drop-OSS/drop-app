@@ -82,6 +82,11 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
     Ok(cloned_state)
 }
 
+#[tauri::command]
+fn quit(app: tauri::AppHandle) {
+    cleanup_and_exit(&app);
+}
+
 fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
@@ -157,8 +162,9 @@ pub fn run() {
     let mut app = builder
         .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
-            // DB
+            // Core utils
             fetch_state,
+            quit,
             // Auth
             auth_initiate,
             retry_connect,

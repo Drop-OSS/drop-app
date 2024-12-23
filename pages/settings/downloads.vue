@@ -129,7 +129,7 @@
                       : 'text-white bg-blue-600 hover:bg-blue-500',
                   ]"
                 >
-                  Upload
+                  Add
                 </LoadingButton>
                 <button
                   type="button"

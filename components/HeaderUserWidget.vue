@@ -107,9 +107,9 @@ const navigation: NavigationItem[] = [
     prefix: "",
   },
   {
-    label: "Sign out",
-    route: "/signout",
+    label: "Quit Drop",
+    route: "/quit",
     prefix: "",
-  },
+  }
 ]
 </script>

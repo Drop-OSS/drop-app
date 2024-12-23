@@ -23,7 +23,7 @@
                   navIdx === currentNavigationIndex
                     ? 'text-zinc-100'
                     : 'text-zinc-400 group-hover:text-zinc-300',
-                  'transition text-sm font-display leading-6',
+                  'truncate transition text-sm font-display leading-6',
                 ]"
               >
                 {{ nav.label }}
