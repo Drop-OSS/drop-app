@@ -5,18 +5,19 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::db::DatabaseGameStatus;
 use crate::db::DatabaseImpls;
 use crate::db::GameVersion;
+use crate::db::{GameStatus, GameTransientStatus};
 use crate::downloads::download_manager::GameDownloadStatus;
 use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;
+use crate::state::{GameStatusManager, GameStatusWithTransient};
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
 pub struct FetchGameStruct {
     game: Game,
-    status: DatabaseGameStatus,
+    status: GameStatusWithTransient,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -36,7 +37,7 @@ pub struct Game {
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
     pub game_id: String,
-    pub status: DatabaseGameStatus,
+    pub status: (Option<GameStatus>, Option<GameTransientStatus>),
 }
 
 #[derive(Serialize, Clone)]
@@ -61,6 +62,7 @@ pub struct GameVersionOption {
     setup_command: String,
     launch_command: String,
     delta: bool,
+    umu_id_override: Option<String>,
     // total_size: usize,
 }
 
@@ -89,11 +91,11 @@ fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
 
     for game in games.iter() {
         handle.games.insert(game.id.clone(), game.clone());
-        if !db_handle.games.games_statuses.contains_key(&game.id) {
+        if !db_handle.games.statuses.contains_key(&game.id) {
             db_handle
                 .games
-                .games_statuses
-                .insert(game.id.clone(), DatabaseGameStatus::Remote {});
+                .statuses
+                .insert(game.id.clone(), GameStatus::Remote {});
         }
     }
 
@@ -116,16 +118,11 @@ fn fetch_game_logic(
 
     let game = state_handle.games.get(&id);
     if let Some(game) = game {
-        let db_handle = DB.borrow_data().unwrap();
+        let status = GameStatusManager::fetch_state(&id);
 
         let data = FetchGameStruct {
             game: game.clone(),
-            status: db_handle
-                .games
-                .games_statuses
-                .get(&game.id)
-                .unwrap()
-                .clone(),
+            status,
         };
 
         return Ok(data);
@@ -158,28 +155,23 @@ fn fetch_game_logic(
 
     db_handle
         .games
-        .games_statuses
-        .entry(id)
-        .or_insert(DatabaseGameStatus::Remote {});
+        .statuses
+        .entry(id.clone())
+        .or_insert(GameStatus::Remote {});
+    drop(db_handle);
+
+    let status = GameStatusManager::fetch_state(&id);
 
     let data = FetchGameStruct {
         game: game.clone(),
-        status: db_handle
-            .games
-            .games_statuses
-            .get(&game.id)
-            .unwrap()
-            .clone(),
+        status,
     };
 
     Ok(data)
 }
 
 #[tauri::command]
-pub fn fetch_game(
-    id: String,
-    app: tauri::AppHandle,
-) -> Result<FetchGameStruct, String> {
+pub fn fetch_game(id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
     let result = fetch_game_logic(id, app);
 
     if result.is_err() {
@@ -190,15 +182,8 @@ pub fn fetch_game(
 }
 
 #[tauri::command]
-pub fn fetch_game_status(id: String) -> Result<DatabaseGameStatus, String> {
-    let db_handle = DB.borrow_data().unwrap();
-    let status = db_handle
-        .games
-        .games_statuses
-        .get(&id)
-        .unwrap_or(&DatabaseGameStatus::Remote {})
-        .clone();
-    drop(db_handle);
+pub fn fetch_game_status(id: String) -> Result<GameStatusWithTransient, String> {
+    let status = GameStatusManager::fetch_state(&id);
 
     Ok(status)
 }
@@ -277,7 +262,7 @@ pub fn on_game_complete(
     let mut handle = DB.borrow_data_mut().unwrap();
     handle
         .games
-        .game_versions
+        .versions
         .entry(game_id.clone())
         .or_default()
         .insert(version_name.clone(), data.clone());
@@ -285,12 +270,12 @@ pub fn on_game_complete(
     DB.save().unwrap();
 
     let status = if data.setup_command.is_empty() {
-        DatabaseGameStatus::Installed {
+        GameStatus::Installed {
             version_name,
             install_dir,
         }
     } else {
-        DatabaseGameStatus::SetupRequired {
+        GameStatus::SetupRequired {
             version_name,
             install_dir,
         }
@@ -299,14 +284,17 @@ pub fn on_game_complete(
     let mut db_handle = DB.borrow_data_mut().unwrap();
     db_handle
         .games
-        .games_statuses
+        .statuses
         .insert(game_id.clone(), status.clone());
     drop(db_handle);
     DB.save().unwrap();
     app_handle
         .emit(
             &format!("update_game/{}", game_id),
-            GameUpdateEvent { game_id, status },
+            GameUpdateEvent {
+                game_id,
+                status: (Some(status), None),
+            },
         )
         .unwrap();
 

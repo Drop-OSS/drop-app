@@ -40,6 +40,11 @@ pub fn move_game_in_queue(
         .rearrange(old_index, new_index)
 }
 
+#[tauri::command]
+pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, game_id: String) {
+    state.lock().unwrap().download_manager.cancel(game_id)
+}
+
 /*
 #[tauri::command]
 pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}

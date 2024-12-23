@@ -30,8 +30,8 @@ import { GameStatusEnum, type GameStatus } from "~/types.js";
 const props = defineProps<{ status: GameStatus }>();
 const emit = defineEmits<{
   (e: "install"): void;
-  (e: "cancel"): void;
   (e: "play"): void;
+  (e: "queue"): void;
 }>();
 
 const styles: { [key in GameStatusEnum]: string } = {
@@ -71,11 +71,11 @@ const buttonIcons: { [key in GameStatusEnum]: Component } = {
 
 const buttonActions: { [key in GameStatusEnum]: () => void } = {
   [GameStatusEnum.Remote]: () => emit("install"),
-  [GameStatusEnum.Queued]: () => emit("cancel"),
-  [GameStatusEnum.Downloading]: () => emit("cancel"),
+  [GameStatusEnum.Queued]: () => emit("queue"),
+  [GameStatusEnum.Downloading]: () => emit("queue"),
   [GameStatusEnum.SetupRequired]: () => {},
   [GameStatusEnum.Installed]: () => emit("play"),
-  [GameStatusEnum.Updating]: () => emit("cancel"),
+  [GameStatusEnum.Updating]: () => emit("queue"),
   [GameStatusEnum.Uninstalling]: () => {},
 };
 </script>

@@ -6,7 +6,7 @@
     <div class="absolute flex top-0 h-fit inset-x-0 z-[-20]">
       <img :src="bannerUrl" class="w-full h-auto object-cover" />
       <h1
-        class="absolute inset-x-0 w-fit mx-auto text-center top-32 -translate-y-[50%] text-4xl text-zinc-100 font-bold font-display z-50 p-4 shadow-xl bg-zinc-900/80 rounded"
+        class="absolute inset-x-0 w-fit mx-auto text-center top-32 -translate-y-[50%] text-4xl text-zinc-100 font-bold font-display z-50 p-4 shadow-xl bg-zinc-900/80 rounded-xl"
       >
         {{ game.mName }}
       </h1>
@@ -17,40 +17,23 @@
     <!-- main page -->
     <div class="w-full min-h-screen mx-auto bg-zinc-900 px-5 py-6">
       <!-- game toolbar -->
-      <div>
+      <div class="h-full flex flex-row gap-x-4 items-stretch">
         <GameStatusButton
           @install="() => installFlow()"
           @play="() => play()"
+          @queue="() => queue()"
           :status="status"
         />
-      </div>
+        <a
+          :href="remoteUrl"
+          target="_blank"
+          type="button"
+          class="inline-flex items-center rounded-md bg-zinc-800/50 px-4 font-semibold text-white shadow-sm hover:bg-zinc-800/80 uppercase font-display"
+        >
+          <BuildingStorefrontIcon class="mr-2 size-5" aria-hidden="true" />
 
-      <div class="flex flex-row">
-        <div>
-          <div
-            v-if="showPreview"
-            v-html="previewHTML"
-            class="mt-12 prose prose-invert prose-blue max-w-none"
-          />
-          <div
-            v-else
-            v-html="descriptionHTML"
-            class="mt-12 prose prose-invert prose-blue max-w-none"
-          />
-
-          <button
-            v-if="showReadMore"
-            class="mt-8 w-full inline-flex items-center gap-x-6"
-            @click="() => (showPreview = !showPreview)"
-          >
-            <div class="grow h-[1px] bg-zinc-700 rounded-full" />
-            <span
-              class="uppercase text-sm font-semibold font-display text-zinc-600"
-              >Click to read {{ showPreview ? "more" : "less" }}</span
-            >
-            <div class="grow h-[1px] bg-zinc-700 rounded-full" />
-          </button>
-        </div>
+          Store
+        </a>
       </div>
     </div>
   </div>
@@ -349,44 +332,22 @@ import {
   ListboxOptions,
 } from "@headlessui/vue";
 import { CheckIcon, ChevronUpDownIcon } from "@heroicons/vue/20/solid";
+import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
-import MarkdownIt from "markdown-it";
-import moment from "moment";
 
 const route = useRoute();
+const router = useRouter();
 const id = route.params.id.toString();
 
 const { game: rawGame, status } = await useGame(id);
 const game = ref(rawGame);
 
+const remoteUrl: string = await invoke("gen_drop_url", {
+  path: `/store/${game.value.id}`,
+});
+
 const bannerUrl = await useObject(game.value.mBannerId);
-
-const md = MarkdownIt();
-
-const showPreview = ref(true);
-const gameDescriptionCharacters = game.value.mDescription.split("");
-
-// First new line after x characters
-const descriptionSplitIndex = gameDescriptionCharacters.findIndex(
-  (v, i, arr) => {
-    // If we're at the last element, we return true.
-    // So we don't have to handle a -1 from this findIndex
-    if (i + 1 == arr.length) return true;
-    if (i < 500) return false;
-    if (v != "\n") return false;
-    return true;
-  }
-);
-
-const previewDescription = gameDescriptionCharacters
-  .slice(0, descriptionSplitIndex + 1) // Slice a character after
-  .join("");
-const previewHTML = md.render(previewDescription);
-
-const descriptionHTML = md.render(game.value.mDescription);
-
-const showReadMore = previewHTML != descriptionHTML;
 
 const installFlowOpen = ref(false);
 const versionOptions = ref<
@@ -432,8 +393,11 @@ async function play() {
   try {
     await invoke("launch_game", { gameId: game.value.id });
   } catch (e) {
-    game.value.mName = e as string;
     console.error(e);
   }
+}
+
+async function queue() {
+  router.push("/queue");
 }
 </script>

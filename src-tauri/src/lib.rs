@@ -5,7 +5,7 @@ mod library;
 
 mod process;
 mod remote;
-mod settings;
+mod state;
 #[cfg(test)]
 mod tests;
 
@@ -178,6 +178,7 @@ pub fn run() {
             move_game_in_queue,
             pause_game_downloads,
             resume_game_downloads,
+            cancel_game,
             // Processes
             launch_game,
         ])

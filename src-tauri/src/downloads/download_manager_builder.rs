@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc, Mutex,
+        Arc, Mutex, RwLockWriteGuard,
     },
     thread::{spawn, JoinHandle},
 };
@@ -11,8 +11,9 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::DatabaseGameStatus,
+    db::{Database, GameStatus, GameTransientStatus},
     library::{on_game_complete, GameUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData},
+    state::GameStatusManager,
     DB,
 };
 
@@ -107,14 +108,18 @@ impl DownloadManagerBuilder {
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
-    fn set_game_status(&self, id: String, status: DatabaseGameStatus) {
+    fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String) -> ()>(
+        &self,
+        id: String,
+        setter: F,
+    ) {
         let mut db_handle = DB.borrow_data_mut().unwrap();
-        db_handle
-            .games
-            .games_statuses
-            .insert(id.clone(), status.clone());
+        setter(&mut db_handle, &id);
         drop(db_handle);
         DB.save().unwrap();
+
+        let status = GameStatusManager::fetch_state(&id);
+
         self.app_handle
             .emit(
                 &format!("update_game/{}", id),
@@ -208,8 +213,33 @@ impl DownloadManagerBuilder {
                     self.stop_and_wait_current_download();
                     return Ok(());
                 }
+                DownloadManagerSignal::Remove(game_id) => {
+                    self.manage_remove_game(game_id);
+                }
             };
         }
+    }
+
+    fn manage_remove_game(&mut self, game_id: String) {
+        if let Some(current_download) = &self.current_download_agent {
+            if current_download.id == game_id {
+                self.manage_cancel_signal();
+            }
+        }
+
+        let index = self.download_queue.get_by_id(game_id.clone()).unwrap();
+        let mut queue_handle = self.download_queue.edit();
+        queue_handle.remove(index);
+        self.set_game_status(game_id, |db_handle, id| {
+            db_handle.games.transient_statuses.remove(id);
+        });
+        drop(queue_handle);
+
+        if self.current_download_agent.is_none() {
+            self.manage_go_signal();
+        }
+
+        self.push_manager_update();
     }
 
     fn manage_stop_signal(&mut self) {
@@ -273,7 +303,12 @@ impl DownloadManagerBuilder {
             .insert(interface_data.id.clone(), download_agent);
         self.download_queue.append(interface_data);
 
-        self.set_game_status(id, DatabaseGameStatus::Downloading { version_name });
+        self.set_game_status(id, |db, id| {
+            db.games.transient_statuses.insert(
+                id.to_string(),
+                GameTransientStatus::Downloading { version_name },
+            );
+        });
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
 
@@ -344,10 +379,12 @@ impl DownloadManagerBuilder {
         // Set flags for download manager
         active_control_flag.set(DownloadThreadControlFlag::Go);
         self.set_status(DownloadManagerStatus::Downloading);
-        self.set_game_status(
-            self.current_download_agent.as_ref().unwrap().id.clone(),
-            DatabaseGameStatus::Downloading { version_name },
-        );
+        self.set_game_status(agent_data.id.clone(), |db, id| {
+            db.games.transient_statuses.insert(
+                id.to_string(),
+                GameTransientStatus::Downloading { version_name },
+            );
+        });
 
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }
@@ -361,7 +398,9 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Error(error));
 
         let game_id = current_status.id.clone();
-        self.set_game_status(game_id, DatabaseGameStatus::Remote {});
+        self.set_game_status(game_id, |db_handle, id| {
+            db_handle.games.transient_statuses.remove(id);
+        });
 
         self.sender.send(DownloadManagerSignal::Update).unwrap();
     }

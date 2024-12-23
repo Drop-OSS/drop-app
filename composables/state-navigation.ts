@@ -18,10 +18,14 @@ export function setupHooks() {
     router.push("/store");
   });
 
+  /*
+
   document.addEventListener("contextmenu", (event) => {
     event.target?.dispatchEvent(new Event("contextmenu"));
     event.preventDefault();
   });
+
+  */
 }
 
 export function initialNavigation(state: Ref<AppState>) {

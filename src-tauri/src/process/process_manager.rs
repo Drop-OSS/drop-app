@@ -10,7 +10,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    db::{DatabaseGameStatus, DATA_ROOT_DIR},
+    db::{GameStatus, DATA_ROOT_DIR},
     DB,
 };
 
@@ -74,11 +74,11 @@ impl ProcessManager {
         let db_lock = DB.borrow_data().unwrap();
         let game_status = db_lock
             .games
-            .games_statuses
+            .statuses
             .get(&game_id)
             .ok_or("Game not installed")?;
 
-        let DatabaseGameStatus::Installed {
+        let GameStatus::Installed {
             version_name,
             install_dir,
         } = game_status
@@ -88,7 +88,7 @@ impl ProcessManager {
 
         let game_version = db_lock
             .games
-            .game_versions
+            .versions
             .get(&game_id)
             .ok_or("Invalid game ID".to_owned())?
             .get(version_name)

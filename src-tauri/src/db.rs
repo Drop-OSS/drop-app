@@ -24,11 +24,8 @@ pub struct DatabaseAuth {
 // Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(tag = "type")]
-pub enum DatabaseGameStatus {
+pub enum GameStatus {
     Remote {},
-    Downloading {
-        version_name: String,
-    },
     SetupRequired {
         version_name: String,
         install_dir: String,
@@ -37,10 +34,14 @@ pub enum DatabaseGameStatus {
         version_name: String,
         install_dir: String,
     },
-    Updating {
-        version_name: String,
-    },
+}
+
+// Stuff that shouldn't be synced to disk
+#[derive(Clone, Serialize)]
+pub enum GameTransientStatus {
+    Downloading { version_name: String },
     Uninstalling {},
+    Updating { version_name: String },
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -58,8 +59,11 @@ pub struct GameVersion {
 pub struct DatabaseGames {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
-    pub games_statuses: HashMap<String, DatabaseGameStatus>,
-    pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
+    pub statuses: HashMap<String, GameStatus>,
+    pub versions: HashMap<String, HashMap<String, GameVersion>>,
+
+    #[serde(skip)]
+    pub transient_statuses: HashMap<String, GameTransientStatus>,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -119,8 +123,9 @@ impl DatabaseImpls for DatabaseInterface {
                     base_url: "".to_string(),
                     games: DatabaseGames {
                         install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-                        games_statuses: HashMap::new(),
-                        game_versions: HashMap::new(),
+                        statuses: HashMap::new(),
+                        transient_statuses: HashMap::new(),
+                        versions: HashMap::new(),
                     },
                 };
                 debug!(

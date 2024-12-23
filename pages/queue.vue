@@ -5,9 +5,9 @@
         <li
           v-if="games[element.id]"
           :key="element.id"
-          class="mb-4 bg-zinc-900 rounded-lg relative flex justify-between gap-x-6 py-5 px-4"
+          class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4"
         >
-          <div class="flex items-center max-w-md gap-x-4">
+          <div class="w-full flex items-center max-w-md gap-x-4 relative">
             <img
               class="size-24 flex-none bg-zinc-800 object-cover rounded"
               :src="games[element.id].cover"
@@ -15,7 +15,7 @@
             />
             <div class="min-w-0 flex-auto">
               <p class="text-xl font-semibold text-zinc-100">
-                <NuxtLink :href="`/library/${element.id}`">
+                <NuxtLink :href="`/library/${element.id}`" class="">
                   <span class="absolute inset-x-0 -top-px bottom-0" />
                   {{ games[element.id].game.mName }}
                 </NuxtLink>
@@ -40,10 +40,12 @@
                 />
               </div>
             </div>
-            <ChevronRightIcon
-              class="size-5 flex-none text-gray-400"
-              aria-hidden="true"
-            />
+            <button @click="() => cancelGame(element.id)" class="group">
+              <XMarkIcon
+                class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
+                aria-hidden="true"
+              />
+            </button>
           </div>
         </li>
         <p v-else>Loading...</p>
@@ -59,6 +61,7 @@
 </template>
 
 <script setup lang="ts">
+import { XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game, GameStatus } from "~/types";
 
@@ -93,5 +96,9 @@ async function onEnd(event: { oldIndex: number; newIndex: number }) {
     oldIndex: event.oldIndex,
     newIndex: event.newIndex,
   });
+}
+
+async function cancelGame(id: string) {
+  await invoke("cancel_game", { gameId: id });
 }
 </script>

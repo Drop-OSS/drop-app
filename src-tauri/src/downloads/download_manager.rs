@@ -33,7 +33,10 @@ pub enum DownloadManagerSignal {
     /// download, sync everything to disk, and
     /// then exit
     Finish,
+    /// Stops (but doesn't remove) current download
     Cancel,
+    /// Removes a given game
+    Remove(String),
     /// Any error which occurs in the agent
     Error(GameDownloadError),
     /// Pushes UI update
@@ -142,6 +145,11 @@ impl DownloadManager {
             .send(DownloadManagerSignal::Update)
             .unwrap();
     }
+    pub fn cancel(&self, game_id: String) {
+        self.command_sender
+            .send(DownloadManagerSignal::Remove(game_id))
+            .unwrap();
+    }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
         if current_index == new_index {
             return;
@@ -159,8 +167,8 @@ impl DownloadManager {
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
-
         info!("new queue: {:?}", queue);
+        drop(queue);
 
         if needs_pause {
             self.command_sender.send(DownloadManagerSignal::Go).unwrap();
