@@ -393,6 +393,15 @@ async function play() {
   try {
     await invoke("launch_game", { gameId: game.value.id });
   } catch (e) {
+    createModal(
+      ModalType.Notification,
+      {
+        title: `Couldn't run "${game.value.mName}"`,
+        description: `Drop failed to launch "${game.value.mName}": ${e}`,
+        buttonText: "Close",
+      },
+      (e, c) => c()
+    );
     console.error(e);
   }
 }

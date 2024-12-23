@@ -9,7 +9,9 @@ export default defineNuxtConfig({
     },
   },
 
-  css: ['~/assets/main.scss'],
+  css: ["~/assets/main.scss"],
 
   ssr: false,
+
+  extends: [["github:drop-oss/drop-base"]],
 });

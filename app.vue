@@ -2,6 +2,7 @@
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
   </NuxtLayout>
+  <ModalStack />
 </template>
 
 <script setup lang="ts">
