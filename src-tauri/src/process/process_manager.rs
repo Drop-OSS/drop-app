@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
+    io::Write,
     path::PathBuf,
     process::{Child, Command},
     sync::LazyLock,
@@ -99,7 +100,7 @@ impl ProcessManager {
         info!("launching process {} in {}", command, install_dir);
 
         let current_time = chrono::offset::Local::now();
-        let log_file = OpenOptions::new()
+        let mut log_file = OpenOptions::new()
             .write(true)
             .append(true)
             .read(true)
@@ -110,6 +111,13 @@ impl ProcessManager {
                 current_time.to_rfc3339()
             )))
             .map_err(|v| v.to_string())?;
+
+        writeln!(
+            log_file,
+            "Drop: launching {} with args {:?} in {}",
+            command, args, install_dir
+        )
+        .map_err(|e| e.to_string())?;
 
         let launch_process = Command::new(command)
             .current_dir(install_dir)
