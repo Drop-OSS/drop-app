@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-row h-full">
-    <div class="flex-none max-h-full overflow-y-scroll w-64 bg-zinc-950 px-2 py-1">
+    <div class="flex-none max-h-full overflow-y-auto w-64 bg-zinc-950 px-2 py-1">
       <ul class="flex flex-col gap-y-1">
         <NuxtLink
           v-for="(nav, navIdx) in navigation"
@@ -33,7 +33,7 @@
         </NuxtLink>
       </ul>
     </div>
-    <div class="grow overflow-y-scroll">
+    <div class="grow overflow-y-auto">
       <NuxtPage />
     </div>
   </div>
