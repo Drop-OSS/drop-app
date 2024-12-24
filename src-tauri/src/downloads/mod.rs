@@ -7,3 +7,4 @@ mod download_thread_control_flag;
 mod manifest;
 mod progress_object;
 pub mod queue;
+mod stored_manifest;

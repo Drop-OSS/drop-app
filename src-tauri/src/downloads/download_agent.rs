@@ -25,6 +25,7 @@ use super::download_logic::download_game_chunk;
 use super::download_manager::DownloadManagerSignal;
 use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use super::progress_object::ProgressObject;
+use super::stored_manifest::StoredManifest;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -36,6 +37,7 @@ pub struct GameDownloadAgent {
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
+    stored_manifest: StoredManifest
 }
 
 #[derive(Debug)]
@@ -91,6 +93,8 @@ impl GameDownloadAgent {
         let base_dir_path = Path::new(&base_dir);
         let data_base_dir_path = base_dir_path.join(id.clone());
 
+        let stored_manifest = StoredManifest::generate(id.clone(), version.clone(), data_base_dir_path.clone());
+
         Self {
             id,
             version,
@@ -101,6 +105,7 @@ impl GameDownloadAgent {
             completed_contexts: Mutex::new(Vec::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
+            stored_manifest,
         }
     }
 
@@ -215,6 +220,11 @@ impl GameDownloadAgent {
         let base_path = Path::new(&self.base_dir);
         create_dir_all(base_path).unwrap();
 
+        *self.completed_contexts.lock().unwrap() = self.stored_manifest.get_completed_contexts();
+
+        info!("Completed contexts: {:?}", *self.completed_contexts.lock().unwrap());
+
+
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
 
@@ -265,15 +275,17 @@ impl GameDownloadAgent {
             let completed_lock = self.completed_contexts.lock().unwrap();
 
             for (index, context) in self.contexts.iter().enumerate() {
+                let progress = self.progress.get(index); // Clone arcs
+                let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 // If we've done this one already, skip it
                 if completed_lock.contains(&index) {
+                    info!("Skipping index {}", index);
+                    progress_handle.add(context.length);
                     continue;
                 }
 
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
-                let progress = self.progress.get(index); // Clone arcs
-                let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 let completed_indexes_ref = completed_indexes_loop_arc.clone();
 
                 scope.spawn(move |_| {
@@ -293,14 +305,22 @@ impl GameDownloadAgent {
             }
         });
 
-        let mut completed_lock = self.completed_contexts.lock().unwrap();
-        let newly_completed_lock = completed_indexes.lock().unwrap();
+        let completed_lock_len = {
+            let mut completed_lock = self.completed_contexts.lock().unwrap();
+            let newly_completed_lock = completed_indexes.lock().unwrap();
+    
+            completed_lock.extend(newly_completed_lock.iter());
 
-        completed_lock.extend(newly_completed_lock.iter());
+            completed_lock.len()
+        };
 
         // If we're not out of contexts, we're not done, so we don't fire completed
-        if completed_lock.len() != self.contexts.len() {
+        if completed_lock_len != self.contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
+            self.stored_manifest.set_completed_contexts(&self.completed_contexts);
+            info!("Setting completed contexts");
+            self.stored_manifest.write();
+            info!("Wrote completed contexts");
             return Ok(());
         }
 

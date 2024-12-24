@@ -8,9 +8,11 @@ mod remote;
 mod state;
 #[cfg(test)]
 mod tests;
+mod cleanup;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
+use cleanup::{cleanup_and_exit, quit};
 use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
     DATA_ROOT_DIR,
@@ -39,7 +41,6 @@ use tauri::menu::{Menu, MenuItem, MenuItemBuilder, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
-use url::Url;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -82,11 +83,6 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
     Ok(cloned_state)
 }
 
-#[tauri::command]
-fn quit(app: tauri::AppHandle) {
-    cleanup_and_exit(&app);
-}
-
 fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
@@ -94,7 +90,7 @@ fn setup(handle: AppHandle) -> AppState {
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{t}|{l}|{f} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
         .build();
 
     let config = Config::builder()
@@ -139,11 +135,6 @@ fn setup(handle: AppHandle) -> AppState {
     }
 }
 
-pub fn cleanup_and_exit(app: &AppHandle) {
-    info!("exiting drop application...");
-
-    app.exit(0);
-}
 
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
