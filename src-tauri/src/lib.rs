@@ -87,6 +87,7 @@ fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, Str
 fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
+        .append(false)
         .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
         .unwrap();
 

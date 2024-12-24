@@ -70,7 +70,6 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
 
     let endpoint = base_url.join("/api/v1/client/user")?;
     let header = generate_authorization_header();
-    info!("authorization header: {}", header);
 
     let client = reqwest::blocking::Client::new();
     let response = client

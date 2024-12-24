@@ -1,8 +1,8 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::Write,
-    path::PathBuf,
+    io::{Stdout, Write},
+    path::{Path, PathBuf},
     process::{Child, Command},
     sync::LazyLock,
 };
@@ -39,23 +39,18 @@ impl ProcessManager {
         }
     }
 
-    fn process_command(&self, raw_command: String) -> (String, Vec<String>) {
+    fn process_command(&self, install_dir: &String, raw_command: String) -> (String, Vec<String>) {
         let command_components = raw_command.split(" ").collect::<Vec<&str>>();
-        let root = match self.current_platform {
-            Platform::Windows => command_components[0].to_string(),
-            Platform::Linux => {
-                let mut root = command_components[0].to_string();
-                if !root.starts_with("./") {
-                    root = format!("{}{}", "./", root);
-                }
-                root
-            }
-        };
+        let root = command_components[0].to_string();
+
+        let install_dir = Path::new(install_dir);
+        let absolute_exe = install_dir.join(root);
+
         let args = command_components[1..]
             .into_iter()
             .map(|v| v.to_string())
             .collect();
-        (root, args)
+        (absolute_exe.to_str().unwrap().to_owned(), args)
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
@@ -95,14 +90,15 @@ impl ProcessManager {
             .get(version_name)
             .ok_or("Invalid version name".to_owned())?;
 
-        let (command, args) = self.process_command(game_version.launch_command.clone());
+        let (command, args) =
+            self.process_command(install_dir, game_version.launch_command.clone());
 
         info!("launching process {} in {}", command, install_dir);
 
         let current_time = chrono::offset::Local::now();
         let mut log_file = OpenOptions::new()
+            .write(true)
             .truncate(true)
-            .append(true)
             .read(true)
             .create(true)
             .open(
@@ -111,18 +107,23 @@ impl ProcessManager {
             )
             .map_err(|v| v.to_string())?;
 
-        log_file.write(&Vec::new()).unwrap();
+        let mut error_file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .read(true)
+            .create(true)
+            .open(
+                self.log_output_dir
+                    .join(format!("{}-{}-error.log", game_id, current_time.timestamp())),
+            )
+            .map_err(|v| v.to_string())?;
 
-        writeln!(
-            log_file,
-            "Drop: launching {} with args {:?} in {}",
-            command, args, install_dir
-        )
-        .map_err(|e| e.to_string())?;
+        info!("opened log file for {}", command);
 
         let launch_process = Command::new(command)
             .current_dir(install_dir)
             .stdout(log_file)
+            .stderr(error_file)
             .args(args)
             .spawn()
             .map_err(|v| v.to_string())?;
