@@ -107,7 +107,7 @@ impl ProcessManager {
             .open(self.log_output_dir.join(format!(
                 "{}-{}.log",
                 game_id,
-                current_time.to_rfc3339()
+                current_time.timestamp()
             )))
             .map_err(|v| v.to_string())?;
 
