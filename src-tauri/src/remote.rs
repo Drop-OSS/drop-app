@@ -30,7 +30,7 @@ impl Display for RemoteAccessError {
             RemoteAccessError::ParsingError(parse_error) => {
                 write!(f, "{}", parse_error)
             }
-            RemoteAccessError::InvalidCodeError(error) => write!(f, "HTTP {}", error),
+            RemoteAccessError::InvalidCodeError(error) => write!(f, "Invalid HTTP code {}", error),
             RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
             RemoteAccessError::HandshakeFailed => write!(f, "Failed to complete handshake"),
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),

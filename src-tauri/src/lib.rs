@@ -206,6 +206,7 @@ pub fn run() {
             .min_inner_size(1000.0, 500.0)
             .inner_size(1536.0, 864.0)
             .decorations(false)
+            .shadow(false)
             .data_directory(DATA_ROOT_DIR.lock().unwrap().join(".webview"))
             .build()
             .unwrap();

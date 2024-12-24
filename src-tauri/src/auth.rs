@@ -70,6 +70,7 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
 
     let endpoint = base_url.join("/api/v1/client/user")?;
     let header = generate_authorization_header();
+    info!("authorization header: {}", header);
 
     let client = reqwest::blocking::Client::new();
     let response = client
@@ -78,7 +79,8 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         .send()?;
 
     if response.status() != 200 {
-        return Err(response.status().as_u16().into());
+        info!("Could not fetch user: {}", response.text().unwrap());
+        return Err(RemoteAccessError::InvalidCodeError(0));
     }
 
     let user = response.json::<User>()?;
@@ -108,6 +110,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = reqwest::blocking::Client::new();
     let response = client.post(endpoint).json(&body).send()?;
+    info!("{}", response.status().as_u16());
     let response_struct = response.json::<HandshakeResponse>()?;
 
     {
