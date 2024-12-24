@@ -1,15 +1,24 @@
-use std::{default, fs::File, io::{Read, Write}, path::{Path, PathBuf}, sync::Mutex};
+use std::{
+    default,
+    fs::File,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 
 use log::{error, info};
 use serde::{Deserialize, Serialize};
+use serde_binary::binary_stream::Endian;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct StoredManifest {
     game_id: String,
     game_version: String,
     pub completed_contexts: Mutex<Vec<usize>>,
-    base_path: PathBuf
+    pub base_path: PathBuf,
 }
+
+static DROP_DATA_PATH: &str = ".dropdata";
 
 impl StoredManifest {
     pub fn new(game_id: String, game_version: String, base_path: PathBuf) -> Self {
@@ -21,39 +30,46 @@ impl StoredManifest {
         }
     }
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
-        let mut file = match File::open(base_path.join("manifest.json")) {
+        let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
             Err(_) => return StoredManifest::new(game_id, game_version, base_path),
         };
 
-        let mut s = String::new();
-        match file.read_to_string(&mut s) {
-            Ok(_) => {},
-            Err(e) => { error!("{}", e); return StoredManifest::new(game_id, game_version, base_path) },
+        let mut s = Vec::new();
+        match file.read_to_end(&mut s) {
+            Ok(_) => {}
+            Err(e) => {
+                error!("{}", e);
+                return StoredManifest::new(game_id, game_version, base_path);
+            }
         };
 
-        info!("Contexts string: {}", s);
-        let manifest = match serde_json::from_str::<StoredManifest>(&s) {
+        let manifest = match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
             Ok(manifest) => manifest,
-            Err(e) => { error!("{}", e); StoredManifest::new(game_id, game_version, base_path) },
+            Err(e) => {
+                error!("{}", e);
+                StoredManifest::new(game_id, game_version, base_path)
+            }
         };
-        info!("Completed manifest: {:?}", manifest);
 
         return manifest;
     }
     pub fn write(&self) {
-        let manifest_json = match serde_json::to_string(&self) {
+        let manifest_raw = match serde_binary::to_vec(&self, Endian::Little) {
             Ok(json) => json,
             Err(_) => return,
         };
 
-        let mut file = match File::create(self.base_path.join("manifest.json")) {
+        let mut file = match File::create(self.base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
-            Err(e) => { error!("{}", e); return; },
+            Err(e) => {
+                error!("{}", e);
+                return;
+            }
         };
 
-        match file.write_all(manifest_json.as_bytes()) {
-            Ok(_) => {},
+        match file.write_all(&manifest_raw) {
+            Ok(_) => {}
             Err(e) => error!("{}", e),
         };
     }

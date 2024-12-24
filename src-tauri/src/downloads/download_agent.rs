@@ -31,13 +31,12 @@ pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
     pub control_flag: DownloadThreadControl,
-    pub base_dir: String,
     contexts: Vec<DropDownloadContext>,
     completed_contexts: Mutex<Vec<usize>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
-    stored_manifest: StoredManifest
+    pub stored_manifest: StoredManifest,
 }
 
 #[derive(Debug)]
@@ -93,14 +92,14 @@ impl GameDownloadAgent {
         let base_dir_path = Path::new(&base_dir);
         let data_base_dir_path = base_dir_path.join(id.clone());
 
-        let stored_manifest = StoredManifest::generate(id.clone(), version.clone(), data_base_dir_path.clone());
+        let stored_manifest =
+            StoredManifest::generate(id.clone(), version.clone(), data_base_dir_path.clone());
 
         Self {
             id,
             version,
             control_flag,
             manifest: Mutex::new(None),
-            base_dir: data_base_dir_path.to_str().unwrap().to_owned(),
             contexts: Vec::new(),
             completed_contexts: Mutex::new(Vec::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
@@ -217,13 +216,15 @@ impl GameDownloadAgent {
         let game_id = self.id.clone();
 
         let mut contexts = Vec::new();
-        let base_path = Path::new(&self.base_dir);
+        let base_path = Path::new(&self.stored_manifest.base_path);
         create_dir_all(base_path).unwrap();
 
         *self.completed_contexts.lock().unwrap() = self.stored_manifest.get_completed_contexts();
 
-        info!("Completed contexts: {:?}", *self.completed_contexts.lock().unwrap());
-
+        info!(
+            "Completed contexts: {:?}",
+            *self.completed_contexts.lock().unwrap()
+        );
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -279,7 +280,6 @@ impl GameDownloadAgent {
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 // If we've done this one already, skip it
                 if completed_lock.contains(&index) {
-                    info!("Skipping index {}", index);
                     progress_handle.add(context.length);
                     continue;
                 }
@@ -308,7 +308,7 @@ impl GameDownloadAgent {
         let completed_lock_len = {
             let mut completed_lock = self.completed_contexts.lock().unwrap();
             let newly_completed_lock = completed_indexes.lock().unwrap();
-    
+
             completed_lock.extend(newly_completed_lock.iter());
 
             completed_lock.len()
@@ -317,7 +317,8 @@ impl GameDownloadAgent {
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != self.contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
-            self.stored_manifest.set_completed_contexts(&self.completed_contexts);
+            self.stored_manifest
+                .set_completed_contexts(&self.completed_contexts);
             info!("Setting completed contexts");
             self.stored_manifest.write();
             info!("Wrote completed contexts");

@@ -25,6 +25,7 @@ use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_li
 use log::{debug, info, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
+use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;

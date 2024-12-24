@@ -295,6 +295,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
+name = "binary-stream"
+version = "3.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4ef03ef225ea9a0b680a5926a58cb45d8eb56abf23d8a8b5c5dbc61235e2dac"
+dependencies = [
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -969,6 +978,7 @@ dependencies = [
  "rustbreak",
  "rustix",
  "serde",
+ "serde-binary",
  "serde_json",
  "tauri",
  "tauri-build",
@@ -3690,6 +3700,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6513c1ad0b11a9376da888e3e0baa0077f1aed55c17f50e7b2397136129fb88f"
 dependencies = [
  "serde_derive",
+]
+
+[[package]]
+name = "serde-binary"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b550db407b83ed53a4f76f888bfd7441b685abc2c086e20fb47781a286940506"
+dependencies = [
+ "binary-stream",
+ "serde",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

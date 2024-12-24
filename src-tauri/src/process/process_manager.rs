@@ -101,15 +101,17 @@ impl ProcessManager {
 
         let current_time = chrono::offset::Local::now();
         let mut log_file = OpenOptions::new()
+            .truncate(true)
             .append(true)
             .read(true)
             .create(true)
-            .open(self.log_output_dir.join(format!(
-                "{}-{}.log",
-                game_id,
-                current_time.timestamp()
-            )))
+            .open(
+                self.log_output_dir
+                    .join(format!("{}-{}.log", game_id, current_time.timestamp())),
+            )
             .map_err(|v| v.to_string())?;
+
+        log_file.write(&Vec::new()).unwrap();
 
         writeln!(
             log_file,

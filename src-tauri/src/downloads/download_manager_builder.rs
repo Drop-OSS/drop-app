@@ -260,7 +260,7 @@ impl DownloadManagerBuilder {
                 let download_agent_lock = download_agent.lock().unwrap();
 
                 let version = download_agent_lock.version.clone();
-                let install_dir = download_agent_lock.base_dir.clone();
+                let install_dir = download_agent_lock.stored_manifest.base_path.clone().to_string_lossy().to_string();
 
                 drop(download_agent_lock);
 
