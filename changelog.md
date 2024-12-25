@@ -1,0 +1,176 @@
+
+
+## Release 0.1.0-beta
+
+### Fixes
+- fixed queue manipulation and waiting for downloads #01260f0
+- fix logic error in detecting dir #04368ff
+- absolute executable invoke #17759c4
+- Chunk counting logic error #5ba151f
+- use of completed signal, and pause/resuming #64d7f64
+- initialise doesn't recreate default install dir #7a3841b
+- use vendored flag #7c8089e
+- windows build #8d9234f
+- windows shadow #9a8cc59
+- types #af056c0
+- added console as an appender #d12bf15
+- remove unnecessary unstable feature #d5ac1b0
+- use unix timestamp to avoid invalid characters in filename #dafce24
+- use chrono library to generate timestamps #e22e6d8
+- fix scrollbars on edge webview #f09605a
+- update readme instructions #f0c47d8
+
+
+### Features
+- queue and library UIs #0a20139
+- add pre-launch log to file #17f8d76
+- Added option to change root directory #1aa52c0
+- quit button #239b8d5
+- only allow downloads for supported platforms #269dcbb
+- added file-based logging #2d4a7e8
+- automatically fetch remote data if not available #2dedfbb
+- ability to add more download dirs #384f7a5
+- background processes and close/open menu #3d60fd5
+- launch games with log files #3f71149
+- Download cancelling #450bca9
+- refactoring and error message #469a2d6
+- download widget and queue fix #532d13e
+- Pausing and resuming game downloads #55b7921
+- temporary queue ui and flamegraph instructions #5cbeb3b
+- Added DownloadThreadControl struct #5e05e68
+- Added AgentInterfaceData to get information about all downloads in queue #63c3cc1
+- debug queue interface #671d45f
+- reduce scope of download agent #6a38ea3
+- Added function to take and set any game state #6bc6482
+- Separated chunk updates into individual counters #7d3c601
+- ui to install games #8670bca
+- Added Download Manager #a1ada07
+- retry connnection on server unavailable #a53d838
+- finish download dir CRUD interface #a580a46
+- syncs state to disk to persist across reboots #b556842
+- prevent default context menu and emit event on elements #c560656
+- initial creation and logo update #d9a51cf
+- Added manifest.json utility for persistent download progress #d9d0122
+- combined db and download interface improvements #de52dac
+- update db state with ui and emit events #e4df4eb
+- Generic function to set download state #f10d92d
+- Convert DownloadThreadControlFlag to AtomicBool #f25bfed
+
+
+### Other Changes
+- quexeky <git@quexeky.dev> 
+- Convert DATA_ROOT_DIR to Mutex #00b7179
+- Converting DB access to a trait #01b092c
+- Scoping changes and removing qualifications #046ba64
+- SLowly integrating game_download into the FE. Started with using the manifest minimal example in the server (#1) #07379b2
+- Ran cargo clippy & moved DownloadManagerInterface #075d6ec
+- Made logging systems match #0a1dddf
+- client now fetches user information from Drop server #0c0cfeb
+- Included in AppStatus (Also trying to link to Issue #1)
+- Accidentally serialized AppStatus and broke everything :/ #10791ed
+- Removed debugging statements #10c8344
+- Wrappers are the bane of my existence. Also here's the download cancelling logic. #13df631
+- Merge branch 'error-handling' #1520471
+- Removed unnecessary dependencies #1724449
+- merge(download-manager) -> 'main' #172d6b0
+- More refactoring and renaming camelCase struct definitions to snake_case #1742793
+- progress on more precise download control #18b9149
+- Allowing some dead code features because they are there for future use (potentially) #191e62c
+- I think that download queuing is working #1ab61c8
+- auth initiate, database and more #22b1aee
+- More fleshing out on how specifically game downloads will work (#1) #23137dd
+- Removed utils.rs #270bc8b
+- Fixing some references to "id" vs "game_id" #27e5a8e
+- Updated contributing link #2aa5b9c
+- More fleshing out on how specifically game downloads will work #2b90de9
+- Cleaning up downloads playing and pausing #2c7b5fb
+- fixed multi-chunk downloads #2ec351f
+- Clippy refactoring #2efe304
+- remove unpacker mod statement #32067c0
+- Fixed bug with bad initial loading into store instead of auth #3923acf
+- partial download manager #3dbf5ab
+- Downloads should be fixed now #403ca65
+- transient vs synced state now defined #42c0198
+- better download defaults #4779383
+- Progress on downloads. Currently working on parsing functions to be run asynchronously #496c6a5
+- Ran cargo clippy & cargo fmt #4983b25
+- handshakes #4bb33c8
+- Convert DOWNLOAD_MAX_THREADS to const #4fc13a1
+- Merge branch 'downloads' #50ed841
+- Added time debugging and fixed logging formatting #5243694
+- Clippy changes #553bc37
+- Queue is running game downloads sequentially now #5564d23
+- migrate to new droplet ca system #556898f
+- Add LICENSE #57a5737
+- ran cargo clippy & cargo fmt #5e3d26b
+- my own take on some BASED design decisions #5ed0833
+- cleanup and game UI beginnings #5ef6b8e
+- moved to completed index arr to help serialization #64ebc19
+- Ran cargo clippy & cargo fmt #653717e
+- Merge remote-tracking branch 'origin/main' #68ca4a7
+- swap file name and to binary encoding #694f2fd
+- chore(polish & cleanup) #6cc0c67
+- Encoding game IDs and versions #6ef444e
+- restructing and renaming #7049673
+- Converted to md5 #706f525
+- Merge branch 'main' into downloads #714b968
+- Semantic naming changes #725f16b
+- Abstracted queue system #76b0975
+- README update #78fc668
+- Ensured everything is serializing/deserializing to camelCase #7a95b7f
+- fixed some of quexeky's BASED design decisions #7e3da04
+- Progress checker works #7fec00d
+- Progress on refactoring and abiding by cargo clippy #816b427
+- Added GAME_PAUSE_CHECK_INTERVAL value #8204795
+- Debugging & starting work on parsing manifest #89d2814
+- slight ui/ux fixes and updates to auth protocol #8a2d23d
+- compliant with new APIs #8f6f184
+- fixed windows issues #959dad3
+- Starting p2p progress #97bb1fa
+- Game downloads from the client are working (multithreaded) by parsing in gameID, GameVersion, and maxThreads from FE (#1) #984472e
+- Some progress on thread terminations #99beca4
+- rename files to what they contain #99c8b39
+- cleanup of lib and toml #9b1cfa7
+- Updated logging format #a213765
+- fix(windows build) #a24cc8a
+- copy direct to disk #a628fc1
+- Reordered DownloadThreadControlFlag to agree with From<bool> #ab606e8
+- ci/cd and patches for windows builds #ac1c3b6
+- patch for not draggable windows during setup #ac66b20
+- another stage of client authentication #ae4c65b
+- Progress on write speeds & added debug statements #b065e10
+- Updated logging #b3963b6
+- Created file settings.rs #b47b7ea
+- Ran cargo fmt #b8cf44c
+- Merge branch 'main' into download-manager #bb60942
+- Ran cargo clippy & cargo fmt #bd3deac
+- beginnings of game state management #bf46dec
+- Update Cargo.toml #c1fb39e
+- migrated unpacking to rust zstd to conform with droplet #c46c54b
+- More progress on checksums #c51e761
+- Merge branch 'downloads' (again) #c748aec
+- migrate to nuxt and groundwork #c957744
+- More debugging because apparently checksums are the bane of my existence. But it works and I was just an idiot #c9d9d2e
+- Validated that loading data works #d21b1d2
+- Mostly finished with checksums. Just merging main in at the same time #d39e7cb
+- Theoretically adding queue support and optimistic manifest downloading (#1). Needs tests when actual functions are implemented #dcd8fa8
+- Merge remote-tracking branch 'origin/downloads' into downloads #dd23ca8
+- Debugging line #ddc585d
+- Re-enabled closing the window and some more renaming #defba51
+- drop no longer freaks out if server is unavailable on startup #df88395
+- Merge remote-tracking branch 'origin/downloads' into downloads #e4e605b
+- convert to more sensible permission schema #e504c00
+- Update on GameDownload #e71e4cf
+- reorganisation, cleanup and new nonce protocol #e828bca
+- rustix fs feature #e9805a8
+- Drop will no longer crash when the server goes down #eb3311a
+- Made all errors type-based #ec2f414
+- Added description on how the DownloadManager works #f029cbf
+- Manifests are now being parsed successfully #f28c880
+- I think that downloads are working. Need to test and set decent file locations now #f388237
+- Just debugging tauri's damn Sync command features #f60ca2b
+- fixes and patches for merged changes #f6476bc
+- initial commit #f6cd7c3
+
+
+_changelog generated by_ [go-conventional-commits](https://github.com/joselitofilho/go-conventional-commits)
