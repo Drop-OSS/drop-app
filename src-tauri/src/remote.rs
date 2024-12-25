@@ -71,7 +71,7 @@ struct DropHealthcheck {
 
 async fn use_remote_logic<'a>(
     url: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'a>>>,
 ) -> Result<(), RemoteAccessError> {
     info!("connecting to url {}", url);
     let base_url = Url::parse(&url)?;
@@ -103,7 +103,7 @@ async fn use_remote_logic<'a>(
 #[tauri::command]
 pub async fn use_remote<'a>(
     url: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'a>>>,
 ) -> Result<(), String> {
     let result = use_remote_logic(url, state).await;
 

@@ -20,10 +20,10 @@ import {
 const router = useRouter();
 
 const state = useAppState();
-state.value = await invoke("fetch_state");
+state.value = JSON.parse(await invoke("fetch_state"));
 
 router.beforeEach(async () => {
-  state.value = await invoke("fetch_state");
+  state.value = JSON.parse(await invoke("fetch_state"));
 });
 
 setupHooks();

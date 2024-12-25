@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io::{Stdout, Write},
     path::{Path, PathBuf},
     process::{Child, Command},
     sync::LazyLock,
@@ -15,13 +14,14 @@ use crate::{
     DB,
 };
 
-pub struct ProcessManager {
+pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
     processes: HashMap<String, Child>,
+    game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
 
-impl ProcessManager {
+impl ProcessManager<'_> {
     pub fn new() -> Self {
         let root_dir_lock = DATA_ROOT_DIR.lock().unwrap();
         let log_output_dir = root_dir_lock.join("logs");
@@ -36,6 +36,17 @@ impl ProcessManager {
 
             processes: HashMap::new(),
             log_output_dir,
+            game_launchers: HashMap::from([
+                // Current platform to target platform
+                (
+                    (Platform::Windows, Platform::Windows),
+                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
+                (
+                    (Platform::Linux, Platform::Linux),
+                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
+            ]),
         }
     }
 
@@ -55,11 +66,15 @@ impl ProcessManager {
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
         let current = &self.current_platform;
-        let valid_platforms = PROCESS_COMPATABILITY_MATRIX
-            .get(current)
-            .ok_or("Incomplete platform compatability matrix.")?;
-
-        Ok(valid_platforms.contains(platform))
+        info!("{:?}", self.game_launchers.keys());
+        info!(
+            "{:?} {}",
+            (current.clone(), platform.clone()),
+            (Platform::Linux, Platform::Linux) == (Platform::Linux, Platform::Linux)
+        );
+        Ok(self
+            .game_launchers
+            .contains_key(&(current.clone(), platform.clone())))
     }
 
     pub fn launch_game(&mut self, game_id: String) -> Result<(), String> {
@@ -112,21 +127,33 @@ impl ProcessManager {
             .truncate(true)
             .read(true)
             .create(true)
-            .open(
-                self.log_output_dir
-                    .join(format!("{}-{}-error.log", game_id, current_time.timestamp())),
-            )
+            .open(self.log_output_dir.join(format!(
+                "{}-{}-error.log",
+                game_id,
+                current_time.timestamp()
+            )))
             .map_err(|v| v.to_string())?;
 
         info!("opened log file for {}", command);
 
-        let launch_process = Command::new(command)
-            .current_dir(install_dir)
-            .stdout(log_file)
-            .stderr(error_file)
-            .args(args)
-            .spawn()
-            .map_err(|v| v.to_string())?;
+        let current_platform = self.current_platform.clone();
+        let target_platform = game_version.platform.clone();
+
+        let game_launcher = self
+            .game_launchers
+            .get(&(current_platform, target_platform))
+            .ok_or("Invalid version for this platform.")
+            .map_err(|e| e.to_string())?;
+
+        let launch_process = game_launcher.launch_game(
+            &game_id,
+            version_name,
+            command,
+            args,
+            install_dir,
+            log_file,
+            error_file,
+        )?;
 
         self.processes.insert(game_id, launch_process);
 
@@ -134,19 +161,43 @@ impl ProcessManager {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone, Debug)]
 pub enum Platform {
     Windows,
     Linux,
 }
 
-pub type ProcessCompatabilityMatrix = HashMap<Platform, Vec<Platform>>;
-pub static PROCESS_COMPATABILITY_MATRIX: LazyLock<ProcessCompatabilityMatrix> =
-    LazyLock::new(|| {
-        let mut matrix: ProcessCompatabilityMatrix = HashMap::new();
+pub trait ProcessHandler: Send + 'static {
+    fn launch_game(
+        &self,
+        game_id: &String,
+        version_name: &String,
+        command: String,
+        args: Vec<String>,
+        install_dir: &String,
+        log_file: File,
+        error_file: File,
+    ) -> Result<Child, String>;
+}
 
-        matrix.insert(Platform::Windows, vec![Platform::Windows]);
-        matrix.insert(Platform::Linux, vec![Platform::Linux]); // TODO: add Proton support
-
-        return matrix;
-    });
+struct NativeGameLauncher;
+impl ProcessHandler for NativeGameLauncher {
+    fn launch_game(
+        &self,
+        game_id: &String,
+        version_name: &String,
+        command: String,
+        args: Vec<String>,
+        install_dir: &String,
+        log_file: File,
+        error_file: File,
+    ) -> Result<Child, String> {
+        Command::new(command)
+            .current_dir(install_dir)
+            .stdout(log_file)
+            .stderr(error_file)
+            .args(args)
+            .spawn()
+            .map_err(|v| v.to_string())
+    }
+}

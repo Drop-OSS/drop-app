@@ -3,12 +3,12 @@ mod db;
 mod downloads;
 mod library;
 
+mod cleanup;
 mod process;
 mod remote;
 mod state;
 #[cfg(test)]
 mod tests;
-mod cleanup;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
@@ -65,7 +65,7 @@ pub struct User {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState {
+pub struct AppState<'a> {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
@@ -73,18 +73,18 @@ pub struct AppState {
     #[serde(skip_serializing)]
     download_manager: Arc<DownloadManager>,
     #[serde(skip_serializing)]
-    process_manager: Arc<Mutex<ProcessManager>>,
+    process_manager: Arc<Mutex<ProcessManager<'a>>>,
 }
 
 #[tauri::command]
-fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<AppState, String> {
+fn fetch_state(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<String, String> {
     let guard = state.lock().unwrap();
-    let cloned_state = guard.clone();
+    let cloned_state = serde_json::to_string(&guard.clone()).map_err(|e| e.to_string())?;
     drop(guard);
     Ok(cloned_state)
 }
 
-fn setup(handle: AppHandle) -> AppState {
+fn setup(handle: AppHandle) -> AppState<'static> {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
         .append(false)
@@ -136,7 +136,6 @@ fn setup(handle: AppHandle) -> AppState {
         process_manager,
     }
 }
-
 
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
