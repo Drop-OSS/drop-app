@@ -3,19 +3,17 @@ use std::{
     fs::{File, OpenOptions},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus},
-    sync::{Arc, LazyLock, Mutex},
+    sync::{Arc, Mutex},
     thread::spawn,
 };
 
-use http::version;
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 
 use crate::{
     db::{GameStatus, GameTransientStatus, DATA_ROOT_DIR},
     library::push_game_update,
-    process::process_manager,
     state::GameStatusManager,
     AppState, DB,
 };
@@ -70,7 +68,7 @@ impl ProcessManager<'_> {
         let absolute_exe = install_dir.join(root);
 
         let args = command_components[1..]
-            .into_iter()
+            .iter()
             .map(|v| v.to_string())
             .collect();
         (absolute_exe, args)
@@ -91,24 +89,21 @@ impl ProcessManager<'_> {
 
         let current_state = db_handle.games.statuses.get(&game_id).cloned();
         if let Some(saved_state) = current_state {
-            match saved_state {
-                GameStatus::SetupRequired {
+            if let GameStatus::SetupRequired {
                     version_name,
                     install_dir,
-                } => {
-                    if let Some(exit_code) = result.ok() {
-                        if exit_code.success() {
-                            db_handle.games.statuses.insert(
-                                game_id.clone(),
-                                GameStatus::Installed {
-                                    version_name: version_name.to_string(),
-                                    install_dir: install_dir.to_string(),
-                                },
-                            );
-                        }
+                } = saved_state {
+                if let Ok(exit_code) = result {
+                    if exit_code.success() {
+                        db_handle.games.statuses.insert(
+                            game_id.clone(),
+                            GameStatus::Installed {
+                                version_name: version_name.to_string(),
+                                install_dir: install_dir.to_string(),
+                            },
+                        );
                     }
                 }
-                _ => (),
             }
         }
         drop(db_handle);
@@ -188,7 +183,7 @@ impl ProcessManager<'_> {
         );
 
         let current_time = chrono::offset::Local::now();
-        let mut log_file = OpenOptions::new()
+        let log_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .read(true)
@@ -199,7 +194,7 @@ impl ProcessManager<'_> {
             )
             .map_err(|v| v.to_string())?;
 
-        let mut error_file = OpenOptions::new()
+        let error_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .read(true)

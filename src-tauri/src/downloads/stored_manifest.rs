@@ -1,12 +1,11 @@
 use std::{
-    default,
     fs::File,
     io::{Read, Write},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::Mutex,
 };
 
-use log::{error, info};
+use log::error;
 use serde::{Deserialize, Serialize};
 use serde_binary::binary_stream::Endian;
 
@@ -44,15 +43,15 @@ impl StoredManifest {
             }
         };
 
-        let manifest = match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
+        
+
+        match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
             Ok(manifest) => manifest,
             Err(e) => {
                 error!("{}", e);
                 StoredManifest::new(game_id, game_version, base_path)
             }
-        };
-
-        return manifest;
+        }
     }
     pub fn write(&self) {
         let manifest_raw = match serde_binary::to_vec(&self, Endian::Little) {

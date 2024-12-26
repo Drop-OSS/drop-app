@@ -7,7 +7,7 @@ use urlencoding::encode;
 
 use crate::db::DatabaseImpls;
 use crate::db::GameVersion;
-use crate::db::{GameStatus, GameTransientStatus};
+use crate::db::GameStatus;
 use crate::downloads::download_manager::{DownloadManagerStatus, GameDownloadStatus};
 use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;

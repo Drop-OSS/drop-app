@@ -28,7 +28,6 @@ use library::{
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
-use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
@@ -43,7 +42,7 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
-use tauri::menu::{Menu, MenuItem, MenuItemBuilder, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -205,7 +204,7 @@ pub fn run() {
         }));
     }
 
-    let mut app = builder
+    let app = builder
         .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(tauri::generate_handler![
             // Core utils
@@ -346,22 +345,16 @@ pub fn run() {
 
             responder.respond(resp);
         })
-        .on_window_event(|window, event| match event {
-            WindowEvent::CloseRequested { api, .. } => {
-                window.hide().unwrap();
-                api.prevent_close();
-            }
-            _ => (),
+        .on_window_event(|window, event| if let WindowEvent::CloseRequested { api, .. } = event {
+            window.hide().unwrap();
+            api.prevent_close();
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, event| match event {
-        RunEvent::ExitRequested { code, api, .. } => {
-            if code.is_none() {
-                api.prevent_exit();
-            }
+    app.run(|app_handle, event| if let RunEvent::ExitRequested { code, api, .. } = event {
+        if code.is_none() {
+            api.prevent_exit();
         }
-        _ => {}
     });
 }

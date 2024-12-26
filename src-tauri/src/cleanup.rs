@@ -1,9 +1,7 @@
-use std::sync::Mutex;
 
 use log::info;
 use tauri::AppHandle;
 
-use crate::AppState;
 
 #[tauri::command]
 pub fn quit(app: tauri::AppHandle) {

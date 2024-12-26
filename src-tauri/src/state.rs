@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 
 use crate::{
     db::{GameStatus, GameTransientStatus},
@@ -23,6 +22,6 @@ impl GameStatusManager {
             return (offline_state, None);
         }
 
-        return (None, None);
+        (None, None)
     }
 }

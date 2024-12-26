@@ -1,7 +1,6 @@
 use std::{
     env,
     sync::Mutex,
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use chrono::Utc;

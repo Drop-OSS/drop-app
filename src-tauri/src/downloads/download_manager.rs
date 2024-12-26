@@ -2,7 +2,6 @@ use std::{
     any::Any,
     collections::VecDeque,
     fmt::Debug,
-    io,
     sync::{
         mpsc::{SendError, Sender},
         Arc, Mutex, MutexGuard,

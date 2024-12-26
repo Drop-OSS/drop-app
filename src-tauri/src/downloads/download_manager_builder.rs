@@ -8,17 +8,16 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use http::version;
 use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
     db::{Database, GameStatus, GameTransientStatus},
     library::{
-        on_game_complete, push_game_update, GameUpdateEvent, QueueUpdateEvent,
+        on_game_complete, push_game_update, QueueUpdateEvent,
         QueueUpdateEventQueueData, StatsUpdateEvent,
     },
-    state::{GameStatusManager, GameStatusWithTransient},
+    state::GameStatusManager,
     DB,
 };
 
@@ -113,7 +112,7 @@ impl DownloadManagerBuilder {
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
-    fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String) -> ()>(
+    fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
         &self,
         id: String,
         setter: F,
