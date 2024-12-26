@@ -1,8 +1,8 @@
 [package]
 name = "drop-app"
 version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
+description = "The client application for the open-source, self-hosted game distribution platform Drop"
+authors = ["Drop OSS"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -45,9 +45,7 @@ tauri-plugin-os = "2"
 
 [dependencies.tauri]
 version = "2.1.1"
-features = [
-    "tray-icon"
-]
+features = ["tray-icon"]
 
 
 [dependencies.tokio]
