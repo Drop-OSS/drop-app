@@ -13,7 +13,7 @@ use url::Url;
 
 use crate::{
     db::{DatabaseAuth, DatabaseImpls},
-    remote::RemoteAccessError,
+    remote::{DropServerError, RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
 
@@ -78,7 +78,13 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         .send()?;
 
     if response.status() != 200 {
-        info!("Could not fetch user: {}", response.text().unwrap());
+        let data = response.json::<DropServerError>()?;
+        info!("Could not fetch user: {}", data.status_message);
+
+        if data.status_message == "Nonce expired" {
+            return Err(RemoteAccessError::OutOfSync);
+        }
+
         return Err(RemoteAccessError::InvalidCodeError(0));
     }
 

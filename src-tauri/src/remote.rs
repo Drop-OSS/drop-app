@@ -22,6 +22,7 @@ pub enum RemoteAccessError {
     InvalidResponse,
     InvalidRedirect,
     ManifestDownloadFailed(StatusCode, String),
+    OutOfSync,
 }
 
 impl Display for RemoteAccessError {
@@ -51,6 +52,7 @@ impl Display for RemoteAccessError {
                 "Failed to download game manifest: {} {}",
                 status, response
             ),
+            RemoteAccessError::OutOfSync => write!(f, "Server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other."),
         }
     }
 }
@@ -72,6 +74,15 @@ impl From<u16> for RemoteAccessError {
 }
 
 impl std::error::Error for RemoteAccessError {}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DropServerError {
+    pub status_code: usize,
+    pub status_message: String,
+    pub message: String,
+    pub url: String,
+}
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
