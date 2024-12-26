@@ -9,6 +9,8 @@ use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use serde::ser::{Error, SerializeMap};
 use serde::{Deserialize, Serialize};
+use std::borrow::BorrowMut;
+use std::collections::VecDeque;
 use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
 use std::io;
@@ -32,7 +34,7 @@ pub struct GameDownloadAgent {
     pub version: String,
     pub control_flag: DownloadThreadControl,
     contexts: Vec<DropDownloadContext>,
-    completed_contexts: Mutex<Vec<usize>>,
+    completed_contexts: VecDeque<usize>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -101,7 +103,7 @@ impl GameDownloadAgent {
             control_flag,
             manifest: Mutex::new(None),
             contexts: Vec::new(),
-            completed_contexts: Mutex::new(Vec::new()),
+            completed_contexts: VecDeque::new(),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
@@ -219,7 +221,9 @@ impl GameDownloadAgent {
         let base_path = Path::new(&self.stored_manifest.base_path);
         create_dir_all(base_path).unwrap();
 
-        *self.completed_contexts.lock().unwrap() = self.stored_manifest.get_completed_contexts();
+        self.completed_contexts.clear();
+        self.completed_contexts
+            .extend(self.stored_manifest.get_completed_contexts());
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -255,7 +259,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    pub fn run(&self) -> Result<(), ()> {
+    pub fn run(&mut self) -> Result<(), ()> {
         info!("downloading game: {}", self.id);
         const DOWNLOAD_MAX_THREADS: usize = 1;
 
@@ -264,58 +268,57 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
-        let completed_indexes = Arc::new(Mutex::new(Vec::new()));
+        let completed_indexes = Arc::new(boxcar::Vec::new());
         let completed_indexes_loop_arc = completed_indexes.clone();
 
-        pool.scope(move |scope| {
-            let completed_lock = self.completed_contexts.lock().unwrap();
-
-            let count = self.contexts.len();
-
+        pool.scope(|scope| {
             for (index, context) in self.contexts.iter().enumerate() {
+                let completed_indexes = completed_indexes_loop_arc.clone();
+
                 let progress = self.progress.get(index); // Clone arcs
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 // If we've done this one already, skip it
-                if completed_lock.contains(&index) {
+                if self.completed_contexts.contains(&index) {
                     progress_handle.add(context.length);
                     continue;
                 }
 
                 let context = context.clone();
                 let control_flag = self.control_flag.clone(); // Clone arcs
-                let completed_indexes_ref = completed_indexes_loop_arc.clone();
+
+                let sender = self.sender.clone();
 
                 scope.spawn(move |_| {
                     match download_game_chunk(context.clone(), control_flag, progress_handle) {
                         Ok(res) => {
                             if res {
-                                let mut lock = completed_indexes_ref.lock().unwrap();
-                                lock.push(index);
+                                completed_indexes.push(index);
                             }
                         }
                         Err(e) => {
                             error!("{}", e);
-                            self.sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
                 });
             }
         });
 
+        let newly_completed = completed_indexes.to_owned();
+
         let completed_lock_len = {
-            let mut completed_lock = self.completed_contexts.lock().unwrap();
-            let newly_completed_lock = completed_indexes.lock().unwrap();
+            for (item, item_ref) in newly_completed.iter() {
+                self.completed_contexts.push_front(item);
+            }
 
-            completed_lock.extend(newly_completed_lock.iter());
-
-            completed_lock.len()
+            self.completed_contexts.len()
         };
 
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != self.contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
             self.stored_manifest
-                .set_completed_contexts(&self.completed_contexts);
+                .set_completed_contexts(&self.completed_contexts.clone().into());
             info!("Setting completed contexts");
             self.stored_manifest.write();
             info!("Wrote completed contexts");
