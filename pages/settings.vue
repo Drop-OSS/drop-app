@@ -9,25 +9,18 @@
       <nav class="flex flex-col" aria-label="Sidebar">
         <ul role="list" class="-mx-2 space-y-1">
           <li v-for="(item, itemIdx) in navigation" :key="item.prefix">
-            <NuxtLink
-              :href="item.route"
-              :class="[
+            <NuxtLink :href="item.route" :class="[
+              itemIdx === currentPageIndex
+                ? 'bg-zinc-800/50 text-zinc-100'
+                : 'text-zinc-400 hover:bg-zinc-800/30 hover:text-zinc-200',
+              'transition group flex gap-x-3 rounded-md p-2 pr-12 text-sm font-semibold leading-6',
+            ]">
+              <component :is="item.icon" :class="[
                 itemIdx === currentPageIndex
-                  ? 'bg-zinc-800/50 text-zinc-100'
-                  : 'text-zinc-400 hover:bg-zinc-800/30 hover:text-zinc-200',
-                'transition group flex gap-x-3 rounded-md p-2 pr-12 text-sm font-semibold leading-6',
-              ]"
-            >
-              <component
-                :is="item.icon"
-                :class="[
-                  itemIdx === currentPageIndex
-                    ? 'text-zinc-100'
-                    : 'text-zinc-400 group-hover:text-zinc-200',
-                  'transition h-6 w-6 shrink-0',
-                ]"
-                aria-hidden="true"
-              />
+                  ? 'text-zinc-100'
+                  : 'text-zinc-400 group-hover:text-zinc-200',
+                'transition h-6 w-6 shrink-0',
+              ]" aria-hidden="true" />
               {{ item.label }}
             </NuxtLink>
           </li>
@@ -43,11 +36,13 @@
 <script setup lang="ts">
 import {
   ArrowDownTrayIcon,
+  CubeIcon,
   HomeIcon,
   RectangleGroupIcon,
 } from "@heroicons/vue/16/solid";
 import type { Component } from "vue";
 import type { NavigationItem } from "~/types";
+import { platform } from '@tauri-apps/plugin-os';
 
 const navigation: Array<NavigationItem & { icon: Component }> = [
   {
@@ -69,6 +64,13 @@ const navigation: Array<NavigationItem & { icon: Component }> = [
     icon: ArrowDownTrayIcon,
   },
 ];
+
+const currentPlatform = platform();
+switch (currentPlatform) {
+  case "linux":
+    navigation.splice(2, 0, { label: "Compatibility", route: "/settings/compatibility", prefix: "/settings/compatibility", icon: CubeIcon });
+    break;
+}
 
 const currentPageIndex = useCurrentNavigationIndex(navigation);
 </script>

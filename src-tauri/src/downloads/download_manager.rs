@@ -2,6 +2,7 @@ use std::{
     any::Any,
     collections::VecDeque,
     fmt::Debug,
+    io,
     sync::{
         mpsc::{SendError, Sender},
         Arc, Mutex, MutexGuard,
@@ -41,14 +42,27 @@ pub enum DownloadManagerSignal {
     Error(GameDownloadError),
     /// Pushes UI update
     Update,
+    /// Uninstall game
+    /// Takes game ID
+    Uninstall(String),
 }
 
+#[derive(Debug, Clone)]
 pub enum DownloadManagerStatus {
     Downloading,
     Paused,
     Empty,
     Error(GameDownloadError),
     Finished,
+}
+
+impl Serialize for DownloadManagerStatus {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&format!["{:?}", self])
+    }
 }
 
 #[derive(Serialize, Clone)]
@@ -190,6 +204,11 @@ impl DownloadManager {
             .send(DownloadManagerSignal::Finish)
             .unwrap();
         self.terminator.join()
+    }
+    pub fn uninstall_game(&self, game_id: String) {
+        self.command_sender
+            .send(DownloadManagerSignal::Uninstall(game_id))
+            .unwrap();
     }
 }
 

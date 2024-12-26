@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fs::remove_dir_all,
     sync::{
         mpsc::{channel, Receiver, Sender},
         Arc, Mutex, RwLockWriteGuard,
@@ -7,13 +8,17 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
+use http::version;
 use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
     db::{Database, GameStatus, GameTransientStatus},
-    library::{on_game_complete, GameUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData},
-    state::GameStatusManager,
+    library::{
+        on_game_complete, push_game_update, GameUpdateEvent, QueueUpdateEvent,
+        QueueUpdateEventQueueData,
+    },
+    state::{GameStatusManager, GameStatusWithTransient},
     DB,
 };
 
@@ -120,15 +125,7 @@ impl DownloadManagerBuilder {
 
         let status = GameStatusManager::fetch_state(&id);
 
-        self.app_handle
-            .emit(
-                &format!("update_game/{}", id),
-                GameUpdateEvent {
-                    game_id: id,
-                    status,
-                },
-            )
-            .unwrap();
+        push_game_update(&self.app_handle, id, status);
     }
 
     fn push_manager_update(&self) {
@@ -142,7 +139,14 @@ impl DownloadManagerBuilder {
             })
             .collect();
 
-        let event_data = QueueUpdateEvent { queue: queue_objs };
+        let status_handle = self.status.lock().unwrap();
+        let status = status_handle.clone();
+        drop(status_handle);
+
+        let event_data = QueueUpdateEvent {
+            queue: queue_objs,
+            status,
+        };
         self.app_handle.emit("update_queue", event_data).unwrap();
     }
 
@@ -159,9 +163,7 @@ impl DownloadManagerBuilder {
         drop(download_thread_lock);
     }
 
-    fn sync_download_agent(&self) {}
-
-    fn remove_and_cleanup_game(&mut self, game_id: &String) -> Arc<Mutex<GameDownloadAgent>> {
+    fn remove_and_cleanup_front_game(&mut self, game_id: &String) -> Arc<Mutex<GameDownloadAgent>> {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(game_id).unwrap();
         self.cleanup_current_download();
@@ -214,26 +216,100 @@ impl DownloadManagerBuilder {
                     return Ok(());
                 }
                 DownloadManagerSignal::Remove(game_id) => {
-                    self.manage_remove_game(game_id);
+                    self.manage_remove_game_queue(game_id);
+                }
+                DownloadManagerSignal::Uninstall(game_id) => {
+                    self.uninstall_game(game_id);
                 }
             };
         }
     }
 
-    fn manage_remove_game(&mut self, game_id: String) {
+    fn uninstall_game(&mut self, game_id: String) {
+        // Removes the game if it's in the queue
+        self.manage_remove_game_queue(game_id.clone());
+
+        let mut db_handle = DB.borrow_data_mut().unwrap();
+        db_handle
+            .games
+            .transient_statuses
+            .entry(game_id.clone())
+            .and_modify(|v| *v = GameTransientStatus::Uninstalling {});
+        push_game_update(
+            &self.app_handle,
+            game_id.clone(),
+            (None, Some(GameTransientStatus::Uninstalling {})),
+        );
+
+        let previous_state = db_handle.games.statuses.get(&game_id).cloned();
+        if previous_state.is_none() {
+            info!("uninstall job doesn't have previous state, failing silently");
+            return;
+        }
+        let previous_state = previous_state.unwrap();
+        if let Some((version_name, install_dir)) = match previous_state {
+            GameStatus::Installed {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            GameStatus::SetupRequired {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            _ => None,
+        } {
+            db_handle
+                .games
+                .transient_statuses
+                .entry(game_id.clone())
+                .and_modify(|v| *v = GameTransientStatus::Uninstalling {});
+            drop(db_handle);
+
+            let sender = self.sender.clone();
+            let app_handle = self.app_handle.clone();
+            spawn(move || match remove_dir_all(install_dir) {
+                Err(e) => {
+                    sender
+                        .send(DownloadManagerSignal::Error(GameDownloadError::IoError(
+                            e.kind(),
+                        )))
+                        .unwrap();
+                }
+                Ok(_) => {
+                    let mut db_handle = DB.borrow_data_mut().unwrap();
+                    db_handle.games.transient_statuses.remove(&game_id);
+                    db_handle
+                        .games
+                        .statuses
+                        .entry(game_id.clone())
+                        .and_modify(|e| *e = GameStatus::Remote {});
+                    drop(db_handle);
+                    DB.save().unwrap();
+
+                    info!("uninstalled {}", game_id);
+
+                    push_game_update(&app_handle, game_id, (Some(GameStatus::Remote {}), None));
+                }
+            });
+        }
+    }
+
+    fn manage_remove_game_queue(&mut self, game_id: String) {
         if let Some(current_download) = &self.current_download_agent {
             if current_download.id == game_id {
                 self.manage_cancel_signal();
             }
         }
 
-        let index = self.download_queue.get_by_id(game_id.clone()).unwrap();
-        let mut queue_handle = self.download_queue.edit();
-        queue_handle.remove(index);
-        self.set_game_status(game_id, |db_handle, id| {
-            db_handle.games.transient_statuses.remove(id);
-        });
-        drop(queue_handle);
+        let index = self.download_queue.get_by_id(game_id.clone());
+        if let Some(index) = index {
+            let mut queue_handle = self.download_queue.edit();
+            queue_handle.remove(index);
+            self.set_game_status(game_id, |db_handle, id| {
+                db_handle.games.transient_statuses.remove(id);
+            });
+            drop(queue_handle);
+        }
 
         if self.current_download_agent.is_none() {
             self.manage_go_signal();
@@ -256,11 +332,16 @@ impl DownloadManagerBuilder {
             // When if let chains are stabilised, combine these two statements
             if interface.id == game_id {
                 info!("Popping consumed data");
-                let download_agent = self.remove_and_cleanup_game(&game_id);
+                let download_agent = self.remove_and_cleanup_front_game(&game_id);
                 let download_agent_lock = download_agent.lock().unwrap();
 
                 let version = download_agent_lock.version.clone();
-                let install_dir = download_agent_lock.stored_manifest.base_path.clone().to_string_lossy().to_string();
+                let install_dir = download_agent_lock
+                    .stored_manifest
+                    .base_path
+                    .clone()
+                    .to_string_lossy()
+                    .to_string();
 
                 drop(download_agent_lock);
 
@@ -281,6 +362,22 @@ impl DownloadManagerBuilder {
 
     fn manage_queue_signal(&mut self, id: String, version: String, target_download_dir: usize) {
         info!("Got signal Queue");
+
+        if let Some(index) = self.download_queue.get_by_id(id.clone()) {
+            // Should always give us a value
+            if let Some(download_agent) = self.download_agent_registry.get(&id) {
+                let download_agent_handle = download_agent.lock().unwrap();
+                if download_agent_handle.version == version {
+                    info!("game with same version already queued, skipping");
+                    return;
+                }
+                // If it's not the same, we want to cancel the current one, and then add the new one
+                drop(download_agent_handle);
+
+                self.manage_remove_game_queue(id.clone());
+            }
+        }
+
         let download_agent = Arc::new(Mutex::new(GameDownloadAgent::new(
             id.clone(),
             version,
@@ -391,7 +488,8 @@ impl DownloadManagerBuilder {
     fn manage_error_signal(&mut self, error: GameDownloadError) {
         let current_status = self.current_download_agent.clone().unwrap();
 
-        self.remove_and_cleanup_game(&current_status.id); // Remove all the locks and shit
+        self.stop_and_wait_current_download();
+        self.remove_and_cleanup_front_game(&current_status.id); // Remove all the locks and shit, and remove from queue
 
         let mut lock = current_status.status.lock().unwrap();
         *lock = GameDownloadStatus::Error;

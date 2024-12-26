@@ -5,10 +5,7 @@ use crate::{
     DB,
 };
 
-pub type GameStatusWithTransient = (
-    Option<GameStatus>,
-    Option<GameTransientStatus>,
-);
+pub type GameStatusWithTransient = (Option<GameStatus>, Option<GameTransientStatus>);
 pub struct GameStatusManager {}
 
 impl GameStatusManager {

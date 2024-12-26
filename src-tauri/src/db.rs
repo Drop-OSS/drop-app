@@ -21,6 +21,11 @@ pub struct DatabaseAuth {
     pub client_id: String,
 }
 
+pub struct GameStatusData {
+    version_name: String,
+    install_dir: String,
+}
+
 // Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(tag = "type")]

@@ -22,6 +22,7 @@
           @install="() => installFlow()"
           @play="() => play()"
           @queue="() => queue()"
+          @uninstall="() => uninstall()"
           :status="status"
         />
         <a
@@ -408,5 +409,9 @@ async function play() {
 
 async function queue() {
   router.push("/queue");
+}
+
+async function uninstall() {
+  await invoke("uninstall_game", {gameId: game.value.id});
 }
 </script>

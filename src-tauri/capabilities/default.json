@@ -13,6 +13,7 @@
     "core:window:allow-maximize",
     "core:window:allow-close",
     "deep-link:default",
-    "dialog:default"
+    "dialog:default",
+    "os:default"
   ]
 }

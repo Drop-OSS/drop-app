@@ -39,17 +39,17 @@ pub struct GameDownloadAgent {
     pub stored_manifest: StoredManifest,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum GameDownloadError {
     Communication(RemoteAccessError),
     Checksum,
     Setup(SetupError),
     Lock,
-    IoError(io::Error),
+    IoError(io::ErrorKind),
     DownloadError,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum SetupError {
     Context,
 }
@@ -297,7 +297,6 @@ impl GameDownloadAgent {
                             }
                         }
                         Err(e) => {
-                            error!("GameDownloadError: {}", e);
                             self.sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }

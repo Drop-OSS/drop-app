@@ -186,7 +186,9 @@ pub fn download_game_chunk(
         content_length.unwrap().try_into().unwrap(),
     );
 
-    let completed = pipeline.copy().map_err(GameDownloadError::IoError)?;
+    let completed = pipeline
+        .copy()
+        .map_err(|e| GameDownloadError::IoError(e.kind()))?;
     if !completed {
         return Ok(false);
     };

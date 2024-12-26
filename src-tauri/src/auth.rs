@@ -199,8 +199,10 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()>
 
 pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     let data = DB.borrow_data().unwrap();
+    let auth = data.auth.clone();
+    drop(data);
 
-    if data.auth.is_some() {
+    if auth.is_some() {
         let user_result = fetch_user();
         if user_result.is_err() {
             let error = user_result.err().unwrap();
@@ -214,8 +216,6 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
         }
         return Ok((AppStatus::SignedIn, Some(user_result.unwrap())));
     }
-
-    drop(data);
 
     Ok((AppStatus::SignedOut, None))
 }

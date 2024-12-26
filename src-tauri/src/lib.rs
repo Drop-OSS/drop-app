@@ -14,25 +14,28 @@ use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
 use cleanup::{cleanup_and_exit, quit};
 use db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
     DATA_ROOT_DIR,
 };
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManager;
 use downloads::download_manager_builder::DownloadManagerBuilder;
+use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, Game};
-use log::{debug, info, LevelFilter};
+use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game};
+use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::append::rolling_file::RollingFileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
+use process::compat::CompatibilityManager;
 use process::process_commands::launch_game;
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -74,6 +77,8 @@ pub struct AppState<'a> {
     download_manager: Arc<DownloadManager>,
     #[serde(skip_serializing)]
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
+    #[serde(skip_serializing)]
+    compat_manager: Arc<Mutex<CompatibilityManager>>,
 }
 
 #[tauri::command]
@@ -112,6 +117,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new()));
+    let compat_manager = Arc::new(Mutex::new(CompatibilityManager::new()));
 
     debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -122,18 +128,62 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             games,
             download_manager,
             process_manager,
+            compat_manager,
         };
     }
 
     debug!("Database is set up");
 
     let (app_status, user) = auth::setup().unwrap();
+
+    let db_handle = DB.borrow_data().unwrap();
+    let mut missing_games = Vec::new();
+    let statuses = db_handle.games.statuses.clone();
+    drop(db_handle);
+    for (game_id, status) in statuses.into_iter() {
+        match status {
+            db::GameStatus::Remote {} => {}
+            db::GameStatus::SetupRequired {
+                version_name: _,
+                install_dir,
+            } => {
+                let install_dir_path = Path::new(&install_dir);
+                if !install_dir_path.exists() {
+                    missing_games.push(game_id);
+                }
+            }
+            db::GameStatus::Installed {
+                version_name: _,
+                install_dir,
+            } => {
+                let install_dir_path = Path::new(&install_dir);
+                if !install_dir_path.exists() {
+                    missing_games.push(game_id);
+                }
+            }
+        }
+    }
+
+    info!("detected games missing: {:?}", missing_games);
+
+    let mut db_handle = DB.borrow_data_mut().unwrap();
+    for game_id in missing_games {
+        db_handle
+            .games
+            .statuses
+            .entry(game_id.to_string())
+            .and_modify(|v| *v = GameStatus::Remote {});
+    }
+    drop(db_handle);
+    info!("finished setup!");
+
     AppState {
         status: app_status,
         user,
         games,
         download_manager,
         process_manager,
+        compat_manager,
     }
 }
 
@@ -141,7 +191,9 @@ pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::se
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let mut builder = tauri::Builder::default().plugin(tauri_plugin_dialog::init());
+    let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_dialog::init());
 
     #[cfg(desktop)]
     #[allow(unused_variables)]
@@ -177,6 +229,7 @@ pub fn run() {
             pause_game_downloads,
             resume_game_downloads,
             cancel_game,
+            uninstall_game,
             // Processes
             launch_game,
         ])
@@ -271,8 +324,16 @@ pub fn run() {
             let response = client
                 .get(object_url.to_string())
                 .header("Authorization", header)
-                .send()
-                .unwrap();
+                .send();
+            if response.is_err() {
+                warn!(
+                    "failed to fetch object with error: {}",
+                    response.err().unwrap()
+                );
+                responder.respond(Response::builder().status(500).body(Vec::new()).unwrap());
+                return;
+            }
+            let response = response.unwrap();
 
             let resp_builder = ResponseBuilder::new().header(
                 CONTENT_TYPE,

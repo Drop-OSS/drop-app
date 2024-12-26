@@ -8,7 +8,7 @@ use urlencoding::encode;
 use crate::db::DatabaseImpls;
 use crate::db::GameVersion;
 use crate::db::{GameStatus, GameTransientStatus};
-use crate::downloads::download_manager::GameDownloadStatus;
+use crate::downloads::download_manager::{DownloadManagerStatus, GameDownloadStatus};
 use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;
 use crate::state::{GameStatusManager, GameStatusWithTransient};
@@ -37,7 +37,7 @@ pub struct Game {
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
     pub game_id: String,
-    pub status: (Option<GameStatus>, Option<GameTransientStatus>),
+    pub status: GameStatusWithTransient,
 }
 
 #[derive(Serialize, Clone)]
@@ -50,6 +50,7 @@ pub struct QueueUpdateEventQueueData {
 #[derive(serde::Serialize, Clone)]
 pub struct QueueUpdateEvent {
     pub queue: Vec<QueueUpdateEventQueueData>,
+    pub status: DownloadManagerStatus,
 }
 
 // Game version with some fields missing and size information
@@ -230,6 +231,30 @@ pub fn fetch_game_verion_options<'a>(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, String> {
     fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn uninstall_game(
+    game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), String> {
+    let state_lock = state.lock().unwrap();
+    state_lock.download_manager.uninstall_game(game_id);
+    drop(state_lock);
+
+    Ok(())
+}
+
+pub fn push_game_update(app_handle: &AppHandle, id: String, status: GameStatusWithTransient) {
+    app_handle
+        .emit(
+            &format!("update_game/{}", id),
+            GameUpdateEvent {
+                game_id: id,
+                status,
+            },
+        )
+        .unwrap();
 }
 
 pub fn on_game_complete(

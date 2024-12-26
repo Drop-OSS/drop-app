@@ -46,6 +46,12 @@ impl ProcessManager<'_> {
                     (Platform::Linux, Platform::Linux),
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
+                /*
+                (
+                    (Platform::Linux, Platform::Windows),
+                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static)
+                )
+                 */
             ]),
         }
     }
@@ -66,12 +72,6 @@ impl ProcessManager<'_> {
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
         let current = &self.current_platform;
-        info!("{:?}", self.game_launchers.keys());
-        info!(
-            "{:?} {}",
-            (current.clone(), platform.clone()),
-            (Platform::Linux, Platform::Linux) == (Platform::Linux, Platform::Linux)
-        );
         Ok(self
             .game_launchers
             .contains_key(&(current.clone(), platform.clone())))
@@ -199,5 +199,21 @@ impl ProcessHandler for NativeGameLauncher {
             .args(args)
             .spawn()
             .map_err(|v| v.to_string())
+    }
+}
+
+struct UMULauncher;
+impl ProcessHandler for UMULauncher {
+    fn launch_game(
+        &self,
+        game_id: &String,
+        version_name: &String,
+        command: String,
+        args: Vec<String>,
+        install_dir: &String,
+        log_file: File,
+        error_file: File,
+    ) -> Result<Child, String> {
+        todo!()
     }
 }
