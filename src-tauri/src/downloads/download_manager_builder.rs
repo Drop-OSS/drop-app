@@ -491,6 +491,10 @@ impl DownloadManagerBuilder {
         self.stop_and_wait_current_download();
         self.remove_and_cleanup_front_game(&current_status.id); // Remove all the locks and shit, and remove from queue
 
+        self.app_handle
+            .emit("download_error", error.to_string())
+            .unwrap();
+
         let mut lock = current_status.status.lock().unwrap();
         *lock = GameDownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error(error));

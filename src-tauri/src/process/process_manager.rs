@@ -46,12 +46,10 @@ impl ProcessManager<'_> {
                     (Platform::Linux, Platform::Linux),
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
-                /*
                 (
                     (Platform::Linux, Platform::Windows),
                     &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static)
                 )
-                 */
             ]),
         }
     }

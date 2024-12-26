@@ -297,6 +297,7 @@ impl GameDownloadAgent {
                             }
                         }
                         Err(e) => {
+                            error!("{}", e);
                             self.sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
