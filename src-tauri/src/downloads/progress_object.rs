@@ -19,7 +19,7 @@ pub struct ProgressObject {
     sender: Sender<DownloadManagerSignal>,
 
     points_towards_update: Arc<AtomicUsize>,
-    points_to_push_update: Arc<Mutex<usize>>,
+    points_to_push_update: Arc<AtomicUsize>,
 }
 
 pub struct ProgressHandle {
@@ -58,7 +58,7 @@ impl ProgressObject {
             sender,
 
             points_towards_update: Arc::new(AtomicUsize::new(0)),
-            points_to_push_update: Arc::new(Mutex::new(points_to_push_update)),
+            points_to_push_update: Arc::new(AtomicUsize::new(points_to_push_update)),
         }
     }
 
@@ -67,9 +67,7 @@ impl ProgressObject {
             .points_towards_update
             .fetch_add(amount_added, Ordering::Relaxed);
 
-        let to_update_handle = self.points_to_push_update.lock().unwrap();
-        let to_update = *to_update_handle;
-        drop(to_update_handle);
+        let to_update = self.points_to_push_update.fetch_add(0, Ordering::Relaxed);
 
         if current_amount < to_update {
             return;
@@ -95,7 +93,8 @@ impl ProgressObject {
     }
     pub fn set_max(&self, new_max: usize) {
         *self.max.lock().unwrap() = new_max;
-        *self.points_to_push_update.lock().unwrap() = new_max / PROGRESS_UPDATES;
+        self.points_to_push_update
+            .store(new_max / PROGRESS_UPDATES, Ordering::Relaxed);
         info!("points to push update: {}", new_max / PROGRESS_UPDATES);
     }
     pub fn set_size(&self, length: usize) {

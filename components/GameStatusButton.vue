@@ -1,5 +1,5 @@
 <template>
-  <div class="inline-flex">
+  <div class="inline-flex divide-x divide-zinc-900">
     <button type="button" @click="() => buttonActions[props.status.type]()" :class="[
       styles[props.status.type],
       showDropdown ? 'rounded-l-md' : 'rounded-md',
@@ -10,10 +10,11 @@
     </button>
     <Menu v-if="showDropdown" as="div" class="relative inline-block text-left grow">
       <div class="h-full">
-        <MenuButton
-          class="inline-flex w-full h-full justify-center items-center rounded-r-md bg-zinc-800 px-1 py-2 text-sm font-semibold text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-600 hover:bg-zinc-800">
-
-          <ChevronDownIcon class="size-5 text-gray-400" aria-hidden="true" />
+        <MenuButton :class="[
+          styles[props.status.type],
+          'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm'
+        ]">
+          <ChevronDownIcon class="size-5" aria-hidden="true" />
         </MenuButton>
       </div>
 
@@ -53,26 +54,22 @@ import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue'
 const props = defineProps<{ status: GameStatus }>();
 const emit = defineEmits<{
   (e: "install"): void;
-  (e: "play"): void;
+  (e: "launch"): void;
   (e: "queue"): void;
   (e: "uninstall"): void;
 }>();
 
-const showDropdown = computed(() => props.status.type === GameStatusEnum.Installed);
+const showDropdown = computed(() => props.status.type === GameStatusEnum.Installed || props.status.type === GameStatusEnum.SetupRequired);
 
 const styles: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Remote]:
-    "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600",
-  [GameStatusEnum.Queued]:
-    "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.Downloading]:
-    "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.SetupRequired]:
-    "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600",
-  [GameStatusEnum.Installed]:
-    "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600",
-  [GameStatusEnum.Updating]: "",
-  [GameStatusEnum.Uninstalling]: "",
+  [GameStatusEnum.Remote]: "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600",
+  [GameStatusEnum.Queued]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
+  [GameStatusEnum.Downloading]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
+  [GameStatusEnum.SetupRequired]: "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600",
+  [GameStatusEnum.Installed]: "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600",
+  [GameStatusEnum.Updating]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
+  [GameStatusEnum.Uninstalling]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
+  [GameStatusEnum.Running]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700"
 };
 
 const buttonNames: { [key in GameStatusEnum]: string } = {
@@ -83,6 +80,7 @@ const buttonNames: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "Play",
   [GameStatusEnum.Updating]: "Updating",
   [GameStatusEnum.Uninstalling]: "Uninstalling",
+  [GameStatusEnum.Running]: "Running"
 };
 
 const buttonIcons: { [key in GameStatusEnum]: Component } = {
@@ -93,15 +91,17 @@ const buttonIcons: { [key in GameStatusEnum]: Component } = {
   [GameStatusEnum.Installed]: PlayIcon,
   [GameStatusEnum.Updating]: ArrowDownTrayIcon,
   [GameStatusEnum.Uninstalling]: TrashIcon,
+  [GameStatusEnum.Running]: PlayIcon
 };
 
 const buttonActions: { [key in GameStatusEnum]: () => void } = {
   [GameStatusEnum.Remote]: () => emit("install"),
   [GameStatusEnum.Queued]: () => emit("queue"),
   [GameStatusEnum.Downloading]: () => emit("queue"),
-  [GameStatusEnum.SetupRequired]: () => { },
-  [GameStatusEnum.Installed]: () => emit("play"),
+  [GameStatusEnum.SetupRequired]: () => emit("launch"),
+  [GameStatusEnum.Installed]: () => emit("launch"),
   [GameStatusEnum.Updating]: () => emit("queue"),
   [GameStatusEnum.Uninstalling]: () => { },
+  [GameStatusEnum.Running]: () => { }
 };
 </script>

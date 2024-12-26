@@ -22,7 +22,9 @@ use downloads::download_manager::DownloadManager;
 use downloads::download_manager_builder::DownloadManagerBuilder;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game};
+use library::{
+    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game,
+};
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -115,8 +117,8 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     log4rs::init_config(config).unwrap();
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle));
-    let process_manager = Arc::new(Mutex::new(ProcessManager::new()));
+    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
+    let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
     let compat_manager = Arc::new(Mutex::new(CompatibilityManager::new()));
 
     debug!("Checking if database is set up");

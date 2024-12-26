@@ -221,11 +221,6 @@ impl GameDownloadAgent {
 
         *self.completed_contexts.lock().unwrap() = self.stored_manifest.get_completed_contexts();
 
-        info!(
-            "Completed contexts: {:?}",
-            *self.completed_contexts.lock().unwrap()
-        );
-
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
 
@@ -274,6 +269,8 @@ impl GameDownloadAgent {
 
         pool.scope(move |scope| {
             let completed_lock = self.completed_contexts.lock().unwrap();
+
+            let count = self.contexts.len();
 
             for (index, context) in self.contexts.iter().enumerate() {
                 let progress = self.progress.get(index); // Clone arcs

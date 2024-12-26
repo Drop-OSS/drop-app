@@ -47,6 +47,7 @@ pub enum GameTransientStatus {
     Downloading { version_name: String },
     Uninstalling {},
     Updating { version_name: String },
+    Running {},
 }
 
 #[derive(Serialize, Deserialize, Clone)]

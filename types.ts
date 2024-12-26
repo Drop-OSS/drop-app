@@ -52,6 +52,7 @@ export enum GameStatusEnum {
   Updating = "Updating",
   Uninstalling = "Uninstalling",
   SetupRequired = "SetupRequired",
+  Running = "Running"
 }
 
 export type GameStatus = {

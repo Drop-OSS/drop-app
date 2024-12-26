@@ -2,27 +2,34 @@ use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
     path::{Path, PathBuf},
-    process::{Child, Command},
-    sync::LazyLock,
+    process::{Child, Command, ExitStatus},
+    sync::{Arc, LazyLock, Mutex},
+    thread::spawn,
 };
 
-use log::info;
+use http::version;
+use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::{
-    db::{GameStatus, DATA_ROOT_DIR},
-    DB,
+    db::{GameStatus, GameTransientStatus, DATA_ROOT_DIR},
+    library::push_game_update,
+    process::process_manager,
+    state::GameStatusManager,
+    AppState, DB,
 };
 
 pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
-    processes: HashMap<String, Child>,
+    processes: HashMap<String, Arc<Mutex<Child>>>,
+    app_handle: AppHandle,
     game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
 
 impl ProcessManager<'_> {
-    pub fn new() -> Self {
+    pub fn new(app_handle: AppHandle) -> Self {
         let root_dir_lock = DATA_ROOT_DIR.lock().unwrap();
         let log_output_dir = root_dir_lock.join("logs");
         drop(root_dir_lock);
@@ -34,6 +41,7 @@ impl ProcessManager<'_> {
                 Platform::Linux
             },
 
+            app_handle,
             processes: HashMap::new(),
             log_output_dir,
             game_launchers: HashMap::from([
@@ -48,13 +56,13 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Windows),
-                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static)
-                )
+                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
             ]),
         }
     }
 
-    fn process_command(&self, install_dir: &String, raw_command: String) -> (String, Vec<String>) {
+    fn process_command(&self, install_dir: &String, raw_command: String) -> (PathBuf, Vec<String>) {
         let command_components = raw_command.split(" ").collect::<Vec<&str>>();
         let root = command_components[0].to_string();
 
@@ -65,7 +73,51 @@ impl ProcessManager<'_> {
             .into_iter()
             .map(|v| v.to_string())
             .collect();
-        (absolute_exe.to_str().unwrap().to_owned(), args)
+        (absolute_exe, args)
+    }
+
+    fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
+        if !self.processes.contains_key(&game_id) {
+            warn!("process on_finish was called, but game_id is no longer valid. finished with result: {:?}", result);
+            return;
+        }
+
+        info!("process for {} exited with {:?}", game_id, result);
+
+        self.processes.remove(&game_id);
+
+        let mut db_handle = DB.borrow_data_mut().unwrap();
+        db_handle.games.transient_statuses.remove(&game_id);
+
+        let current_state = db_handle.games.statuses.get(&game_id).cloned();
+        if let Some(saved_state) = current_state {
+            match saved_state {
+                GameStatus::SetupRequired {
+                    version_name,
+                    install_dir,
+                } => {
+                    if let Some(exit_code) = result.ok() {
+                        if exit_code.success() {
+                            db_handle.games.statuses.insert(
+                                game_id.clone(),
+                                GameStatus::Installed {
+                                    version_name: version_name.to_string(),
+                                    install_dir: install_dir.to_string(),
+                                },
+                            );
+                        }
+                    }
+                }
+                _ => (),
+            }
+        }
+        drop(db_handle);
+
+        let status = GameStatusManager::fetch_state(&game_id);
+
+        push_game_update(&self.app_handle, game_id.clone(), status);
+
+        // TODO better management
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
@@ -75,25 +127,35 @@ impl ProcessManager<'_> {
             .contains_key(&(current.clone(), platform.clone())))
     }
 
-    pub fn launch_game(&mut self, game_id: String) -> Result<(), String> {
+    pub fn launch_process(&mut self, game_id: String) -> Result<(), String> {
         if self.processes.contains_key(&game_id) {
             return Err("Game or setup is already running.".to_owned());
         }
 
-        let db_lock = DB.borrow_data().unwrap();
+        let mut db_lock = DB.borrow_data_mut().unwrap();
         let game_status = db_lock
             .games
             .statuses
             .get(&game_id)
             .ok_or("Game not installed")?;
 
-        let GameStatus::Installed {
-            version_name,
-            install_dir,
-        } = game_status
-        else {
-            return Err("Game not installed.".to_owned());
+        let status_metadata: Option<(&String, &String)> = match game_status {
+            GameStatus::Installed {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            GameStatus::SetupRequired {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            _ => None,
         };
+
+        if status_metadata.is_none() {
+            return Err("Game has not been downloaded.".to_owned());
+        }
+
+        let (version_name, install_dir) = status_metadata.unwrap();
 
         let game_version = db_lock
             .games
@@ -103,10 +165,27 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or("Invalid version name".to_owned())?;
 
-        let (command, args) =
-            self.process_command(install_dir, game_version.launch_command.clone());
+        let raw_command: String = match game_status {
+            GameStatus::Installed {
+                version_name: _,
+                install_dir: _,
+            } => game_version.launch_command.clone(),
+            GameStatus::SetupRequired {
+                version_name: _,
+                install_dir: _,
+            } => game_version.setup_command.clone(),
+            _ => panic!("unreachable code"),
+        };
 
-        info!("launching process {} in {}", command, install_dir);
+        let (command, args) = self.process_command(install_dir, raw_command);
+
+        let target_current_dir = command.parent().unwrap().to_str().unwrap();
+
+        info!(
+            "launching process {} in {}",
+            command.to_str().unwrap(),
+            target_current_dir
+        );
 
         let current_time = chrono::offset::Local::now();
         let mut log_file = OpenOptions::new()
@@ -132,8 +211,6 @@ impl ProcessManager<'_> {
             )))
             .map_err(|v| v.to_string())?;
 
-        info!("opened log file for {}", command);
-
         let current_platform = self.current_platform.clone();
         let target_platform = game_version.platform.clone();
 
@@ -143,17 +220,53 @@ impl ProcessManager<'_> {
             .ok_or("Invalid version for this platform.")
             .map_err(|e| e.to_string())?;
 
-        let launch_process = game_launcher.launch_game(
+        let launch_process = game_launcher.launch_process(
             &game_id,
             version_name,
-            command,
+            command.to_str().unwrap().to_owned(),
             args,
-            install_dir,
+            &target_current_dir.to_string(),
             log_file,
             error_file,
         )?;
 
-        self.processes.insert(game_id, launch_process);
+        let launch_process_handle = Arc::new(Mutex::new(launch_process));
+
+        db_lock
+            .games
+            .transient_statuses
+            .insert(game_id.clone(), GameTransientStatus::Running {});
+
+        push_game_update(
+            &self.app_handle,
+            game_id.clone(),
+            (None, Some(GameTransientStatus::Running {})),
+        );
+
+        let wait_thread_handle = launch_process_handle.clone();
+        let wait_thread_apphandle = self.app_handle.clone();
+        let wait_thread_game_id = game_id.clone();
+
+        spawn(move || {
+            let mut child_handle = wait_thread_handle.lock().unwrap();
+            let result: Result<ExitStatus, std::io::Error> = child_handle.wait();
+
+            let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
+            let app_state_handle = app_state.lock().unwrap();
+
+            let mut process_manager_handle = app_state_handle.process_manager.lock().unwrap();
+            process_manager_handle.on_process_finish(wait_thread_game_id, result);
+
+            // As everything goes out of scope, they should get dropped
+            // But just to explicit about it
+            drop(process_manager_handle);
+            drop(app_state_handle);
+            drop(child_handle);
+        });
+
+        self.processes.insert(game_id, launch_process_handle);
+
+        info!("finished spawning process");
 
         Ok(())
     }
@@ -166,13 +279,13 @@ pub enum Platform {
 }
 
 pub trait ProcessHandler: Send + 'static {
-    fn launch_game(
+    fn launch_process(
         &self,
         game_id: &String,
         version_name: &String,
         command: String,
         args: Vec<String>,
-        install_dir: &String,
+        current_dir: &String,
         log_file: File,
         error_file: File,
     ) -> Result<Child, String>;
@@ -180,18 +293,18 @@ pub trait ProcessHandler: Send + 'static {
 
 struct NativeGameLauncher;
 impl ProcessHandler for NativeGameLauncher {
-    fn launch_game(
+    fn launch_process(
         &self,
         game_id: &String,
         version_name: &String,
         command: String,
         args: Vec<String>,
-        install_dir: &String,
+        current_dir: &String,
         log_file: File,
         error_file: File,
     ) -> Result<Child, String> {
         Command::new(command)
-            .current_dir(install_dir)
+            .current_dir(current_dir)
             .stdout(log_file)
             .stderr(error_file)
             .args(args)
@@ -202,13 +315,13 @@ impl ProcessHandler for NativeGameLauncher {
 
 struct UMULauncher;
 impl ProcessHandler for UMULauncher {
-    fn launch_game(
+    fn launch_process(
         &self,
         game_id: &String,
         version_name: &String,
         command: String,
         args: Vec<String>,
-        install_dir: &String,
+        current_dir: &String,
         log_file: File,
         error_file: File,
     ) -> Result<Child, String> {

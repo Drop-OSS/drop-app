@@ -10,7 +10,7 @@ pub fn launch_game(
     let state_lock = state.lock().unwrap();
     let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
 
-    process_manager_lock.launch_game(game_id)?;
+    process_manager_lock.launch_process(game_id)?;
 
     drop(process_manager_lock);
     drop(state_lock);

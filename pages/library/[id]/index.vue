@@ -20,7 +20,7 @@
       <div class="h-full flex flex-row gap-x-4 items-stretch">
         <GameStatusButton
           @install="() => installFlow()"
-          @play="() => play()"
+          @launch="() => launch()"
           @queue="() => queue()"
           @uninstall="() => uninstall()"
           :status="status"
@@ -390,7 +390,7 @@ async function install() {
   }
 }
 
-async function play() {
+async function launch() {
   try {
     await invoke("launch_game", { gameId: game.value.id });
   } catch (e) {
