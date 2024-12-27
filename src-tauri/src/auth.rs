@@ -152,7 +152,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/finished", ()).unwrap();
 }
 
-async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
+fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     let base_url = {
         let db_lock = DB.borrow_data().unwrap();
         Url::parse(&db_lock.base_url.clone())?
@@ -164,14 +164,17 @@ async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
         platform: env::consts::OS.to_string(),
     };
 
-    let client = reqwest::Client::new();
-    let response = client.post(endpoint.to_string()).json(&body).send().await?;
+    let client = reqwest::blocking::Client::new();
+    let response = client.post(endpoint.to_string()).json(&body).send()?;
 
     if response.status() != 200 {
-        return Err(RemoteAccessError::InvalidRedirect);
+        let data = response.json::<DropServerError>()?;
+        info!("Could not start handshake: {}", data.status_message);
+
+        return Err(RemoteAccessError::HandshakeFailed(data.status_message));
     }
 
-    let redir_url = response.text().await?;
+    let redir_url = response.text()?;
     let complete_redir_url = base_url.join(&redir_url)?;
 
     info!("opening web browser to continue authentication");
@@ -181,8 +184,8 @@ async fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
 }
 
 #[tauri::command]
-pub async fn auth_initiate<'a>() -> Result<(), String> {
-    let result = auth_initiate_wrapper().await;
+pub fn auth_initiate<'a>() -> Result<(), String> {
+    let result = auth_initiate_wrapper();
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
     }

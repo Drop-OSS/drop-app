@@ -17,7 +17,7 @@ pub enum RemoteAccessError {
     ParsingError(ParseError),
     InvalidCodeError(u16),
     InvalidEndpoint,
-    HandshakeFailed,
+    HandshakeFailed(String),
     GameNotFound,
     InvalidResponse,
     InvalidRedirect,
@@ -43,7 +43,7 @@ impl Display for RemoteAccessError {
             }
             RemoteAccessError::InvalidCodeError(error) => write!(f, "Invalid HTTP code {}", error),
             RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
-            RemoteAccessError::HandshakeFailed => write!(f, "Failed to complete handshake"),
+            RemoteAccessError::HandshakeFailed(message) => write!(f, "Failed to complete handshake: {}", message),
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),
             RemoteAccessError::InvalidResponse => write!(f, "Server returned an invalid response"),
             RemoteAccessError::InvalidRedirect => write!(f, "Server redirect was invalid"),
