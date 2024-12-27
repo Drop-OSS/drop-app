@@ -60,18 +60,24 @@ impl ProcessManager<'_> {
         }
     }
 
+    // There's no easy way to distinguish between an executable name with
+    // spaces and it's arguments.
+    // I think if we just join the install_dir to whatever the user provides us, we'll be alright
+    // In future, we should have a separate field for executable name and it's arguments
     fn process_command(&self, install_dir: &String, raw_command: String) -> (PathBuf, Vec<String>) {
-        let command_components = raw_command.split(" ").collect::<Vec<&str>>();
-        let root = command_components[0].to_string();
+        // let command_components = raw_command.split(" ").collect::<Vec<&str>>();
+        let root = raw_command;
 
         let install_dir = Path::new(install_dir);
         let absolute_exe = install_dir.join(root);
 
+        /*
         let args = command_components[1..]
             .iter()
             .map(|v| v.to_string())
             .collect();
-        (absolute_exe, args)
+         */
+        (absolute_exe, Vec::new())
     }
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
@@ -90,9 +96,10 @@ impl ProcessManager<'_> {
         let current_state = db_handle.games.statuses.get(&game_id).cloned();
         if let Some(saved_state) = current_state {
             if let GameStatus::SetupRequired {
-                    version_name,
-                    install_dir,
-                } = saved_state {
+                version_name,
+                install_dir,
+            } = saved_state
+            {
                 if let Ok(exit_code) = result {
                     if exit_code.success() {
                         db_handle.games.statuses.insert(
