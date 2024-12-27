@@ -1,15 +1,13 @@
 <template>
   <div class="bg-zinc-950 p-4 min-h-full space-y-4">
     <div class="h-16 overflow-hidden relative rounded-xl flex flex-row border border-zinc-900">
-      <div
-        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2">
+      <div class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2">
         <span class="font-semibold">{{ formatKilobytes(stats.speed) }}</span>
         <span v-if="stats.time > 0" class="text-sm">{{ formatTime(stats.time) }} left</span>
 
       </div>
       <div class="absolute inset-0 h-full flex flex-row items-end justify-end">
-        <div v-for="bar in speedHistory" :style="{ height: `${bar / speedMax * 100}%` }"
-          class="w-[8px] bg-blue-600/40" />
+        <div v-for="bar in speedHistory" :style="{ height: `${bar / speedMax * 100}%` }" class="w-[8px] bg-blue-600/40" />
       </div>
     </div>
     <draggable v-model="queue.queue" @end="onEnd">
@@ -40,8 +38,7 @@
               </div>
             </div>
             <button @click="() => cancelGame(element.id)" class="group">
-              <XMarkIcon class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
-                aria-hidden="true" />
+              <XMarkIcon class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300" aria-hidden="true" />
             </button>
           </div>
         </li>
@@ -57,6 +54,7 @@
 <script setup lang="ts">
 import { XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
+import gameControl, { type GCGamepad } from "esm-gamecontroller.js";
 import type { Game, GameStatus } from "~/types";
 
 const windowWidth = ref(window.innerWidth);

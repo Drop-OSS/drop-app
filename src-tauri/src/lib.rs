@@ -236,6 +236,7 @@ pub fn run() {
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_gamepad::init())
         .setup(|app| {
             let handle = app.handle().clone();
             let state = setup(handle);

@@ -43,6 +43,7 @@ md5 = "0.7.0"
 chrono = "0.4.38"
 tauri-plugin-os = "2"
 boxcar = "0.2.7"
+tauri-plugin-gamepad = {git = "https://github.com/quexeky/tauri-plugin-gamepad.git", version = "0.0.5"}
 
 [dependencies.tauri]
 version = "2.1.1"

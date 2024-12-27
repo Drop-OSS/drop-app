@@ -7,6 +7,8 @@
 
 <script setup lang="ts">
 import "~/composables/downloads.js";
+import "~/plugins"
+import "~/gamepad"
 
 import { invoke } from "@tauri-apps/api/core";
 import { AppStatus } from "~/types";

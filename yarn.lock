@@ -773,6 +773,11 @@
     semver "^7.3.5"
     tar "^6.1.11"
 
+"@maulingmonkey/gamepad@^0.0.5":
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/@maulingmonkey/gamepad/-/gamepad-0.0.5.tgz#50220895cc310f66f0678e07fa1e17959332ac20"
+  integrity sha512-dokZlauyTVAW2UEFC8T/L+1Oc7oK+vgakjfa4JZQPxkSoCTf7e3l0zV3E/Gys3Ps43Mmc8mnX+7d1ICTyD5pcg==
+
 "@netlify/functions@^2.8.0":
   version "2.8.2"
   resolved "https://registry.yarnpkg.com/@netlify/functions/-/functions-2.8.2.tgz#653395b901a74a6189e913a089f9cb90083ca6ce"
@@ -1306,6 +1311,11 @@
   integrity sha512-DB5QA8c/LfqOqIUCpSs3RdOTVroRRdqeHMqBkYrcashSZtOzIv8xbiqHgg7RYxDfkH5F3Y+e0MkuuyGNDVB0BQ==
   dependencies:
     "@tanstack/virtual-core" "3.10.8"
+
+"@tauri-apps/api@2.1.1":
+  version "2.1.1"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-2.1.1.tgz#77d4ddb683d31072de4e6a47c8613d9db011652b"
+  integrity sha512-fzUfFFKo4lknXGJq8qrCidkUcKcH2UHhfaaCNt4GzgzGaW2iS26uFOg4tS3H4P8D6ZEeUxtiD5z0nwFF0UN30A==
 
 "@tauri-apps/api@>=2.0.0", "@tauri-apps/api@^2.0.0":
   version "2.0.1"
@@ -2776,6 +2786,11 @@ escape-string-regexp@^5.0.0:
   resolved "https://registry.yarnpkg.com/escape-string-regexp/-/escape-string-regexp-5.0.0.tgz#4683126b500b61762f2dbebace1806e8be31b1c8"
   integrity sha512-/veY75JbMK4j1yjvuUxuVsiS/hr/4iHs9FTT6cgTexxdE0Ly/glccBAkloH/DofkjRbZU3bnoj38mOmhkZ0lHw==
 
+esm-gamecontroller.js@^1.0.4:
+  version "1.0.4"
+  resolved "https://registry.yarnpkg.com/esm-gamecontroller.js/-/esm-gamecontroller.js-1.0.4.tgz#215998947c796ead90133b4cb2cef7852729d985"
+  integrity sha512-787c6eP+DwFJqUsAudnb0zt7ipG+pGYjVT1vyIecsVpRW/GJw5YGV5FQT5asuMQ2k1JCnTY3MTVEUftKkyYoNw==
+
 estree-walker@2.0.2, estree-walker@^2.0.1, estree-walker@^2.0.2:
   version "2.0.2"
   resolved "https://registry.yarnpkg.com/estree-walker/-/estree-walker-2.0.2.tgz#52f010178c2a4c117a7757cfe942adb7d2da4cac"
@@ -2951,6 +2966,11 @@ function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/function-bind/-/function-bind-1.1.2.tgz#2c02d864d97f3ea6c8830c464cbd11ab6eab7a1c"
   integrity sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==
+
+gamepad-events@^0.7.0:
+  version "0.7.0"
+  resolved "https://registry.yarnpkg.com/gamepad-events/-/gamepad-events-0.7.0.tgz#63566540dd930f7d5997335a401118b390399494"
+  integrity sha512-930McsulrWFlGqzlC5plW4WQhqL+3PZ9PAaICqT7OtQLSQ5BzF+wJ32LPzjpZYaoCH7NzvEgtzadqZs8rzNkJw==
 
 gauge@^3.0.0:
   version "3.0.2"
@@ -5581,6 +5601,14 @@ tar@^6.1.11, tar@^6.2.0:
     minizlib "^2.1.1"
     mkdirp "^1.0.3"
     yallist "^4.0.0"
+
+tauri-plugin-gamepad-api@^0.0.5:
+  version "0.0.5"
+  resolved "https://registry.yarnpkg.com/tauri-plugin-gamepad-api/-/tauri-plugin-gamepad-api-0.0.5.tgz#39f9137421b632956f1d617a239b08814ce2c19f"
+  integrity sha512-WO0xwXmPr4PMe9HzljKUbTkGv7J6ur2Df/OuEPsxBeSA5QPffAJR3N32M4pM4yW72D9Vt19XplPnHHDVATVMSw==
+  dependencies:
+    "@tauri-apps/api" "2.1.1"
+    tslib "^2.1.0"
 
 terser@^5.17.4:
   version "5.34.1"
