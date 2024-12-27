@@ -56,7 +56,7 @@
         </div>
       </div>
 
-      <form @submit.prevent="() => install()" class="space-y-6">
+      <form class="space-y-6">
         <div v-if="versionOptions && versionOptions.length > 0">
           <Listbox as="div" v-model="installVersionIndex">
             <ListboxLabel class="block text-sm/6 font-medium text-zinc-100"
@@ -235,6 +235,7 @@
     </template>
     <template #buttons>
       <LoadingButton
+      @click="() => install()"
         :disabled="
           !(versionOptions && versionOptions.length > 0 && !installDir)
         "
