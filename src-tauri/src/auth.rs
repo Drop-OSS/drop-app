@@ -1,7 +1,4 @@
-use std::{
-    env,
-    sync::Mutex,
-};
+use std::{env, sync::Mutex};
 
 use chrono::Utc;
 use log::{info, warn};
@@ -135,6 +132,12 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
         app_state_handle.user = Some(fetch_user()?);
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+pub fn manual_recieve_handshake(app: AppHandle, token: String) -> Result<(), String> {
+    recieve_handshake(app, format!("handshake/{}", token));
     Ok(())
 }
 

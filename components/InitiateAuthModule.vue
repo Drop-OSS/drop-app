@@ -42,6 +42,31 @@
             </span>
           </button>
 
+          <div class="mt-5" v-if="offerManual">
+            <h1 class="text-zinc-100 font-semibold">Having trouble?</h1>
+            <p class="mt-1 text-zinc-400 text-sm">
+              You can manually enter the token from your web browser.
+            </p>
+            <div class="inline-flex gap-x-1 mt-2 w-full">
+              <input
+                id="token"
+                name="token"
+                type="text"
+                autocomplete="token"
+                required
+                class="grow block w-full rounded-md border-0 py-1.5 px-3 shadow-sm bg-zinc-950/20 text-zinc-300 ring-1 ring-inset ring-zinc-800 placeholder:text-zinc-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+                v-model="manualToken"
+              />
+              <LoadingButton
+                :loading="manualLoading"
+                @click="() => continueManual_wrapper()"
+                class="w-fit"
+              >
+                Submit
+              </LoadingButton>
+            </div>
+          </div>
+
           <div v-if="error" class="mt-5 rounded-md bg-red-600/10 p-4">
             <div class="flex">
               <div class="flex-shrink-0">
@@ -101,6 +126,10 @@ import { invoke } from "@tauri-apps/api/core";
 const loading = ref(false);
 const error = ref<string | undefined>();
 
+const offerManual = ref(false);
+const manualToken = ref("");
+const manualLoading = ref(false);
+
 async function auth() {
   await invoke("auth_initiate");
 }
@@ -111,5 +140,23 @@ function authWrapper_wrapper() {
     loading.value = false;
     error.value = e;
   });
+  setTimeout(() => {
+    offerManual.value = true;
+  }, 10000);
+}
+
+async function continueManual() {
+  await invoke("manual_recieve_handshake", { token: manualToken.value });
+}
+
+function continueManual_wrapper() {
+  loading.value = true;
+  continueManual()
+    .catch((e) => {
+      error.value = e;
+    })
+    .finally(() => {
+      loading.value = false;
+    });
 }
 </script>

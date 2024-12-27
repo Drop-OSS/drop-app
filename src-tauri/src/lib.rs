@@ -11,7 +11,7 @@ mod state;
 mod tests;
 
 use crate::db::DatabaseImpls;
-use auth::{auth_initiate, generate_authorization_header, recieve_handshake, retry_connect};
+use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect};
 use cleanup::{cleanup_and_exit, quit};
 use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
@@ -213,6 +213,7 @@ pub fn run() {
             // Auth
             auth_initiate,
             retry_connect,
+            manual_recieve_handshake,
             // Remote
             use_remote,
             gen_drop_url,
@@ -269,6 +270,7 @@ pub fn run() {
                 info!("handling drop:// url");
                 let binding = event.urls();
                 let url = binding.first().unwrap();
+                return; // We're macOS
                 if url.host_str().unwrap() == "handshake" {
                     recieve_handshake(handle.clone(), url.path().to_string())
                 }
@@ -345,16 +347,20 @@ pub fn run() {
 
             responder.respond(resp);
         })
-        .on_window_event(|window, event| if let WindowEvent::CloseRequested { api, .. } = event {
-            window.hide().unwrap();
-            api.prevent_close();
+        .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                window.hide().unwrap();
+                api.prevent_close();
+            }
         })
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, event| if let RunEvent::ExitRequested { code, api, .. } = event {
-        if code.is_none() {
-            api.prevent_exit();
+    app.run(|app_handle, event| {
+        if let RunEvent::ExitRequested { code, api, .. } = event {
+            if code.is_none() {
+                api.prevent_exit();
+            }
         }
     });
 }
