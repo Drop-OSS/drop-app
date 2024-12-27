@@ -297,6 +297,8 @@ const versionOptions = ref<
 const installDirs = ref<undefined | Array<string>>();
 async function installFlow() {
   installFlowOpen.value = true;
+  versionOptions.value = undefined;
+  installDirs.value = undefined
 
   try {
     versionOptions.value = await invoke("fetch_game_verion_options", {
