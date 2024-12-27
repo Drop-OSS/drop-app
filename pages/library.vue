@@ -6,29 +6,22 @@
           v-for="(nav, navIdx) in navigation"
           :key="nav.route"
           :class="[
-            'transition group rounded flex justify-between gap-x-6 py-2 px-3',
-            navIdx === currentNavigationIndex ? 'bg-zinc-900' : '',
+            'transition-all duration-200 rounded-lg flex items-center py-1.5 px-3',
+            navIdx === currentNavigationIndex 
+              ? 'bg-zinc-800 text-zinc-100' 
+              : 'bg-zinc-900/50 text-zinc-400 hover:bg-zinc-800/70 hover:text-zinc-300',
           ]"
           :href="nav.route"
         >
-          <div class="flex items-center min-w-0 gap-x-2">
+          <div class="flex items-center w-full gap-x-3">
             <img
-              class="h-5 w-auto flex-none object-cover rounded-sm bg-zinc-900"
+              class="h-8 w-10 flex-none object-cover bg-zinc-900"
               :src="icons[navIdx]"
               alt=""
             />
-            <div class="min-w-0 flex-auto">
-              <p
-                :class="[
-                  navIdx === currentNavigationIndex
-                    ? 'text-zinc-100'
-                    : 'text-zinc-400 group-hover:text-zinc-300',
-                  'truncate transition text-sm font-display leading-6',
-                ]"
-              >
-                {{ nav.label }}
-              </p>
-            </div>
+            <p class="truncate text-sm font-display leading-6 flex-1">
+              {{ nav.label }}
+            </p>
           </div>
         </NuxtLink>
       </ul>
