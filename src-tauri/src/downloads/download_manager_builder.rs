@@ -16,7 +16,7 @@ use crate::{
     db::{Database, GameStatus, GameTransientStatus},
     library::{
         on_game_complete, push_game_update, GameUpdateEvent, QueueUpdateEvent,
-        QueueUpdateEventQueueData,
+        QueueUpdateEventQueueData, StatsUpdateEvent,
     },
     state::{GameStatusManager, GameStatusWithTransient},
     DB,
@@ -128,7 +128,13 @@ impl DownloadManagerBuilder {
         push_game_update(&self.app_handle, id, status);
     }
 
-    fn push_manager_update(&self) {
+    fn push_ui_stats_update(&self, kbs: usize, time: usize) {
+        let event_data = StatsUpdateEvent { speed: kbs, time };
+
+        self.app_handle.emit("update_stats", event_data).unwrap();
+    }
+
+    fn push_ui_queue_update(&self) {
         let queue = self.download_queue.read();
         let queue_objs: Vec<QueueUpdateEventQueueData> = queue
             .iter()
@@ -208,8 +214,11 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel => {
                     self.manage_cancel_signal();
                 }
-                DownloadManagerSignal::Update => {
-                    self.push_manager_update();
+                DownloadManagerSignal::UpdateUIQueue => {
+                    self.push_ui_queue_update();
+                }
+                DownloadManagerSignal::UpdateUIStats(kbs, time) => {
+                    self.push_ui_stats_update(kbs, time);
                 }
                 DownloadManagerSignal::Finish => {
                     self.stop_and_wait_current_download();
@@ -315,7 +324,7 @@ impl DownloadManagerBuilder {
             self.manage_go_signal();
         }
 
-        self.push_manager_update();
+        self.push_ui_queue_update();
     }
 
     fn manage_stop_signal(&mut self) {
@@ -356,7 +365,9 @@ impl DownloadManagerBuilder {
                 }
             }
         }
-        self.sender.send(DownloadManagerSignal::Update).unwrap();
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
 
@@ -406,7 +417,9 @@ impl DownloadManagerBuilder {
                 GameTransientStatus::Downloading { version_name },
             );
         });
-        self.sender.send(DownloadManagerSignal::Update).unwrap();
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
     }
 
     fn manage_go_signal(&mut self) {
@@ -483,7 +496,9 @@ impl DownloadManagerBuilder {
             );
         });
 
-        self.sender.send(DownloadManagerSignal::Update).unwrap();
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
     }
     fn manage_error_signal(&mut self, error: GameDownloadError) {
         let current_status = self.current_download_agent.clone().unwrap();
@@ -504,7 +519,9 @@ impl DownloadManagerBuilder {
             db_handle.games.transient_statuses.remove(id);
         });
 
-        self.sender.send(DownloadManagerSignal::Update).unwrap();
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
     }
     fn manage_cancel_signal(&mut self) {
         self.stop_and_wait_current_download();

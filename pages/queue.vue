@@ -1,18 +1,23 @@
 <template>
-  <div class="bg-zinc-950 p-4 min-h-full">
+  <div class="bg-zinc-950 p-4 min-h-full space-y-4">
+    <div class="h-16 overflow-hidden relative rounded-xl flex flex-row border border-zinc-900">
+      <div
+        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2">
+        <span class="font-semibold">{{ formatKilobytes(stats.speed) }}</span>
+        <span v-if="stats.time > 0" class="text-sm">{{ formatTime(stats.time) }} left</span>
+
+      </div>
+      <div class="absolute inset-0 h-full flex flex-row items-end justify-end">
+        <div v-for="bar in speedHistory" :style="{ height: `${bar / speedMax * 100}%` }"
+          class="w-[8px] bg-blue-600/40" />
+      </div>
+    </div>
     <draggable v-model="queue.queue" @end="onEnd">
       <template #item="{ element }: { element: (typeof queue.value.queue)[0] }">
-        <li
-          v-if="games[element.id]"
-          :key="element.id"
-          class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4"
-        >
+        <li v-if="games[element.id]" :key="element.id"
+          class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4">
           <div class="w-full flex items-center max-w-md gap-x-4 relative">
-            <img
-              class="size-24 flex-none bg-zinc-800 object-cover rounded"
-              :src="games[element.id].cover"
-              alt=""
-            />
+            <img class="size-24 flex-none bg-zinc-800 object-cover rounded" :src="games[element.id].cover" alt="" />
             <div class="min-w-0 flex-auto">
               <p class="text-xl font-semibold text-zinc-100">
                 <NuxtLink :href="`/library/${element.id}`" class="">
@@ -30,31 +35,20 @@
               <p class="text-md text-zinc-500 uppercase font-display font-bold">
                 {{ element.status }}
               </p>
-              <div
-                v-if="element.progress"
-                class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
-              >
-                <div
-                  class="h-2 bg-blue-600"
-                  :style="{ width: `${element.progress * 100}%` }"
-                />
+              <div v-if="element.progress" class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden">
+                <div class="h-2 bg-blue-600" :style="{ width: `${element.progress * 100}%` }" />
               </div>
             </div>
             <button @click="() => cancelGame(element.id)" class="group">
-              <XMarkIcon
-                class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
-                aria-hidden="true"
-              />
+              <XMarkIcon class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
+                aria-hidden="true" />
             </button>
           </div>
         </li>
         <p v-else>Loading...</p>
       </template>
     </draggable>
-    <div
-      class="text-zinc-600 uppercase font-semibold font-display w-full text-center"
-      v-if="queue.queue.length == 0"
-    >
+    <div class="text-zinc-600 uppercase font-semibold font-display w-full text-center" v-if="queue.queue.length == 0">
       No items in the queue
     </div>
   </div>
@@ -65,18 +59,63 @@ import { XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import type { Game, GameStatus } from "~/types";
 
-const queue = useQueueState();
+const windowWidth = ref(window.innerWidth);
+window.addEventListener('resize', (event) => {
+  windowWidth.value = window.innerWidth;
+})
 
-const current = computed(() => queue.value.queue.at(0));
-const rest = computed(() => queue.value.queue.slice(1));
+const queue = useQueueState();
+const stats = useStatsState();
+const speedHistory = useState<Array<number>>(() => []);
+const speedHistoryMax = computed(() => windowWidth.value / 8);
+const speedMax = computed(() => speedHistory.value.reduce((a, b) => a > b ? a : b) * 1.3);
+const previousGameId = ref<string | undefined>();
 
 const games: Ref<{
   [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
 }> = ref({});
 
+
+function resetHistoryGraph() {
+  speedHistory.value = [];
+  stats.value = { time: 0, speed: 0 };
+}
+function checkReset(v: QueueState) {
+  const currentGame = v.queue.at(0);
+  // If we're finished
+  if (!currentGame && previousGameId.value) {
+    previousGameId.value = undefined;
+    resetHistoryGraph();
+    return;
+  }
+  // If we don't have a game
+  if (!currentGame) return;
+  // If we started a new download
+  if (currentGame && !previousGameId.value) {
+    previousGameId.value = currentGame.id;
+    resetHistoryGraph();
+    return;
+  }
+  // If it's a different game now
+  if (currentGame.id != previousGameId.value
+  ) {
+    previousGameId.value = currentGame.id;
+    resetHistoryGraph();
+    return;
+  }
+}
 watch(queue, (v) => {
   loadGamesForQueue(v);
+  checkReset(v);
 });
+
+watch(stats, (v) => {
+  const newLength = speedHistory.value.push(v.speed);
+  if (newLength > speedHistoryMax.value) {
+    speedHistory.value.splice(0, 1);
+  }
+  checkReset(queue.value);
+})
 
 function loadGamesForQueue(v: typeof queue.value) {
   for (const { id } of v.queue) {
@@ -100,5 +139,33 @@ async function onEnd(event: { oldIndex: number; newIndex: number }) {
 
 async function cancelGame(id: string) {
   await invoke("cancel_game", { gameId: id });
+}
+
+function formatKilobytes(bytes: number): string {
+  const units = ["KB", "MB", "GB", "TB", "PB"];
+  let value = bytes;
+  let unitIndex = 0;
+  const scalar = 1000;
+
+  while (value >= scalar && unitIndex < units.length - 1) {
+    value /= scalar;
+    unitIndex++;
+  }
+
+  return `${value.toFixed(1)} ${units[unitIndex]}/s`;
+}
+
+function formatTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${Math.round(seconds)}s`;
+  }
+
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return `${minutes}m ${Math.round(seconds % 60)}s`
+  }
+
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ${minutes % 60}m`;
 }
 </script>

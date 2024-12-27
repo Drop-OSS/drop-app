@@ -53,6 +53,12 @@ pub struct QueueUpdateEvent {
     pub status: DownloadManagerStatus,
 }
 
+#[derive(serde::Serialize, Clone)]
+pub struct StatsUpdateEvent {
+    pub speed: usize,
+    pub time: usize,
+}
+
 // Game version with some fields missing and size information
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "camelCase")]

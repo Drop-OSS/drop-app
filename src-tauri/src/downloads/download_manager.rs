@@ -41,7 +41,8 @@ pub enum DownloadManagerSignal {
     /// Any error which occurs in the agent
     Error(GameDownloadError),
     /// Pushes UI update
-    Update,
+    UpdateUIQueue,
+    UpdateUIStats(usize, usize), //kb/s and seconds
     /// Uninstall game
     /// Takes game ID
     Uninstall(String),
@@ -156,7 +157,7 @@ impl DownloadManager {
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
         self.command_sender
-            .send(DownloadManagerSignal::Update)
+            .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
     pub fn cancel(&self, game_id: String) {
@@ -188,7 +189,7 @@ impl DownloadManager {
             self.command_sender.send(DownloadManagerSignal::Go).unwrap();
         }
         self.command_sender
-            .send(DownloadManagerSignal::Update)
+            .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
     pub fn pause_downloads(&self) {
