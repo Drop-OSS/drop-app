@@ -60,3 +60,25 @@ $helvetica: (
   src: url("/fonts/inter/InterVariable-Italic.ttf");
   font-style: italic;
 }
+
+/* ===== Scrollbar CSS ===== */
+/* Firefox */
+* {
+  scrollbar-width: 4px;
+  scrollbar-color: #52525b #00000000;
+}
+
+/* Chrome, Edge, and Safari */
+*::-webkit-scrollbar {
+  width: 4px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #52525b;
+  border-radius: 10px;
+  border: 3px solid #52525b;
+}
