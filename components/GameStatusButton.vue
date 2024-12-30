@@ -8,6 +8,7 @@
       <component :is="buttonIcons[props.status.type]" class="-mr-0.5 size-5" aria-hidden="true" />
       {{ buttonNames[props.status.type] }}
     </button>
+
     <Menu v-if="showDropdown" as="div" class="relative inline-block text-left grow">
       <div class="h-full">
         <MenuButton :class="[
@@ -34,6 +35,60 @@
         </MenuItems>
       </transition>
     </Menu>
+
+    <button v-if="showInfoButton" 
+      @click="infoOpen = true"
+      class="px-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded-md ml-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-600">
+      <InformationCircleIcon class="size-5" />
+    </button>
+
+    <TransitionRoot as="template" :show="infoOpen">
+      <Dialog as="div" class="relative z-50" @close="infoOpen = false">
+        <TransitionChild enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100"
+          leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
+          <div class="fixed inset-0 bg-zinc-950/75 transition-opacity" />
+        </TransitionChild>
+
+        <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
+          <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <TransitionChild enter="ease-out duration-300"
+              enter-from="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+              enter-to="opacity-100 translate-y-0 sm:scale-100" leave="ease-in duration-200"
+              leave-from="opacity-100 translate-y-0 sm:scale-100"
+              leave-to="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95">
+              <DialogPanel
+                class="relative transform overflow-hidden rounded-lg bg-zinc-900 px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg sm:p-6">
+                <div class="space-y-4">
+                  <div class="text-center">
+                    <DialogTitle as="h3" class="text-xl font-semibold leading-6 text-zinc-100">
+                      Game Information
+                    </DialogTitle>
+                  </div>
+                  
+                  <div class="space-y-3 text-left">
+                    <div class="flex justify-between items-center">
+                      <span class="text-zinc-400">Game ID:</span>
+                      <span class="text-zinc-100">{{ displayGameId }}</span>
+                    </div>
+                    
+                    <div v-if="setupRequired" class="flex justify-between items-center">
+                      <span class="text-zinc-400">Status:</span>
+                      <span class="text-yellow-500">Setup Required</span>
+                    </div>
+                  </div>
+                  
+                  <div class="mt-5">
+                    <button type="button"
+                      class="w-full rounded-md bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 hover:bg-zinc-700"
+                      @click="infoOpen = false">Close</button>
+                  </div>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </div>
+      </Dialog>
+    </TransitionRoot>
   </div>
 </template>
 
@@ -45,13 +100,32 @@ import {
   QueueListIcon,
   TrashIcon,
   WrenchIcon,
+  InformationCircleIcon,
 } from "@heroicons/vue/20/solid";
+import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue'
 
 import type { Component } from "vue";
 import { GameStatusEnum, type GameStatus } from "~/types.js";
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue'
+import { useRoute } from 'vue-router';
+import { invoke } from "@tauri-apps/api/core";
 
-const props = defineProps<{ status: GameStatus }>();
+const props = defineProps<{ 
+  status: GameStatus;
+  gameId?: string;
+}>();
+
+const route = useRoute();
+const displayGameId = computed(() => props.gameId || route.params.id as string);
+
+const infoOpen = ref(false);
+const showInfoButton = computed(() => 
+  props.status.type === GameStatusEnum.Installed || 
+  props.status.type === GameStatusEnum.SetupRequired
+);
+
+const setupRequired = computed(() => props.status.type === GameStatusEnum.SetupRequired);
+
 const emit = defineEmits<{
   (e: "install"): void;
   (e: "launch"): void;
