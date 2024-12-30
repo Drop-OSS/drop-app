@@ -72,9 +72,24 @@ pub struct DatabaseGames {
     pub transient_statuses: HashMap<String, GameTransientStatus>,
 }
 
-#[derive(Serialize, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Settings {
+    pub autostart: bool,
+    // ... other settings ...
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            autostart: false,
+            // ... other settings defaults ...
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Database {
+    pub settings: Settings,
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
     pub games: DatabaseGames,
@@ -118,13 +133,14 @@ impl DatabaseImpls for DatabaseInterface {
         debug!("Creating logs directory");
         create_dir_all(logs_root_dir.clone()).unwrap();
 
-        #[allow(clippy::let_and_return)]
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
-            true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
+            true => PathDatabase::load_from_path(db_path)
+                .expect("Database loading failed"),
             false => {
                 let default = Database {
+                    settings: Settings::default(),
                     auth: None,
                     base_url: "".to_string(),
                     games: DatabaseGames {
