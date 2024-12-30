@@ -29,7 +29,7 @@ pub struct GameStatusData {
 // Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(tag = "type")]
-pub enum GameStatus {
+pub enum ApplicationStatus {
     Remote {},
     SetupRequired {
         version_name: String,
@@ -43,7 +43,7 @@ pub enum GameStatus {
 
 // Stuff that shouldn't be synced to disk
 #[derive(Clone, Serialize)]
-pub enum GameTransientStatus {
+pub enum ApplicationTransientStatus {
     Downloading { version_name: String },
     Uninstalling {},
     Updating { version_name: String },
@@ -52,7 +52,7 @@ pub enum GameTransientStatus {
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct GameVersion {
+pub struct ApplicationVersion {
     pub version_index: usize,
     pub version_name: String,
     pub launch_command: String,
@@ -62,14 +62,14 @@ pub struct GameVersion {
 
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct DatabaseGames {
+pub struct DatabaseApplications {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
-    pub statuses: HashMap<String, GameStatus>,
-    pub versions: HashMap<String, HashMap<String, GameVersion>>,
+    pub statuses: HashMap<String, ApplicationStatus>,
+    pub versions: HashMap<String, HashMap<String, ApplicationVersion>>,
 
     #[serde(skip)]
-    pub transient_statuses: HashMap<String, GameTransientStatus>,
+    pub transient_statuses: HashMap<String, ApplicationTransientStatus>,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -77,7 +77,7 @@ pub struct DatabaseGames {
 pub struct Database {
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
-    pub games: DatabaseGames,
+    pub applications: DatabaseApplications,
 }
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
@@ -127,7 +127,7 @@ impl DatabaseImpls for DatabaseInterface {
                 let default = Database {
                     auth: None,
                     base_url: "".to_string(),
-                    games: DatabaseGames {
+                    applications: DatabaseApplications {
                         install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
                         statuses: HashMap::new(),
                         transient_statuses: HashMap::new(),
@@ -178,10 +178,10 @@ pub fn add_download_dir(new_dir: String) -> Result<(), String> {
 
     // Add it to the dictionary
     let mut lock = DB.borrow_data_mut().unwrap();
-    if lock.games.install_dirs.contains(&new_dir) {
+    if lock.applications.install_dirs.contains(&new_dir) {
         return Err("Download directory already used".to_string());
     }
-    lock.games.install_dirs.push(new_dir);
+    lock.applications.install_dirs.push(new_dir);
     drop(lock);
     DB.save().unwrap();
 
@@ -191,7 +191,7 @@ pub fn add_download_dir(new_dir: String) -> Result<(), String> {
 #[tauri::command]
 pub fn delete_download_dir(index: usize) -> Result<(), String> {
     let mut lock = DB.borrow_data_mut().unwrap();
-    lock.games.install_dirs.remove(index);
+    lock.applications.install_dirs.remove(index);
     drop(lock);
     DB.save().unwrap();
 
@@ -203,7 +203,7 @@ pub fn delete_download_dir(index: usize) -> Result<(), String> {
 #[tauri::command]
 pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
     let lock = DB.borrow_data().unwrap();
-    let directories = lock.games.install_dirs.clone();
+    let directories = lock.applications.install_dirs.clone();
     drop(lock);
 
     Ok(directories)

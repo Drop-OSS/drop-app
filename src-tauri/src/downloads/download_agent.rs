@@ -1,6 +1,6 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
-use crate::download_manager::download_manager::{DownloadManagerSignal, GameDownloadStatus};
+use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
@@ -35,9 +35,9 @@ pub struct GameDownloadAgent {
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
     pub stored_manifest: StoredManifest,
-    status: Mutex<GameDownloadStatus>
 }
 
+// TODO: Rename / separate from downloads
 #[derive(Debug, Clone)]
 pub enum GameDownloadError {
     Communication(RemoteAccessError),
@@ -85,7 +85,7 @@ impl GameDownloadAgent {
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
         let db_lock = DB.borrow_data().unwrap();
-        let base_dir = db_lock.games.install_dirs[target_download_dir].clone();
+        let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
 
         let base_dir_path = Path::new(&base_dir);
@@ -104,7 +104,6 @@ impl GameDownloadAgent {
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
-            status: Mutex::new(GameDownloadStatus::Queued),
         }
     }
 

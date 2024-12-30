@@ -12,20 +12,20 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::{Database, GameStatus, GameTransientStatus}, download_manager::download_manager::GameDownloadStatus, downloads::download_agent::{GameDownloadAgent, GameDownloadError}, library::{
-        on_game_complete, push_game_update, QueueUpdateEvent,
+    db::{Database, ApplicationStatus, ApplicationTransientStatus}, download_manager::download_manager::DownloadStatus, downloads::download_agent::{GameDownloadAgent, GameDownloadError}, library::{
+        on_game_complete, push_application_update, QueueUpdateEvent,
         QueueUpdateEventQueueData, StatsUpdateEvent,
-    }, state::GameStatusManager, DB
+    }, state::DownloadStatusManager, DB
 };
 
-use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus, GameDownloadAgentQueueStandin}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
+use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
 
 /*
 
 Welcome to the download manager, the most overengineered, glorious piece of bullshit.
 
-The download manager takes a queue of game_ids and their associated
-GameDownloadAgents, and then, one-by-one, executes them. It provides an interface
+The download manager takes a queue of ids and their associated
+DownloadAgents, and then, one-by-one, executes them. It provides an interface
 to interact with the currently downloading agent, and manage the queue.
 
 When the DownloadManager is initialised, it is designed to provide a reference
@@ -48,7 +48,7 @@ whichever download queue order is required.
 | WHICH HAS NOT BEEN ACCOUNTED FOR                                           |
 +----------------------------------------------------------------------------+
 
-This download queue does not actually own any of the GameDownloadAgents. It is
+This download queue does not actually own any of the DownloadAgents. It is
 simply a id-based reference system. The actual Agents are stored in the
 download_agent_registry HashMap, as ordering is no issue here. This is why
 appending or removing from the download_queue must be done via signals.
@@ -70,9 +70,14 @@ pub struct DownloadManagerBuilder {
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
 
-    current_download_agent: Option<Arc<GameDownloadAgentQueueStandin>>, // Should be the only game download agent in the map with the "Go" flag
+    current_download_agent: Option<Arc<DownloadableQueueStandin>>, // Should be the only download agent in the map with the "Go" flag
     current_download_thread: Mutex<Option<JoinHandle<()>>>,
     active_control_flag: Option<DownloadThreadControl>,
+}
+pub struct DownloadableQueueStandin {
+    pub id: String,
+    pub status: Mutex<DownloadStatus>,
+    pub progress: Arc<ProgressObject>,
 }
 
 impl DownloadManagerBuilder {
@@ -101,7 +106,7 @@ impl DownloadManagerBuilder {
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
-    fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
+    fn set_download_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
         &self,
         id: String,
         setter: F,
@@ -111,9 +116,9 @@ impl DownloadManagerBuilder {
         drop(db_handle);
         DB.save().unwrap();
 
-        let status = GameStatusManager::fetch_state(&id);
+        let status = DownloadStatusManager::fetch_state(&id);
 
-        push_game_update(&self.app_handle, id, status);
+        push_application_update(&self.app_handle, id, status);
     }
 
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
@@ -157,9 +162,9 @@ impl DownloadManagerBuilder {
         drop(download_thread_lock);
     }
 
-    fn remove_and_cleanup_front_game(&mut self, game_id: &String) -> DownloadAgent {
+    fn remove_and_cleanup_front_download(&mut self, id: &String) -> DownloadAgent {
         self.download_queue.pop_front();
-        let download_agent = self.download_agent_registry.remove(game_id).unwrap();
+        let download_agent = self.download_agent_registry.remove(id).unwrap();
         self.cleanup_current_download();
         download_agent
     }
@@ -190,11 +195,11 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Stop => {
                     self.manage_stop_signal();
                 }
-                DownloadManagerSignal::Completed(game_id) => {
-                    self.manage_completed_signal(game_id);
+                DownloadManagerSignal::Completed(id) => {
+                    self.manage_completed_signal(id);
                 }
-                DownloadManagerSignal::Queue(game_id, version, target_download_dir) => {
-                    self.manage_queue_signal(game_id, version, target_download_dir);
+                DownloadManagerSignal::Queue(id, version, target_download_dir) => {
+                    self.manage_queue_signal(id, version, target_download_dir);
                 }
                 DownloadManagerSignal::Error(e) => {
                     self.manage_error_signal(e);
@@ -212,54 +217,54 @@ impl DownloadManagerBuilder {
                     self.stop_and_wait_current_download();
                     return Ok(());
                 }
-                DownloadManagerSignal::Remove(game_id) => {
-                    self.manage_remove_game_queue(game_id);
+                DownloadManagerSignal::Remove(id) => {
+                    self.manage_remove_download_from_queue(id);
                 }
-                DownloadManagerSignal::Uninstall(game_id) => {
-                    self.uninstall_game(game_id);
+                DownloadManagerSignal::Uninstall(id) => {
+                    self.uninstall_application(id);
                 }
             };
         }
     }
 
-    fn uninstall_game(&mut self, game_id: String) {
-        // Removes the game if it's in the queue
-        self.manage_remove_game_queue(game_id.clone());
+    fn uninstall_application(&mut self, id: String) {
+        // Removes the download if it's in the queue
+        self.manage_remove_download_from_queue(id.clone());
 
         let mut db_handle = DB.borrow_data_mut().unwrap();
         db_handle
-            .games
+            .applications
             .transient_statuses
-            .entry(game_id.clone())
-            .and_modify(|v| *v = GameTransientStatus::Uninstalling {});
-        push_game_update(
+            .entry(id.clone())
+            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        push_application_update(
             &self.app_handle,
-            game_id.clone(),
-            (None, Some(GameTransientStatus::Uninstalling {})),
+            id.clone(),
+            (None, Some(ApplicationTransientStatus::Uninstalling {})),
         );
 
-        let previous_state = db_handle.games.statuses.get(&game_id).cloned();
+        let previous_state = db_handle.applications.statuses.get(&id).cloned();
         if previous_state.is_none() {
             info!("uninstall job doesn't have previous state, failing silently");
             return;
         }
         let previous_state = previous_state.unwrap();
         if let Some((version_name, install_dir)) = match previous_state {
-            GameStatus::Installed {
+            ApplicationStatus::Installed {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
-            GameStatus::SetupRequired {
+            ApplicationStatus::SetupRequired {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
             _ => None,
         } {
             db_handle
-                .games
+                .applications
                 .transient_statuses
-                .entry(game_id.clone())
-                .and_modify(|v| *v = GameTransientStatus::Uninstalling {});
+                .entry(id.clone())
+                .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
             drop(db_handle);
 
             let sender = self.sender.clone();
@@ -274,36 +279,36 @@ impl DownloadManagerBuilder {
                 }
                 Ok(_) => {
                     let mut db_handle = DB.borrow_data_mut().unwrap();
-                    db_handle.games.transient_statuses.remove(&game_id);
+                    db_handle.applications.transient_statuses.remove(&id);
                     db_handle
-                        .games
+                        .applications
                         .statuses
-                        .entry(game_id.clone())
-                        .and_modify(|e| *e = GameStatus::Remote {});
+                        .entry(id.clone())
+                        .and_modify(|e| *e = ApplicationStatus::Remote {});
                     drop(db_handle);
                     DB.save().unwrap();
 
-                    info!("uninstalled {}", game_id);
+                    info!("uninstalled {}", id);
 
-                    push_game_update(&app_handle, game_id, (Some(GameStatus::Remote {}), None));
+                    push_application_update(&app_handle, id, (Some(ApplicationStatus::Remote {}), None));
                 }
             });
         }
     }
 
-    fn manage_remove_game_queue(&mut self, game_id: String) {
+    fn manage_remove_download_from_queue(&mut self, id: String) {
         if let Some(current_download) = &self.current_download_agent {
-            if current_download.id == game_id {
+            if current_download.id == id {
                 self.manage_cancel_signal();
             }
         }
 
-        let index = self.download_queue.get_by_id(game_id.clone());
+        let index = self.download_queue.get_by_id(id.clone());
         if let Some(index) = index {
             let mut queue_handle = self.download_queue.edit();
             queue_handle.remove(index);
-            self.set_game_status(game_id, |db_handle, id| {
-                db_handle.games.transient_statuses.remove(id);
+            self.set_download_status(id, |db_handle, id| {
+                db_handle.applications.transient_statuses.remove(id);
             });
             drop(queue_handle);
         }
@@ -323,13 +328,13 @@ impl DownloadManagerBuilder {
         }
     }
 
-    fn manage_completed_signal(&mut self, game_id: String) {
+    fn manage_completed_signal(&mut self, id: String) {
         info!("Got signal 'Completed'");
         if let Some(interface) = &self.current_download_agent {
             // When if let chains are stabilised, combine these two statements
-            if interface.id == game_id {
+            if interface.id == id {
                 info!("Popping consumed data");
-                let download_agent = self.remove_and_cleanup_front_game(&game_id);
+                let download_agent = self.remove_and_cleanup_front_download(&id);
                 let download_agent_lock = download_agent.lock().unwrap();
 
                 let version = download_agent_lock.version();
@@ -338,7 +343,7 @@ impl DownloadManagerBuilder {
                 drop(download_agent_lock);
 
                 if let Err(error) =
-                    on_game_complete(game_id, version, install_dir, &self.app_handle)
+                    on_game_complete(id, version, install_dir, &self.app_handle)
                 {
                     self.sender
                         .send(DownloadManagerSignal::Error(
@@ -362,13 +367,13 @@ impl DownloadManagerBuilder {
             if let Some(download_agent) = self.download_agent_registry.get(&id) {
                 let download_agent_handle = download_agent.lock().unwrap();
                 if download_agent_handle.version() == version {
-                    info!("game with same version already queued, skipping");
+                    info!("Application with same version already queued, skipping");
                     return;
                 }
                 // If it's not the same, we want to cancel the current one, and then add the new one
                 drop(download_agent_handle);
 
-                self.manage_remove_game_queue(id.clone());
+                self.manage_remove_download_from_queue(id.clone());
             }
         }
 
@@ -380,8 +385,8 @@ impl DownloadManagerBuilder {
         )));
         let download_agent_lock = download_agent.lock().unwrap();
 
-        let agent_status = GameDownloadStatus::Queued;
-        let interface_data = GameDownloadAgentQueueStandin {
+        let agent_status = DownloadStatus::Queued;
+        let interface_data = DownloadableQueueStandin {
             id: id.clone(),
             status: Mutex::new(agent_status),
             progress: download_agent_lock.progress.clone(),
@@ -394,10 +399,10 @@ impl DownloadManagerBuilder {
             .insert(interface_data.id.clone(), download_agent);
         self.download_queue.append(interface_data);
 
-        self.set_game_status(id, |db, id| {
-            db.games.transient_statuses.insert(
+        self.set_download_status(id, |db, id| {
+            db.applications.transient_statuses.insert(
                 id.to_string(),
-                GameTransientStatus::Downloading { version_name },
+                ApplicationTransientStatus::Downloading { version_name },
             );
         });
         self.sender
@@ -458,13 +463,13 @@ impl DownloadManagerBuilder {
             drop(download_agent_lock);
         }));
 
-        // Set status for games
-        for queue_game in self.download_queue.read() {
-            let mut status_handle = queue_game.status.lock().unwrap();
-            if queue_game.id == agent_data.id {
-                *status_handle = GameDownloadStatus::Downloading;
+        // Set status for applications
+        for queue_application in self.download_queue.read() {
+            let mut status_handle = queue_application.status.lock().unwrap();
+            if queue_application.id == agent_data.id {
+                *status_handle = DownloadStatus::Downloading;
             } else {
-                *status_handle = GameDownloadStatus::Queued;
+                *status_handle = DownloadStatus::Queued;
             }
             drop(status_handle);
         }
@@ -472,10 +477,10 @@ impl DownloadManagerBuilder {
         // Set flags for download manager
         active_control_flag.set(DownloadThreadControlFlag::Go);
         self.set_status(DownloadManagerStatus::Downloading);
-        self.set_game_status(agent_data.id.clone(), |db, id| {
-            db.games.transient_statuses.insert(
+        self.set_download_status(agent_data.id.clone(), |db, id| {
+            db.applications.transient_statuses.insert(
                 id.to_string(),
-                GameTransientStatus::Downloading { version_name },
+                ApplicationTransientStatus::Downloading { version_name },
             );
         });
 
@@ -487,19 +492,19 @@ impl DownloadManagerBuilder {
         let current_status = self.current_download_agent.clone().unwrap();
 
         self.stop_and_wait_current_download();
-        self.remove_and_cleanup_front_game(&current_status.id); // Remove all the locks and shit, and remove from queue
+        self.remove_and_cleanup_front_download(&current_status.id); // Remove all the locks and shit, and remove from queue
 
         self.app_handle
             .emit("download_error", error.to_string())
             .unwrap();
 
         let mut lock = current_status.status.lock().unwrap();
-        *lock = GameDownloadStatus::Error;
+        *lock = DownloadStatus::Error;
         self.set_status(DownloadManagerStatus::Error(error));
 
-        let game_id = current_status.id.clone();
-        self.set_game_status(game_id, |db_handle, id| {
-            db_handle.games.transient_statuses.remove(id);
+        let id = current_status.id.clone();
+        self.set_download_status(id, |db_handle, id| {
+            db_handle.applications.transient_statuses.remove(id);
         });
 
         self.sender
