@@ -180,6 +180,11 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     drop(db_handle);
     info!("finished setup!");
 
+    // Sync autostart state
+    if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
+        warn!("Failed to sync autostart state: {}", e);
+    }
+
     AppState {
         status: app_status,
         user,
