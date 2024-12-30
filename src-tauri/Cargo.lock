@@ -995,6 +995,7 @@ dependencies = [
  "tauri-plugin-shell",
  "tauri-plugin-single-instance",
  "tokio",
+ "umu-wrapper-lib",
  "url",
  "urlencoding",
  "uuid",
@@ -4925,6 +4926,12 @@ dependencies = [
  "tempfile",
  "winapi",
 ]
+
+[[package]]
+name = "umu-wrapper-lib"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "baa36636bef667cee9eb4f497c24279182b8b9f098fd04b0b8c5d2ebc4e451f1"
 
 [[package]]
 name = "unic-char-property"

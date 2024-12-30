@@ -43,6 +43,7 @@ md5 = "0.7.0"
 chrono = "0.4.38"
 tauri-plugin-os = "2"
 boxcar = "0.2.7"
+umu-wrapper-lib = "0.1.0"
 
 [dependencies.tauri]
 version = "2.1.1"

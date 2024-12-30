@@ -10,6 +10,7 @@ use std::{
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
+use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
     db::{GameStatus, GameTransientStatus, DATA_ROOT_DIR},
@@ -315,6 +316,7 @@ impl ProcessHandler for NativeGameLauncher {
     }
 }
 
+const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
 struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn launch_process(
@@ -327,6 +329,11 @@ impl ProcessHandler for UMULauncher {
         log_file: File,
         error_file: File,
     ) -> Result<Child, String> {
-        todo!()
+        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, command)
+            .game_id(game_id.into())
+            .launch_args(args)
+            .build()
+            .spawn()
+            .map_err(|x| x.to_string())
     }
 }
