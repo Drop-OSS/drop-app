@@ -18,7 +18,7 @@ use crate::{
     }, state::GameStatusManager, DB
 };
 
-use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus, GameDownloadAgentQueueStandin}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, progress_object::ProgressObject, queue::Queue};
+use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus, GameDownloadAgentQueueStandin}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
 
 /*
 
@@ -59,9 +59,10 @@ Behold, my madness - quexeky
 
 // Refactored to consolidate this type. It's a monster.
 pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
+pub type DownloadAgent = Arc<Mutex<dyn Downloadable + Send + Sync>>;
 
 pub struct DownloadManagerBuilder {
-    download_agent_registry: HashMap<String, Arc<Mutex<GameDownloadAgent>>>,
+    download_agent_registry: HashMap<String, DownloadAgent>,
     download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
@@ -156,7 +157,7 @@ impl DownloadManagerBuilder {
         drop(download_thread_lock);
     }
 
-    fn remove_and_cleanup_front_game(&mut self, game_id: &String) -> Arc<Mutex<GameDownloadAgent>> {
+    fn remove_and_cleanup_front_game(&mut self, game_id: &String) -> DownloadAgent {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(game_id).unwrap();
         self.cleanup_current_download();
@@ -331,13 +332,8 @@ impl DownloadManagerBuilder {
                 let download_agent = self.remove_and_cleanup_front_game(&game_id);
                 let download_agent_lock = download_agent.lock().unwrap();
 
-                let version = download_agent_lock.version.clone();
-                let install_dir = download_agent_lock
-                    .stored_manifest
-                    .base_path
-                    .clone()
-                    .to_string_lossy()
-                    .to_string();
+                let version = download_agent_lock.version();
+                let install_dir = download_agent_lock.install_dir();
 
                 drop(download_agent_lock);
 
@@ -362,7 +358,7 @@ impl DownloadManagerBuilder {
             // Should always give us a value
             if let Some(download_agent) = self.download_agent_registry.get(&id) {
                 let download_agent_handle = download_agent.lock().unwrap();
-                if download_agent_handle.version == version {
+                if download_agent_handle.version() == version {
                     info!("game with same version already queued, skipping");
                     return;
                 }
@@ -429,12 +425,12 @@ impl DownloadManagerBuilder {
         // Cloning option should be okay because it only clones the Arc inside, not the AgentInterfaceData
         let agent_data = self.current_download_agent.clone().unwrap();
 
-        let version_name = download_agent_lock.version.clone();
+        let version_name = download_agent_lock.version().clone();
 
-        let progress_object = download_agent_lock.progress.clone();
+        let progress_object = download_agent_lock.progress();
         *self.progress.lock().unwrap() = Some(progress_object);
 
-        let active_control_flag = download_agent_lock.control_flag.clone();
+        let active_control_flag = download_agent_lock.control_flag();
         self.active_control_flag = Some(active_control_flag.clone());
 
         let sender = self.sender.clone();
