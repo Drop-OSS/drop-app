@@ -12,25 +12,13 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::{Database, GameStatus, GameTransientStatus},
-    library::{
+    db::{Database, GameStatus, GameTransientStatus}, download_manager::download_manager::GameDownloadStatus, downloads::download_agent::{GameDownloadAgent, GameDownloadError}, library::{
         on_game_complete, push_game_update, QueueUpdateEvent,
         QueueUpdateEventQueueData, StatsUpdateEvent,
-    },
-    state::GameStatusManager,
-    DB,
+    }, state::GameStatusManager, DB
 };
 
-use super::{
-    download_agent::{GameDownloadAgent, GameDownloadError},
-    download_manager::{
-        DownloadManager, DownloadManagerSignal, DownloadManagerStatus,
-        GameDownloadAgentQueueStandin, GameDownloadStatus,
-    },
-    download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
-    progress_object::ProgressObject,
-    queue::Queue,
-};
+use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus, GameDownloadAgentQueueStandin}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, progress_object::ProgressObject, queue::Queue};
 
 /*
 

@@ -1,7 +1,9 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
+use crate::download_manager::download_manager::DownloadManagerSignal;
+use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::downloads::progress_object::ProgressHandle;
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
@@ -20,9 +22,6 @@ use urlencoding::encode;
 use rustix::fs::{fallocate, FallocateFlags};
 
 use super::download_logic::download_game_chunk;
-use super::download_manager::DownloadManagerSignal;
-use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
-use super::progress_object::ProgressObject;
 use super::stored_manifest::StoredManifest;
 
 pub struct GameDownloadAgent {
