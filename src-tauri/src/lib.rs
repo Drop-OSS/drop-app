@@ -22,7 +22,7 @@ use auth::{
 };
 use cleanup::{cleanup_and_exit, quit};
 use db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, ApplicationStatus,
     DATA_ROOT_DIR,
 };
 use download_manager::download_manager::DownloadManager;
@@ -148,12 +148,12 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     let db_handle = DB.borrow_data().unwrap();
     let mut missing_games = Vec::new();
-    let statuses = db_handle.games.statuses.clone();
+    let statuses = db_handle.applications.statuses.clone();
     drop(db_handle);
     for (game_id, status) in statuses.into_iter() {
         match status {
-            db::GameStatus::Remote {} => {}
-            db::GameStatus::SetupRequired {
+            db::ApplicationStatus::Remote {} => {}
+            db::ApplicationStatus::SetupRequired {
                 version_name: _,
                 install_dir,
             } => {
@@ -162,7 +162,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                     missing_games.push(game_id);
                 }
             }
-            db::GameStatus::Installed {
+            db::ApplicationStatus::Installed {
                 version_name: _,
                 install_dir,
             } => {
@@ -179,10 +179,10 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let mut db_handle = DB.borrow_data_mut().unwrap();
     for game_id in missing_games {
         db_handle
-            .games
+            .applications
             .statuses
             .entry(game_id.to_string())
-            .and_modify(|v| *v = GameStatus::Remote {});
+            .and_modify(|v| *v = ApplicationStatus::Remote {});
     }
     drop(db_handle);
     info!("finished setup!");

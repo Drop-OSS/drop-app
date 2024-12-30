@@ -7,9 +7,9 @@ use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
 use crate::db::DatabaseImpls;
-use crate::db::GameStatus;
-use crate::db::GameVersion;
-use crate::downloads::download_manager::{DownloadManagerStatus, GameDownloadStatus};
+use crate::db::ApplicationVersion;
+use crate::db::ApplicationStatus;
+use crate::download_manager::download_manager::{DownloadManagerStatus, DownloadStatus};
 use crate::process::process_manager::Platform;
 use crate::remote::{DropServerError, RemoteAccessError};
 use crate::state::{GameStatusManager, GameStatusWithTransient};
@@ -44,7 +44,7 @@ pub struct GameUpdateEvent {
 #[derive(Serialize, Clone)]
 pub struct QueueUpdateEventQueueData {
     pub id: String,
-    pub status: GameDownloadStatus,
+    pub status: DownloadStatus,
     pub progress: f64,
 }
 
@@ -99,11 +99,11 @@ fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
 
     for game in games.iter() {
         handle.games.insert(game.id.clone(), game.clone());
-        if !db_handle.games.statuses.contains_key(&game.id) {
+        if !db_handle.applications.statuses.contains_key(&game.id) {
             db_handle
-                .games
+                .applications
                 .statuses
-                .insert(game.id.clone(), GameStatus::Remote {});
+                .insert(game.id.clone(), ApplicationStatus::Remote {});
         }
     }
 
@@ -162,10 +162,10 @@ fn fetch_game_logic(
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
     db_handle
-        .games
+        .applications
         .statuses
         .entry(id.clone())
-        .or_insert(GameStatus::Remote {});
+        .or_insert(ApplicationStatus::Remote {});
     drop(db_handle);
 
     let status = GameStatusManager::fetch_state(&id);
@@ -246,13 +246,13 @@ pub fn uninstall_game(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let state_lock = state.lock().unwrap();
-    state_lock.download_manager.uninstall_game(game_id);
+    state_lock.download_manager.uninstall_application(game_id);
     drop(state_lock);
 
     Ok(())
 }
 
-pub fn push_game_update(app_handle: &AppHandle, id: String, status: GameStatusWithTransient) {
+pub fn push_application_update(app_handle: &AppHandle, id: String, status: GameStatusWithTransient) {
     app_handle
         .emit(
             &format!("update_game/{}", id),
@@ -297,11 +297,11 @@ pub fn on_game_complete(
         ));
     }
 
-    let data = response.json::<GameVersion>()?;
+    let data = response.json::<ApplicationVersion>()?;
 
     let mut handle = DB.borrow_data_mut().unwrap();
     handle
-        .games
+        .applications
         .versions
         .entry(game_id.clone())
         .or_default()
@@ -310,12 +310,12 @@ pub fn on_game_complete(
     DB.save().unwrap();
 
     let status = if data.setup_command.is_empty() {
-        GameStatus::Installed {
+        ApplicationStatus::Installed {
             version_name,
             install_dir,
         }
     } else {
-        GameStatus::SetupRequired {
+        ApplicationStatus::SetupRequired {
             version_name,
             install_dir,
         }
@@ -323,7 +323,7 @@ pub fn on_game_complete(
 
     let mut db_handle = DB.borrow_data_mut().unwrap();
     db_handle
-        .games
+        .applications
         .statuses
         .insert(game_id.clone(), status.clone());
     drop(db_handle);

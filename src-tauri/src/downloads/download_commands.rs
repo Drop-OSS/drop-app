@@ -13,7 +13,7 @@ pub fn download_game(
         .lock()
         .unwrap()
         .download_manager
-        .queue_game(game_id, game_version, install_dir)
+        .queue_download(game_id, game_version, install_dir)
         .map_err(|_| "An error occurred while communicating with the download manager.".to_string())
 }
 

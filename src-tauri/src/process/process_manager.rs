@@ -15,8 +15,8 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    db::{GameStatus, GameTransientStatus, DATA_ROOT_DIR},
-    library::push_game_update,
+    db::{ApplicationStatus, ApplicationTransientStatus, DATA_ROOT_DIR},
+    library::push_application_update,
     state::GameStatusManager,
     AppState, DB,
 };
@@ -107,20 +107,20 @@ impl ProcessManager<'_> {
         self.processes.remove(&game_id);
 
         let mut db_handle = DB.borrow_data_mut().unwrap();
-        db_handle.games.transient_statuses.remove(&game_id);
+        db_handle.applications.transient_statuses.remove(&game_id);
 
-        let current_state = db_handle.games.statuses.get(&game_id).cloned();
+        let current_state = db_handle.applications.statuses.get(&game_id).cloned();
         if let Some(saved_state) = current_state {
-            if let GameStatus::SetupRequired {
+            if let ApplicationStatus::SetupRequired {
                 version_name,
                 install_dir,
             } = saved_state
             {
                 if let Ok(exit_code) = result {
                     if exit_code.success() {
-                        db_handle.games.statuses.insert(
+                        db_handle.applications.statuses.insert(
                             game_id.clone(),
-                            GameStatus::Installed {
+                            ApplicationStatus::Installed {
                                 version_name: version_name.to_string(),
                                 install_dir: install_dir.to_string(),
                             },
@@ -133,7 +133,7 @@ impl ProcessManager<'_> {
 
         let status = GameStatusManager::fetch_state(&game_id);
 
-        push_game_update(&self.app_handle, game_id.clone(), status);
+        push_application_update(&self.app_handle, game_id.clone(), status);
 
         // TODO better management
     }
@@ -152,17 +152,17 @@ impl ProcessManager<'_> {
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
         let game_status = db_lock
-            .games
+            .applications
             .statuses
             .get(&game_id)
             .ok_or("Game not installed")?;
 
         let status_metadata: Option<(&String, &String)> = match game_status {
-            GameStatus::Installed {
+            ApplicationStatus::Installed {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
-            GameStatus::SetupRequired {
+            ApplicationStatus::SetupRequired {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
@@ -176,7 +176,7 @@ impl ProcessManager<'_> {
         let (version_name, install_dir) = status_metadata.unwrap();
 
         let game_version = db_lock
-            .games
+            .applications
             .versions
             .get(&game_id)
             .ok_or("Invalid game ID".to_owned())?
@@ -184,11 +184,11 @@ impl ProcessManager<'_> {
             .ok_or("Invalid version name".to_owned())?;
 
         let raw_command: String = match game_status {
-            GameStatus::Installed {
+            ApplicationStatus::Installed {
                 version_name: _,
                 install_dir: _,
             } => game_version.launch_command.clone(),
-            GameStatus::SetupRequired {
+            ApplicationStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
             } => game_version.setup_command.clone(),
@@ -252,14 +252,14 @@ impl ProcessManager<'_> {
             Arc::new(SharedChild::new(launch_process).map_err(|e| e.to_string())?);
 
         db_lock
-            .games
+            .applications
             .transient_statuses
-            .insert(game_id.clone(), GameTransientStatus::Running {});
+            .insert(game_id.clone(), ApplicationTransientStatus::Running {});
 
-        push_game_update(
+        push_application_update(
             &self.app_handle,
             game_id.clone(),
-            (None, Some(GameTransientStatus::Running {})),
+            (None, Some(ApplicationTransientStatus::Running {})),
         );
 
         let wait_thread_handle = launch_process_handle.clone();

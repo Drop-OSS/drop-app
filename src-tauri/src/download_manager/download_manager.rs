@@ -12,18 +12,23 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-use crate::downloads::download_agent::{GameDownloadAgent, GameDownloadError};
+use crate::downloads::download_agent::GameDownloadError;
 
-use super::{download_manager_builder::CurrentProgressObject, progress_object::ProgressObject, queue::Queue};
+use super::{download_manager_builder::{CurrentProgressObject, DownloadableQueueStandin}, downloadable::Downloadable, queue::Queue};
+
+pub enum DownloadType {
+    Game,
+    Tool,
+}
 
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the DownloadManager
     Go,
     /// Pauses the DownloadManager
     Stop,
-    /// Called when a GameDownloadAgent has fully completed a download.
+    /// Called when a DownloadAgent has fully completed a download.
     Completed(String),
-    /// Generates and appends a GameDownloadAgent
+    /// Generates and appends a DownloadAgent
     /// to the registry and queue
     Queue(String, String, usize),
     /// Tells the Manager to stop the current
@@ -32,15 +37,15 @@ pub enum DownloadManagerSignal {
     Finish,
     /// Stops (but doesn't remove) current download
     Cancel,
-    /// Removes a given game
+    /// Removes a given application
     Remove(String),
     /// Any error which occurs in the agent
     Error(GameDownloadError),
     /// Pushes UI update
     UpdateUIQueue,
     UpdateUIStats(usize, usize), //kb/s and seconds
-    /// Uninstall game
-    /// Takes game ID
+    /// Uninstall download
+    /// Takes download ID
     Uninstall(String),
 }
 
@@ -63,7 +68,7 @@ impl Serialize for DownloadManagerStatus {
 }
 
 #[derive(Serialize, Clone)]
-pub enum GameDownloadStatus {
+pub enum DownloadStatus {
     Queued,
     Downloading,
     Error,
@@ -85,23 +90,18 @@ pub struct DownloadManager {
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
 }
-pub struct GameDownloadAgentQueueStandin {
-    pub id: String,
-    pub status: Mutex<GameDownloadStatus>,
-    pub progress: Arc<ProgressObject>,
-}
-impl From<Arc<GameDownloadAgent>> for GameDownloadAgentQueueStandin {
-    fn from(value: Arc<GameDownloadAgent>) -> Self {
+impl<T: Downloadable> From<Arc<T>> for DownloadableQueueStandin {
+    fn from(value: Arc<T>) -> Self {
         Self {
-            id: value.id.clone(),
-            status: Mutex::from(GameDownloadStatus::Queued),
-            progress: value.progress.clone(),
+            id: value.id(),
+            status: Mutex::from(DownloadStatus::Queued),
+            progress: value.progress().clone(),
         }
     }
 }
-impl Debug for GameDownloadAgentQueueStandin {
+impl Debug for DownloadableQueueStandin {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("GameDownloadAgentQueueStandin")
+        f.debug_struct("DownloadableQueueStandin")
             .field("id", &self.id)
             .finish()
     }
@@ -123,13 +123,13 @@ impl DownloadManager {
         }
     }
 
-    pub fn queue_game(
+    pub fn queue_download(
         &self,
         id: String,
         version: String,
         target_download_dir: usize,
     ) -> Result<(), SendError<DownloadManagerSignal>> {
-        info!("Adding game id {}", id);
+        info!("Adding download id {}", id);
         self.command_sender.send(DownloadManagerSignal::Queue(
             id,
             version,
@@ -137,13 +137,13 @@ impl DownloadManager {
         ))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableQueueStandin>>> {
         self.download_queue.edit()
     }
-    pub fn read_queue(&self) -> VecDeque<Arc<GameDownloadAgentQueueStandin>> {
+    pub fn read_queue(&self) -> VecDeque<Arc<DownloadableQueueStandin>> {
         self.download_queue.read()
     }
-    pub fn get_current_game_download_progress(&self) -> Option<f64> {
+    pub fn get_current_download_progress(&self) -> Option<f64> {
         let progress_object = (*self.progress.lock().unwrap()).clone()?;
         Some(progress_object.get_progress())
     }
@@ -156,9 +156,9 @@ impl DownloadManager {
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
-    pub fn cancel(&self, game_id: String) {
+    pub fn cancel(&self, id: String) {
         self.command_sender
-            .send(DownloadManagerSignal::Remove(game_id))
+            .send(DownloadManagerSignal::Remove(id))
             .unwrap();
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
@@ -202,17 +202,17 @@ impl DownloadManager {
             .unwrap();
         self.terminator.join()
     }
-    pub fn uninstall_game(&self, game_id: String) {
+    pub fn uninstall_application(&self, id: String) {
         self.command_sender
-            .send(DownloadManagerSignal::Uninstall(game_id))
+            .send(DownloadManagerSignal::Uninstall(id))
             .unwrap();
     }
 }
 
 /// Takes in the locked value from .edit() and attempts to
-/// get the index of whatever game_id is passed in
+/// get the index of whatever id is passed in
 fn get_index_from_id(
-    queue: &mut MutexGuard<'_, VecDeque<Arc<GameDownloadAgentQueueStandin>>>,
+    queue: &mut MutexGuard<'_, VecDeque<Arc<DownloadableQueueStandin>>>,
     id: String,
 ) -> Option<usize> {
     queue
