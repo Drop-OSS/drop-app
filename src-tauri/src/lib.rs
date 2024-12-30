@@ -9,6 +9,7 @@ mod remote;
 mod state;
 #[cfg(test)]
 mod tests;
+mod autostart;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect};
@@ -46,6 +47,7 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
+use crate::autostart::{get_autostart_enabled, toggle_autostart};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -178,6 +180,11 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     drop(db_handle);
     info!("finished setup!");
 
+    // Sync autostart state
+    if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
+        warn!("Failed to sync autostart state: {}", e);
+    }
+
     AppState {
         status: app_status,
         user,
@@ -234,10 +241,16 @@ pub fn run() {
             uninstall_game,
             // Processes
             launch_game,
-            kill_game
+            kill_game,
+            toggle_autostart,
+            get_autostart_enabled,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimize"])
+        ))
         .setup(|app| {
             let handle = app.handle().clone();
             let state = setup(handle);
