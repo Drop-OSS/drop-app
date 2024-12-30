@@ -8,6 +8,7 @@ mod process;
 mod remote;
 mod state;
 mod tools;
+pub mod download_manager;
 #[cfg(test)]
 mod tests;
 
@@ -18,9 +19,9 @@ use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
     DATA_ROOT_DIR,
 };
+use download_manager::download_manager::DownloadManager;
+use download_manager::download_manager_builder::DownloadManagerBuilder;
 use downloads::download_commands::*;
-use downloads::download_manager::DownloadManager;
-use downloads::download_manager_builder::DownloadManagerBuilder;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{

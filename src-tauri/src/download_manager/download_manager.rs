@@ -12,12 +12,9 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-use super::{
-    download_agent::{GameDownloadAgent, GameDownloadError},
-    download_manager_builder::CurrentProgressObject,
-    progress_object::ProgressObject,
-    queue::Queue,
-};
+use crate::downloads::download_agent::{GameDownloadAgent, GameDownloadError};
+
+use super::{download_manager_builder::CurrentProgressObject, progress_object::ProgressObject, queue::Queue};
 
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the DownloadManager

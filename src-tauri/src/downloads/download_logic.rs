@@ -1,5 +1,7 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
+use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::progress_object::ProgressHandle;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
@@ -19,8 +21,6 @@ use std::{
 use urlencoding::encode;
 
 use super::download_agent::GameDownloadError;
-use super::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
-use super::progress_object::ProgressHandle;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
