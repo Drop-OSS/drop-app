@@ -14,16 +14,10 @@ use url::Url;
 use crate::{process::process_manager::Platform, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
     pub client_id: String,
-}
-
-pub struct GameStatusData {
-    version_name: String,
-    install_dir: String,
 }
 
 // Strings are version names for a particular game
@@ -61,7 +55,6 @@ pub struct GameVersion {
 }
 
 #[derive(Serialize, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DatabaseGames {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
@@ -89,6 +82,7 @@ impl Default for Settings {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Database {
+    #[serde(default)]
     pub settings: Settings,
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
@@ -136,8 +130,7 @@ impl DatabaseImpls for DatabaseInterface {
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
-            true => PathDatabase::load_from_path(db_path)
-                .expect("Database loading failed"),
+            true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
             false => {
                 let default = Database {
                     settings: Settings::default(),

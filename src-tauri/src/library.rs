@@ -1,16 +1,17 @@
 use std::sync::Mutex;
 
+use log::info;
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
 use crate::db::DatabaseImpls;
-use crate::db::GameVersion;
 use crate::db::GameStatus;
+use crate::db::GameVersion;
 use crate::downloads::download_manager::{DownloadManagerStatus, GameDownloadStatus};
 use crate::process::process_manager::Platform;
-use crate::remote::RemoteAccessError;
+use crate::remote::{DropServerError, RemoteAccessError};
 use crate::state::{GameStatusManager, GameStatusWithTransient};
 use crate::{auth::generate_authorization_header, AppState, DB};
 
@@ -287,6 +288,14 @@ pub fn on_game_complete(
         .get(endpoint.to_string())
         .header("Authorization", header)
         .send()?;
+
+    if response.status() != 200 {
+        return Err(RemoteAccessError::InvalidResponse(
+            response.json::<DropServerError>().map_err(|e| {
+                RemoteAccessError::Generic(format!("failed to parse server error: {}", e))
+            })?,
+        ));
+    }
 
     let data = response.json::<GameVersion>()?;
 

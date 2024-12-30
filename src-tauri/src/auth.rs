@@ -93,7 +93,9 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let path_chunks: Vec<&str> = path.split("/").collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
-        return Err(RemoteAccessError::InvalidResponse);
+        return Err(RemoteAccessError::HandshakeFailed(
+            "failed to parse token".to_string(),
+        ));
     }
 
     let base_url = {

@@ -356,11 +356,8 @@ impl DownloadManagerBuilder {
                 if let Err(error) =
                     on_game_complete(game_id, version, install_dir, &self.app_handle)
                 {
-                    self.sender
-                        .send(DownloadManagerSignal::Error(
-                            GameDownloadError::Communication(error),
-                        ))
-                        .unwrap();
+                    error!("failed to mark game as completed: {}", error);
+                    // TODO mark game as remote so user can retry
                 }
             }
         }
@@ -500,6 +497,7 @@ impl DownloadManagerBuilder {
             .unwrap();
     }
     fn manage_error_signal(&mut self, error: GameDownloadError) {
+        error!("{}", error);
         let current_status = self.current_download_agent.clone().unwrap();
 
         self.stop_and_wait_current_download();

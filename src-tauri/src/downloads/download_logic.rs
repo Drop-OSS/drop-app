@@ -3,7 +3,8 @@ use crate::db::DatabaseImpls;
 use crate::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::warn;
+use http::StatusCode;
+use log::{info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
@@ -171,7 +172,10 @@ pub fn download_game_chunk(
     let content_length = response.content_length();
     if content_length.is_none() {
         return Err(GameDownloadError::Communication(
-            RemoteAccessError::InvalidResponse,
+            RemoteAccessError::ManifestDownloadFailed(
+                StatusCode::from_u16(500).unwrap(),
+                "failed to download manifest due to missing content length".to_owned(),
+            ),
         ));
     }
 
