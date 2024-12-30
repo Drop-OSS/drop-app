@@ -987,6 +987,7 @@ dependencies = [
  "serde",
  "serde-binary",
  "serde_json",
+ "shared_child",
  "tauri",
  "tauri-build",
  "tauri-plugin-deep-link",

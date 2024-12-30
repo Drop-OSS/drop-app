@@ -57,6 +57,7 @@ const emit = defineEmits<{
   (e: "launch"): void;
   (e: "queue"): void;
   (e: "uninstall"): void;
+  (e: "kill"): void;
 }>();
 
 const showDropdown = computed(() => props.status.type === GameStatusEnum.Installed || props.status.type === GameStatusEnum.SetupRequired);
@@ -69,7 +70,7 @@ const styles: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600",
   [GameStatusEnum.Updating]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
   [GameStatusEnum.Uninstalling]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.Running]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700"
+  [GameStatusEnum.Running]: "bg-zinc-800 text-white focus-visible:outline-zinc-700"
 };
 
 const buttonNames: { [key in GameStatusEnum]: string } = {
@@ -80,7 +81,7 @@ const buttonNames: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "Play",
   [GameStatusEnum.Updating]: "Updating",
   [GameStatusEnum.Uninstalling]: "Uninstalling",
-  [GameStatusEnum.Running]: "Running"
+  [GameStatusEnum.Running]: "Stop"
 };
 
 const buttonIcons: { [key in GameStatusEnum]: Component } = {
@@ -102,6 +103,6 @@ const buttonActions: { [key in GameStatusEnum]: () => void } = {
   [GameStatusEnum.Installed]: () => emit("launch"),
   [GameStatusEnum.Updating]: () => emit("queue"),
   [GameStatusEnum.Uninstalling]: () => { },
-  [GameStatusEnum.Running]: () => { }
+  [GameStatusEnum.Running]: () => emit("kill")
 };
 </script>

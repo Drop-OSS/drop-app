@@ -23,6 +23,7 @@
           @launch="() => launch()"
           @queue="() => queue()"
           @uninstall="() => uninstall()"
+          @kill="() => kill()"
           :status="status"
         />
         <a
@@ -235,7 +236,7 @@
     </template>
     <template #buttons>
       <LoadingButton
-      @click="() => install()"
+        @click="() => install()"
         :disabled="
           !(versionOptions && versionOptions.length > 0 && !installDir)
         "
@@ -299,7 +300,7 @@ const installDirs = ref<undefined | Array<string>>();
 async function installFlow() {
   installFlowOpen.value = true;
   versionOptions.value = undefined;
-  installDirs.value = undefined
+  installDirs.value = undefined;
 
   try {
     versionOptions.value = await invoke("fetch_game_verion_options", {
@@ -356,5 +357,22 @@ async function queue() {
 
 async function uninstall() {
   await invoke("uninstall_game", { gameId: game.value.id });
+}
+
+async function kill() {
+  try {
+    await invoke("kill_game", { gameId: game.value.id });
+  } catch (e) {
+    createModal(
+      ModalType.Notification,
+      {
+        title: `Couldn't stop "${game.value.mName}"`,
+        description: `Drop failed to stop "${game.value.mName}": ${e}`,
+        buttonText: "Close",
+      },
+      (e, c) => c()
+    );
+    console.error(e);
+  }
 }
 </script>

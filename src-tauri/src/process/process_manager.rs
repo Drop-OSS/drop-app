@@ -1,9 +1,16 @@
 use std::{
-    collections::HashMap, fs::{File, OpenOptions}, io, path::{Path, PathBuf}, process::{Child, Command, ExitStatus}, sync::{Arc, Mutex}, thread::spawn
+    collections::HashMap,
+    fs::{File, OpenOptions},
+    io,
+    path::{Path, PathBuf},
+    process::{Child, Command, ExitStatus},
+    sync::{Arc, Mutex},
+    thread::spawn,
 };
 
 use log::{info, warn};
 use serde::{Deserialize, Serialize};
+use shared_child::SharedChild;
 use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
@@ -17,7 +24,7 @@ use crate::{
 pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
-    processes: HashMap<String, Arc<Mutex<Child>>>,
+    processes: HashMap<String, Arc<SharedChild>>,
     app_handle: AppHandle,
     game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
@@ -75,14 +82,18 @@ impl ProcessManager<'_> {
          */
         (absolute_exe, Vec::new())
     }
-    pub fn terminate_child(&mut self, game_id: String) -> Result<(), io::Error> {
+    pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
         return match self.processes.get(&game_id) {
             Some(child) => {
-                let mut lock = child.lock().unwrap();
-                lock.kill()
+                child.kill()?;
+                child.wait()?;
+                Ok(())
             },
-            None => Err(io::Error::new(io::ErrorKind::NotFound, "Game ID not running")),
-        }
+            None => Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Game ID not running",
+            )),
+        };
     }
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
@@ -123,6 +134,8 @@ impl ProcessManager<'_> {
         let status = GameStatusManager::fetch_state(&game_id);
 
         push_game_update(&self.app_handle, game_id.clone(), status);
+
+        // TODO better management
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
@@ -235,7 +248,8 @@ impl ProcessManager<'_> {
             error_file,
         )?;
 
-        let launch_process_handle = Arc::new(Mutex::new(launch_process));
+        let launch_process_handle =
+            Arc::new(SharedChild::new(launch_process).map_err(|e| e.to_string())?);
 
         db_lock
             .games
@@ -253,8 +267,7 @@ impl ProcessManager<'_> {
         let wait_thread_game_id = game_id.clone();
 
         spawn(move || {
-            let mut child_handle = wait_thread_handle.lock().unwrap();
-            let result: Result<ExitStatus, std::io::Error> = child_handle.wait();
+            let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
 
             let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
             let app_state_handle = app_state.lock().unwrap();
@@ -266,10 +279,9 @@ impl ProcessManager<'_> {
             // But just to explicit about it
             drop(process_manager_handle);
             drop(app_state_handle);
-            drop(child_handle);
         });
 
-        self.processes.insert(game_id, launch_process_handle);
+        self.processes.insert(game_id, wait_thread_handle);
 
         info!("finished spawning process");
 

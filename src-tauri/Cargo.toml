@@ -44,6 +44,7 @@ chrono = "0.4.38"
 tauri-plugin-os = "2"
 boxcar = "0.2.7"
 umu-wrapper-lib = "0.1.0"
+shared_child = "1.0.1"
 
 [dependencies.tauri]
 version = "2.1.1"
