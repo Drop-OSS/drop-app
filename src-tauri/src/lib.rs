@@ -9,6 +9,7 @@ mod debug;
 mod process;
 mod remote;
 mod state;
+mod tools;
 #[cfg(test)]
 mod tests;
 
