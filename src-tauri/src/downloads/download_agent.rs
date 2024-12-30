@@ -1,7 +1,8 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
-use crate::download_manager::download_manager::DownloadManagerSignal;
+use crate::download_manager::download_manager::{DownloadManagerSignal, GameDownloadStatus};
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
@@ -34,6 +35,7 @@ pub struct GameDownloadAgent {
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
     pub stored_manifest: StoredManifest,
+    status: Mutex<GameDownloadStatus>
 }
 
 #[derive(Debug, Clone)]
@@ -102,6 +104,7 @@ impl GameDownloadAgent {
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
+            status: Mutex::new(GameDownloadStatus::Queued),
         }
     }
 
@@ -326,5 +329,35 @@ impl GameDownloadAgent {
             .unwrap();
 
         Ok(())
+    }
+}
+
+impl Downloadable for GameDownloadAgent {
+    fn get_progress_object(&self) -> Arc<ProgressObject> {
+        self.progress.clone()
+    }
+
+    fn id(&self) -> String {
+        self.id.clone()
+    }
+    
+    fn download(&mut self) -> Result<(), GameDownloadError> {
+        self.download()
+    }
+    
+    fn version(&self) -> String {
+        self.version.clone()
+    }
+    
+    fn progress(&self) -> Arc<ProgressObject> {
+        self.progress.clone()
+    }
+    
+    fn control_flag(&self) -> DownloadThreadControl {
+        self.control_flag.clone()
+    }
+    
+    fn install_dir(&self) -> String {
+        self.stored_manifest.base_path.to_str().unwrap().to_owned()
     }
 }

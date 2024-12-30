@@ -4,7 +4,7 @@ use std::{
         mpsc::Sender,
         Arc, Mutex, RwLock,
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use log::info;
