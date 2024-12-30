@@ -32,7 +32,7 @@ use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use process::compat::CompatibilityManager;
-use process::process_commands::launch_game;
+use process::process_commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
@@ -234,6 +234,7 @@ pub fn run() {
             uninstall_game,
             // Processes
             launch_game,
+            kill_game
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

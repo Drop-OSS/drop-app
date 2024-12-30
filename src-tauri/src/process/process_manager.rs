@@ -1,10 +1,5 @@
 use std::{
-    collections::HashMap,
-    fs::{File, OpenOptions},
-    path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus},
-    sync::{Arc, Mutex},
-    thread::spawn,
+    collections::HashMap, fs::{File, OpenOptions}, io, path::{Path, PathBuf}, process::{Child, Command, ExitStatus}, sync::{Arc, Mutex}, thread::spawn
 };
 
 use log::{info, warn};
@@ -79,6 +74,15 @@ impl ProcessManager<'_> {
             .collect();
          */
         (absolute_exe, Vec::new())
+    }
+    pub fn terminate_child(&mut self, game_id: String) -> Result<(), io::Error> {
+        return match self.processes.get(&game_id) {
+            Some(child) => {
+                let mut lock = child.lock().unwrap();
+                lock.kill()
+            },
+            None => Err(io::Error::new(io::ErrorKind::NotFound, "Game ID not running")),
+        }
     }
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
