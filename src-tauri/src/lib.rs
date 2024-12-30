@@ -271,7 +271,6 @@ pub fn run() {
                 info!("handling drop:// url");
                 let binding = event.urls();
                 let url = binding.first().unwrap();
-                return; // We're macOS
                 if url.host_str().unwrap() == "handshake" {
                     recieve_handshake(handle.clone(), url.path().to_string())
                 }

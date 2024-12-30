@@ -123,8 +123,6 @@ impl ProcessManager<'_> {
         let status = GameStatusManager::fetch_state(&game_id);
 
         push_game_update(&self.app_handle, game_id.clone(), status);
-
-        // TODO better management
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
