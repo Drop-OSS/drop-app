@@ -12,13 +12,13 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::{Database, ApplicationStatus, ApplicationTransientStatus}, download_manager::download_manager::DownloadStatus, downloads::download_agent::{GameDownloadAgent, GameDownloadError}, library::{
+    db::{ApplicationStatus, ApplicationTransientStatus, Database}, download_manager::download_manager::{DownloadStatus, DownloadType}, downloads::download_agent::{GameDownloadAgent}, library::{
         on_game_complete, push_application_update, QueueUpdateEvent,
         QueueUpdateEventQueueData, StatsUpdateEvent,
     }, state::DownloadStatusManager, DB
 };
 
-use super::{download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
+use super::{application_download_error::ApplicationDownloadError, download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
 
 /*
 
@@ -59,7 +59,7 @@ Behold, my madness - quexeky
 
 // Refactored to consolidate this type. It's a monster.
 pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
-pub type DownloadAgent = Arc<Mutex<dyn Downloadable + Send + Sync>>;
+pub type DownloadAgent = Arc<Mutex<Box<dyn Downloadable + Send + Sync>>>;
 
 pub struct DownloadManagerBuilder {
     download_agent_registry: HashMap<String, DownloadAgent>,
@@ -272,7 +272,7 @@ impl DownloadManagerBuilder {
             spawn(move || match remove_dir_all(install_dir) {
                 Err(e) => {
                     sender
-                        .send(DownloadManagerSignal::Error(GameDownloadError::IoError(
+                        .send(DownloadManagerSignal::Error(ApplicationDownloadError::IoError(
                             e.kind(),
                         )))
                         .unwrap();
@@ -347,7 +347,7 @@ impl DownloadManagerBuilder {
                 {
                     self.sender
                         .send(DownloadManagerSignal::Error(
-                            GameDownloadError::Communication(error),
+                            ApplicationDownloadError::Communication(error),
                         ))
                         .unwrap();
                 }
@@ -377,7 +377,7 @@ impl DownloadManagerBuilder {
             }
         }
 
-        let download_agent = Arc::new(Mutex::new(GameDownloadAgent::new(
+        let download_agent = Arc::new(Mutex::new(DownloadType::Game.generate(
             id.clone(),
             version,
             target_download_dir,
@@ -389,9 +389,9 @@ impl DownloadManagerBuilder {
         let interface_data = DownloadableQueueStandin {
             id: id.clone(),
             status: Mutex::new(agent_status),
-            progress: download_agent_lock.progress.clone(),
+            progress: download_agent_lock.progress()
         };
-        let version_name = download_agent_lock.version.clone();
+        let version_name = download_agent_lock.version().clone();
 
         drop(download_agent_lock);
 
@@ -488,7 +488,7 @@ impl DownloadManagerBuilder {
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
-    fn manage_error_signal(&mut self, error: GameDownloadError) {
+    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         let current_status = self.current_download_agent.clone().unwrap();
 
         self.stop_and_wait_current_download();

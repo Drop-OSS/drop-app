@@ -1,5 +1,6 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
+use crate::download_manager::application_download_error::ApplicationDownloadError;
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
@@ -37,42 +38,7 @@ pub struct GameDownloadAgent {
     pub stored_manifest: StoredManifest,
 }
 
-// TODO: Rename / separate from downloads
-#[derive(Debug, Clone)]
-pub enum GameDownloadError {
-    Communication(RemoteAccessError),
-    Checksum,
-    Setup(SetupError),
-    Lock,
-    IoError(io::ErrorKind),
-    DownloadError,
-}
 
-#[derive(Debug, Clone)]
-pub enum SetupError {
-    Context,
-}
-
-impl Display for GameDownloadError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            GameDownloadError::Communication(error) => write!(f, "{}", error),
-            GameDownloadError::Setup(error) => write!(f, "An error occurred while setting up the download: {}", error),
-            GameDownloadError::Lock => write!(f, "Failed to acquire lock. Something has gone very wrong internally. Please restart the application"),
-            GameDownloadError::Checksum => write!(f, "Checksum failed to validate for download"),
-            GameDownloadError::IoError(error) => write!(f, "{}", error),
-            GameDownloadError::DownloadError => write!(f, "Download failed. See Download Manager status for specific error"),
-        }
-    }
-}
-
-impl Display for SetupError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SetupError::Context => write!(f, "Failed to generate contexts for download"),
-        }
-    }
-}
 
 impl GameDownloadAgent {
     pub fn new(
@@ -108,7 +74,7 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn setup_download(&mut self) -> Result<(), GameDownloadError> {
+    pub fn setup_download(&mut self) -> Result<(), ApplicationDownloadError> {
         self.ensure_manifest_exists()?;
         info!("Ensured manifest exists");
 
@@ -121,11 +87,11 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&mut self) -> Result<(), GameDownloadError> {
+    pub fn download(&mut self) -> Result<(), ApplicationDownloadError> {
         self.setup_download()?;
         self.set_progress_object_params();
         let timer = Instant::now();
-        self.run().map_err(|_| GameDownloadError::DownloadError)?;
+        self.run().map_err(|_| ApplicationDownloadError::DownloadError)?;
 
         info!(
             "{} took {}ms to download",
@@ -135,7 +101,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    pub fn ensure_manifest_exists(&self) -> Result<(), GameDownloadError> {
+    pub fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
         }
@@ -143,7 +109,7 @@ impl GameDownloadAgent {
         self.download_manifest()
     }
 
-    fn download_manifest(&self) -> Result<(), GameDownloadError> {
+    fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
         let base_url = DB.fetch_base_url();
         let manifest_url = base_url
             .join(
@@ -165,7 +131,7 @@ impl GameDownloadAgent {
             .unwrap();
 
         if response.status() != 200 {
-            return Err(GameDownloadError::Communication(
+            return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::ManifestDownloadFailed(
                     response.status(),
                     response.text().unwrap(),
@@ -180,7 +146,7 @@ impl GameDownloadAgent {
             return Ok(());
         }
 
-        Err(GameDownloadError::Lock)
+        Err(ApplicationDownloadError::Lock)
     }
 
     fn set_progress_object_params(&self) {
@@ -201,7 +167,7 @@ impl GameDownloadAgent {
         self.progress.set_time_now();
     }
 
-    pub fn ensure_contexts(&mut self) -> Result<(), GameDownloadError> {
+    pub fn ensure_contexts(&mut self) -> Result<(), ApplicationDownloadError> {
         if !self.contexts.is_empty() {
             return Ok(());
         }
@@ -210,7 +176,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    pub fn generate_contexts(&mut self) -> Result<(), GameDownloadError> {
+    pub fn generate_contexts(&mut self) -> Result<(), ApplicationDownloadError> {
         let manifest = self.manifest.lock().unwrap().clone().unwrap();
         let game_id = self.id.clone();
 
@@ -340,7 +306,7 @@ impl Downloadable for GameDownloadAgent {
         self.id.clone()
     }
     
-    fn download(&mut self) -> Result<(), GameDownloadError> {
+    fn download(&mut self) -> Result<(), ApplicationDownloadError> {
         self.download()
     }
     

@@ -4,3 +4,4 @@ pub mod progress_object;
 pub mod queue;
 pub mod download_thread_control_flag;
 pub mod downloadable;
+pub mod application_download_error;
