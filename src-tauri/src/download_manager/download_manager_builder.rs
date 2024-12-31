@@ -331,7 +331,6 @@ impl DownloadManagerBuilder {
     fn manage_completed_signal(&mut self, id: String) {
         info!("Got signal 'Completed'");
         if let Some(interface) = &self.current_download_agent {
-            // When if let chains are stabilised, combine these two statements
             if interface.id == id {
                 info!("Popping consumed data");
                 let download_agent = self.remove_and_cleanup_front_download(&id);
