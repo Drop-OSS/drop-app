@@ -249,7 +249,7 @@ impl DownloadManagerBuilder {
             return;
         }
         let previous_state = previous_state.unwrap();
-        if let Some((version_name, install_dir)) = match previous_state {
+        if let Some((_version_name, install_dir)) = match previous_state {
             ApplicationStatus::Installed {
                 version_name,
                 install_dir,
