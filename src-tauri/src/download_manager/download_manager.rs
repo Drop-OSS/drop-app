@@ -12,13 +12,31 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-use crate::downloads::download_agent::GameDownloadError;
+use crate::downloads::download_agent::{GameDownloadAgent};
 
-use super::{download_manager_builder::{CurrentProgressObject, DownloadableQueueStandin}, downloadable::Downloadable, queue::Queue};
+use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadableQueueStandin}, downloadable::Downloadable, queue::Queue};
 
 pub enum DownloadType {
     Game,
     Tool,
+}
+impl DownloadType {
+    pub fn generate(
+        &self,
+        id: String,
+        version: String,
+        target_download_dir: usize,
+        sender: Sender<DownloadManagerSignal>) -> Box<dyn Downloadable + Send + Sync> {
+        return Box::new(match self {
+            DownloadType::Game => GameDownloadAgent::new(
+                id.clone(),
+                version,
+                target_download_dir,
+                sender.clone(),
+            ),
+            DownloadType::Tool => todo!(),
+        })
+    }
 }
 
 pub enum DownloadManagerSignal {
@@ -40,7 +58,7 @@ pub enum DownloadManagerSignal {
     /// Removes a given application
     Remove(String),
     /// Any error which occurs in the agent
-    Error(GameDownloadError),
+    Error(ApplicationDownloadError),
     /// Pushes UI update
     UpdateUIQueue,
     UpdateUIStats(usize, usize), //kb/s and seconds
@@ -54,7 +72,7 @@ pub enum DownloadManagerStatus {
     Downloading,
     Paused,
     Empty,
-    Error(GameDownloadError),
+    Error(ApplicationDownloadError),
     Finished,
 }
 

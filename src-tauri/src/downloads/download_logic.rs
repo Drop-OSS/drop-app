@@ -1,5 +1,6 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
+use crate::download_manager::application_download_error::ApplicationDownloadError;
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::progress_object::ProgressHandle;
 use crate::downloads::manifest::DropDownloadContext;
@@ -20,8 +21,6 @@ use std::{
     path::PathBuf,
 };
 use urlencoding::encode;
-
-use super::download_agent::GameDownloadError;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -125,7 +124,7 @@ pub fn download_game_chunk(
     ctx: DropDownloadContext,
     control_flag: DownloadThreadControl,
     progress: ProgressHandle,
-) -> Result<bool, GameDownloadError> {
+) -> Result<bool, ApplicationDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
         progress.set(0);
@@ -152,11 +151,11 @@ pub fn download_game_chunk(
         .get(chunk_url)
         .header("Authorization", header)
         .send()
-        .map_err(|e| GameDownloadError::Communication(e.into()))?;
+        .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
         warn!("{}", response.text().unwrap());
-        return Err(GameDownloadError::Communication(
+        return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidCodeError(400),
         ));
     }
@@ -171,11 +170,8 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        return Err(GameDownloadError::Communication(
-            RemoteAccessError::ManifestDownloadFailed(
-                StatusCode::from_u16(500).unwrap(),
-                "failed to download manifest due to missing content length".to_owned(),
-            ),
+        return Err(ApplicationDownloadError::Communication(
+            RemoteAccessError::InvalidResponse,
         ));
     }
 
@@ -189,7 +185,7 @@ pub fn download_game_chunk(
 
     let completed = pipeline
         .copy()
-        .map_err(|e| GameDownloadError::IoError(e.kind()))?;
+        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
     if !completed {
         return Ok(false);
     };
