@@ -1,13 +1,11 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::download_manager::application_download_error::ApplicationDownloadError;
-use crate::download_manager::download_logic::download_game_chunk;
 use crate::download_manager::download_manager::DownloadManagerSignal;
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
-use crate::download_manager::manifest::{DropDownloadContext, DropManifest};
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
-use crate::download_manager::stored_manifest::StoredManifest;
+use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
@@ -23,17 +21,19 @@ use urlencoding::encode;
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};
 
+use super::download_logic::download_game_chunk;
+use super::stored_manifest::StoredManifest;
 
 pub struct GameDownloadAgent {
-    id: String,
-    version: String,
-    control_flag: DownloadThreadControl,
+    pub id: String,
+    pub version: String,
+    pub control_flag: DownloadThreadControl,
     contexts: Vec<DropDownloadContext>,
     completed_contexts: VecDeque<usize>,
-    manifest: Mutex<Option<DropManifest>>,
-    progress: Arc<ProgressObject>,
+    pub manifest: Mutex<Option<DropManifest>>,
+    pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
-    stored_manifest: StoredManifest,
+    pub stored_manifest: StoredManifest,
 }
 
 
