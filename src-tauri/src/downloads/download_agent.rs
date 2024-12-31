@@ -296,10 +296,6 @@ impl GameDownloadAgent {
 }
 
 impl Downloadable for GameDownloadAgent {
-    fn get_progress_object(&self) -> Arc<ProgressObject> {
-        self.progress.clone()
-    }
-
     fn id(&self) -> String {
         self.id.clone()
     }

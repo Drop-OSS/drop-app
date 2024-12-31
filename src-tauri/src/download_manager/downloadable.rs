@@ -5,7 +5,6 @@ use super::{
 };
 
 pub trait Downloadable: Send + Sync {
-    fn get_progress_object(&self) -> Arc<ProgressObject>;
     fn version(&self) -> String;
     fn id(&self) -> String;
     fn download(&mut self) -> Result<(), ApplicationDownloadError>;
