@@ -4,7 +4,7 @@ use super::{
     application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject
 };
 
-pub trait Downloadable: Sync {
+pub trait Downloadable: Send + Sync {
     fn get_progress_object(&self) -> Arc<ProgressObject>;
     fn version(&self) -> String;
     fn id(&self) -> String;
