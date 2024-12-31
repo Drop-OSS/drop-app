@@ -1,14 +1,17 @@
 use std::sync::Arc;
 
+use tauri::AppHandle;
+
 use super::{
-    application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject
+    application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject
 };
 
 pub trait Downloadable: Send + Sync {
-    fn version(&self) -> String;
-    fn id(&self) -> String;
     fn download(&mut self) -> Result<(), ApplicationDownloadError>;
     fn progress(&self) -> Arc<ProgressObject>;
     fn control_flag(&self) -> DownloadThreadControl;
-    fn install_dir(&self) -> String;
+    fn metadata(&self) -> Arc<DownloadableMetadata>;
+    fn on_initialised(&self, app_handle: &AppHandle);
+    fn on_error(&self, app_handle: &AppHandle);
+    fn on_complete(&self, app_handle: &AppHandle);
 }

@@ -12,13 +12,21 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::{ApplicationStatus, ApplicationTransientStatus, Database}, download_manager::download_manager::{DownloadStatus, DownloadType}, downloads::download_agent::{GameDownloadAgent}, library::{
+    db::{set_application_status, ApplicationStatus, ApplicationTransientStatus, Database}, download_manager::{download_manager::{DownloadStatus, DownloadType}, generate_downloadable::generate_downloadable}, downloads::download_agent::{self, GameDownloadAgent}, library::{
         on_game_complete, push_application_update, QueueUpdateEvent,
         QueueUpdateEventQueueData, StatsUpdateEvent,
     }, state::DownloadStatusManager, DB
 };
 
-use super::{application_download_error::ApplicationDownloadError, download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, progress_object::ProgressObject, queue::Queue};
+use super::{application_download_error::ApplicationDownloadError, download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject, queue::Queue};
+
+pub struct DownloadableQueueStandin {
+    pub id: String,
+    pub status: Mutex<DownloadStatus>,
+    pub progress: Arc<ProgressObject>,
+}
+pub type DownloadAgent = Arc<Box<dyn Downloadable + Send + Sync>>;
+pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
 
 /*
 
@@ -57,12 +65,8 @@ Behold, my madness - quexeky
 
 */
 
-// Refactored to consolidate this type. It's a monster.
-pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
-pub type DownloadAgent = Arc<Mutex<Box<dyn Downloadable + Send + Sync>>>;
-
 pub struct DownloadManagerBuilder {
-    download_agent_registry: HashMap<String, DownloadAgent>,
+    download_agent_registry: HashMap<Arc<DownloadableMetadata>, DownloadAgent>,
     download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
@@ -70,16 +74,10 @@ pub struct DownloadManagerBuilder {
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
 
-    current_download_agent: Option<Arc<DownloadableQueueStandin>>, // Should be the only download agent in the map with the "Go" flag
+    current_download_agent: Option<DownloadAgent>, // Should be the only download agent in the map with the "Go" flag
     current_download_thread: Mutex<Option<JoinHandle<()>>>,
     active_control_flag: Option<DownloadThreadControl>,
 }
-pub struct DownloadableQueueStandin {
-    pub id: String,
-    pub status: Mutex<DownloadStatus>,
-    pub progress: Arc<ProgressObject>,
-}
-
 impl DownloadManagerBuilder {
     pub fn build(app_handle: AppHandle) -> DownloadManager {
         let queue = Queue::new();
@@ -106,19 +104,201 @@ impl DownloadManagerBuilder {
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
-    fn set_download_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
-        &self,
-        id: String,
-        setter: F,
-    ) {
-        let mut db_handle = DB.borrow_data_mut().unwrap();
-        setter(&mut db_handle, &id);
-        drop(db_handle);
-        DB.save().unwrap();
+    fn manage_queue(mut self) -> Result<(), ()> {
+        loop {
+            let signal = match self.command_receiver.recv() {
+                Ok(signal) => signal,
+                Err(_) => return Err(()),
+            };
 
-        let status = DownloadStatusManager::fetch_state(&id);
+            match signal {
+                DownloadManagerSignal::Go => {
+                    self.manage_go_signal();
+                }
+                DownloadManagerSignal::Stop => {
+                    self.manage_stop_signal();
+                }
+                DownloadManagerSignal::Completed(id) => {
+                    self.manage_completed_signal(id);
+                }
+                DownloadManagerSignal::Queue(download_agent) => {
+                    self.manage_queue_signal(download_agent);
+                }
+                DownloadManagerSignal::Error(e) => {
+                    self.manage_error_signal(e);
+                }
+                DownloadManagerSignal::Cancel => {
+                    self.manage_cancel_signal();
+                }
+                DownloadManagerSignal::UpdateUIQueue => {
+                    self.push_ui_queue_update();
+                }
+                DownloadManagerSignal::UpdateUIStats(kbs, time) => {
+                    self.push_ui_stats_update(kbs, time);
+                }
+                DownloadManagerSignal::Finish => {
+                    self.stop_and_wait_current_download();
+                    return Ok(());
+                }
+                DownloadManagerSignal::Remove(id) => {
+                    self.manage_remove_download_from_queue(id);
+                }
+                DownloadManagerSignal::Uninstall(id) => {
+                    self.uninstall_application(id);
+                }
+            };
+        }
+    }
+    fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
+        info!("Got signal Queue");
+        let meta = download_agent.metadata();
 
-        push_application_update(&self.app_handle, id, status);
+        if self.download_queue.exists(meta.clone()) {
+            info!("Download with same ID already exists");
+            return;
+        }
+
+        let download_agent = generate_downloadable(meta.clone());
+        download_agent.on_initialised(&self.app_handle);
+        self.download_queue.append(meta.clone());
+        self.download_agent_registry.insert(meta, download_agent);
+
+        self.sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
+    }
+}
+/*
+// Refactored to consolidate this type. It's a monster.
+pub type DownloadAgent = Arc<Mutex<Box<dyn Downloadable + Send + Sync>>>;
+
+
+impl DownloadManagerBuilder {
+    fn manage_queue_signal(&mut self, id: String, version: String, target_download_dir: usize) {
+        info!("Got signal Queue");
+
+        if let Some(index) = self.download_queue.get_by_id(id.clone()) {
+            // Should always give us a value
+            if let Some(download_agent) = self.download_agent_registry.get(&id) {
+                let download_agent_handle = download_agent.lock().unwrap();
+                if download_agent_handle.version() == version {
+                    info!("Application with same version already queued, skipping");
+                    return;
+                }
+                // If it's not the same, we want to cancel the current one, and then add the new one
+                drop(download_agent_handle);
+
+                self.manage_remove_download_from_queue(id.clone());
+            }
+        }
+
+        let download_agent = Arc::new(Mutex::new(DownloadType::Game.generate(
+            id.clone(),
+            version,
+            target_download_dir,
+            self.sender.clone(),
+        )));
+        let download_agent_lock = download_agent.lock().unwrap();
+
+        let agent_status = DownloadStatus::Queued;
+        let interface_data = DownloadableQueueStandin {
+            id: id.clone(),
+            status: Mutex::new(agent_status),
+            progress: download_agent_lock.progress()
+        };
+        let version_name = download_agent_lock.version().clone();
+
+        drop(download_agent_lock);
+
+        self.download_agent_registry
+            .insert(interface_data.id.clone(), download_agent);
+        self.download_queue.append(interface_data);
+
+        self.set_application_status(id, |db, id| {
+            db.applications.transient_statuses.insert(
+                id.to_string(),
+                ApplicationTransientStatus::Downloading { version_name },
+            );
+        });
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
+    }
+    fn manage_go_signal(&mut self) {
+        if !(!self.download_agent_registry.is_empty() && !self.download_queue.empty()) {
+            return;
+        }
+
+        if self.current_download_agent.is_some() {
+            info!("skipping go signal due to existing download job");
+            return;
+        }
+
+        info!("current download queue: {:?}", self.download_queue.read());
+        let agent_data = self.download_queue.read().front().unwrap().clone();
+        info!("starting download for {}", agent_data.id.clone());
+        let download_agent = self
+            .download_agent_registry
+            .get(&agent_data.id)
+            .unwrap()
+            .clone();
+        let download_agent_lock = download_agent.lock().unwrap();
+        self.current_download_agent = Some(agent_data);
+        // Cloning option should be okay because it only clones the Arc inside, not the AgentInterfaceData
+        let agent_data = self.current_download_agent.clone().unwrap();
+
+        let version_name = download_agent_lock.version().clone();
+
+        let progress_object = download_agent_lock.progress();
+        *self.progress.lock().unwrap() = Some(progress_object);
+
+        let active_control_flag = download_agent_lock.control_flag();
+        self.active_control_flag = Some(active_control_flag.clone());
+
+        let sender = self.sender.clone();
+
+        drop(download_agent_lock);
+
+        info!("Spawning download");
+        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        *download_thread_lock = Some(spawn(move || {
+            let mut download_agent_lock = download_agent.lock().unwrap();
+            match download_agent_lock.download() {
+                // Returns once we've exited the download
+                // (not necessarily completed)
+                // The download agent will fire the completed event for us
+                Ok(_) => {}
+                // If an error occurred while *starting* the download
+                Err(err) => {
+                    error!("error while managing download: {}", err);
+                    sender.send(DownloadManagerSignal::Error(err)).unwrap();
+                }
+            };
+            drop(download_agent_lock);
+        }));
+
+        // Set status for applications
+        for queue_application in self.download_queue.read() {
+            let mut status_handle = queue_application.status.lock().unwrap();
+            if queue_application.id == agent_data.id {
+                *status_handle = DownloadStatus::Downloading;
+            } else {
+                *status_handle = DownloadStatus::Queued;
+            }
+            drop(status_handle);
+        }
+
+        // Set flags for download manager
+        active_control_flag.set(DownloadThreadControlFlag::Go);
+        self.set_status(DownloadManagerStatus::Downloading);
+        self.set_application_status(agent_data.id.clone(), |db, id| {
+            db.applications.transient_statuses.insert(
+                id.to_string(),
+                ApplicationTransientStatus::Downloading { version_name },
+            );
+        });
+
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
     }
 
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
@@ -296,9 +476,9 @@ impl DownloadManagerBuilder {
         }
     }
 
-    fn manage_remove_download_from_queue(&mut self, id: String) {
+    fn manage_remove_download_from_queue(&mut self, id: DownloadableMetadata) {
         if let Some(current_download) = &self.current_download_agent {
-            if current_download.id == id {
+            if current_download.lock().unwrap().metadata() == id {
                 self.manage_cancel_signal();
             }
         }
@@ -307,7 +487,7 @@ impl DownloadManagerBuilder {
         if let Some(index) = index {
             let mut queue_handle = self.download_queue.edit();
             queue_handle.remove(index);
-            self.set_download_status(id, |db_handle, id| {
+            set_application_status(&self.app_handle, id, |db_handle, id| {
                 db_handle.applications.transient_statuses.remove(id);
             });
             drop(queue_handle);
@@ -336,13 +516,10 @@ impl DownloadManagerBuilder {
                 let download_agent = self.remove_and_cleanup_front_download(&id);
                 let download_agent_lock = download_agent.lock().unwrap();
 
-                let version = download_agent_lock.version();
-                let install_dir = download_agent_lock.install_dir();
-
                 drop(download_agent_lock);
 
                 if let Err(error) =
-                    on_game_complete(id, version, install_dir, &self.app_handle)
+                    self.current_download_agent.on_complete(&self.app_handle);
                 {
                     self.sender
                         .send(DownloadManagerSignal::Error(
@@ -358,56 +535,6 @@ impl DownloadManagerBuilder {
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
 
-    fn manage_queue_signal(&mut self, id: String, version: String, target_download_dir: usize) {
-        info!("Got signal Queue");
-
-        if let Some(index) = self.download_queue.get_by_id(id.clone()) {
-            // Should always give us a value
-            if let Some(download_agent) = self.download_agent_registry.get(&id) {
-                let download_agent_handle = download_agent.lock().unwrap();
-                if download_agent_handle.version() == version {
-                    info!("Application with same version already queued, skipping");
-                    return;
-                }
-                // If it's not the same, we want to cancel the current one, and then add the new one
-                drop(download_agent_handle);
-
-                self.manage_remove_download_from_queue(id.clone());
-            }
-        }
-
-        let download_agent = Arc::new(Mutex::new(DownloadType::Game.generate(
-            id.clone(),
-            version,
-            target_download_dir,
-            self.sender.clone(),
-        )));
-        let download_agent_lock = download_agent.lock().unwrap();
-
-        let agent_status = DownloadStatus::Queued;
-        let interface_data = DownloadableQueueStandin {
-            id: id.clone(),
-            status: Mutex::new(agent_status),
-            progress: download_agent_lock.progress()
-        };
-        let version_name = download_agent_lock.version().clone();
-
-        drop(download_agent_lock);
-
-        self.download_agent_registry
-            .insert(interface_data.id.clone(), download_agent);
-        self.download_queue.append(interface_data);
-
-        self.set_download_status(id, |db, id| {
-            db.applications.transient_statuses.insert(
-                id.to_string(),
-                ApplicationTransientStatus::Downloading { version_name },
-            );
-        });
-        self.sender
-            .send(DownloadManagerSignal::UpdateUIQueue)
-            .unwrap();
-    }
 
     fn manage_go_signal(&mut self) {
         if !(!self.download_agent_registry.is_empty() && !self.download_queue.empty()) {
@@ -476,7 +603,7 @@ impl DownloadManagerBuilder {
         // Set flags for download manager
         active_control_flag.set(DownloadThreadControlFlag::Go);
         self.set_status(DownloadManagerStatus::Downloading);
-        self.set_download_status(agent_data.id.clone(), |db, id| {
+        self.set_application_status(agent_data.id.clone(), |db, id| {
             db.applications.transient_statuses.insert(
                 id.to_string(),
                 ApplicationTransientStatus::Downloading { version_name },
@@ -502,7 +629,7 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Error(error));
 
         let id = current_status.id.clone();
-        self.set_download_status(id, |db_handle, id| {
+        self.set_application_status(id, |db_handle, id| {
             db_handle.applications.transient_statuses.remove(id);
         });
 
@@ -521,3 +648,4 @@ impl DownloadManagerBuilder {
         *self.status.lock().unwrap() = status;
     }
 }
+*/
