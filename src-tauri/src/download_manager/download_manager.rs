@@ -14,31 +14,14 @@ use serde::Serialize;
 
 use crate::downloads::download_agent::GameDownloadAgent;
 
-use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadableQueueStandin}, downloadable::Downloadable, queue::Queue};
+use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadAgent, DownloadableQueueStandin}, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, queue::Queue};
 
 pub enum DownloadType {
     Game,
     Tool,
+    DLC,
+    Mod
 }
-impl DownloadType {
-    pub fn generate(
-        &self,
-        id: String,
-        version: String,
-        target_download_dir: usize,
-        sender: Sender<DownloadManagerSignal>) -> Box<dyn Downloadable + Send + Sync> {
-        return Box::new(match self {
-            DownloadType::Game => GameDownloadAgent::new(
-                id.clone(),
-                version,
-                target_download_dir,
-                sender.clone(),
-            ),
-            DownloadType::Tool => todo!(),
-        })
-    }
-}
-
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the DownloadManager
     Go,
@@ -48,7 +31,7 @@ pub enum DownloadManagerSignal {
     Completed(String),
     /// Generates and appends a DownloadAgent
     /// to the registry and queue
-    Queue(String, String, usize),
+    Queue(DownloadAgent),
     /// Tells the Manager to stop the current
     /// download, sync everything to disk, and
     /// then exit
@@ -85,7 +68,7 @@ impl Serialize for DownloadManagerStatus {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Clone, Debug)]
 pub enum DownloadStatus {
     Queued,
     Downloading,

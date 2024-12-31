@@ -296,18 +296,11 @@ impl GameDownloadAgent {
 }
 
 impl Downloadable for GameDownloadAgent {
-    fn id(&self) -> String {
-        self.id.clone()
-    }
     
     fn download(&mut self) -> Result<(), ApplicationDownloadError> {
         self.download()
     }
-    
-    fn version(&self) -> String {
-        self.version.clone()
-    }
-    
+        
     fn progress(&self) -> Arc<ProgressObject> {
         self.progress.clone()
     }
@@ -316,7 +309,15 @@ impl Downloadable for GameDownloadAgent {
         self.control_flag.clone()
     }
     
-    fn install_dir(&self) -> String {
-        self.stored_manifest.base_path.to_str().unwrap().to_owned()
+    fn metadata(&self) -> crate::download_manager::downloadable_metadata::DownloadableMetadata {
+        todo!()
+    }
+    
+    fn on_error(&self) {
+        todo!()
+    }
+    
+    fn on_complete(&self, app_handle: &AppHandle<Wry<EventLoopMessage>>) {
+        on_game_complete(id, version, install_dir, app_handle)
     }
 }

@@ -2,16 +2,17 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
-    sync::{LazyLock, Mutex},
+    sync::{LazyLock, Mutex, RwLockWriteGuard},
 };
 
 use directories::BaseDirs;
 use log::debug;
 use rustbreak::{DeSerError, DeSerializer, PathDatabase};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use tauri::AppHandle;
 use url::Url;
 
-use crate::{process::process_manager::Platform, DB};
+use crate::{library::push_application_update, process::process_manager::Platform, state::DownloadStatusManager, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 pub struct DatabaseAuth {
@@ -217,4 +218,19 @@ pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
     drop(lock);
 
     Ok(directories)
+}
+
+pub fn set_application_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
+    app_handle: &AppHandle,
+    id: String,
+    setter: F,
+) {
+    let mut db_handle = DB.borrow_data_mut().unwrap();
+    setter(&mut db_handle, &id);
+    drop(db_handle);
+    DB.save().unwrap();
+
+    let status = DownloadStatusManager::fetch_state(&id);
+
+    push_application_update(app_handle, id, status);
 }

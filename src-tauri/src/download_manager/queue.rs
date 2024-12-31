@@ -3,11 +3,11 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use super::download_manager_builder::DownloadableQueueStandin;
+use super::downloadable_metadata::DownloadableMetadata;
 
 #[derive(Clone)]
 pub struct Queue {
-    inner: Arc<Mutex<VecDeque<Arc<DownloadableQueueStandin>>>>,
+    inner: Arc<Mutex<VecDeque<Arc<DownloadableMetadata>>>>,
 }
 
 #[allow(dead_code)]
@@ -17,49 +17,52 @@ impl Queue {
             inner: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
-    pub fn read(&self) -> VecDeque<Arc<DownloadableQueueStandin>> {
+    pub fn read(&self) -> VecDeque<Arc<DownloadableMetadata>> {
         self.inner.lock().unwrap().clone()
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableQueueStandin>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableMetadata>>> {
         self.inner.lock().unwrap()
     }
-    pub fn pop_front(&self) -> Option<Arc<DownloadableQueueStandin>> {
+    pub fn pop_front(&self) -> Option<Arc<DownloadableMetadata>> {
         self.edit().pop_front()
     }
     pub fn empty(&self) -> bool {
         self.inner.lock().unwrap().len() == 0
     }
+    pub fn exists(&self, meta: Arc<DownloadableMetadata>) -> bool {
+        self.read().contains(&meta)
+    }
     /// Either inserts `interface` at the specified index, or appends to
     /// the back of the deque if index is greater than the length of the deque
-    pub fn insert(&self, interface: DownloadableQueueStandin, index: usize) {
+    pub fn insert(&self, interface: DownloadableMetadata, index: usize) {
         if self.read().len() > index {
             self.append(interface);
         } else {
             self.edit().insert(index, Arc::new(interface));
         }
     }
-    pub fn append(&self, interface: DownloadableQueueStandin) {
-        self.edit().push_back(Arc::new(interface));
+    pub fn append(&self, interface: Arc<DownloadableMetadata>) {
+        self.edit().push_back(interface);
     }
     pub fn pop_front_if_equal(
         &self,
-        id: String,
-    ) -> Option<Arc<DownloadableQueueStandin>> {
+        meta: &Arc<DownloadableMetadata>,
+    ) -> Option<Arc<DownloadableMetadata>> {
         let mut queue = self.edit();
         let front = match queue.front() {
             Some(front) => front,
             None => return None,
         };
-        if front.id == id {
+        if front == meta {
             return queue.pop_front();
         }
         None
     }
-    pub fn get_by_id(&self, id: String) -> Option<usize> {
-        self.read().iter().position(|data| data.id == id)
+    pub fn get_by_meta(&self, meta: &Arc<DownloadableMetadata>) -> Option<usize> {
+        self.read().iter().position(|data| data == meta)
     }
-    pub fn move_to_index_by_id(&self, id: String, new_index: usize) -> Result<(), ()> {
-        let index = match self.get_by_id(id) {
+    pub fn move_to_index_by_meta(&self, meta: &Arc<DownloadableMetadata>, new_index: usize) -> Result<(), ()> {
+        let index = match self.get_by_meta(meta) {
             Some(index) => index,
             None => return Err(()),
         };
