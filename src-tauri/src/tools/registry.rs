@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
-use super::external_component::ExternalComponent;
+use crate::download_manager::downloadable::Downloadable;
 
-pub struct Registry<T: ExternalComponent> {
+
+pub struct Registry<T: Downloadable> {
     tools: HashMap<String, T>
 }
