@@ -1,7 +1,7 @@
 use crate::auth::generate_authorization_header;
 use crate::db::DatabaseImpls;
 use crate::download_manager::application_download_error::ApplicationDownloadError;
-use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
+use crate::download_manager::download_manager::DownloadManagerSignal;
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
@@ -11,9 +11,7 @@ use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use std::collections::VecDeque;
-use std::fmt::{Display, Formatter};
 use std::fs::{create_dir_all, File};
-use std::io;
 use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -270,7 +268,7 @@ impl GameDownloadAgent {
         let newly_completed = completed_indexes.to_owned();
 
         let completed_lock_len = {
-            for (item, item_ref) in newly_completed.iter() {
+            for (item, _) in newly_completed.iter() {
                 self.completed_contexts.push_front(item);
             }
 

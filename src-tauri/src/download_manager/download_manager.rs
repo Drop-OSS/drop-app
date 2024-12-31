@@ -12,7 +12,7 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-use crate::downloads::download_agent::{GameDownloadAgent};
+use crate::downloads::download_agent::GameDownloadAgent;
 
 use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadableQueueStandin}, downloadable::Downloadable, queue::Queue};
 
