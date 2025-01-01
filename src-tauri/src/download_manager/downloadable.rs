@@ -7,11 +7,12 @@ use super::{
 };
 
 pub trait Downloadable: Send + Sync {
-    fn download(&mut self) -> Result<(), ApplicationDownloadError>;
+    fn download(&self) -> Result<bool, ApplicationDownloadError>;
     fn progress(&self) -> Arc<ProgressObject>;
     fn control_flag(&self) -> DownloadThreadControl;
     fn metadata(&self) -> Arc<DownloadableMetadata>;
     fn on_initialised(&self, app_handle: &AppHandle);
     fn on_error(&self, app_handle: &AppHandle);
     fn on_complete(&self, app_handle: &AppHandle);
+    fn on_incomplete(&self, app_handle: &AppHandle);
 }
