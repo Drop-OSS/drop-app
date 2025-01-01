@@ -28,7 +28,7 @@ pub enum DownloadManagerSignal {
     /// Pauses the DownloadManager
     Stop,
     /// Called when a DownloadAgent has fully completed a download.
-    Completed(String),
+    Completed(Arc<DownloadableMetadata>),
     /// Generates and appends a DownloadAgent
     /// to the registry and queue
     Queue(DownloadAgent),
@@ -36,10 +36,10 @@ pub enum DownloadManagerSignal {
     /// download, sync everything to disk, and
     /// then exit
     Finish,
-    /// Stops (but doesn't remove) current download
-    Cancel,
+    /// Stops, removes, and tells a download to cleanup
+    Cancel(Arc<DownloadableMetadata>),
     /// Removes a given application
-    Remove(String),
+    Remove(Arc<DownloadableMetadata>),
     /// Any error which occurs in the agent
     Error(ApplicationDownloadError),
     /// Pushes UI update
@@ -47,7 +47,7 @@ pub enum DownloadManagerSignal {
     UpdateUIStats(usize, usize), //kb/s and seconds
     /// Uninstall download
     /// Takes download ID
-    Uninstall(String),
+    Uninstall(Arc<DownloadableMetadata>),
 }
 
 #[derive(Debug, Clone)]

@@ -15,4 +15,6 @@ pub trait Downloadable: Send + Sync {
     fn on_error(&self, app_handle: &AppHandle);
     fn on_complete(&self, app_handle: &AppHandle);
     fn on_incomplete(&self, app_handle: &AppHandle);
+    fn on_cancelled(&self, app_handle: &AppHandle);
+    fn on_uninstall(&self, app_handle: &AppHandle);
 }
