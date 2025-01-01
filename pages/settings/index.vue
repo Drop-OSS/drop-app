@@ -8,14 +8,11 @@
 
             <div class="mt-10 space-y-8">
                 <div class="flex flex-row items-center justify-between">
-                    <div class="flex items-center gap-x-3">
-                        <PlayIcon class="h-5 w-5 text-zinc-400" />
-                        <div>
-                            <h3 class="text-sm font-medium leading-6 text-zinc-100">Start with system</h3>
-                            <p class="mt-1 text-sm leading-6 text-zinc-400">
-                                Drop will automatically start when you log into your computer
-                            </p>
-                        </div>
+                    <div>
+                        <h3 class="text-sm font-medium leading-6 text-zinc-100">Start with system</h3>
+                        <p class="mt-1 text-sm leading-6 text-zinc-400">
+                            Drop will automatically start when you log into your computer
+                        </p>
                     </div>
                     <Switch
                         v-model="autostartEnabled"
@@ -40,7 +37,6 @@
 <script setup lang="ts">
 import { Switch } from '@headlessui/vue'
 import { invoke } from "@tauri-apps/api/core";
-import { PlayIcon } from "@heroicons/vue/24/outline";
 
 const autostartEnabled = ref<boolean>(false)
 
