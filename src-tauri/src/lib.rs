@@ -1,5 +1,6 @@
 mod auth;
 mod db;
+mod debug;
 mod downloads;
 mod library;
 
@@ -48,6 +49,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
+use crate::debug::{fetch_client_id, fetch_base_url, fetch_umu_info};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -248,7 +250,9 @@ pub fn run() {
             // Debug
             fetch_client_id,
             fetch_base_url,
-            fetch_UMU_info,
+            fetch_umu_info,
+            get_theme,
+            set_theme,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -374,7 +378,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|_app_handle, event| {
         if let RunEvent::ExitRequested { code, api, .. } = event {
             if code.is_none() {
                 api.prevent_exit();
@@ -384,37 +388,16 @@ pub fn run() {
 }
 
 #[tauri::command]
-fn fetch_client_id() -> Result<Option<String>, String> {
+async fn get_theme() -> Result<String, String> {
     let data = DB.borrow_data().map_err(|e| e.to_string())?;
-    Ok(data.auth.as_ref().map(|auth| auth.client_id.clone()))
+    Ok(data.settings.theme.clone().unwrap_or("dark".to_string()))
 }
 
 #[tauri::command]
-fn fetch_base_url() -> Result<Option<String>, String> {
-    let data = DB.borrow_data().map_err(|e| e.to_string())?;
-    Ok(Some(data.base_url.clone()))
-}
-
-#[tauri::command]
-fn fetch_UMU_info() -> Result<serde_json::Value, String> {
-    let data_dir = DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string();
-    
-    #[cfg(target_os = "linux")]
-    let compat_info = {
-        let data = DB.borrow_data().map_err(|e| e.to_string())?;
-        let compat = data.compatibility.clone();
-        serde_json::json!({
-            "enabled": compat.enabled,
-            "runner": compat.runner,
-            "prefix": compat.prefix_path
-        })
-    };
-
-    #[cfg(not(target_os = "linux"))]
-    let compat_info = serde_json::json!(null);
-
-    Ok(serde_json::json!({
-        "dataDir": data_dir,
-        "compatibility": compat_info
-    }))
+async fn set_theme(theme: String) -> Result<(), String> {
+    let mut data = DB.borrow_data_mut().map_err(|e| e.to_string())?;
+    data.settings.theme = Some(theme);
+    drop(data);
+    DB.save().map_err(|e| e.to_string())?;
+    Ok(())
 }
