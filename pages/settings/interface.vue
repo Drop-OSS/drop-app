@@ -17,20 +17,16 @@
                             </p>
                         </div>
                     </div>
-                    <div class="mt-4 ml-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                        <button
-                            v-for="theme in themes"
-                            :key="theme.id"
-                            @click="setTheme(theme.id)"
-                            :class="[
-                                currentTheme === theme.id ? 'ring-2 ring-offset-2 ring-offset-zinc-900 ring-blue-500' : '',
-                                'relative flex flex-col items-center justify-center rounded-lg p-3 focus:outline-none'
-                            ]"
+                    <div class="mt-4 ml-8">
+                        <select
+                            :value="currentTheme"
+                            @change="(e: Event) => handleThemeChange(e)"
+                            class="block w-full rounded-md border-0 py-1.5 px-3 bg-zinc-800 text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
                         >
-                            <span :class="theme.bgColor" class="h-8 w-8 rounded-full mb-2" />
-                            <span class="text-xs text-zinc-100">{{ theme.name }}</span>
-                            <span class="text-xs text-zinc-400">{{ theme.palette }}</span>
-                        </button>
+                            <option v-for="theme in themes" :key="theme.id" :value="theme.id">
+                                {{ theme.name }}
+                            </option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -43,7 +39,7 @@
                     <div>
                         <h3 class="text-sm font-medium leading-6 text-zinc-100">Advanced Customization</h3>
                         <p class="mt-1 text-sm leading-6 text-zinc-400">
-                            Add custom CSS styles to override the default theme
+                            Advanced settings for customizing Drop's appearance and behavior
                         </p>
                     </div>
                     <button 
@@ -59,31 +55,34 @@
             </div>
 
             <div v-if="showAdvanced" class="mt-4 ml-8 space-y-4">
-                <div class="relative">
-                    <textarea
-                        v-model="customCSS"
-                        rows="10"
-                        class="w-full rounded-md bg-zinc-800/50 border-0 px-4 py-3 text-sm text-zinc-200 font-mono shadow-sm ring-1 ring-inset ring-zinc-700 focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                        placeholder="/* Add your custom CSS here */
+                <div>
+                    <h4 class="text-sm font-medium leading-6 text-zinc-100 mb-2">Custom CSS</h4>
+                    <div class="relative">
+                        <textarea
+                            v-model="customCSS"
+                            rows="10"
+                            class="w-full rounded-md bg-zinc-800/50 border-0 px-4 py-3 text-sm text-zinc-200 font-mono shadow-sm ring-1 ring-inset ring-zinc-700 focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                            placeholder="/* Add your custom CSS here */
 :root {
     --color-accent: theme('colors.pink.500');
     --color-accent-hover: theme('colors.pink.400');
 }"
-                    ></textarea>
-                </div>
-                <div class="flex justify-end gap-x-3">
-                    <button
-                        @click="resetCustomCSS"
-                        class="rounded-md bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 shadow-sm hover:bg-zinc-700"
-                    >
-                        Reset
-                    </button>
-                    <button
-                        @click="applyCustomCSS"
-                        class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
-                    >
-                        Apply
-                    </button>
+                        ></textarea>
+                    </div>
+                    <div class="flex justify-end gap-x-3 mt-3">
+                        <button
+                            @click="resetCustomCSS"
+                            class="rounded-md bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 shadow-sm hover:bg-zinc-700"
+                        >
+                            Reset
+                        </button>
+                        <button
+                            @click="applyCustomCSS"
+                            class="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500"
+                        >
+                            Apply
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -93,18 +92,7 @@
 <script setup lang="ts">
 import { SwatchIcon, ChevronRightIcon, CodeBracketIcon } from "@heroicons/vue/24/outline";
 
-const themes = [
-    { id: 'dark', name: 'Dark (Default)', bgColor: 'bg-zinc-950', palette: 'Zinc' },
-    { id: 'light', name: 'Light', bgColor: 'bg-white', palette: 'White/Gray' },
-    { id: 'theme-purple', name: 'Purple', bgColor: 'bg-purple-900', palette: 'Purple/Violet' },
-    { id: 'theme-green', name: 'Green', bgColor: 'bg-emerald-900', palette: 'Emerald/Teal' },
-    { id: 'theme-ocean', name: 'Ocean', bgColor: 'bg-slate-900', palette: 'Slate/Cyan' },
-    { id: 'theme-amber', name: 'Amber', bgColor: 'bg-amber-900', palette: 'Amber/Orange' },
-    { id: 'theme-rose', name: 'Rose', bgColor: 'bg-rose-900', palette: 'Rose/Pink' },
-    { id: 'theme-indigo', name: 'Indigo', bgColor: 'bg-indigo-900', palette: 'Indigo/Violet' },
-];
-
-const { currentTheme, setTheme } = useTheme();
+const { currentTheme, setTheme, THEMES: themes } = useTheme();
 const showAdvanced = ref(false);
 const customCSS = ref(localStorage.getItem('customCSS') || '');
 
@@ -130,6 +118,11 @@ function resetCustomCSS() {
     if (customStyleElement.value) {
         customStyleElement.value.textContent = '';
     }
+}
+
+function handleThemeChange(event: Event) {
+    const select = event.target as HTMLSelectElement;
+    setTheme(select.value);
 }
 
 // Initialize custom CSS on mount
