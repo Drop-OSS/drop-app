@@ -104,6 +104,42 @@ impl DownloadManagerBuilder {
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
+    fn set_status(&self, status: DownloadManagerStatus) {
+        *self.status.lock().unwrap() = status;
+    }
+
+    fn remove_and_cleanup_front_download(&mut self, meta: &Arc<DownloadableMetadata>) -> DownloadAgent {
+        self.download_queue.pop_front();
+        let download_agent = self.download_agent_registry.remove(meta).unwrap();
+        self.cleanup_current_download();
+        download_agent
+    }
+
+    // CAREFUL WITH THIS FUNCTION
+    // Make sure the download thread is terminated
+    fn cleanup_current_download(&mut self) {
+        self.active_control_flag = None;
+        *self.progress.lock().unwrap() = None;
+        self.current_download_agent = None;
+
+        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        *download_thread_lock = None;
+        drop(download_thread_lock);
+    }
+
+    fn stop_and_wait_current_download(&self) {
+        self.set_status(DownloadManagerStatus::Paused);
+        if let Some(current_flag) = &self.active_control_flag {
+            current_flag.set(DownloadThreadControlFlag::Stop);
+        }
+
+        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        if let Some(current_download_thread) = download_thread_lock.take() {
+            current_download_thread.join().unwrap();
+        }
+    }
+
+
     fn manage_queue(mut self) -> Result<(), ()> {
         loop {
             let signal = match self.command_receiver.recv() {
@@ -118,8 +154,8 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Stop => {
                     self.manage_stop_signal();
                 }
-                DownloadManagerSignal::Completed(id) => {
-                    self.manage_completed_signal(id);
+                DownloadManagerSignal::Completed(meta) => {
+                    self.manage_completed_signal(meta);
                 }
                 DownloadManagerSignal::Queue(download_agent) => {
                     self.manage_queue_signal(download_agent);
@@ -127,25 +163,23 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Error(e) => {
                     self.manage_error_signal(e);
                 }
-                DownloadManagerSignal::Cancel => {
-                    self.manage_cancel_signal();
-                }
-                DownloadManagerSignal::UpdateUIQueue => {
-                    self.push_ui_queue_update();
-                }
-                DownloadManagerSignal::UpdateUIStats(kbs, time) => {
-                    self.push_ui_stats_update(kbs, time);
-                }
+                //DownloadManagerSignal::UpdateUIQueue => {
+                //    self.push_ui_queue_update();
+                //}
+                //DownloadManagerSignal::UpdateUIStats(kbs, time) => {
+                //    self.push_ui_stats_update(kbs, time);
+                //}
                 DownloadManagerSignal::Finish => {
                     self.stop_and_wait_current_download();
                     return Ok(());
                 }
-                DownloadManagerSignal::Remove(id) => {
-                    self.manage_remove_download_from_queue(id);
+                DownloadManagerSignal::Cancel(meta) => {
+                    self.manage_cancel_signal(&meta);
                 }
-                DownloadManagerSignal::Uninstall(id) => {
-                    self.uninstall_application(id);
+                DownloadManagerSignal::Uninstall(meta) => {
+                    self.uninstall_application(&meta);
                 }
+                _ => {}
             };
         }
     }
@@ -198,6 +232,7 @@ impl DownloadManagerBuilder {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
                     download_agent.on_complete(&app_handle);
+                    sender.send(DownloadManagerSignal::Completed(download_agent.metadata()));
                 },
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
@@ -211,9 +246,69 @@ impl DownloadManagerBuilder {
             }
         }));
 
+        self.set_status(DownloadManagerStatus::Downloading);
         let active_control_flag = self.active_control_flag.clone().unwrap();
         active_control_flag.set(DownloadThreadControlFlag::Go);
+    }
+    fn manage_stop_signal(&mut self) {
+        info!("Got signal Stop");
 
+        if let Some(active_control_flag) = self.active_control_flag.clone() {
+            self.set_status(DownloadManagerStatus::Paused);
+            active_control_flag.set(DownloadThreadControlFlag::Stop);
+        }
+    }
+    fn manage_completed_signal(&mut self, meta: Arc<DownloadableMetadata>) {
+        info!("Got signal Completed");
+        if let Some(interface) = &self.current_download_agent {
+            if interface.metadata() == meta {
+                info!("Popping consumed data");
+                self.remove_and_cleanup_front_download(&meta);
+            }
+        }
+        self.sender.send(DownloadManagerSignal::Go).unwrap();
+    }
+    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
+        info!("Got signal Error");
+        let current_agent = self.current_download_agent.clone().unwrap();
+
+        current_agent.on_error(&self.app_handle);
+
+        self.stop_and_wait_current_download();
+        self.remove_and_cleanup_front_download(&current_agent.metadata());
+
+        self.set_status(DownloadManagerStatus::Error(error));
+    }
+    fn manage_cancel_signal(&mut self, meta: &Arc<DownloadableMetadata>) {
+        info!("Got signal Cancel");
+
+        if let Some(current_download) = &self.current_download_agent {
+            if &current_download.metadata() == meta {
+                self.set_status(DownloadManagerStatus::Paused);
+                current_download.on_cancelled(&self.app_handle);
+                self.stop_and_wait_current_download();
+
+                self.cleanup_current_download();        
+            }
+        }
+        else {
+            if let Some(download_agent) = self.download_agent_registry.get(meta) {
+                let index = self.download_queue.get_by_meta(meta);
+                if let Some(index) = index {
+                    download_agent.on_cancelled(&self.app_handle);
+                    let queue_handle = self.download_queue.edit().remove(index);
+                    self.download_agent_registry.remove(meta);
+                }
+            }
+        }
+    }
+    fn uninstall_application(&mut self, meta: &Arc<DownloadableMetadata>) {
+        let download_agent = match self.download_agent_registry.get(meta) {
+            Some(download_agent) => download_agent.clone(),
+            None => return,
+        };
+        self.manage_cancel_signal(meta);
+        download_agent.on_uninstall(&self.app_handle);
     }
 }
 /*
@@ -222,6 +317,165 @@ pub type DownloadAgent = Arc<Mutex<Box<dyn Downloadable + Send + Sync>>>;
 
 
 impl DownloadManagerBuilder {
+    fn uninstall_application(&mut self, id: String) {
+        // Removes the download if it's in the queue
+        self.manage_remove_download_from_queue(id.clone());
+
+        let mut db_handle = DB.borrow_data_mut().unwrap();
+        db_handle
+            .applications
+            .transient_statuses
+            .entry(id.clone())
+            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        push_application_update(
+            &self.app_handle,
+            id.clone(),
+            (None, Some(ApplicationTransientStatus::Uninstalling {})),
+        );
+
+        let previous_state = db_handle.applications.statuses.get(&id).cloned();
+        if previous_state.is_none() {
+            info!("uninstall job doesn't have previous state, failing silently");
+            return;
+        }
+        let previous_state = previous_state.unwrap();
+        if let Some((_version_name, install_dir)) = match previous_state {
+            ApplicationStatus::Installed {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            ApplicationStatus::SetupRequired {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            _ => None,
+        } {
+            db_handle
+                .applications
+                .transient_statuses
+                .entry(id.clone())
+                .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+            drop(db_handle);
+
+            let sender = self.sender.clone();
+            let app_handle = self.app_handle.clone();
+            spawn(move || match remove_dir_all(install_dir) {
+                Err(e) => {
+                    sender
+                        .send(DownloadManagerSignal::Error(ApplicationDownloadError::IoError(
+                            e.kind(),
+                        )))
+                        .unwrap();
+                }
+                Ok(_) => {
+                    let mut db_handle = DB.borrow_data_mut().unwrap();
+                    db_handle.applications.transient_statuses.remove(&id);
+                    db_handle
+                        .applications
+                        .statuses
+                        .entry(id.clone())
+                        .and_modify(|e| *e = ApplicationStatus::Remote {});
+                    drop(db_handle);
+                    DB.save().unwrap();
+
+                    info!("uninstalled {}", id);
+
+                    push_application_update(&app_handle, id, (Some(ApplicationStatus::Remote {}), None));
+                }
+            });
+        }
+    }
+    fn manage_remove_download_from_queue(&mut self, id: DownloadableMetadata) {
+        if let Some(current_download) = &self.current_download_agent {
+            if current_download.lock().unwrap().metadata() == id {
+                self.manage_cancel_signal();
+            }
+        }
+
+        let index = self.download_queue.get_by_id(id.clone());
+        if let Some(index) = index {
+            let mut queue_handle = self.download_queue.edit();
+            queue_handle.remove(index);
+            set_application_status(&self.app_handle, id, |db_handle, id| {
+                db_handle.applications.transient_statuses.remove(id);
+            });
+            drop(queue_handle);
+        }
+
+        if self.current_download_agent.is_none() {
+            self.manage_go_signal();
+        }
+
+        self.push_ui_queue_update();
+    }
+
+    fn manage_cancel_signal(&mut self) {
+        self.stop_and_wait_current_download();
+
+        info!("cancel waited for download to finish");
+
+        self.cleanup_current_download();
+    }
+
+    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
+        let current_status = self.current_download_agent.clone().unwrap();
+
+        self.stop_and_wait_current_download();
+        self.remove_and_cleanup_front_download(&current_status.id); // Remove all the locks and shit, and remove from queue
+
+        self.app_handle
+            .emit("download_error", error.to_string())
+            .unwrap();
+
+        let mut lock = current_status.status.lock().unwrap();
+        *lock = DownloadStatus::Error;
+        self.set_status(DownloadManagerStatus::Error(error));
+
+        let id = current_status.id.clone();
+        self.set_application_status(id, |db_handle, id| {
+            db_handle.applications.transient_statuses.remove(id);
+        });
+
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
+    }
+
+    fn manage_completed_signal(&mut self, id: String) {
+        info!("Got signal 'Completed'");
+        if let Some(interface) = &self.current_download_agent {
+            if interface.id == id {
+                info!("Popping consumed data");
+                let download_agent = self.remove_and_cleanup_front_download(&id);
+                let download_agent_lock = download_agent.lock().unwrap();
+
+                drop(download_agent_lock);
+
+                if let Err(error) =
+                    self.current_download_agent.on_complete(&self.app_handle);
+                {
+                    self.sender
+                        .send(DownloadManagerSignal::Error(
+                            ApplicationDownloadError::Communication(error),
+                        ))
+                        .unwrap();
+                }
+            }
+        }
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
+        self.sender.send(DownloadManagerSignal::Go).unwrap();
+    }
+
+    fn manage_stop_signal(&mut self) {
+        info!("Got signal 'Stop'");
+        self.set_status(DownloadManagerStatus::Paused);
+        if let Some(active_control_flag) = self.active_control_flag.clone() {
+            active_control_flag.set(DownloadThreadControlFlag::Stop);
+        }
+    }
+
     fn manage_go_signal(&mut self) {
         if !(!self.download_agent_registry.is_empty() && !self.download_queue.empty()) {
             return;
@@ -458,74 +712,6 @@ impl DownloadManagerBuilder {
         }
     }
 
-    fn uninstall_application(&mut self, id: String) {
-        // Removes the download if it's in the queue
-        self.manage_remove_download_from_queue(id.clone());
-
-        let mut db_handle = DB.borrow_data_mut().unwrap();
-        db_handle
-            .applications
-            .transient_statuses
-            .entry(id.clone())
-            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
-        push_application_update(
-            &self.app_handle,
-            id.clone(),
-            (None, Some(ApplicationTransientStatus::Uninstalling {})),
-        );
-
-        let previous_state = db_handle.applications.statuses.get(&id).cloned();
-        if previous_state.is_none() {
-            info!("uninstall job doesn't have previous state, failing silently");
-            return;
-        }
-        let previous_state = previous_state.unwrap();
-        if let Some((_version_name, install_dir)) = match previous_state {
-            ApplicationStatus::Installed {
-                version_name,
-                install_dir,
-            } => Some((version_name, install_dir)),
-            ApplicationStatus::SetupRequired {
-                version_name,
-                install_dir,
-            } => Some((version_name, install_dir)),
-            _ => None,
-        } {
-            db_handle
-                .applications
-                .transient_statuses
-                .entry(id.clone())
-                .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
-            drop(db_handle);
-
-            let sender = self.sender.clone();
-            let app_handle = self.app_handle.clone();
-            spawn(move || match remove_dir_all(install_dir) {
-                Err(e) => {
-                    sender
-                        .send(DownloadManagerSignal::Error(ApplicationDownloadError::IoError(
-                            e.kind(),
-                        )))
-                        .unwrap();
-                }
-                Ok(_) => {
-                    let mut db_handle = DB.borrow_data_mut().unwrap();
-                    db_handle.applications.transient_statuses.remove(&id);
-                    db_handle
-                        .applications
-                        .statuses
-                        .entry(id.clone())
-                        .and_modify(|e| *e = ApplicationStatus::Remote {});
-                    drop(db_handle);
-                    DB.save().unwrap();
-
-                    info!("uninstalled {}", id);
-
-                    push_application_update(&app_handle, id, (Some(ApplicationStatus::Remote {}), None));
-                }
-            });
-        }
-    }
 
     fn manage_remove_download_from_queue(&mut self, id: DownloadableMetadata) {
         if let Some(current_download) = &self.current_download_agent {
@@ -550,42 +736,6 @@ impl DownloadManagerBuilder {
 
         self.push_ui_queue_update();
     }
-
-    fn manage_stop_signal(&mut self) {
-        info!("Got signal 'Stop'");
-        self.set_status(DownloadManagerStatus::Paused);
-        if let Some(active_control_flag) = self.active_control_flag.clone() {
-            active_control_flag.set(DownloadThreadControlFlag::Stop);
-        }
-    }
-
-    fn manage_completed_signal(&mut self, id: String) {
-        info!("Got signal 'Completed'");
-        if let Some(interface) = &self.current_download_agent {
-            if interface.id == id {
-                info!("Popping consumed data");
-                let download_agent = self.remove_and_cleanup_front_download(&id);
-                let download_agent_lock = download_agent.lock().unwrap();
-
-                drop(download_agent_lock);
-
-                if let Err(error) =
-                    self.current_download_agent.on_complete(&self.app_handle);
-                {
-                    self.sender
-                        .send(DownloadManagerSignal::Error(
-                            ApplicationDownloadError::Communication(error),
-                        ))
-                        .unwrap();
-                }
-            }
-        }
-        self.sender
-            .send(DownloadManagerSignal::UpdateUIQueue)
-            .unwrap();
-        self.sender.send(DownloadManagerSignal::Go).unwrap();
-    }
-
 
     fn manage_go_signal(&mut self) {
         if !(!self.download_agent_registry.is_empty() && !self.download_queue.empty()) {
@@ -664,39 +814,6 @@ impl DownloadManagerBuilder {
         self.sender
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
-    }
-    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
-        let current_status = self.current_download_agent.clone().unwrap();
-
-        self.stop_and_wait_current_download();
-        self.remove_and_cleanup_front_download(&current_status.id); // Remove all the locks and shit, and remove from queue
-
-        self.app_handle
-            .emit("download_error", error.to_string())
-            .unwrap();
-
-        let mut lock = current_status.status.lock().unwrap();
-        *lock = DownloadStatus::Error;
-        self.set_status(DownloadManagerStatus::Error(error));
-
-        let id = current_status.id.clone();
-        self.set_application_status(id, |db_handle, id| {
-            db_handle.applications.transient_statuses.remove(id);
-        });
-
-        self.sender
-            .send(DownloadManagerSignal::UpdateUIQueue)
-            .unwrap();
-    }
-    fn manage_cancel_signal(&mut self) {
-        self.stop_and_wait_current_download();
-
-        info!("cancel waited for download to finish");
-
-        self.cleanup_current_download();
-    }
-    fn set_status(&self, status: DownloadManagerStatus) {
-        *self.status.lock().unwrap() = status;
     }
 }
 */

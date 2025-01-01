@@ -283,7 +283,7 @@ impl GameDownloadAgent {
         };
 
         // If we're not out of contexts, we're not done, so we don't fire completed
-        if completed_lock_len != self.contexts.len() {
+        if completed_lock_len != self.contexts.lock().unwrap().len() {
             info!("da for {} exited without completing", self.id.clone());
             self.stored_manifest
                 .set_completed_contexts(&self.completed_contexts.lock().unwrap().clone().into());
