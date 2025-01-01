@@ -28,8 +28,8 @@ pub struct GameDownloadAgent {
     pub id: String,
     pub version: String,
     pub control_flag: DownloadThreadControl,
-    contexts: Vec<DropDownloadContext>,
-    completed_contexts: VecDeque<usize>,
+    contexts: Mutex<Vec<DropDownloadContext>>,
+    completed_contexts: Mutex<VecDeque<usize>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -63,8 +63,8 @@ impl GameDownloadAgent {
             version,
             control_flag,
             manifest: Mutex::new(None),
-            contexts: Vec::new(),
-            completed_contexts: VecDeque::new(),
+            contexts: Mutex::new(Vec::new()),
+            completed_contexts: Mutex::new(VecDeque::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
@@ -72,7 +72,7 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn setup_download(&mut self) -> Result<(), ApplicationDownloadError> {
+    pub fn setup_download(&self) -> Result<(), ApplicationDownloadError> {
         self.ensure_manifest_exists()?;
         info!("Ensured manifest exists");
 
@@ -85,7 +85,7 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&mut self) -> Result<(), ApplicationDownloadError> {
+    pub fn download(&self) -> Result<(), ApplicationDownloadError> {
         self.setup_download()?;
         self.set_progress_object_params();
         let timer = Instant::now();
@@ -153,9 +153,11 @@ impl GameDownloadAgent {
             return;
         }
 
-        let length = self.contexts.len();
+        let contexts = self.contexts.lock().unwrap();
 
-        let chunk_count = self.contexts.iter().map(|chunk| chunk.length).sum();
+        let length = contexts.len();
+
+        let chunk_count = contexts.iter().map(|chunk| chunk.length).sum();
 
         debug!("Setting ProgressObject max to {}", chunk_count);
         self.progress.set_max(chunk_count);
@@ -165,8 +167,8 @@ impl GameDownloadAgent {
         self.progress.set_time_now();
     }
 
-    pub fn ensure_contexts(&mut self) -> Result<(), ApplicationDownloadError> {
-        if !self.contexts.is_empty() {
+    pub fn ensure_contexts(&self) -> Result<(), ApplicationDownloadError> {
+        if !self.contexts.lock().unwrap().is_empty() {
             return Ok(());
         }
 
@@ -174,7 +176,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    pub fn generate_contexts(&mut self) -> Result<(), ApplicationDownloadError> {
+    pub fn generate_contexts(&self) -> Result<(), ApplicationDownloadError> {
         let manifest = self.manifest.lock().unwrap().clone().unwrap();
         let game_id = self.id.clone();
 
@@ -182,9 +184,13 @@ impl GameDownloadAgent {
         let base_path = Path::new(&self.stored_manifest.base_path);
         create_dir_all(base_path).unwrap();
 
-        self.completed_contexts.clear();
-        self.completed_contexts
-            .extend(self.stored_manifest.get_completed_contexts());
+        
+        {
+            let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
+            completed_contexts_lock.clear();
+            completed_contexts_lock
+                .extend(self.stored_manifest.get_completed_contexts());
+        }
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -215,12 +221,12 @@ impl GameDownloadAgent {
                 let _ = fallocate(file, FallocateFlags::empty(), 0, running_offset);
             }
         }
-        self.contexts = contexts;
+        *self.contexts.lock().unwrap() = contexts;
 
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<(), ()> {
+    pub fn run(&self) -> Result<(), ()> {
         info!("downloading game: {}", self.id);
         const DOWNLOAD_MAX_THREADS: usize = 1;
 
@@ -233,13 +239,13 @@ impl GameDownloadAgent {
         let completed_indexes_loop_arc = completed_indexes.clone();
 
         pool.scope(|scope| {
-            for (index, context) in self.contexts.iter().enumerate() {
+            for (index, context) in self.contexts.lock().unwrap().iter().enumerate() {
                 let completed_indexes = completed_indexes_loop_arc.clone();
 
                 let progress = self.progress.get(index); // Clone arcs
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 // If we've done this one already, skip it
-                if self.completed_contexts.contains(&index) {
+                if self.completed_contexts.lock().unwrap().contains(&index) {
                     progress_handle.add(context.length);
                     continue;
                 }
@@ -268,18 +274,19 @@ impl GameDownloadAgent {
         let newly_completed = completed_indexes.to_owned();
 
         let completed_lock_len = {
+            let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
             for (item, _) in newly_completed.iter() {
-                self.completed_contexts.push_front(item);
+                completed_contexts_lock.push_front(item);
             }
 
-            self.completed_contexts.len()
+            completed_contexts_lock.len()
         };
 
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != self.contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
             self.stored_manifest
-                .set_completed_contexts(&self.completed_contexts.clone().into());
+                .set_completed_contexts(&self.completed_contexts.lock().unwrap().clone().into());
             info!("Setting completed contexts");
             self.stored_manifest.write();
             info!("Wrote completed contexts");
@@ -297,7 +304,7 @@ impl GameDownloadAgent {
 
 impl Downloadable for GameDownloadAgent {
     
-    fn download(&mut self) -> Result<(), ApplicationDownloadError> {
+    fn download(&self) -> Result<(), ApplicationDownloadError> {
         self.download()
     }
         
@@ -319,5 +326,9 @@ impl Downloadable for GameDownloadAgent {
     
     fn on_complete(&self, app_handle: &AppHandle<Wry<EventLoopMessage>>) {
         on_game_complete(id, version, install_dir, app_handle)
+    }
+    
+    fn on_initialised(&self, app_handle: &tauri::AppHandle) {
+        todo!()
     }
 }
