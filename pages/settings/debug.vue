@@ -124,7 +124,7 @@ onMounted(async () => {
         runner: string | null;
         prefix: string | null;
       };
-    }>('fetch_UMU_info');
+    }>('fetch_umu_info');
     
     dataDir.value = debugInfo.dataDir;
     compatInfo.value = debugInfo.compatibility;
