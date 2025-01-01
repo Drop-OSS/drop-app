@@ -16,6 +16,7 @@ import {
   initialNavigation,
   setupHooks,
 } from "./composables/state-navigation.js";
+import { useTheme } from "./composables/useTheme";
 
 const router = useRouter();
 
@@ -32,4 +33,11 @@ initialNavigation(state);
 useHead({
   title: "Drop",
 });
+
+const { initTheme } = useTheme()
+
+// Initialize theme on app start
+onMounted(() => {
+    initTheme()
+})
 </script>
