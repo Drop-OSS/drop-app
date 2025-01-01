@@ -12,7 +12,7 @@ mod tests;
 mod autostart;
 
 use crate::db::DatabaseImpls;
-use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect};
+use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect, sign_out};
 use cleanup::{cleanup_and_exit, quit};
 use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
@@ -221,6 +221,7 @@ pub fn run() {
             auth_initiate,
             retry_connect,
             manual_recieve_handshake,
+            sign_out,
             // Remote
             use_remote,
             gen_drop_url,
