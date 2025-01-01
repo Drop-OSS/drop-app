@@ -245,6 +245,10 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
+            // Debug
+            fetch_client_id,
+            fetch_base_url,
+            fetch_UMU_info,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -377,4 +381,40 @@ pub fn run() {
             }
         }
     });
+}
+
+#[tauri::command]
+fn fetch_client_id() -> Result<Option<String>, String> {
+    let data = DB.borrow_data().map_err(|e| e.to_string())?;
+    Ok(data.auth.as_ref().map(|auth| auth.client_id.clone()))
+}
+
+#[tauri::command]
+fn fetch_base_url() -> Result<Option<String>, String> {
+    let data = DB.borrow_data().map_err(|e| e.to_string())?;
+    Ok(Some(data.base_url.clone()))
+}
+
+#[tauri::command]
+fn fetch_UMU_info() -> Result<serde_json::Value, String> {
+    let data_dir = DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string();
+    
+    #[cfg(target_os = "linux")]
+    let compat_info = {
+        let data = DB.borrow_data().map_err(|e| e.to_string())?;
+        let compat = data.compatibility.clone();
+        serde_json::json!({
+            "enabled": compat.enabled,
+            "runner": compat.runner,
+            "prefix": compat.prefix_path
+        })
+    };
+
+    #[cfg(not(target_os = "linux"))]
+    let compat_info = serde_json::json!(null);
+
+    Ok(serde_json::json!({
+        "dataDir": data_dir,
+        "compatibility": compat_info
+    }))
 }
