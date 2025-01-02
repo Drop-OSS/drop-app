@@ -1,10 +1,10 @@
 use std::sync::Mutex;
 
-use crate::AppState;
+use crate::{download_manager::downloadable_metadata::DownloadableMetadata, AppState};
 
 #[tauri::command]
 pub fn launch_game(
-    game_id: String,
+    game_id: DownloadableMetadata,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let state_lock = state.lock().unwrap();
@@ -20,7 +20,7 @@ pub fn launch_game(
 
 #[tauri::command]
 pub fn kill_game(
-    game_id: String,
+    game_id: DownloadableMetadata,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let state_lock = state.lock().unwrap();

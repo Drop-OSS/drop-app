@@ -1,13 +1,15 @@
+
+use std::sync::Arc;
+
 use crate::{
-    db::{ApplicationStatus, ApplicationTransientStatus, Database},
-    DB,
+    db::{ApplicationStatus, ApplicationTransientStatus}, download_manager::downloadable_metadata::DownloadableMetadata, DB
 };
 
 pub type GameStatusWithTransient = (Option<ApplicationStatus>, Option<ApplicationTransientStatus>);
 pub struct GameStatusManager {}
 
-impl GameStatusManager {
-    pub fn fetch_state(game_id: &String) -> GameStatusWithTransient {
+impl DownloadStatusManager {
+    pub fn fetch_state(id: &DownloadableMetadata) -> ApplicationStatusWithTransient {
         let db_lock = DB.borrow_data().unwrap();
         GameStatusManager::fetch_state_with_db(game_id, &db_lock)
     }

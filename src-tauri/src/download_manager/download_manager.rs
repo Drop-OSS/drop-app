@@ -12,16 +12,9 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-use crate::downloads::download_agent::GameDownloadAgent;
 
-use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadAgent, DownloadableQueueStandin}, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, queue::Queue};
+use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadAgent}, downloadable_metadata::DownloadableMetadata, queue::Queue};
 
-pub enum DownloadType {
-    Game,
-    Tool,
-    DLC,
-    Mod
-}
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the DownloadManager
     Go,
@@ -91,22 +84,6 @@ pub struct DownloadManager {
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
 }
-impl<T: Downloadable> From<Arc<T>> for DownloadableQueueStandin {
-    fn from(value: Arc<T>) -> Self {
-        Self {
-            id: value.id(),
-            status: Mutex::from(DownloadStatus::Queued),
-            progress: value.progress().clone(),
-        }
-    }
-}
-impl Debug for DownloadableQueueStandin {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DownloadableQueueStandin")
-            .field("id", &self.id)
-            .finish()
-    }
-}
 
 #[allow(dead_code)]
 impl DownloadManager {
@@ -126,40 +103,34 @@ impl DownloadManager {
 
     pub fn queue_download(
         &self,
-        id: String,
-        version: String,
-        target_download_dir: usize,
+        download: DownloadAgent
     ) -> Result<(), SendError<DownloadManagerSignal>> {
-        info!("Adding download id {}", id);
-        self.command_sender.send(DownloadManagerSignal::Queue(
-            id,
-            version,
-            target_download_dir,
-        ))?;
+        info!("Adding download id {:?}", download.metadata());
+        self.command_sender.send(DownloadManagerSignal::Queue(download))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableQueueStandin>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableMetadata>>> {
         self.download_queue.edit()
     }
-    pub fn read_queue(&self) -> VecDeque<Arc<DownloadableQueueStandin>> {
+    pub fn read_queue(&self) -> VecDeque<Arc<DownloadableMetadata>> {
         self.download_queue.read()
     }
     pub fn get_current_download_progress(&self) -> Option<f64> {
         let progress_object = (*self.progress.lock().unwrap()).clone()?;
         Some(progress_object.get_progress())
     }
-    pub fn rearrange_string(&self, id: String, new_index: usize) {
+    pub fn rearrange_string(&self, meta: &Arc<DownloadableMetadata>, new_index: usize) {
         let mut queue = self.edit();
-        let current_index = get_index_from_id(&mut queue, id).unwrap();
+        let current_index = get_index_from_id(&mut queue, meta).unwrap();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
         self.command_sender
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
-    pub fn cancel(&self, id: String) {
+    pub fn cancel(&self, meta: Arc<DownloadableMetadata>) {
         self.command_sender
-            .send(DownloadManagerSignal::Remove(id))
+            .send(DownloadManagerSignal::Remove(meta))
             .unwrap();
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
@@ -170,7 +141,7 @@ impl DownloadManager {
         let needs_pause = current_index == 0 || new_index == 0;
         if needs_pause {
             self.command_sender
-                .send(DownloadManagerSignal::Cancel)
+                .send(DownloadManagerSignal::Stop)
                 .unwrap();
         }
 
@@ -203,20 +174,23 @@ impl DownloadManager {
             .unwrap();
         self.terminator.join()
     }
-    pub fn uninstall_application(&self, id: String) {
+    pub fn uninstall_application(&self, meta: Arc<DownloadableMetadata>) {
         self.command_sender
-            .send(DownloadManagerSignal::Uninstall(id))
+            .send(DownloadManagerSignal::Uninstall(meta))
             .unwrap();
+    }
+    pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {
+        self.command_sender.clone()
     }
 }
 
 /// Takes in the locked value from .edit() and attempts to
 /// get the index of whatever id is passed in
 fn get_index_from_id(
-    queue: &mut MutexGuard<'_, VecDeque<Arc<DownloadableQueueStandin>>>,
-    id: String,
+    queue: &mut MutexGuard<'_, VecDeque<Arc<DownloadableMetadata>>>,
+    meta: &Arc<DownloadableMetadata>,
 ) -> Option<usize> {
     queue
         .iter()
-        .position(|download_agent| download_agent.id == id)
+        .position(|download_agent| download_agent == meta)
 }
