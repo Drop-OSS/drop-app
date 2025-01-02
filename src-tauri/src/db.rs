@@ -210,9 +210,9 @@ pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
     Ok(directories)
 }
 
-pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Arc<DownloadableMetadata>)>(
+pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &DownloadableMetadata)>(
     app_handle: &AppHandle,
-    id: Arc<DownloadableMetadata>,
+    id: DownloadableMetadata,
     setter: F,
 ) {
     let mut db_handle = DB.borrow_data_mut().unwrap();
