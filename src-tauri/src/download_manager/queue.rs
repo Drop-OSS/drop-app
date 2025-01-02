@@ -34,11 +34,11 @@ impl Queue {
     }
     /// Either inserts `interface` at the specified index, or appends to
     /// the back of the deque if index is greater than the length of the deque
-    pub fn insert(&self, interface: DownloadableMetadata, index: usize) {
+    pub fn insert(&self, interface: Arc<DownloadableMetadata>, index: usize) {
         if self.read().len() > index {
             self.append(interface);
         } else {
-            self.edit().insert(index, Arc::new(interface));
+            self.edit().insert(index, interface);
         }
     }
     pub fn append(&self, interface: Arc<DownloadableMetadata>) {

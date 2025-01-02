@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::download_manager::{download_thread_control_flag::DownloadThreadControl, downloadable::Downloadable, progress_object::ProgressObject};
+use crate::download_manager::{application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject};
 
 pub struct ToolDownloadAgent {
     id: String,
@@ -10,7 +10,7 @@ pub struct ToolDownloadAgent {
     progress: Arc<ProgressObject>,
 }
 impl Downloadable for ToolDownloadAgent {
-    fn download(&mut self) -> Result<(), crate::download_manager::application_download_error::ApplicationDownloadError> {
+    fn download(&self) -> Result<bool, ApplicationDownloadError> {
         todo!()
     }
 
@@ -22,15 +22,35 @@ impl Downloadable for ToolDownloadAgent {
         todo!()
     }
 
-    fn metadata(&self) -> crate::download_manager::downloadable_metadata::DownloadableMetadata {
+    fn status(&self) -> crate::download_manager::download_manager::DownloadStatus {
         todo!()
     }
 
-    fn on_error(&self) {
+    fn metadata(&self) -> Arc<DownloadableMetadata> {
         todo!()
     }
 
-    fn on_complete(&self) {
+    fn on_initialised(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_error(&self, app_handle: &tauri::AppHandle, error: crate::download_manager::application_download_error::ApplicationDownloadError) {
+        todo!()
+    }
+
+    fn on_complete(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_uninstall(&self, app_handle: &tauri::AppHandle) {
         todo!()
     }
 }

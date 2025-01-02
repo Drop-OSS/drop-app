@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
-    sync::{LazyLock, Mutex, RwLockWriteGuard},
+    sync::{Arc, LazyLock, Mutex, RwLockWriteGuard},
 };
 
 use directories::BaseDirs;
@@ -12,7 +12,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use tauri::AppHandle;
 use url::Url;
 
-use crate::{library::push_application_update, process::process_manager::Platform, state::DownloadStatusManager, DB};
+use crate::{download_manager::downloadable_metadata::DownloadableMetadata, library::push_game_update, process::process_manager::Platform, state::DownloadStatusManager, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -66,11 +66,11 @@ pub struct ApplicationVersion {
 pub struct DatabaseApplications {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
-    pub statuses: HashMap<String, ApplicationStatus>,
-    pub versions: HashMap<String, HashMap<String, ApplicationVersion>>,
+    pub statuses: HashMap<DownloadableMetadata, ApplicationStatus>,
+    pub versions: HashMap<DownloadableMetadata, HashMap<String, ApplicationVersion>>,
 
     #[serde(skip)]
-    pub transient_statuses: HashMap<String, ApplicationTransientStatus>,
+    pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
 }
 
 #[derive(Serialize, Clone, Deserialize)]
@@ -210,9 +210,9 @@ pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
     Ok(directories)
 }
 
-pub fn set_application_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &String)>(
+pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Arc<DownloadableMetadata>)>(
     app_handle: &AppHandle,
-    id: String,
+    id: Arc<DownloadableMetadata>,
     setter: F,
 ) {
     let mut db_handle = DB.borrow_data_mut().unwrap();
@@ -222,5 +222,5 @@ pub fn set_application_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &St
 
     let status = DownloadStatusManager::fetch_state(&id);
 
-    push_application_update(app_handle, id, status);
+    push_game_update(app_handle, id, status);
 }

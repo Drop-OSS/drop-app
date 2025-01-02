@@ -12,19 +12,11 @@ use log::{error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    db::{set_application_status, ApplicationStatus, ApplicationTransientStatus, Database}, download_manager::{download_manager::{DownloadStatus, DownloadType}, generate_downloadable::generate_downloadable}, downloads::download_agent::{self, GameDownloadAgent}, library::{
-        on_game_complete, push_application_update, QueueUpdateEvent,
-        QueueUpdateEventQueueData, StatsUpdateEvent,
-    }, state::DownloadStatusManager, DB
-};
+    download_manager::{download_manager::DownloadStatus, generate_downloadable::generate_downloadable}, library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent}}
+;
 
 use super::{application_download_error::ApplicationDownloadError, download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject, queue::Queue};
 
-pub struct DownloadableQueueStandin {
-    pub id: String,
-    pub status: Mutex<DownloadStatus>,
-    pub progress: Arc<ProgressObject>,
-}
 pub type DownloadAgent = Arc<Box<dyn Downloadable + Send + Sync>>;
 pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
 
@@ -163,12 +155,12 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Error(e) => {
                     self.manage_error_signal(e);
                 }
-                //DownloadManagerSignal::UpdateUIQueue => {
-                //    self.push_ui_queue_update();
-                //}
-                //DownloadManagerSignal::UpdateUIStats(kbs, time) => {
-                //    self.push_ui_stats_update(kbs, time);
-                //}
+                DownloadManagerSignal::UpdateUIQueue => {
+                    self.push_ui_queue_update();
+                }
+                DownloadManagerSignal::UpdateUIStats(kbs, time) => {
+                    self.push_ui_stats_update(kbs, time);
+                }
                 DownloadManagerSignal::Finish => {
                     self.stop_and_wait_current_download();
                     return Ok(());
@@ -239,8 +231,7 @@ impl DownloadManagerBuilder {
                     download_agent.on_incomplete(&app_handle);
                 },
                 Err(e) => {
-                    download_agent.on_error(&app_handle);
-                    error!("error while managing download: {}", e);
+                    download_agent.on_error(&app_handle, e.clone());
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
                 },
             }
@@ -272,7 +263,7 @@ impl DownloadManagerBuilder {
         info!("Got signal Error");
         let current_agent = self.current_download_agent.clone().unwrap();
 
-        current_agent.on_error(&self.app_handle);
+        current_agent.on_error(&self.app_handle, error.clone());
 
         self.stop_and_wait_current_download();
         self.remove_and_cleanup_front_download(&current_agent.metadata());
@@ -310,6 +301,28 @@ impl DownloadManagerBuilder {
         self.manage_cancel_signal(meta);
         download_agent.on_uninstall(&self.app_handle);
     }
+    fn push_ui_stats_update(&self, kbs: usize, time: usize) {
+        let event_data = StatsUpdateEvent { speed: kbs, time };
+
+        self.app_handle.emit("update_stats", event_data);
+    }
+    fn push_ui_queue_update(&self) {
+        let registry = &self.download_agent_registry;
+        let queue_objs = registry
+            .iter()
+            .map(|(key, val)| QueueUpdateEventQueueData {
+                meta: DownloadableMetadata::clone(&key),
+                status: val.status(),
+                progress: val.progress().get_progress()
+            })
+            .collect();
+
+        let event_data = QueueUpdateEvent {
+            queue: queue_objs,
+            status: self.status.lock().unwrap().clone(),
+        };
+        self.app_handle.emit("update_queue", event_data);
+    }
 }
 /*
 // Refactored to consolidate this type. It's a monster.
@@ -317,6 +330,33 @@ pub type DownloadAgent = Arc<Mutex<Box<dyn Downloadable + Send + Sync>>>;
 
 
 impl DownloadManagerBuilder {
+    fn push_ui_stats_update(&self, kbs: usize, time: usize) {
+        let event_data = StatsUpdateEvent { speed: kbs, time };
+
+        self.app_handle.emit("update_stats", event_data).unwrap();
+    }
+
+    fn push_ui_queue_update(&self) {
+        let queue = self.download_queue.read();
+        let queue_objs: Vec<QueueUpdateEventQueueData> = queue
+            .iter()
+            .map(|interface| QueueUpdateEventQueueData {
+                id: interface.id.clone(),
+                status: interface.status.lock().unwrap().clone(),
+                progress: interface.progress.get_progress(),
+            })
+            .collect();
+
+        let status_handle = self.status.lock().unwrap();
+        let status = status_handle.clone();
+        drop(status_handle);
+
+        let event_data = QueueUpdateEvent {
+            queue: queue_objs,
+            status,
+        };
+        self.app_handle.emit("update_queue", event_data).unwrap();
+    }
     fn uninstall_application(&mut self, id: String) {
         // Removes the download if it's in the queue
         self.manage_remove_download_from_queue(id.clone());
@@ -604,34 +644,6 @@ impl DownloadManagerBuilder {
         self.sender
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
-    }
-
-    fn push_ui_stats_update(&self, kbs: usize, time: usize) {
-        let event_data = StatsUpdateEvent { speed: kbs, time };
-
-        self.app_handle.emit("update_stats", event_data).unwrap();
-    }
-
-    fn push_ui_queue_update(&self) {
-        let queue = self.download_queue.read();
-        let queue_objs: Vec<QueueUpdateEventQueueData> = queue
-            .iter()
-            .map(|interface| QueueUpdateEventQueueData {
-                id: interface.id.clone(),
-                status: interface.status.lock().unwrap().clone(),
-                progress: interface.progress.get_progress(),
-            })
-            .collect();
-
-        let status_handle = self.status.lock().unwrap();
-        let status = status_handle.clone();
-        drop(status_handle);
-
-        let event_data = QueueUpdateEvent {
-            queue: queue_objs,
-            status,
-        };
-        self.app_handle.emit("update_queue", event_data).unwrap();
     }
 
     fn stop_and_wait_current_download(&self) {

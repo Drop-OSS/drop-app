@@ -21,6 +21,7 @@ use db::{
 };
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
+use download_manager::downloadable_metadata::DownloadableMetadata;
 use downloads::download_commands::*;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
@@ -74,7 +75,7 @@ pub struct User {
 pub struct AppState<'a> {
     status: AppStatus,
     user: Option<User>,
-    games: HashMap<String, Game>,
+    games: HashMap<DownloadableMetadata, Game>,
 
     #[serde(skip_serializing)]
     download_manager: Arc<DownloadManager>,
@@ -174,7 +175,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         db_handle
             .applications
             .statuses
-            .entry(game_id.to_string())
+            .entry(game_id)
             .and_modify(|v| *v = ApplicationStatus::Remote {});
     }
     drop(db_handle);

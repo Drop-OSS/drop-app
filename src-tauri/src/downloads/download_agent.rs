@@ -1,15 +1,17 @@
 use crate::auth::generate_authorization_header;
-use crate::db::DatabaseImpls;
+use crate::db::{set_game_status, DatabaseImpls};
 use crate::download_manager::application_download_error::ApplicationDownloadError;
 use crate::download_manager::download_manager::DownloadManagerSignal;
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
+use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
+use tauri::Emitter;
 use std::collections::VecDeque;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
@@ -85,18 +87,18 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&self) -> Result<(), ApplicationDownloadError> {
+    pub fn download(&self) -> Result<bool, ApplicationDownloadError> {
         self.setup_download()?;
         self.set_progress_object_params();
         let timer = Instant::now();
-        self.run().map_err(|_| ApplicationDownloadError::DownloadError)?;
+        let res = self.run().map_err(|_| ApplicationDownloadError::DownloadError);
 
         info!(
             "{} took {}ms to download",
             self.id,
             timer.elapsed().as_millis()
         );
-        Ok(())
+        res
     }
 
     pub fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
@@ -226,7 +228,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    pub fn run(&self) -> Result<(), ()> {
+    pub fn run(&self) -> Result<bool, ()> {
         info!("downloading game: {}", self.id);
         const DOWNLOAD_MAX_THREADS: usize = 1;
 
@@ -290,45 +292,69 @@ impl GameDownloadAgent {
             info!("Setting completed contexts");
             self.stored_manifest.write();
             info!("Wrote completed contexts");
-            return Ok(());
+            return Ok(false);
         }
 
         // We've completed
         self.sender
-            .send(DownloadManagerSignal::Completed(self.id.clone()))
+            .send(DownloadManagerSignal::Completed(self.metadata()))
             .unwrap();
 
-        Ok(())
+        Ok(true)
     }
 }
 
 impl Downloadable for GameDownloadAgent {
-    
-    fn download(&self) -> Result<(), ApplicationDownloadError> {
+    fn download(&self) -> Result<bool, ApplicationDownloadError> {
         self.download()
     }
-        
+
     fn progress(&self) -> Arc<ProgressObject> {
         self.progress.clone()
     }
-    
+
     fn control_flag(&self) -> DownloadThreadControl {
         self.control_flag.clone()
     }
-    
-    fn metadata(&self) -> crate::download_manager::downloadable_metadata::DownloadableMetadata {
+
+    fn metadata(&self) -> Arc<DownloadableMetadata> {
+        todo!()
+    }
+
+    fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
+        return;
+    }
+
+    fn on_error(&self, app_handle: &tauri::AppHandle, error: ApplicationDownloadError) {
+        app_handle
+            .emit("download_error", error.to_string())
+            .unwrap();
+
+        error!("error while managing download: {}", error);
+
+        set_game_status(app_handle, self.metadata(), |db_handle, meta| {
+            db_handle.applications.transient_statuses.remove(meta);
+        });
+        
+    }
+
+    fn on_complete(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
+        todo!()
+    }
+
+    fn on_uninstall(&self, app_handle: &tauri::AppHandle) {
         todo!()
     }
     
-    fn on_error(&self) {
-        todo!()
-    }
-    
-    fn on_complete(&self, app_handle: &AppHandle<Wry<EventLoopMessage>>) {
-        on_game_complete(id, version, install_dir, app_handle)
-    }
-    
-    fn on_initialised(&self, app_handle: &tauri::AppHandle) {
+    fn status(&self) -> crate::download_manager::download_manager::DownloadStatus {
         todo!()
     }
 }
