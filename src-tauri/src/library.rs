@@ -191,7 +191,7 @@ pub fn fetch_game(id: DownloadableMetadata, app: tauri::AppHandle) -> Result<Fet
 }
 
 #[tauri::command]
-pub fn fetch_game_status(meta: Arc<DownloadableMetadata>) -> Result<ApplicationStatusWithTransient, String> {
+pub fn fetch_game_status(meta: DownloadableMetadata) -> Result<ApplicationStatusWithTransient, String> {
     let status = DownloadStatusManager::fetch_state(&meta);
 
     Ok(status)
@@ -243,7 +243,7 @@ pub fn fetch_game_verion_options<'a>(
 
 #[tauri::command]
 pub fn uninstall_game(
-    game_id: Arc<DownloadableMetadata>,
+    game_id: DownloadableMetadata,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let state_lock = state.lock().unwrap();
@@ -266,7 +266,7 @@ pub fn push_game_update(app_handle: &AppHandle, meta: DownloadableMetadata, stat
 }
 
 pub fn on_game_complete(
-    meta: Arc<DownloadableMetadata>,
+    meta: DownloadableMetadata,
     install_dir: String,
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
@@ -303,7 +303,7 @@ pub fn on_game_complete(
     handle
         .applications
         .versions
-        .entry(*meta.clone())
+        .entry(meta.clone())
         .or_default()
         .insert(meta.version.clone(), data.clone());
     drop(handle);
@@ -325,7 +325,7 @@ pub fn on_game_complete(
     db_handle
         .applications
         .statuses
-        .insert(*meta.clone(), status.clone());
+        .insert(meta.clone(), status.clone());
     drop(db_handle);
     DB.save().unwrap();
     app_handle

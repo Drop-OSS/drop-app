@@ -21,7 +21,7 @@ pub enum DownloadManagerSignal {
     /// Pauses the DownloadManager
     Stop,
     /// Called when a DownloadAgent has fully completed a download.
-    Completed(Arc<DownloadableMetadata>),
+    Completed(DownloadableMetadata),
     /// Generates and appends a DownloadAgent
     /// to the registry and queue
     Queue(DownloadAgent),
@@ -30,9 +30,9 @@ pub enum DownloadManagerSignal {
     /// then exit
     Finish,
     /// Stops, removes, and tells a download to cleanup
-    Cancel(Arc<DownloadableMetadata>),
+    Cancel(DownloadableMetadata),
     /// Removes a given application
-    Remove(Arc<DownloadableMetadata>),
+    Remove(DownloadableMetadata),
     /// Any error which occurs in the agent
     Error(ApplicationDownloadError),
     /// Pushes UI update
@@ -40,7 +40,7 @@ pub enum DownloadManagerSignal {
     UpdateUIStats(usize, usize), //kb/s and seconds
     /// Uninstall download
     /// Takes download ID
-    Uninstall(Arc<DownloadableMetadata>),
+    Uninstall(DownloadableMetadata),
 }
 
 #[derive(Debug, Clone)]
@@ -109,17 +109,17 @@ impl DownloadManager {
         self.command_sender.send(DownloadManagerSignal::Queue(download))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
-    pub fn edit(&self) -> MutexGuard<'_, VecDeque<Arc<DownloadableMetadata>>> {
+    pub fn edit(&self) -> MutexGuard<'_, VecDeque<DownloadableMetadata>> {
         self.download_queue.edit()
     }
-    pub fn read_queue(&self) -> VecDeque<Arc<DownloadableMetadata>> {
+    pub fn read_queue(&self) -> VecDeque<DownloadableMetadata> {
         self.download_queue.read()
     }
     pub fn get_current_download_progress(&self) -> Option<f64> {
         let progress_object = (*self.progress.lock().unwrap()).clone()?;
         Some(progress_object.get_progress())
     }
-    pub fn rearrange_string(&self, meta: &Arc<DownloadableMetadata>, new_index: usize) {
+    pub fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
         let mut queue = self.edit();
         let current_index = get_index_from_id(&mut queue, meta).unwrap();
         let to_move = queue.remove(current_index).unwrap();
@@ -128,7 +128,7 @@ impl DownloadManager {
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
     }
-    pub fn cancel(&self, meta: Arc<DownloadableMetadata>) {
+    pub fn cancel(&self, meta: DownloadableMetadata) {
         self.command_sender
             .send(DownloadManagerSignal::Remove(meta))
             .unwrap();
@@ -174,7 +174,7 @@ impl DownloadManager {
             .unwrap();
         self.terminator.join()
     }
-    pub fn uninstall_application(&self, meta: Arc<DownloadableMetadata>) {
+    pub fn uninstall_application(&self, meta: DownloadableMetadata) {
         self.command_sender
             .send(DownloadManagerSignal::Uninstall(meta))
             .unwrap();
@@ -187,8 +187,8 @@ impl DownloadManager {
 /// Takes in the locked value from .edit() and attempts to
 /// get the index of whatever id is passed in
 fn get_index_from_id(
-    queue: &mut MutexGuard<'_, VecDeque<Arc<DownloadableMetadata>>>,
-    meta: &Arc<DownloadableMetadata>,
+    queue: &mut MutexGuard<'_, VecDeque<DownloadableMetadata>>,
+    meta: &DownloadableMetadata,
 ) -> Option<usize> {
     queue
         .iter()

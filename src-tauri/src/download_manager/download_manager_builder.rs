@@ -58,7 +58,7 @@ Behold, my madness - quexeky
 */
 
 pub struct DownloadManagerBuilder {
-    download_agent_registry: HashMap<Arc<DownloadableMetadata>, DownloadAgent>,
+    download_agent_registry: HashMap<DownloadableMetadata, DownloadAgent>,
     download_queue: Queue,
     command_receiver: Receiver<DownloadManagerSignal>,
     sender: Sender<DownloadManagerSignal>,
@@ -100,7 +100,7 @@ impl DownloadManagerBuilder {
         *self.status.lock().unwrap() = status;
     }
 
-    fn remove_and_cleanup_front_download(&mut self, meta: &Arc<DownloadableMetadata>) -> DownloadAgent {
+    fn remove_and_cleanup_front_download(&mut self, meta: &DownloadableMetadata) -> DownloadAgent {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(meta).unwrap();
         self.cleanup_current_download();
@@ -249,7 +249,7 @@ impl DownloadManagerBuilder {
             active_control_flag.set(DownloadThreadControlFlag::Stop);
         }
     }
-    fn manage_completed_signal(&mut self, meta: Arc<DownloadableMetadata>) {
+    fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
         info!("Got signal Completed");
         if let Some(interface) = &self.current_download_agent {
             if interface.metadata() == meta {
@@ -270,7 +270,7 @@ impl DownloadManagerBuilder {
 
         self.set_status(DownloadManagerStatus::Error(error));
     }
-    fn manage_cancel_signal(&mut self, meta: &Arc<DownloadableMetadata>) {
+    fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         info!("Got signal Cancel");
 
         if let Some(current_download) = &self.current_download_agent {
@@ -293,7 +293,7 @@ impl DownloadManagerBuilder {
             }
         }
     }
-    fn uninstall_application(&mut self, meta: &Arc<DownloadableMetadata>) {
+    fn uninstall_application(&mut self, meta: &DownloadableMetadata) {
         let download_agent = match self.download_agent_registry.get(meta) {
             Some(download_agent) => download_agent.clone(),
             None => return,

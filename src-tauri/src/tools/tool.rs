@@ -26,7 +26,7 @@ impl Downloadable for ToolDownloadAgent {
         todo!()
     }
 
-    fn metadata(&self) -> Arc<DownloadableMetadata> {
+    fn metadata(&self) -> DownloadableMetadata {
         todo!()
     }
 
