@@ -39,6 +39,7 @@ import {
   CubeIcon,
   HomeIcon,
   RectangleGroupIcon,
+  BugAntIcon,
 } from "@heroicons/vue/16/solid";
 import type { Component } from "vue";
 import type { NavigationItem } from "~/types";
@@ -62,6 +63,12 @@ const navigation: Array<NavigationItem & { icon: Component }> = [
     route: "/settings/downloads",
     prefix: "/settings/downloads",
     icon: ArrowDownTrayIcon,
+  },
+  {
+    label: "Debug Info",
+    route: "/settings/debug",
+    prefix: "/settings/debug",
+    icon: BugAntIcon,
   },
 ];
 

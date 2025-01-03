@@ -82,3 +82,124 @@ $helvetica: (
   border-radius: 10px;
   border: 3px solid #52525b;
 }
+
+:root {
+    // Dark mode defaults
+    --color-bg-primary: theme('colors.zinc.900');
+    --color-bg-secondary: theme('colors.zinc.800');
+    --color-bg-tertiary: theme('colors.zinc.800/50');
+    --color-bg-hover: theme('colors.zinc.800/30');
+    --color-bg-nav: theme('colors.zinc.950');
+    --color-text-primary: theme('colors.zinc.100');
+    --color-text-secondary: theme('colors.zinc.400');
+    --color-text-hover: theme('colors.zinc.200');
+    --color-text-nav: theme('colors.zinc.300');
+    --color-border: theme('colors.zinc.700');
+    --color-divide: theme('colors.zinc.700');
+    --color-divide-secondary: theme('colors.gray.800');
+}
+
+:root.light {
+    // Light mode overrides
+    --color-bg-primary: theme('colors.white');
+    --color-bg-secondary: theme('colors.zinc.100');
+    --color-bg-tertiary: theme('colors.zinc.100/50');
+    --color-bg-hover: theme('colors.zinc.100/30');
+    --color-bg-nav: theme('colors.zinc.100');
+    --color-text-primary: theme('colors.zinc.900');
+    --color-text-secondary: theme('colors.zinc.600');
+    --color-text-hover: theme('colors.zinc.700');
+    --color-text-nav: theme('colors.zinc.600');
+    --color-border: theme('colors.zinc.200');
+    --color-divide: theme('colors.zinc.200');
+    --color-divide-secondary: theme('colors.gray.200');
+}
+
+// Background colors
+.bg-zinc-900 {
+    background-color: var(--color-bg-primary);
+}
+
+.bg-zinc-800 {
+    background-color: var(--color-bg-secondary);
+}
+
+.bg-zinc-800\/50 {
+    background-color: var(--color-bg-tertiary);
+}
+
+.hover\:bg-zinc-800\/30:hover {
+    background-color: var(--color-bg-hover);
+}
+
+// Text colors
+.text-zinc-100 {
+    color: var(--color-text-primary);
+}
+
+.text-zinc-400 {
+    color: var(--color-text-secondary);
+}
+
+.hover\:text-zinc-200:hover {
+    color: var(--color-text-hover);
+}
+
+.group-hover\:text-zinc-200 {
+    color: var(--color-text-hover);
+}
+
+// Border colors
+.border-zinc-700 {
+    border-color: var(--color-border);
+}
+
+.border-zinc-600 {
+    border-color: var(--color-border);
+}
+
+// Divide colors
+.divide-zinc-700 {
+    border-color: var(--color-divide);
+}
+
+.divide-gray-800 {
+    border-color: var(--color-divide-secondary);
+}
+
+// Scrollbar colors (updating for light mode support)
+* {
+    scrollbar-color: var(--color-text-secondary) transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+    background-color: var(--color-text-secondary);
+    border: 3px solid var(--color-text-secondary);
+}
+
+// Background colors for html/body
+html,
+body {
+    background-color: var(--color-bg-primary);
+    color: var(--color-text-primary);
+}
+
+// Navigation specific colors
+.bg-zinc-950 {
+    background-color: var(--color-bg-nav);
+}
+
+.text-zinc-300 {
+    color: var(--color-text-nav);
+}
+
+// Active/hover states for navigation
+.hover\:text-zinc-300:hover {
+    color: var(--color-text-nav);
+}
+
+.group-hover\:text-zinc-300:hover {
+    color: var(--color-text-nav);
+}
+
+// Add more class overrides as needed
