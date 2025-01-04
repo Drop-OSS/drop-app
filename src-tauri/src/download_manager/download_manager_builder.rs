@@ -117,6 +117,7 @@ impl DownloadManagerBuilder {
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
         *download_thread_lock = None;
         drop(download_thread_lock);
+
     }
 
     fn stop_and_wait_current_download(&self) {
@@ -179,12 +180,13 @@ impl DownloadManagerBuilder {
         info!("Got signal Queue");
         let meta = download_agent.metadata();
 
+        info!("Meta: {:?}", meta);
+
         if self.download_queue.exists(meta.clone()) {
             info!("Download with same ID already exists");
             return;
         }
 
-        let download_agent = generate_downloadable(meta.clone());
         download_agent.on_initialised(&self.app_handle);
         self.download_queue.append(meta.clone());
         self.download_agent_registry.insert(meta, download_agent);
@@ -194,9 +196,15 @@ impl DownloadManagerBuilder {
 
     fn manage_go_signal(&mut self) {
         info!("Got signal Go");
-        if !(self.download_agent_registry.is_empty()) { return; }
+        if self.download_agent_registry.is_empty() { 
+            info!("Download agent registry: {:?}", self.download_agent_registry.len());
+            return; 
+        }
 
-        if self.current_download_agent.is_some() { return; }
+        if self.current_download_agent.is_some() {
+            info!("Current download agent: {:?}", self.current_download_agent.as_ref().unwrap().metadata());
+            return;
+        }
 
         info!("Current download queue: {:?}", self.download_queue.read());
 
@@ -220,11 +228,11 @@ impl DownloadManagerBuilder {
         let app_handle = self.app_handle.clone();
 
         *download_thread_lock = Some(spawn(move || {
-            match download_agent.download() {
+            match download_agent.download(&app_handle) {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
                     download_agent.on_complete(&app_handle);
-                    sender.send(DownloadManagerSignal::Completed(download_agent.metadata()));
+                    sender.send(DownloadManagerSignal::Completed(download_agent.metadata())).unwrap();
                 },
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
@@ -257,6 +265,7 @@ impl DownloadManagerBuilder {
                 self.remove_and_cleanup_front_download(&meta);
             }
         }
+        self.push_ui_queue_update();
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
     fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
@@ -279,19 +288,38 @@ impl DownloadManagerBuilder {
                 current_download.on_cancelled(&self.app_handle);
                 self.stop_and_wait_current_download();
 
-                self.cleanup_current_download();        
+                self.download_queue.pop_front();
+
+                self.cleanup_current_download();
+                info!("Current donwload queue: {:?}", self.download_queue.read());
             }
+            // TODO: Collapse these two into a single if statement somehow
+            else {
+                if let Some(download_agent) = self.download_agent_registry.get(meta) {
+                    info!("Object exists in registry");
+                    let index = self.download_queue.get_by_meta(meta);
+                    if let Some(index) = index {
+                        download_agent.on_cancelled(&self.app_handle);
+                        let _ = self.download_queue.edit().remove(index).unwrap();
+                        let removed = self.download_agent_registry.remove(meta);
+                        info!("Removed {:?} from queue {:?}", removed.and_then(|x| Some(x.metadata())), self.download_queue.read());
+                    }
+                }
+            }    
         }
         else {
             if let Some(download_agent) = self.download_agent_registry.get(meta) {
+                info!("Object exists in registry");
                 let index = self.download_queue.get_by_meta(meta);
                 if let Some(index) = index {
                     download_agent.on_cancelled(&self.app_handle);
-                    let queue_handle = self.download_queue.edit().remove(index);
-                    self.download_agent_registry.remove(meta);
+                    let _ = self.download_queue.edit().remove(index).unwrap();
+                    let removed = self.download_agent_registry.remove(meta);
+                    info!("Removed {:?} from queue {:?}", removed.and_then(|x| Some(x.metadata())), self.download_queue.read());
                 }
             }
         }
+        self.push_ui_queue_update();
     }
     fn uninstall_application(&mut self, meta: &DownloadableMetadata) {
         let download_agent = match self.download_agent_registry.get(meta) {
@@ -304,24 +332,25 @@ impl DownloadManagerBuilder {
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
         let event_data = StatsUpdateEvent { speed: kbs, time };
 
-        self.app_handle.emit("update_stats", event_data);
+        self.app_handle.emit("update_stats", event_data).unwrap();
     }
     fn push_ui_queue_update(&self) {
-        let registry = &self.download_agent_registry;
-        let queue_objs = registry
+        let queue = &self.download_queue.read();
+        let queue_objs = queue
             .iter()
-            .map(|(key, val)| QueueUpdateEventQueueData {
-                meta: DownloadableMetadata::clone(&key),
-                status: val.status(),
-                progress: val.progress().get_progress()
-            })
+            .map(|(key)| {
+                let val = self.download_agent_registry.get(key).unwrap();
+                QueueUpdateEventQueueData {
+                    meta: DownloadableMetadata::clone(&key),
+                    status: val.status(),
+                    progress: val.progress().get_progress()
+            }})
             .collect();
 
         let event_data = QueueUpdateEvent {
             queue: queue_objs,
-            status: self.status.lock().unwrap().clone(),
         };
-        self.app_handle.emit("update_queue", event_data);
+        self.app_handle.emit("update_queue", event_data).unwrap();
     }
 }
 /*

@@ -130,7 +130,7 @@ impl DownloadManager {
     }
     pub fn cancel(&self, meta: DownloadableMetadata) {
         self.command_sender
-            .send(DownloadManagerSignal::Remove(meta))
+            .send(DownloadManagerSignal::Cancel(meta))
             .unwrap();
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {

@@ -9,10 +9,11 @@ use directories::BaseDirs;
 use log::debug;
 use rustbreak::{DeSerError, DeSerializer, PathDatabase};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_with::serde_as;
 use tauri::AppHandle;
 use url::Url;
 
-use crate::{download_manager::downloadable_metadata::DownloadableMetadata, library::push_game_update, process::process_manager::Platform, state::DownloadStatusManager, DB};
+use crate::{download_manager::downloadable_metadata::DownloadableMetadata, library::push_game_update, process::process_manager::Platform, state::GameStatusManager, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -30,7 +31,7 @@ pub struct GameStatusData {
 // Strings are version names for a particular game
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(tag = "type")]
-pub enum ApplicationStatus {
+pub enum GameDownloadStatus {
     Remote {},
     SetupRequired {
         version_name: String,
@@ -51,9 +52,9 @@ pub enum ApplicationTransientStatus {
     Running {},
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ApplicationVersion {
+pub struct GameVersion {
     pub version_index: usize,
     pub version_name: String,
     pub launch_command: String,
@@ -61,13 +62,15 @@ pub struct ApplicationVersion {
     pub platform: Platform,
 }
 
+#[serde_as]
 #[derive(Serialize, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseApplications {
     pub install_dirs: Vec<String>,
     // Guaranteed to exist if the game also exists in the app state map
-    pub statuses: HashMap<DownloadableMetadata, ApplicationStatus>,
-    pub versions: HashMap<DownloadableMetadata, HashMap<String, ApplicationVersion>>,
+    pub game_statuses: HashMap<String, GameDownloadStatus>,
+    pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
+    pub installed_game_version: HashMap<String, DownloadableMetadata>,
 
     #[serde(skip)]
     pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
@@ -130,9 +133,10 @@ impl DatabaseImpls for DatabaseInterface {
                     base_url: "".to_string(),
                     applications: DatabaseApplications {
                         install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-                        statuses: HashMap::new(),
+                        game_statuses: HashMap::new(),
                         transient_statuses: HashMap::new(),
-                        versions: HashMap::new(),
+                        game_versions: HashMap::new(),
+                        installed_game_version: HashMap::new(),
                     },
                 };
                 debug!(
@@ -212,15 +216,15 @@ pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
 
 pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &DownloadableMetadata)>(
     app_handle: &AppHandle,
-    id: DownloadableMetadata,
+    meta: DownloadableMetadata,
     setter: F,
 ) {
     let mut db_handle = DB.borrow_data_mut().unwrap();
-    setter(&mut db_handle, &id);
+    setter(&mut db_handle, &meta);
     drop(db_handle);
     DB.save().unwrap();
 
-    let status = DownloadStatusManager::fetch_state(&id);
+    let status = GameStatusManager::fetch_state(&meta.id);
 
-    push_game_update(app_handle, id, status);
+    push_game_update(app_handle, &meta, status);
 }

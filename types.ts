@@ -59,3 +59,16 @@ export type GameStatus = {
   type: GameStatusEnum;
   version_name?: string;
 };
+
+export enum DownloadableType {
+  Game = "Game",
+  Tool = "Tool",
+  DLC = "DLC",
+  Mod = "Mod"
+}
+
+export type DownloadableMetadata = {
+  id: string,
+  version: string,
+  downloadType: DownloadableType
+}

@@ -1,18 +1,22 @@
-
-use std::sync::Arc;
-
 use crate::{
-    db::{ApplicationStatus, ApplicationTransientStatus}, download_manager::downloadable_metadata::DownloadableMetadata, DB
+    db::{ApplicationTransientStatus, GameDownloadStatus}, download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata}, fetch_state, DB
 };
 
-pub type ApplicationStatusWithTransient = (Option<ApplicationStatus>, Option<ApplicationTransientStatus>);
-pub struct DownloadStatusManager {}
+pub type GameStatusWithTransient = (Option<GameDownloadStatus>, Option<ApplicationTransientStatus>);
+pub struct GameStatusManager {}
 
-impl DownloadStatusManager {
-    pub fn fetch_state(id: &DownloadableMetadata) -> ApplicationStatusWithTransient {
+impl GameStatusManager {
+    pub fn fetch_state(game_id: &String) -> GameStatusWithTransient {
         let db_lock = DB.borrow_data().unwrap();
-        let offline_state = db_lock.applications.statuses.get(id).cloned();
-        let online_state = db_lock.applications.transient_statuses.get(id).cloned();
+        let online_state = match db_lock.applications.installed_game_version.get(game_id) {
+            Some(meta) => db_lock
+                .applications
+                .transient_statuses
+                .get(meta)
+                .cloned(),
+            None => None,
+        };
+        let offline_state = db_lock.applications.game_statuses.get(game_id).cloned();
         drop(db_lock);
 
         if online_state.is_some() {
