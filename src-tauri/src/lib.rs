@@ -1,14 +1,12 @@
 mod auth;
 mod db;
-mod downloads;
-mod library;
+mod games;
 
 mod autostart;
 mod cleanup;
 mod debug;
 mod process;
 mod remote;
-mod state;
 mod tools;
 pub mod download_manager;
 #[cfg(test)]
@@ -27,12 +25,10 @@ use db::{
 };
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use download_manager::downloadable_metadata::DownloadableMetadata;
-use debug::fetch_system_data;
-use downloads::download_commands::*;
+use games::downloads::download_commands::{cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads};
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
-use library::{
+use games::library::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game
 };
 use log::{debug, info, warn, LevelFilter};

@@ -13,7 +13,7 @@ use serde_with::serde_as;
 use tauri::AppHandle;
 use url::Url;
 
-use crate::{download_manager::downloadable_metadata::DownloadableMetadata, library::push_game_update, process::process_manager::Platform, state::GameStatusManager, DB};
+use crate::{download_manager::downloadable_metadata::DownloadableMetadata, games::{library::push_game_update, state::GameStatusManager}, process::process_manager::Platform, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 pub struct DatabaseAuth {

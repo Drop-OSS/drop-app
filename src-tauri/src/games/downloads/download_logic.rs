@@ -3,7 +3,7 @@ use crate::db::DatabaseImpls;
 use crate::download_manager::application_download_error::ApplicationDownloadError;
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::progress_object::ProgressHandle;
-use crate::downloads::manifest::DropDownloadContext;
+use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use http::StatusCode;

@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    db::{GameDownloadStatus, ApplicationTransientStatus, DATA_ROOT_DIR}, download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, library::push_game_update, state::GameStatusManager, AppState, DB
+    db::{GameDownloadStatus, ApplicationTransientStatus, DATA_ROOT_DIR}, download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, games::library::push_game_update, games::state::GameStatusManager, AppState, DB
 };
 
 pub struct ProcessManager<'a> {
