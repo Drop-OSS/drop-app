@@ -49,7 +49,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
-use debug::{fetch_client_id, fetch_base_url, fetch_umu_info};
+use debug::{fetch_client_id, fetch_base_url};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -221,7 +221,6 @@ pub fn run() {
             quit,
             fetch_client_id,
             fetch_base_url,
-            fetch_umu_info,
             // Auth
             auth_initiate,
             retry_connect,
