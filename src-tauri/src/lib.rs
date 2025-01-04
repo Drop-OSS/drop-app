@@ -10,6 +10,7 @@ mod state;
 #[cfg(test)]
 mod tests;
 mod autostart;
+mod debug;
 
 use crate::db::DatabaseImpls;
 use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect, sign_out};
@@ -48,6 +49,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
+use debug::{fetch_client_id, fetch_base_url, fetch_umu_info};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -217,6 +219,9 @@ pub fn run() {
             // Core utils
             fetch_state,
             quit,
+            fetch_client_id,
+            fetch_base_url,
+            fetch_umu_info,
             // Auth
             auth_initiate,
             retry_connect,
