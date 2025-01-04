@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::{db::GameDownloadStatus, download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata}, AppState, DB};
+use crate::{db::GameDownloadStatus, download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata}, games::library::get_current_meta, AppState, DB};
 
 #[tauri::command]
 pub fn launch_game(
@@ -30,10 +30,11 @@ pub fn launch_game(
 
 #[tauri::command]
 pub fn kill_game(
-    game_id: DownloadableMetadata,
+    game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
+    let meta = get_current_meta(&game_id)?;
     let state_lock = state.lock().unwrap();
     let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
-    process_manager_lock.kill_game(game_id).map_err(|x| x.to_string())
+    process_manager_lock.kill_game(meta).map_err(|x| x.to_string())
 }
