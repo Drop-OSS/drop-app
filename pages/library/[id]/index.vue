@@ -336,7 +336,7 @@ async function install() {
 
 async function launch() {
   try {
-    await invoke("launch_game", { gameId: game.value.id });
+    await invoke("launch_game", { id: game.value.id });
   } catch (e) {
     createModal(
       ModalType.Notification,
