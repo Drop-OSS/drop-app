@@ -140,10 +140,9 @@ onMounted(async () => {
     }>('fetch_umu_info');
     
     dataDir.value = debugInfo.dataDir;
-    compatInfo.value = debugInfo.compatibility;
 
   } catch (error) {
-    console.error('Failed to fetch debug info:', error);
+    console.error(error);
   }
 });
 
