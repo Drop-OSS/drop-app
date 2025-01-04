@@ -74,6 +74,17 @@
             </p>
           </div>
         </div>
+
+        <div class="pt-6">
+          <button
+            @click="openLogFile"
+            type="button"
+            class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            <DocumentTextIcon class="h-5 w-5" aria-hidden="true" />
+            Open Log File
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -89,7 +100,9 @@ import {
   ServerIcon,
   FolderIcon,
   CubeIcon,
+  DocumentTextIcon,
 } from "@heroicons/vue/24/outline";
+import { open } from '@tauri-apps/plugin-shell';
 
 const clientId = ref<string | null>(null);
 const platformInfo = ref('Loading...');
@@ -133,4 +146,15 @@ onMounted(async () => {
     console.error('Failed to fetch debug info:', error);
   }
 });
+
+async function openLogFile() {
+  if (dataDir.value) {
+    try {
+      const logPath = `${dataDir.value}/drop.log`;
+      await open(logPath);
+    } catch (error) {
+      console.error('Failed to open log file:', error)
+    }
+  }
+}
 </script> 
