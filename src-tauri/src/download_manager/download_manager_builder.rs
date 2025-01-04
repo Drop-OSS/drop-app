@@ -169,9 +169,6 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel(meta) => {
                     self.manage_cancel_signal(&meta);
                 }
-                DownloadManagerSignal::Uninstall(meta) => {
-                    self.uninstall_application(&meta);
-                }
                 _ => {}
             };
         }
@@ -320,14 +317,6 @@ impl DownloadManagerBuilder {
             }
         }
         self.push_ui_queue_update();
-    }
-    fn uninstall_application(&mut self, meta: &DownloadableMetadata) {
-        let download_agent = match self.download_agent_registry.get(meta) {
-            Some(download_agent) => download_agent.clone(),
-            None => return,
-        };
-        self.manage_cancel_signal(meta);
-        download_agent.on_uninstall(&self.app_handle);
     }
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
         let event_data = StatsUpdateEvent { speed: kbs, time };

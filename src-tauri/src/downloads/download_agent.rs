@@ -248,7 +248,6 @@ impl GameDownloadAgent {
 
         pool.scope(|scope| {
             for (index, context) in self.contexts.lock().unwrap().iter().enumerate() {
-                info!("Running index {}", index);
                 let completed_indexes = completed_indexes_loop_arc.clone();
 
                 let progress = self.progress.get(index); // Clone arcs
@@ -356,81 +355,13 @@ impl Downloadable for GameDownloadAgent {
         on_game_complete(&self.metadata(), self.stored_manifest.base_path.to_string_lossy().to_string(), app_handle).unwrap();
     }
 
-    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
+    fn on_incomplete(&self, _app_handle: &tauri::AppHandle) {
         *self.status.lock().unwrap() = DownloadStatus::Queued;
         return;
     }
 
-    fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
+    fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {
         return;
-    }
-
-    fn on_uninstall(&self, app_handle: &tauri::AppHandle) {
-        let mut db_handle = DB.borrow_data_mut().unwrap();
-        let metadata = self.metadata();
-        db_handle
-            .applications
-            .transient_statuses
-            .entry(metadata.clone())
-            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
-        
-        push_game_update(
-            app_handle,
-            &metadata,
-            (None, Some(ApplicationTransientStatus::Uninstalling {})),
-        );
-
-        let previous_state = db_handle.applications.game_statuses.get(&metadata.id).cloned();
-        if previous_state.is_none() {
-            info!("uninstall job doesn't have previous state, failing silently");
-            return;
-        }
-        let previous_state = previous_state.unwrap();
-        if let Some((version_name, install_dir)) = match previous_state {
-            GameDownloadStatus::Installed {
-                version_name,
-                install_dir,
-            } => Some((version_name, install_dir)),
-            GameDownloadStatus::SetupRequired {
-                version_name,
-                install_dir,
-            } => Some((version_name, install_dir)),
-            _ => None,
-        } {
-            db_handle
-                .applications
-                .transient_statuses
-                .entry(metadata.clone())
-                .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
-            drop(db_handle);
-
-            let sender = self.sender.clone();
-            let app_handle = app_handle.clone();
-            spawn(move || match remove_dir_all(install_dir) {
-                Err(e) => {
-                    sender
-                        .send(DownloadManagerSignal::Error(ApplicationDownloadError::IoError(
-                            e.kind(),
-                        )))
-                        .unwrap();
-                }
-                Ok(_) => {
-                    let mut db_handle = DB.borrow_data_mut().unwrap();
-                    db_handle.applications.transient_statuses.remove(&metadata);
-                    db_handle
-                        .applications
-                        .game_statuses
-                        .entry(metadata.id.clone())
-                        .and_modify(|e| *e = GameDownloadStatus::Remote {});
-                    drop(db_handle);
-                    DB.save().unwrap();
-
-                    info!("uninstalled game id {}", metadata.id);
-
-                    push_game_update(&app_handle, &metadata, (Some(GameDownloadStatus::Remote {}), None));
-                }
-            });
-        }
     }
     
     fn status(&self) -> DownloadStatus {

@@ -51,8 +51,4 @@ impl Downloadable for ToolDownloadAgent {
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
         todo!()
     }
-
-    fn on_uninstall(&self, app_handle: &tauri::AppHandle) {
-        todo!()
-    }
 }
