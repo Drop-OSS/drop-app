@@ -14,7 +14,7 @@ use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;
-use crate::state::{GameStatusManager, GameStatusWithTransient};
+use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]

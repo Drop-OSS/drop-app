@@ -6,8 +6,8 @@ use crate::download_manager::download_thread_control_flag::{DownloadThreadContro
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata};
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
-use crate::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::library::{on_game_complete, push_game_update};
+use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
+use crate::games::library::{on_game_complete, push_game_update};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
