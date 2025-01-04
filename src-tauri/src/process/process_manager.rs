@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    db::{ApplicationStatus, ApplicationTransientStatus, DATA_ROOT_DIR}, download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, library::push_game_update, state::DownloadStatusManager, AppState, DB
+    db::{GameDownloadStatus, ApplicationTransientStatus, DATA_ROOT_DIR}, download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, library::push_game_update, state::GameStatusManager, AppState, DB
 };
 
 pub struct ProcessManager<'a> {
@@ -106,18 +106,18 @@ impl ProcessManager<'_> {
         let mut db_handle = DB.borrow_data_mut().unwrap();
         db_handle.applications.transient_statuses.remove(&meta);
 
-        let current_state = db_handle.applications.statuses.get(&meta).cloned();
+        let current_state = db_handle.applications.game_statuses.get(&meta.id).cloned();
         if let Some(saved_state) = current_state {
-            if let ApplicationStatus::SetupRequired {
+            if let GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,
             } = saved_state
             {
                 if let Ok(exit_code) = result {
                     if exit_code.success() {
-                        db_handle.applications.statuses.insert(
-                            meta.clone(),
-                            ApplicationStatus::Installed {
+                        db_handle.applications.game_statuses.insert(
+                            meta.id.clone(),
+                            GameDownloadStatus::Installed {
                                 version_name: version_name.to_string(),
                                 install_dir: install_dir.to_string(),
                             },
@@ -128,9 +128,9 @@ impl ProcessManager<'_> {
         }
         drop(db_handle);
 
-        let status = DownloadStatusManager::fetch_state(&meta);
+        let status = GameStatusManager::fetch_state(&meta.id);
 
-        push_game_update(&self.app_handle, meta.clone(), status);
+        push_game_update(&self.app_handle, &meta, status);
 
         // TODO better management
     }
@@ -148,18 +148,20 @@ impl ProcessManager<'_> {
         }
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
+        info!("Launching process {:?} with games {:?}", meta, db_lock.applications.game_versions);
+
         let game_status = db_lock
             .applications
-            .statuses
-            .get(&meta)
+            .game_statuses
+            .get(&meta.id)
             .ok_or("Game not installed")?;
 
         let status_metadata: Option<(&String, &String)> = match game_status {
-            ApplicationStatus::Installed {
+            GameDownloadStatus::Installed {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
-            ApplicationStatus::SetupRequired {
+            GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,
             } => Some((version_name, install_dir)),
@@ -174,18 +176,18 @@ impl ProcessManager<'_> {
 
         let game_version = db_lock
             .applications
-            .versions
-            .get(&meta)
+            .game_versions
+            .get(&meta.id)
             .ok_or("Invalid game ID".to_owned())?
             .get(version_name)
             .ok_or("Invalid version name".to_owned())?;
 
         let raw_command: String = match game_status {
-            ApplicationStatus::Installed {
+            GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir: _,
             } => game_version.launch_command.clone(),
-            ApplicationStatus::SetupRequired {
+            GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
             } => game_version.setup_command.clone(),
@@ -210,7 +212,7 @@ impl ProcessManager<'_> {
             .create(true)
             .open(
                 self.log_output_dir
-                    .join(format!("{}-{}-{}.log", meta.id, meta.version, current_time.timestamp())),
+                    .join(format!("{}-{}-{}.log", meta.id.clone(), meta.version.clone().unwrap_or_default(), current_time.timestamp())),
             )
             .map_err(|v| v.to_string())?;
 
@@ -221,8 +223,8 @@ impl ProcessManager<'_> {
             .create(true)
             .open(self.log_output_dir.join(format!(
                 "{}-{}-{}-error.log",
-                meta.id,
-                meta.version,
+                meta.id.clone(),
+                meta.version.clone().unwrap_or_default(),
                 current_time.timestamp()
             )))
             .map_err(|v| v.to_string())?;
@@ -255,7 +257,7 @@ impl ProcessManager<'_> {
 
         push_game_update(
             &self.app_handle,
-            meta.clone(),
+            &meta,
             (None, Some(ApplicationTransientStatus::Running {})),
         );
 

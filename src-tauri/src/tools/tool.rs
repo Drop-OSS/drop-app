@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use tauri::AppHandle;
+
 use crate::download_manager::{application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject};
 
 pub struct ToolDownloadAgent {
@@ -10,7 +12,7 @@ pub struct ToolDownloadAgent {
     progress: Arc<ProgressObject>,
 }
 impl Downloadable for ToolDownloadAgent {
-    fn download(&self) -> Result<bool, ApplicationDownloadError> {
+    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
         todo!()
     }
 

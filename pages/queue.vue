@@ -14,19 +14,19 @@
     </div>
     <draggable v-model="queue.queue" @end="onEnd">
       <template #item="{ element }: { element: (typeof queue.value.queue)[0] }">
-        <li v-if="games[element.id]" :key="element.id"
+        <li v-if="games[element.meta.id]" :key="element.meta.id"
           class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4">
           <div class="w-full flex items-center max-w-md gap-x-4 relative">
-            <img class="size-24 flex-none bg-zinc-800 object-cover rounded" :src="games[element.id].cover" alt="" />
+            <img class="size-24 flex-none bg-zinc-800 object-cover rounded" :src="games[element.meta.id].cover" alt="" />
             <div class="min-w-0 flex-auto">
               <p class="text-xl font-semibold text-zinc-100">
-                <NuxtLink :href="`/library/${element.id}`" class="">
+                <NuxtLink :href="`/library/${element.meta.id}`" class="">
                   <span class="absolute inset-x-0 -top-px bottom-0" />
-                  {{ games[element.id].game.mName }}
+                  {{ games[element.meta.id].game.mName }}
                 </NuxtLink>
               </p>
               <p class="mt-1 flex text-xs/5 text-gray-500">
-                {{ games[element.id].game.mShortDescription }}
+                {{ games[element.meta.id].game.mShortDescription }}
               </p>
             </div>
           </div>
@@ -39,7 +39,7 @@
                 <div class="h-2 bg-blue-600" :style="{ width: `${element.progress * 100}%` }" />
               </div>
             </div>
-            <button @click="() => cancelGame(element.id)" class="group">
+            <button @click="() => cancelGame(element.meta)" class="group">
               <XMarkIcon class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
                 aria-hidden="true" />
             </button>
@@ -57,7 +57,7 @@
 <script setup lang="ts">
 import { XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
-import type { Game, GameStatus } from "~/types";
+import type { DownloadableMetadata, Game, GameStatus } from "~/types";
 
 const windowWidth = ref(window.innerWidth);
 window.addEventListener('resize', (event) => {
@@ -81,7 +81,7 @@ function resetHistoryGraph() {
   stats.value = { time: 0, speed: 0 };
 }
 function checkReset(v: QueueState) {
-  const currentGame = v.queue.at(0);
+  const currentGame = v.queue.at(0)?.meta.id;
   // If we're finished
   if (!currentGame && previousGameId.value) {
     previousGameId.value = undefined;
@@ -92,14 +92,14 @@ function checkReset(v: QueueState) {
   if (!currentGame) return;
   // If we started a new download
   if (currentGame && !previousGameId.value) {
-    previousGameId.value = currentGame.id;
+    previousGameId.value = currentGame;
     resetHistoryGraph();
     return;
   }
   // If it's a different game now
-  if (currentGame.id != previousGameId.value
+  if (currentGame != previousGameId.value
   ) {
-    previousGameId.value = currentGame.id;
+    previousGameId.value = currentGame;
     resetHistoryGraph();
     return;
   }
@@ -118,7 +118,7 @@ watch(stats, (v) => {
 })
 
 function loadGamesForQueue(v: typeof queue.value) {
-  for (const { id } of v.queue) {
+  for (const { meta: { id } } of v.queue) {
     if (games.value[id]) return;
     (async () => {
       const gameData = await useGame(id);
@@ -137,8 +137,8 @@ async function onEnd(event: { oldIndex: number; newIndex: number }) {
   });
 }
 
-async function cancelGame(id: string) {
-  await invoke("cancel_game", { gameId: id });
+async function cancelGame(meta: DownloadableMetadata) {
+  await invoke("cancel_game", { meta });
 }
 
 function formatKilobytes(bytes: number): string {

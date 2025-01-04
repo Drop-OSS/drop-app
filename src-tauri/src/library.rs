@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -6,12 +6,13 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::db::DatabaseImpls;
-use crate::db::ApplicationVersion;
-use crate::db::ApplicationStatus;
-use crate::download_manager::download_manager::{DownloadManagerStatus, DownloadStatus};
+use crate::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
+use crate::db::GameVersion;
+use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::process::process_manager::Platform;
+use crate::remote::RemoteAccessError;
+use crate::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::{DropServerError, RemoteAccessError};
 use crate::state::{GameStatusManager, GameStatusWithTransient};
 use crate::{auth::generate_authorization_header, AppState, DB};
@@ -20,12 +21,13 @@ use crate::{auth::generate_authorization_header, AppState, DB};
 pub struct FetchGameStruct {
     game: Game,
     status: GameStatusWithTransient,
+    status: GameStatusWithTransient,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    meta: DownloadableMetadata,
+    id: String,
     m_name: String,
     m_short_description: String,
     m_description: String,
@@ -39,7 +41,7 @@ pub struct Game {
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
     pub game_id: String,
-    pub status: GameStatusWithTransient,
+    pub status: (Option<GameDownloadStatus>, Option<ApplicationTransientStatus>),
 }
 
 #[derive(Serialize, Clone)]
@@ -52,7 +54,6 @@ pub struct QueueUpdateEventQueueData {
 #[derive(serde::Serialize, Clone)]
 pub struct QueueUpdateEvent {
     pub queue: Vec<QueueUpdateEventQueueData>,
-    pub status: DownloadManagerStatus,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -99,12 +100,12 @@ fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
     for game in games.iter() {
-        handle.games.insert(game.meta.clone(), game.clone());
-        if !db_handle.applications.statuses.contains_key(&game.meta) {
+        handle.games.insert(game.id.clone(), game.clone());
+        if !db_handle.applications.game_statuses.contains_key(&game.id) {
             db_handle
                 .applications
-                .statuses
-                .insert(game.meta.clone(), ApplicationStatus::Remote {});
+                .game_statuses
+                .insert(game.id.clone(), GameDownloadStatus::Remote {});
         }
     }
 
@@ -119,15 +120,15 @@ pub fn fetch_library(app: AppHandle) -> Result<Vec<Game>, String> {
 }
 
 fn fetch_game_logic(
-    meta: DownloadableMetadata,
+    id: String,
     app: tauri::AppHandle,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let state = app.state::<Mutex<AppState>>();
     let mut state_handle = state.lock().unwrap();
 
-    let game = state_handle.games.get(&meta);
+    let game = state_handle.games.get(&id);
     if let Some(game) = game {
-        let status = DownloadStatusManager::fetch_state(&meta);
+        let status = GameStatusManager::fetch_state(&id);
 
         let data = FetchGameStruct {
             game: game.clone(),
@@ -139,7 +140,7 @@ fn fetch_game_logic(
 
     let base_url = DB.fetch_base_url();
 
-    let endpoint = base_url.join(&format!("/api/v1/game/{}", meta.id))?;
+    let endpoint = base_url.join(&format!("/api/v1/game/{}", id))?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
@@ -158,18 +159,18 @@ fn fetch_game_logic(
     }
 
     let game = response.json::<Game>()?;
-    state_handle.games.insert(meta.clone(), game.clone());
+    state_handle.games.insert(id.clone(), game.clone());
 
     let mut db_handle = DB.borrow_data_mut().unwrap();
 
     db_handle
         .applications
-        .statuses
-        .entry(meta.clone())
-        .or_insert(ApplicationStatus::Remote {});
+        .game_statuses
+        .entry(id.clone())
+        .or_insert(GameDownloadStatus::Remote {});
     drop(db_handle);
 
-    let status = DownloadStatusManager::fetch_state(&meta);
+    let status = GameStatusManager::fetch_state(&id);
 
     let data = FetchGameStruct {
         game: game.clone(),
@@ -180,8 +181,8 @@ fn fetch_game_logic(
 }
 
 #[tauri::command]
-pub fn fetch_game(id: DownloadableMetadata, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
-    let result = fetch_game_logic(id, app);
+pub fn fetch_game(game_id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
+    let result = fetch_game_logic(game_id, app);
 
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
@@ -191,20 +192,20 @@ pub fn fetch_game(id: DownloadableMetadata, app: tauri::AppHandle) -> Result<Fet
 }
 
 #[tauri::command]
-pub fn fetch_game_status(meta: DownloadableMetadata) -> Result<ApplicationStatusWithTransient, String> {
-    let status = DownloadStatusManager::fetch_state(&meta);
+pub fn fetch_game_status(id: String) -> Result<GameStatusWithTransient, String> {
+    let status = GameStatusManager::fetch_state(&id);
 
     Ok(status)
 }
 
 fn fetch_game_verion_options_logic<'a>(
-    meta: DownloadableMetadata,
+    game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
     let endpoint =
-        base_url.join(format!("/api/v1/client/metadata/versions?id={}", meta.id).as_str())?;
+        base_url.join(format!("/api/v1/client/metadata/versions?id={}", game_id).as_str())?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
@@ -234,50 +235,48 @@ fn fetch_game_verion_options_logic<'a>(
 }
 
 #[tauri::command]
-pub fn fetch_game_verion_options<'a>(
-    game_id: DownloadableMetadata,
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersionOption>, String> {
-    fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub fn uninstall_game(
-    game_id: DownloadableMetadata,
+    game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let state_lock = state.lock().unwrap();
-    state_lock.download_manager.uninstall_application(game_id);
+    let meta = get_current_meta(&game_id)?;
+
+    state_lock.download_manager.uninstall_application(meta);
     drop(state_lock);
 
     Ok(())
 }
 
-pub fn push_game_update(app_handle: &AppHandle, meta: DownloadableMetadata, status: ApplicationStatusWithTransient) {
-    app_handle
-        .emit(
-            &format!("update_game/{}", meta.id),
-            GameUpdateEvent {
-                game_id: meta.id,
-                status,
-            },
-        )
-        .unwrap();
+pub fn get_current_meta(game_id: &String) -> Result<DownloadableMetadata, String> {
+    match DB.borrow_data().unwrap().applications.installed_game_version.get(game_id) {
+        Some(meta) => Ok(meta.clone()),
+        None => Err(String::from("Could not find installed version")),
+    }
+}
+
+#[tauri::command]
+pub fn fetch_game_verion_options<'a>(
+    game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<Vec<GameVersionOption>, String> {
+    fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
 }
 
 pub fn on_game_complete(
-    meta: DownloadableMetadata,
+    meta: &DownloadableMetadata,
     install_dir: String,
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
     let base_url = DB.fetch_base_url();
+    if meta.version.is_none() { return Err(RemoteAccessError::GameNotFound) }
 
     let endpoint = base_url.join(
         format!(
             "/api/v1/client/metadata/version?id={}&version={}",
             meta.id,
-            encode(&meta.version)
+            encode(meta.version.as_ref().unwrap())
         )
         .as_str(),
     )?;
@@ -289,34 +288,31 @@ pub fn on_game_complete(
         .header("Authorization", header)
         .send()?;
 
-    if response.status() != 200 {
-        return Err(RemoteAccessError::InvalidResponse(
-            response.json::<DropServerError>().map_err(|e| {
-                RemoteAccessError::Generic(format!("failed to parse server error: {}", e))
-            })?,
-        ));
-    }
-
-    let data = response.json::<ApplicationVersion>()?;
+    let data = response.json::<GameVersion>()?;
 
     let mut handle = DB.borrow_data_mut().unwrap();
     handle
         .applications
-        .versions
-        .entry(meta.clone())
+        .game_versions
+        .entry(meta.id.clone())
         .or_default()
-        .insert(meta.version.clone(), data.clone());
+        .insert(meta.version.clone().unwrap(), data.clone());
+    handle
+        .applications
+        .installed_game_version
+        .insert(meta.id.clone(), meta.clone());
+
     drop(handle);
     DB.save().unwrap();
 
     let status = if data.setup_command.is_empty() {
-        ApplicationStatus::Installed {
-            version_name: (*meta.version.clone()).to_string(),
+        GameDownloadStatus::Installed {
+            version_name: meta.version.clone().unwrap(),
             install_dir,
         }
     } else {
-        ApplicationStatus::SetupRequired {
-            version_name: (*meta.version.clone()).to_string(),
+        GameDownloadStatus::SetupRequired {
+            version_name: meta.version.clone().unwrap(),
             install_dir,
         }
     };
@@ -324,19 +320,31 @@ pub fn on_game_complete(
     let mut db_handle = DB.borrow_data_mut().unwrap();
     db_handle
         .applications
-        .statuses
-        .insert(meta.clone(), status.clone());
+        .game_statuses
+        .insert(meta.id.clone(), status.clone());
     drop(db_handle);
     DB.save().unwrap();
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),
             GameUpdateEvent {
-                game_id: (*meta.id.clone()).to_string(),
+                game_id: meta.id.clone(),
                 status: (Some(status), None),
             },
         )
         .unwrap();
 
     Ok(())
+}
+
+pub fn push_game_update(app_handle: &AppHandle, meta: &DownloadableMetadata, status: GameStatusWithTransient) {
+    app_handle
+        .emit(
+            &format!("update_game/{}", meta.id),
+            GameUpdateEvent {
+                game_id: meta.id.clone(),
+                status,
+            },
+        )
+        .unwrap();
 }

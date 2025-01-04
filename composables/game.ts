@@ -13,6 +13,7 @@ export type SerializedGameStatus = [
 ];
 
 export const parseStatus = (status: SerializedGameStatus): GameStatus => {
+  console.log(status);
   if (status[0]) {
     return {
       type: status[0].type,
@@ -28,28 +29,29 @@ export const parseStatus = (status: SerializedGameStatus): GameStatus => {
   }
 };
 
-export const useGame = async (id: string) => {
-  if (!gameRegistry[id]) {
+export const useGame = async (gameId: string) => {
+  if (!gameRegistry[gameId]) {
     const data: { game: Game; status: SerializedGameStatus } = await invoke(
       "fetch_game",
       {
-        id,
+        gameId,
       }
     );
-    gameRegistry[id] = data.game;
-    if (!gameStatusRegistry[id]) {
-      gameStatusRegistry[id] = ref(parseStatus(data.status));
+    gameRegistry[gameId] = data.game;
+    if (!gameStatusRegistry[gameId]) {
+      gameStatusRegistry[gameId] = ref(parseStatus(data.status));
 
-      listen(`update_game/${id}`, (event) => {
+      listen(`update_game/${gameId}`, (event) => {
         const payload: {
           status: SerializedGameStatus;
         } = event.payload as any;
-        gameStatusRegistry[id].value = parseStatus(payload.status);
+        console.log(payload.status);
+        gameStatusRegistry[gameId].value = parseStatus(payload.status);
       });
     }
   }
 
-  const game = gameRegistry[id];
-  const status = gameStatusRegistry[id];
+  const game = gameRegistry[gameId];
+  const status = gameStatusRegistry[gameId];
   return { game, status };
 };

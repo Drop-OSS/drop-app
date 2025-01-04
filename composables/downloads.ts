@@ -1,7 +1,8 @@
 import { listen } from "@tauri-apps/api/event";
+import type { DownloadableMetadata } from "~/types";
 
 export type QueueState = {
-  queue: Array<{ id: string; status: string; progress: number | null }>;
+  queue: Array<{ meta: DownloadableMetadata; status: string; progress: number | null }>;
   status: string;
 };
 

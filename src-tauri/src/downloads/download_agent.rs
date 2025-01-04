@@ -1,22 +1,24 @@
 use crate::auth::generate_authorization_header;
-use crate::db::{set_game_status, DatabaseImpls};
+use crate::db::{set_game_status, GameDownloadStatus, ApplicationTransientStatus, DatabaseImpls};
 use crate::download_manager::application_download_error::ApplicationDownloadError;
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::downloadable::Downloadable;
-use crate::download_manager::downloadable_metadata::DownloadableMetadata;
+use crate::download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata};
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::downloads::manifest::{DropDownloadContext, DropManifest};
+use crate::library::{on_game_complete, push_game_update};
 use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
-use tauri::Emitter;
+use tauri::{AppHandle, Emitter};
 use std::collections::VecDeque;
-use std::fs::{create_dir_all, File};
+use std::fs::{create_dir_all, remove_dir_all, File};
 use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
+use std::thread::spawn;
 use std::time::Instant;
 use urlencoding::encode;
 
@@ -36,9 +38,8 @@ pub struct GameDownloadAgent {
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
     pub stored_manifest: StoredManifest,
+    status: Mutex<DownloadStatus>
 }
-
-
 
 impl GameDownloadAgent {
     pub fn new(
@@ -70,6 +71,7 @@ impl GameDownloadAgent {
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
+            status: Mutex::new(DownloadStatus::Queued),
         }
     }
 
@@ -87,10 +89,14 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&self) -> Result<bool, ApplicationDownloadError> {
+    pub fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        info!("Setting up download");
         self.setup_download()?;
+        info!("Setting progress object params");
         self.set_progress_object_params();
+        info!("Running");
         let timer = Instant::now();
+        push_game_update(app_handle, &self.metadata(), (None, Some(ApplicationTransientStatus::Downloading { version_name: self.version.clone() })));
         let res = self.run().map_err(|_| ApplicationDownloadError::DownloadError);
 
         info!(
@@ -242,6 +248,7 @@ impl GameDownloadAgent {
 
         pool.scope(|scope| {
             for (index, context) in self.contexts.lock().unwrap().iter().enumerate() {
+                info!("Running index {}", index);
                 let completed_indexes = completed_indexes_loop_arc.clone();
 
                 let progress = self.progress.get(index); // Clone arcs
@@ -305,8 +312,9 @@ impl GameDownloadAgent {
 }
 
 impl Downloadable for GameDownloadAgent {
-    fn download(&self) -> Result<bool, ApplicationDownloadError> {
-        self.download()
+    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        *self.status.lock().unwrap() = DownloadStatus::Downloading;
+        self.download(app_handle)
     }
 
     fn progress(&self) -> Arc<ProgressObject> {
@@ -318,14 +326,20 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn metadata(&self) -> DownloadableMetadata {
-        todo!()
+        DownloadableMetadata {
+            id: self.id.clone(),
+            version: Some(self.version.clone()),
+            download_type: DownloadType::Game,
+        }
     }
 
     fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
+        *self.status.lock().unwrap() = DownloadStatus::Queued;
         return;
     }
 
     fn on_error(&self, app_handle: &tauri::AppHandle, error: ApplicationDownloadError) {
+        *self.status.lock().unwrap() = DownloadStatus::Error;
         app_handle
             .emit("download_error", error.to_string())
             .unwrap();
@@ -339,22 +353,87 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_complete(&self, app_handle: &tauri::AppHandle) {
-        todo!()
+        on_game_complete(&self.metadata(), self.stored_manifest.base_path.to_string_lossy().to_string(), app_handle).unwrap();
     }
 
     fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
-        todo!()
+        *self.status.lock().unwrap() = DownloadStatus::Queued;
+        return;
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
-        todo!()
+        return;
     }
 
     fn on_uninstall(&self, app_handle: &tauri::AppHandle) {
-        todo!()
+        let mut db_handle = DB.borrow_data_mut().unwrap();
+        let metadata = self.metadata();
+        db_handle
+            .applications
+            .transient_statuses
+            .entry(metadata.clone())
+            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        
+        push_game_update(
+            app_handle,
+            &metadata,
+            (None, Some(ApplicationTransientStatus::Uninstalling {})),
+        );
+
+        let previous_state = db_handle.applications.game_statuses.get(&metadata.id).cloned();
+        if previous_state.is_none() {
+            info!("uninstall job doesn't have previous state, failing silently");
+            return;
+        }
+        let previous_state = previous_state.unwrap();
+        if let Some((version_name, install_dir)) = match previous_state {
+            GameDownloadStatus::Installed {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            GameDownloadStatus::SetupRequired {
+                version_name,
+                install_dir,
+            } => Some((version_name, install_dir)),
+            _ => None,
+        } {
+            db_handle
+                .applications
+                .transient_statuses
+                .entry(metadata.clone())
+                .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+            drop(db_handle);
+
+            let sender = self.sender.clone();
+            let app_handle = app_handle.clone();
+            spawn(move || match remove_dir_all(install_dir) {
+                Err(e) => {
+                    sender
+                        .send(DownloadManagerSignal::Error(ApplicationDownloadError::IoError(
+                            e.kind(),
+                        )))
+                        .unwrap();
+                }
+                Ok(_) => {
+                    let mut db_handle = DB.borrow_data_mut().unwrap();
+                    db_handle.applications.transient_statuses.remove(&metadata);
+                    db_handle
+                        .applications
+                        .game_statuses
+                        .entry(metadata.id.clone())
+                        .and_modify(|e| *e = GameDownloadStatus::Remote {});
+                    drop(db_handle);
+                    DB.save().unwrap();
+
+                    info!("uninstalled game id {}", metadata.id);
+
+                    push_game_update(&app_handle, &metadata, (Some(GameDownloadStatus::Remote {}), None));
+                }
+            });
+        }
     }
     
     fn status(&self) -> DownloadStatus {
-        todo!()
+        self.status.lock().unwrap().clone()
     }
 }

@@ -22,7 +22,7 @@ use auth::{
 };
 use cleanup::{cleanup_and_exit, quit};
 use db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, ApplicationStatus,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameDownloadStatus,
     DATA_ROOT_DIR,
 };
 use download_manager::download_manager::DownloadManager;
@@ -33,7 +33,7 @@ use downloads::download_commands::*;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
 use library::{
-    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game,
+    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game
 };
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
@@ -82,7 +82,7 @@ pub struct User {
 pub struct AppState<'a> {
     status: AppStatus,
     user: Option<User>,
-    games: HashMap<DownloadableMetadata, Game>,
+    games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
     download_manager: Arc<DownloadManager>,
@@ -149,12 +149,12 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     let db_handle = DB.borrow_data().unwrap();
     let mut missing_games = Vec::new();
-    let statuses = db_handle.applications.statuses.clone();
+    let statuses = db_handle.applications.game_statuses.clone();
     drop(db_handle);
     for (game_id, status) in statuses.into_iter() {
         match status {
-            db::ApplicationStatus::Remote {} => {}
-            db::ApplicationStatus::SetupRequired {
+            db::GameDownloadStatus::Remote {} => {}
+            db::GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir,
             } => {
@@ -163,7 +163,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                     missing_games.push(game_id);
                 }
             }
-            db::ApplicationStatus::Installed {
+            db::GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir,
             } => {
@@ -181,9 +181,9 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     for game_id in missing_games {
         db_handle
             .applications
-            .statuses
+            .game_statuses
             .entry(game_id)
-            .and_modify(|v| *v = ApplicationStatus::Remote {});
+            .and_modify(|v| *v = GameDownloadStatus::Remote {});
     }
     drop(db_handle);
     info!("finished setup!");

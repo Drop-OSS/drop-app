@@ -47,8 +47,8 @@ pub fn move_game_in_queue(
 }
 
 #[tauri::command]
-pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, game_id: DownloadableMetadata) {
-    state.lock().unwrap().download_manager.cancel(Arc::new(game_id))
+pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, meta: DownloadableMetadata) {
+    state.lock().unwrap().download_manager.cancel(meta)
 }
 
 /*
