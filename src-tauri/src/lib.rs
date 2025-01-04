@@ -36,6 +36,7 @@ use process::process_commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
+use tauri_plugin_dialog::DialogExt;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
@@ -176,10 +177,6 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             .and_modify(|v| *v = GameDownloadStatus::Remote {});
     }
 
-    if let Some(original) = db_handle.prev_database.take() {
-        warn!("Database corrupted. Original file at {}", original.canonicalize().unwrap().to_string_lossy().to_string());
-        handle.emit("database_corrupted", original.to_string_lossy().to_string()).unwrap();
-    }
     drop(db_handle);
 
 
@@ -315,6 +312,18 @@ pub fn run() {
                 .build(app)
                 .expect("error while setting up tray menu");
 
+            {
+                let mut db_handle = DB.borrow_data_mut().unwrap();
+                if let Some(original) = db_handle.prev_database.take() {
+                    warn!("Database corrupted. Original file at {}", original.canonicalize().unwrap().to_string_lossy().to_string());
+                    app.dialog()
+                        .message("Database corrupted. A copy has been saved at: ".to_string() + original.to_str().unwrap())
+                        .title("Database corrupted")
+                        .show(|_| {});
+                }
+            }
+
+        
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
