@@ -29,21 +29,6 @@ router.beforeEach(async () => {
 setupHooks();
 initialNavigation(state);
 
-listen("database_corrupted", (event) => {
-  createModal(
-      ModalType.Notification,
-      {
-        title: "Database corrupted",
-        description: `Drop encountered an error while reading your download. A copy can be found at: "${(
-          event.payload as unknown as string
-        ).toString()}"`,
-        buttonText: "Close"
-      },
-      (e, c) => c()
-    );
-
-})
-
 useHead({
   title: "Drop",
 });

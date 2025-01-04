@@ -251,10 +251,11 @@ fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir:
     let new_path = { 
         let time = Utc::now().timestamp();
         let mut base = db_path.clone().into_os_string();
+        base.push(".");
         base.push(time.to_string());
         base
     };
-    fs::copy(&db_path, &new_path);
+    fs::copy(&db_path, &new_path).unwrap();
 
     let db = Database {
         auth: None,
