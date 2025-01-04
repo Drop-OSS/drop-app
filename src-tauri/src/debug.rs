@@ -13,3 +13,12 @@ pub fn fetch_base_url() -> Result<Option<String>, String> {
     Ok(Some(DB.fetch_base_url().to_string()))
 }
 
+#[tauri::command]
+pub fn fetch_umu_info() -> Result<serde_json::Value, String> {
+    let data_dir = DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string();
+
+
+    Ok(json!({
+        "dataDir": data_dir,
+    }))
+} 
