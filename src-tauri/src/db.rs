@@ -2,12 +2,13 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
-    sync::{Arc, LazyLock, Mutex, RwLockWriteGuard},
+    sync::{Arc, LazyLock, Mutex, RwLockWriteGuard}, time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
+use chrono::Utc;
 use directories::BaseDirs;
 use log::debug;
-use rustbreak::{DeSerError, DeSerializer, PathDatabase};
+use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::serde_as;
 use tauri::AppHandle;
@@ -82,6 +83,7 @@ pub struct Database {
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
     pub applications: DatabaseApplications,
+    pub prev_database: Option<PathBuf>
 }
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
@@ -126,7 +128,11 @@ impl DatabaseImpls for DatabaseInterface {
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
-            true => PathDatabase::load_from_path(db_path).expect("Database loading failed"),
+            true =>
+                match PathDatabase::load_from_path(db_path.clone()) {
+                    Ok(db) => db,
+                    Err(e) => handle_invalid_database(e, db_path, games_base_dir),
+                },
             false => {
                 let default = Database {
                     auth: None,
@@ -138,6 +144,7 @@ impl DatabaseImpls for DatabaseInterface {
                         game_versions: HashMap::new(),
                         installed_game_version: HashMap::new(),
                     },
+                    prev_database: None,
                 };
                 debug!(
                     "Creating database at path {}",
@@ -227,4 +234,33 @@ pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Downloada
     let status = GameStatusManager::fetch_state(&meta.id);
 
     push_game_update(app_handle, &meta, status);
+}
+
+// TODO: Make the error relelvant rather than just assume that it's a Deserialize error
+fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir: PathBuf) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
+    let new_path = { 
+        let time = Utc::now().timestamp();
+        let mut base = db_path.clone().into_os_string();
+        base.push(time.to_string());
+        base
+    };
+    fs::copy(&db_path, &new_path);
+
+    let db = Database {
+        auth: None,
+        base_url: "".to_string(),
+        applications: DatabaseApplications {
+            install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
+            game_statuses: HashMap::new(),
+            transient_statuses: HashMap::new(),
+            game_versions: HashMap::new(),
+            installed_game_version: HashMap::new(),
+        },
+        prev_database: Some(new_path.into()),
+    };
+
+    PathDatabase::create_at_path(db_path, db)
+        .expect("Database could not be created")
+
+
 }

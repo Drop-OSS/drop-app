@@ -44,7 +44,7 @@ use std::{
 };
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 
 #[derive(Clone, Copy, Serialize)]
@@ -175,7 +175,14 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             .entry(game_id)
             .and_modify(|v| *v = GameDownloadStatus::Remote {});
     }
+
+    if let Some(original) = db_handle.prev_database.take() {
+        warn!("Database corrupted. Original file at {}", original.canonicalize().unwrap().to_string_lossy().to_string());
+        handle.emit("database_corrupted", original.to_string_lossy().to_string()).unwrap();
+    }
     drop(db_handle);
+
+
     info!("finished setup!");
 
     AppState {
