@@ -155,7 +155,7 @@ pub fn download_game_chunk(
     if content_length.is_none() {
         error!("Recieved 0 length content from server");
         return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidResponse,
+            RemoteAccessError::InvalidResponse(response.json().unwrap()),
         ));
     }
 

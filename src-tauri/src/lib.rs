@@ -23,6 +23,7 @@ use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameDownloadStatus,
     DATA_ROOT_DIR,
 };
+use debug::fetch_system_data;
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
 use games::downloads::download_commands::{cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads};

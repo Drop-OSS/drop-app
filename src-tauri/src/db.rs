@@ -268,6 +268,7 @@ fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir:
             installed_game_version: HashMap::new(),
         },
         prev_database: Some(new_path.into()),
+        settings: Settings { autostart: false },
     };
 
     PathDatabase::create_at_path(db_path, db)
