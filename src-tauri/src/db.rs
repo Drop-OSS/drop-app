@@ -1,8 +1,5 @@
 use std::{
-    collections::HashMap,
-    fs::{self, create_dir_all},
-    path::{Path, PathBuf},
-    sync::{LazyLock, Mutex, RwLockWriteGuard},
+    collections::HashMap, fs::{self, create_dir_all}, path::{Path, PathBuf}, sync::{LazyLock, Mutex, RwLockWriteGuard}
 };
 
 use chrono::Utc;
@@ -60,10 +57,10 @@ pub struct GameVersion {
 }
 
 #[serde_as]
-#[derive(Serialize, Clone, Deserialize)]
+#[derive(Serialize, Clone, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct DatabaseApplications {
-    pub install_dirs: Vec<String>,
+    pub install_dirs: Vec<PathBuf>,
     // Guaranteed to exist if the game also exists in the app state map
     pub game_statuses: HashMap<String, GameDownloadStatus>,
     pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
@@ -74,7 +71,7 @@ pub struct DatabaseApplications {
 }
 
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Database {
     #[serde(default)]
     pub settings: Settings,
@@ -82,6 +79,18 @@ pub struct Database {
     pub base_url: String,
     pub applications: DatabaseApplications,
     pub prev_database: Option<PathBuf>,
+}
+impl Database {
+    fn new<T: Into<PathBuf>>(games_base_dir: T, prev_database: Option<PathBuf>) -> Self {
+        Self {
+            applications: DatabaseApplications {
+                install_dirs: vec![games_base_dir.into()],
+                ..Default::default()
+            },
+            prev_database,
+            ..Default::default()
+        }
+    }
 }
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
@@ -130,19 +139,7 @@ impl DatabaseImpls for DatabaseInterface {
                 Err(e) => handle_invalid_database(e, db_path, games_base_dir),
             },
             false => {
-                let default = Database {
-                    settings: Settings::default(),
-                    auth: None,
-                    base_url: "".to_string(),
-                    applications: DatabaseApplications {
-                        install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-                        game_statuses: HashMap::new(),
-                        transient_statuses: HashMap::new(),
-                        game_versions: HashMap::new(),
-                        installed_game_version: HashMap::new(),
-                    },
-                    prev_database: None,
-                };
+                let default = Database::new(games_base_dir, None);
                 debug!(
                     "Creating database at path {}",
                     db_path.as_os_str().to_str().unwrap()
@@ -164,7 +161,7 @@ impl DatabaseImpls for DatabaseInterface {
 }
 
 #[tauri::command]
-pub fn add_download_dir(new_dir: String) -> Result<(), String> {
+pub fn add_download_dir(new_dir: PathBuf) -> Result<(), String> {
     // Check the new directory is all good
     let new_dir_path = Path::new(&new_dir);
     if new_dir_path.exists() {
@@ -210,7 +207,7 @@ pub fn delete_download_dir(index: usize) -> Result<(), String> {
 // Will, in future, return disk/remaining size
 // Just returns the directories that have been set up
 #[tauri::command]
-pub fn fetch_download_dir_stats() -> Result<Vec<String>, String> {
+pub fn fetch_download_dir_stats() -> Result<Vec<PathBuf>, String> {
     let lock = DB.borrow_data().unwrap();
     let directories = lock.applications.install_dirs.clone();
     drop(lock);
@@ -241,26 +238,14 @@ fn handle_invalid_database(
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
     let new_path = {
         let time = Utc::now().timestamp();
-        let mut base = db_path.clone().into_os_string();
+        let mut base = db_path.clone();
         base.push(".");
         base.push(time.to_string());
         base
     };
-    fs::copy(&db_path, &new_path).unwrap();
+    fs::rename(&db_path, &new_path).unwrap();
 
-    let db = Database {
-        auth: None,
-        base_url: "".to_string(),
-        applications: DatabaseApplications {
-            install_dirs: vec![games_base_dir.to_str().unwrap().to_string()],
-            game_statuses: HashMap::new(),
-            transient_statuses: HashMap::new(),
-            game_versions: HashMap::new(),
-            installed_game_version: HashMap::new(),
-        },
-        prev_database: Some(new_path.into()),
-        settings: Settings::default(),
-    };
+    let db = Database ::new(games_base_dir.into_os_string().into_string().unwrap(), Some(new_path.into()));
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
 }
