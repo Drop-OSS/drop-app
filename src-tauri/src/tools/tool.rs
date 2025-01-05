@@ -8,6 +8,7 @@ use crate::download_manager::{
     downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject,
 };
 
+#[allow(unused)]
 pub struct ToolDownloadAgent {
     id: String,
     version: String,
@@ -15,6 +16,7 @@ pub struct ToolDownloadAgent {
     control_flag: DownloadThreadControl,
     progress: Arc<ProgressObject>,
 }
+#[allow(unused)]
 impl Downloadable for ToolDownloadAgent {
     fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
         todo!()

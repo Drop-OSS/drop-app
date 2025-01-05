@@ -70,8 +70,8 @@ impl StoredManifest {
             Err(e) => error!("{}", e),
         };
     }
-    pub fn set_completed_contexts(&self, completed_contexts: &Vec<usize>) {
-        *self.completed_contexts.lock().unwrap() = completed_contexts.clone();
+    pub fn set_completed_contexts(&self, completed_contexts: &[usize]) {
+        *self.completed_contexts.lock().unwrap() = completed_contexts.to_owned();
     }
     pub fn get_completed_contexts(&self) -> Vec<usize> {
         self.completed_contexts.lock().unwrap().clone()

@@ -14,7 +14,7 @@ use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
-use std::collections::VecDeque;
+use slice_deque::SliceDeque;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::mpsc::Sender;
@@ -34,7 +34,7 @@ pub struct GameDownloadAgent {
     pub version: String,
     pub control_flag: DownloadThreadControl,
     contexts: Mutex<Vec<DropDownloadContext>>,
-    completed_contexts: Mutex<VecDeque<usize>>,
+    completed_contexts: Mutex<SliceDeque<usize>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -68,7 +68,7 @@ impl GameDownloadAgent {
             control_flag,
             manifest: Mutex::new(None),
             contexts: Mutex::new(Vec::new()),
-            completed_contexts: Mutex::new(VecDeque::new()),
+            completed_contexts: Mutex::new(SliceDeque::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
@@ -312,7 +312,7 @@ impl GameDownloadAgent {
         if completed_lock_len != contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
             self.stored_manifest
-                .set_completed_contexts(&self.completed_contexts.lock().unwrap().clone().into());
+                .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
             info!("Setting completed contexts");
             self.stored_manifest.write();
             info!("Wrote completed contexts");

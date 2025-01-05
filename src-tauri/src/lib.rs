@@ -402,7 +402,7 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application");
 
-    app.run(|app_handle, event| {
+    app.run(|_app_handle, event| {
         if let RunEvent::ExitRequested { code, api, .. } = event {
             if code.is_none() {
                 api.prevent_exit();

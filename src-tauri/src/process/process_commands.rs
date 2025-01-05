@@ -22,11 +22,10 @@ pub fn launch_game(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resu
     {
         Some(GameDownloadStatus::Installed {
             version_name,
-            install_dir,
+            ..
         }) => version_name,
         Some(GameDownloadStatus::SetupRequired {
-            version_name,
-            install_dir,
+            ..
         }) => return Err(String::from("Game setup still required")),
         _ => return Err(String::from("Game not installed")),
     };

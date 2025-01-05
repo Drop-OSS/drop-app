@@ -56,19 +56,3 @@ pub fn move_game_in_queue(
 pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, meta: DownloadableMetadata) {
     state.lock().unwrap().download_manager.cancel(meta)
 }
-
-/*
-#[tauri::command]
-pub fn get_current_write_speed(state: tauri::State<'_, Mutex<AppState>>) {}
-*/
-
-/*
-fn use_download_agent(
-    state: tauri::State<'_, Mutex<AppState>>,
-    game_id: String,
-) -> Result<Arc<GameDownloadAgent>, String> {
-    let lock = state.lock().unwrap();
-    let download_agent = lock.download_manager.get(&game_id).ok_or("Invalid game ID")?;
-    Ok(download_agent.clone()) // Clones the Arc, not the underlying data structure
-}
-*/

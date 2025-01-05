@@ -200,7 +200,7 @@ pub fn fetch_game_status(id: String) -> Result<GameStatusWithTransient, String> 
     Ok(status)
 }
 
-fn fetch_game_verion_options_logic<'a>(
+fn fetch_game_verion_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
@@ -239,7 +239,6 @@ fn fetch_game_verion_options_logic<'a>(
 #[tauri::command]
 pub fn uninstall_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
     app_handle: AppHandle,
 ) -> Result<(), String> {
     let meta = get_current_meta(&game_id)?;
@@ -270,7 +269,7 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
         return;
     }
     let previous_state = previous_state.unwrap();
-    if let Some((version_name, install_dir)) = match previous_state {
+    if let Some((_, install_dir)) = match previous_state {
         GameDownloadStatus::Installed {
             version_name,
             install_dir,
@@ -330,7 +329,7 @@ pub fn get_current_meta(game_id: &String) -> Result<DownloadableMetadata, String
 }
 
 #[tauri::command]
-pub fn fetch_game_verion_options<'a>(
+pub fn fetch_game_verion_options(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, String> {

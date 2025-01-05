@@ -255,7 +255,7 @@ impl ProcessManager<'_> {
             &meta,
             command.to_str().unwrap().to_owned(),
             args,
-            &target_current_dir.to_string(),
+            target_current_dir,
             log_file,
             error_file,
         )?;
@@ -313,7 +313,7 @@ pub trait ProcessHandler: Send + 'static {
         meta: &DownloadableMetadata,
         command: String,
         args: Vec<String>,
-        current_dir: &String,
+        current_dir: &str,
         log_file: File,
         error_file: File,
     ) -> Result<Child, String>;
@@ -323,10 +323,10 @@ struct NativeGameLauncher;
 impl ProcessHandler for NativeGameLauncher {
     fn launch_process(
         &self,
-        meta: &DownloadableMetadata,
+        _meta: &DownloadableMetadata,
         command: String,
         args: Vec<String>,
-        current_dir: &String,
+        current_dir: &str,
         log_file: File,
         error_file: File,
     ) -> Result<Child, String> {
@@ -345,12 +345,12 @@ struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn launch_process(
         &self,
-        meta: &DownloadableMetadata,
+        _meta: &DownloadableMetadata,
         command: String,
         args: Vec<String>,
-        current_dir: &String,
-        log_file: File,
-        error_file: File,
+        _current_dir: &str,
+        _log_file: File,
+        _error_file: File,
     ) -> Result<Child, String> {
         UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, command)
             .game_id(String::from("0"))

@@ -189,7 +189,7 @@ fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn auth_initiate<'a>() -> Result<(), String> {
+pub fn auth_initiate() -> Result<(), String> {
     let result = auth_initiate_wrapper();
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
