@@ -1,24 +1,23 @@
-use crate::{DB, DATA_ROOT_DIR};
-use crate::db::DatabaseImpls;
-use serde_json::json;
+use crate::{DATA_ROOT_DIR, DB};
+use serde::Serialize;
 
-#[tauri::command]
-pub fn fetch_client_id() -> Result<Option<String>, String> {
-    let data = DB.borrow_data().map_err(|e| e.to_string())?;
-    Ok(data.auth.as_ref().map(|auth| auth.client_id.clone()))
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SystemData {
+    client_id: String,
+    base_url: String,
+    data_dir: String,
 }
 
 #[tauri::command]
-pub fn fetch_base_url() -> Result<Option<String>, String> {
-    Ok(Some(DB.fetch_base_url().to_string()))
+pub fn fetch_system_data() -> Result<SystemData, String> {
+    let db_handle = DB.borrow_data().map_err(|e| e.to_string())?;
+    let system_data = SystemData {
+        client_id: db_handle.auth.as_ref().unwrap().client_id.clone(),
+        base_url: db_handle.base_url.clone(),
+        data_dir: DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string(),
+    };
+    drop(db_handle);
+
+    Ok(system_data)
 }
-
-#[tauri::command]
-pub fn fetch_umu_info() -> Result<serde_json::Value, String> {
-    let data_dir = DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string();
-
-
-    Ok(json!({
-        "dataDir": data_dir,
-    }))
-} 

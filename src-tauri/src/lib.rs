@@ -3,22 +3,27 @@ mod db;
 mod downloads;
 mod library;
 
+mod autostart;
 mod cleanup;
+mod debug;
 mod process;
 mod remote;
 mod state;
 #[cfg(test)]
 mod tests;
-mod autostart;
-mod debug;
 
+use crate::autostart::{get_autostart_enabled, toggle_autostart};
 use crate::db::DatabaseImpls;
-use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect, sign_out};
+use auth::{
+    auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake,
+    retry_connect, sign_out,
+};
 use cleanup::{cleanup_and_exit, quit};
 use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameStatus,
     DATA_ROOT_DIR,
 };
+use debug::fetch_system_data;
 use downloads::download_commands::*;
 use downloads::download_manager::DownloadManager;
 use downloads::download_manager_builder::DownloadManagerBuilder;
@@ -48,8 +53,6 @@ use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
-use crate::autostart::{get_autostart_enabled, toggle_autostart};
-use debug::{fetch_client_id, fetch_base_url, fetch_umu_info};
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -219,9 +222,7 @@ pub fn run() {
             // Core utils
             fetch_state,
             quit,
-            fetch_client_id,
-            fetch_base_url,
-            fetch_umu_info,
+            fetch_system_data,
             // Auth
             auth_initiate,
             retry_connect,
@@ -255,7 +256,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            Some(vec!["--minimize"])
+            Some(vec!["--minimize"]),
         ))
         .setup(|app| {
             let handle = app.handle().clone();
