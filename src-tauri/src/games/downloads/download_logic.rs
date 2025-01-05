@@ -6,7 +6,7 @@ use crate::download_manager::progress_object::ProgressHandle;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::{info, warn};
+use log::{error, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{Client, Request, RequestBuilder, Response};
 
@@ -153,6 +153,7 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
+        error!("Recieved 0 length content from server");
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse,
         ));
