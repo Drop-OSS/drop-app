@@ -15,10 +15,7 @@ use tauri::AppHandle;
 use url::Url;
 
 use crate::{
-    download_manager::downloadable_metadata::DownloadableMetadata,
-    games::{library::push_game_update, state::GameStatusManager},
-    process::process_manager::Platform,
-    DB,
+    download_manager::downloadable_metadata::DownloadableMetadata, games::{library::push_game_update, state::GameStatusManager}, process::process_manager::Platform, settings::Settings, DB
 };
 
 #[derive(serde::Serialize, Clone, Deserialize)]
@@ -76,11 +73,6 @@ pub struct DatabaseApplications {
     pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Settings {
-    pub autostart: bool,
-    // ... other settings ...
-}
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Database {
@@ -267,7 +259,7 @@ fn handle_invalid_database(
             installed_game_version: HashMap::new(),
         },
         prev_database: Some(new_path.into()),
-        settings: Settings { autostart: false },
+        settings: Settings::default(),
     };
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")

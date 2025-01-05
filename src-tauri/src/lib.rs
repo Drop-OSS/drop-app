@@ -8,6 +8,7 @@ mod debug;
 pub mod download_manager;
 mod process;
 mod remote;
+pub mod settings;
 #[cfg(test)]
 mod tests;
 mod tools;
@@ -45,6 +46,7 @@ use process::process_commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
+use settings::amend_settings;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
@@ -228,6 +230,8 @@ pub fn run() {
             fetch_state,
             quit,
             fetch_system_data,
+            // User utils
+            amend_settings,
             // Auth
             auth_initiate,
             retry_connect,

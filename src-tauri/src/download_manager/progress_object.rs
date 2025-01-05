@@ -4,10 +4,11 @@ use std::{
         mpsc::Sender,
         Arc, Mutex, RwLock,
     },
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use log::info;
+use throttle_my_fn::throttle;
 
 use super::download_manager::DownloadManagerSignal;
 
@@ -17,7 +18,6 @@ pub struct ProgressObject {
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
     start: Arc<Mutex<Instant>>,
     sender: Sender<DownloadManagerSignal>,
-
     points_towards_update: Arc<AtomicUsize>,
     points_to_push_update: Arc<AtomicUsize>,
     last_update: Arc<RwLock<Instant>>,
@@ -76,9 +76,7 @@ impl ProgressObject {
         if current_amount >= to_update {
             self.points_towards_update
                 .fetch_sub(to_update, Ordering::Relaxed);
-            self.sender
-                .send(DownloadManagerSignal::UpdateUIQueue)
-                .unwrap();
+            update_queue(&self);
         }
 
         let last_update = self.last_update.read().unwrap();
@@ -103,12 +101,8 @@ impl ProgressObject {
 
             let remaining = max - current_amount; // bytes
             let time_remaining = (remaining / 1000) / kilobytes_per_second.max(1);
-            self.sender
-                .send(DownloadManagerSignal::UpdateUIStats(
-                    kilobytes_per_second,
-                    time_remaining,
-                ))
-                .unwrap();
+
+            update_ui(&self, kilobytes_per_second, time_remaining);
         }
     }
 
@@ -142,4 +136,21 @@ impl ProgressObject {
     pub fn get(&self, index: usize) -> Arc<AtomicUsize> {
         self.progress_instances.lock().unwrap()[index].clone()
     }
+}
+
+#[throttle(10, Duration::from_secs(1))]
+fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
+    progress_object.sender
+    .send(DownloadManagerSignal::UpdateUIStats(
+        kilobytes_per_second,
+        time_remaining,
+    ))
+    .unwrap();
+}
+
+#[throttle(10, Duration::from_secs(1))]
+fn update_queue(progress: &ProgressObject) {
+    progress.sender
+        .send(DownloadManagerSignal::UpdateUIQueue)
+        .unwrap();
 }

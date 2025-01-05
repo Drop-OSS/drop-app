@@ -47,6 +47,9 @@ tauri-plugin-autostart = "2.0.0"
 shared_child = "1.0.1"
 serde_with = "3.12.0"
 slice-deque = "0.3.0"
+derive_builder = "0.20.2"
+throttle_my_fn = "0.2.6"
+parking_lot = "0.12.3"
 
 [dependencies.tauri]
 version = "2.1.1"

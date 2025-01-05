@@ -246,10 +246,10 @@ impl GameDownloadAgent {
 
     pub fn run(&self) -> Result<bool, ()> {
         info!("downloading game: {}", self.id);
-        const DOWNLOAD_MAX_THREADS: usize = 1;
+        let max_download_threads = DB.borrow_data().unwrap().settings.max_download_threads;
 
         let pool = ThreadPoolBuilder::new()
-            .num_threads(DOWNLOAD_MAX_THREADS)
+            .num_threads(max_download_threads)
             .build()
             .unwrap();
 
