@@ -11,6 +11,12 @@ pub struct Queue {
 }
 
 #[allow(dead_code)]
+impl Default for Queue {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Queue {
     pub fn new() -> Self {
         Self {
@@ -44,10 +50,7 @@ impl Queue {
     pub fn append(&self, interface: DownloadableMetadata) {
         self.edit().push_back(interface);
     }
-    pub fn pop_front_if_equal(
-        &self,
-        meta: &DownloadableMetadata,
-    ) -> Option<DownloadableMetadata> {
+    pub fn pop_front_if_equal(&self, meta: &DownloadableMetadata) -> Option<DownloadableMetadata> {
         let mut queue = self.edit();
         let front = match queue.front() {
             Some(front) => front,
@@ -61,7 +64,11 @@ impl Queue {
     pub fn get_by_meta(&self, meta: &DownloadableMetadata) -> Option<usize> {
         self.read().iter().position(|data| data == meta)
     }
-    pub fn move_to_index_by_meta(&self, meta: &DownloadableMetadata, new_index: usize) -> Result<(), ()> {
+    pub fn move_to_index_by_meta(
+        &self,
+        meta: &DownloadableMetadata,
+        new_index: usize,
+    ) -> Result<(), ()> {
         let index = match self.get_by_meta(meta) {
             Some(index) => index,
             None => return Err(()),

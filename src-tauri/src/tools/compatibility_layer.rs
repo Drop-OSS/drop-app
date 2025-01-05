@@ -1,3 +1,1 @@
-pub struct CompatibilityLayer {
-    
-}
+pub struct CompatibilityLayer {}

@@ -46,6 +46,4 @@ impl CompatibilityManager {
 
         Ok(())
     }
-
-    
 }

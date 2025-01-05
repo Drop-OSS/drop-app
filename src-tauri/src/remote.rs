@@ -6,7 +6,6 @@ use std::{
 
 use http::StatusCode;
 use log::{info, warn};
-use reqwest::blocking::Response;
 use serde::Deserialize;
 use url::{ParseError, Url};
 

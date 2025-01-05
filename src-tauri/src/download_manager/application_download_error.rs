@@ -1,4 +1,7 @@
-use std::{fmt::{Display, Formatter}, io};
+use std::{
+    fmt::{Display, Formatter},
+    io,
+};
 
 use crate::remote::RemoteAccessError;
 
@@ -38,4 +41,3 @@ impl Display for SetupError {
         }
     }
 }
-

@@ -43,8 +43,6 @@ impl StoredManifest {
             }
         };
 
-        
-
         match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
             Ok(manifest) => manifest,
             Err(e) => {

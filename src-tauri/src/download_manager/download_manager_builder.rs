@@ -1,19 +1,26 @@
 use std::{
     collections::HashMap,
-    fs::remove_dir_all,
     sync::{
         mpsc::{channel, Receiver, Sender},
-        Arc, Mutex, RwLockWriteGuard,
+        Arc, Mutex,
     },
     thread::{spawn, JoinHandle},
 };
 
-use log::{error, info};
+use log::info;
 use tauri::{AppHandle, Emitter};
 
 use crate::games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent};
 
-use super::{application_download_error::ApplicationDownloadError, download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus}, download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject, queue::Queue};
+use super::{
+    application_download_error::ApplicationDownloadError,
+    download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
+    download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
+    downloadable::Downloadable,
+    downloadable_metadata::DownloadableMetadata,
+    progress_object::ProgressObject,
+    queue::Queue,
+};
 
 pub type DownloadAgent = Arc<Box<dyn Downloadable + Send + Sync>>;
 pub type CurrentProgressObject = Arc<Mutex<Option<Arc<ProgressObject>>>>;
@@ -115,7 +122,6 @@ impl DownloadManagerBuilder {
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
         *download_thread_lock = None;
         drop(download_thread_lock);
-
     }
 
     fn stop_and_wait_current_download(&self) {
@@ -129,7 +135,6 @@ impl DownloadManagerBuilder {
             current_download_thread.join().unwrap();
         }
     }
-
 
     fn manage_queue(mut self) -> Result<(), ()> {
         loop {
@@ -186,18 +191,26 @@ impl DownloadManagerBuilder {
         self.download_queue.append(meta.clone());
         self.download_agent_registry.insert(meta, download_agent);
 
-        self.sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
+        self.sender
+            .send(DownloadManagerSignal::UpdateUIQueue)
+            .unwrap();
     }
 
     fn manage_go_signal(&mut self) {
         info!("Got signal Go");
-        if self.download_agent_registry.is_empty() { 
-            info!("Download agent registry: {:?}", self.download_agent_registry.len());
-            return; 
+        if self.download_agent_registry.is_empty() {
+            info!(
+                "Download agent registry: {:?}",
+                self.download_agent_registry.len()
+            );
+            return;
         }
 
         if self.current_download_agent.is_some() {
-            info!("Current download agent: {:?}", self.current_download_agent.as_ref().unwrap().metadata());
+            info!(
+                "Current download agent: {:?}",
+                self.current_download_agent.as_ref().unwrap().metadata()
+            );
             return;
         }
 
@@ -227,16 +240,18 @@ impl DownloadManagerBuilder {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
                     download_agent.on_complete(&app_handle);
-                    sender.send(DownloadManagerSignal::Completed(download_agent.metadata())).unwrap();
-                },
+                    sender
+                        .send(DownloadManagerSignal::Completed(download_agent.metadata()))
+                        .unwrap();
+                }
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
                     download_agent.on_incomplete(&app_handle);
-                },
+                }
                 Err(e) => {
                     download_agent.on_error(&app_handle, e.clone());
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
-                },
+                }
             }
             sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
         }));
@@ -290,29 +305,32 @@ impl DownloadManagerBuilder {
                 info!("Current donwload queue: {:?}", self.download_queue.read());
             }
             // TODO: Collapse these two into a single if statement somehow
-            else {
-                if let Some(download_agent) = self.download_agent_registry.get(meta) {
-                    info!("Object exists in registry");
-                    let index = self.download_queue.get_by_meta(meta);
-                    if let Some(index) = index {
-                        download_agent.on_cancelled(&self.app_handle);
-                        let _ = self.download_queue.edit().remove(index).unwrap();
-                        let removed = self.download_agent_registry.remove(meta);
-                        info!("Removed {:?} from queue {:?}", removed.and_then(|x| Some(x.metadata())), self.download_queue.read());
-                    }
-                }
-            }    
-        }
-        else {
-            if let Some(download_agent) = self.download_agent_registry.get(meta) {
+            else if let Some(download_agent) = self.download_agent_registry.get(meta) {
                 info!("Object exists in registry");
                 let index = self.download_queue.get_by_meta(meta);
                 if let Some(index) = index {
                     download_agent.on_cancelled(&self.app_handle);
                     let _ = self.download_queue.edit().remove(index).unwrap();
                     let removed = self.download_agent_registry.remove(meta);
-                    info!("Removed {:?} from queue {:?}", removed.and_then(|x| Some(x.metadata())), self.download_queue.read());
+                    info!(
+                        "Removed {:?} from queue {:?}",
+                        removed.map(|x| x.metadata()),
+                        self.download_queue.read()
+                    );
                 }
+            }
+        } else if let Some(download_agent) = self.download_agent_registry.get(meta) {
+            info!("Object exists in registry");
+            let index = self.download_queue.get_by_meta(meta);
+            if let Some(index) = index {
+                download_agent.on_cancelled(&self.app_handle);
+                let _ = self.download_queue.edit().remove(index).unwrap();
+                let removed = self.download_agent_registry.remove(meta);
+                info!(
+                    "Removed {:?} from queue {:?}",
+                    removed.map(|x| x.metadata()),
+                    self.download_queue.read()
+                );
             }
         }
         self.push_ui_queue_update();
@@ -326,18 +344,17 @@ impl DownloadManagerBuilder {
         let queue = &self.download_queue.read();
         let queue_objs = queue
             .iter()
-            .map(|(key)| {
+            .map(|key| {
                 let val = self.download_agent_registry.get(key).unwrap();
                 QueueUpdateEventQueueData {
-                    meta: DownloadableMetadata::clone(&key),
+                    meta: DownloadableMetadata::clone(key),
                     status: val.status(),
-                    progress: val.progress().get_progress()
-            }})
+                    progress: val.progress().get_progress(),
+                }
+            })
             .collect();
 
-        let event_data = QueueUpdateEvent {
-            queue: queue_objs,
-        };
+        let event_data = QueueUpdateEvent { queue: queue_objs };
         self.app_handle.emit("update_queue", event_data).unwrap();
     }
 }

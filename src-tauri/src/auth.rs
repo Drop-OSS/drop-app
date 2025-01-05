@@ -236,7 +236,7 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
 #[tauri::command]
 pub fn sign_out(app: AppHandle) -> Result<(), String> {
     info!("Signing out user");
-    
+
     // Clear auth from database
     {
         let mut handle = DB.borrow_data_mut().unwrap();

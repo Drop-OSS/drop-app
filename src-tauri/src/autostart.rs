@@ -1,7 +1,7 @@
+use crate::DB;
 use log::info;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
-use crate::DB;
 
 #[tauri::command]
 pub async fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
@@ -66,4 +66,4 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
     }
 
     Ok(())
-} 
+}

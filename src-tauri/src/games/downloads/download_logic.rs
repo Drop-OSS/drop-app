@@ -1,26 +1,23 @@
-use crate::auth::generate_authorization_header;
-use crate::db::DatabaseImpls;
 use crate::download_manager::application_download_error::ApplicationDownloadError;
-use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::download_thread_control_flag::{
+    DownloadThreadControl, DownloadThreadControlFlag,
+};
 use crate::download_manager::progress_object::ProgressHandle;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
-use crate::DB;
-use log::{error, info, warn};
+use log::{error, warn};
 use md5::{Context, Digest};
-use reqwest::blocking::{Client, Request, RequestBuilder, Response};
+use reqwest::blocking::{RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::sync::Arc;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
     path::PathBuf,
 };
-use urlencoding::encode;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -124,7 +121,7 @@ pub fn download_game_chunk(
     ctx: &DropDownloadContext,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
-    request: RequestBuilder
+    request: RequestBuilder,
 ) -> Result<bool, ApplicationDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {

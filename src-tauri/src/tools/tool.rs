@@ -2,7 +2,11 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
-use crate::download_manager::{application_download_error::ApplicationDownloadError, download_thread_control_flag::DownloadThreadControl, downloadable::Downloadable, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject};
+use crate::download_manager::{
+    application_download_error::ApplicationDownloadError,
+    download_thread_control_flag::DownloadThreadControl, downloadable::Downloadable,
+    downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject,
+};
 
 pub struct ToolDownloadAgent {
     id: String,
@@ -36,7 +40,11 @@ impl Downloadable for ToolDownloadAgent {
         todo!()
     }
 
-    fn on_error(&self, app_handle: &tauri::AppHandle, error: crate::download_manager::application_download_error::ApplicationDownloadError) {
+    fn on_error(
+        &self,
+        app_handle: &tauri::AppHandle,
+        error: crate::download_manager::application_download_error::ApplicationDownloadError,
+    ) {
         todo!()
     }
 

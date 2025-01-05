@@ -1,7 +1,5 @@
-
 use log::info;
 use tauri::AppHandle;
-
 
 #[tauri::command]
 pub fn quit(app: tauri::AppHandle) {

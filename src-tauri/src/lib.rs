@@ -5,12 +5,12 @@ mod games;
 mod autostart;
 mod cleanup;
 mod debug;
+pub mod download_manager;
 mod process;
 mod remote;
-mod tools;
-pub mod download_manager;
 #[cfg(test)]
 mod tests;
+mod tools;
 
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
 use crate::db::DatabaseImpls;
@@ -20,18 +20,20 @@ use auth::{
 };
 use cleanup::{cleanup_and_exit, quit};
 use db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameDownloadStatus,
-    DATA_ROOT_DIR,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
+    GameDownloadStatus, DATA_ROOT_DIR,
 };
 use debug::fetch_system_data;
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use games::downloads::download_commands::{cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads};
+use games::downloads::download_commands::{
+    cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads,
+};
+use games::library::{
+    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game,
+};
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
-use games::library::{
-    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game
-};
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -43,7 +45,6 @@ use process::process_commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
-use tauri_plugin_dialog::DialogExt;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
@@ -52,8 +53,9 @@ use std::{
 };
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, RunEvent, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_dialog::DialogExt;
 
 #[derive(Clone, Copy, Serialize)]
 pub enum AppStatus {
@@ -185,7 +187,6 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     }
 
     drop(db_handle);
-
 
     info!("finished setup!");
 
@@ -335,15 +336,24 @@ pub fn run() {
             {
                 let mut db_handle = DB.borrow_data_mut().unwrap();
                 if let Some(original) = db_handle.prev_database.take() {
-                    warn!("Database corrupted. Original file at {}", original.canonicalize().unwrap().to_string_lossy().to_string());
+                    warn!(
+                        "Database corrupted. Original file at {}",
+                        original
+                            .canonicalize()
+                            .unwrap()
+                            .to_string_lossy()
+                            .to_string()
+                    );
                     app.dialog()
-                        .message("Database corrupted. A copy has been saved at: ".to_string() + original.to_str().unwrap())
+                        .message(
+                            "Database corrupted. A copy has been saved at: ".to_string()
+                                + original.to_str().unwrap(),
+                        )
                         .title("Database corrupted")
                         .show(|_| {});
                 }
             }
 
-        
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {

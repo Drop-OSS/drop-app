@@ -2,19 +2,19 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::{error, info, warn};
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
 use crate::db::GameVersion;
+use crate::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
+use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::process::process_manager::Platform;
 use crate::remote::RemoteAccessError;
-use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::{auth::generate_authorization_header, AppState, DB};
 
 #[derive(serde::Serialize)]
@@ -40,7 +40,10 @@ pub struct Game {
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
     pub game_id: String,
-    pub status: (Option<GameDownloadStatus>, Option<ApplicationTransientStatus>),
+    pub status: (
+        Option<GameDownloadStatus>,
+        Option<ApplicationTransientStatus>,
+    ),
 }
 
 #[derive(Serialize, Clone)]
@@ -237,7 +240,7 @@ fn fetch_game_verion_options_logic<'a>(
 pub fn uninstall_game(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-    app_handle: AppHandle
+    app_handle: AppHandle,
 ) -> Result<(), String> {
     let meta = get_current_meta(&game_id)?;
     println!("{:?}", meta);
@@ -254,7 +257,7 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
         .transient_statuses
         .entry(meta.clone())
         .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
-    
+
     push_game_update(
         app_handle,
         &meta,
@@ -303,14 +306,24 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
 
                 info!("uninstalled game id {}", &meta.id);
 
-                push_game_update(&app_handle, &meta, (Some(GameDownloadStatus::Remote {}), None));
+                push_game_update(
+                    &app_handle,
+                    &meta,
+                    (Some(GameDownloadStatus::Remote {}), None),
+                );
             }
         });
     }
 }
 
 pub fn get_current_meta(game_id: &String) -> Result<DownloadableMetadata, String> {
-    match DB.borrow_data().unwrap().applications.installed_game_version.get(game_id) {
+    match DB
+        .borrow_data()
+        .unwrap()
+        .applications
+        .installed_game_version
+        .get(game_id)
+    {
         Some(meta) => Ok(meta.clone()),
         None => Err(String::from("Could not find installed version")),
     }
@@ -331,7 +344,9 @@ pub fn on_game_complete(
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
     let base_url = DB.fetch_base_url();
-    if meta.version.is_none() { return Err(RemoteAccessError::GameNotFound) }
+    if meta.version.is_none() {
+        return Err(RemoteAccessError::GameNotFound);
+    }
 
     let endpoint = base_url.join(
         format!(
@@ -398,7 +413,11 @@ pub fn on_game_complete(
     Ok(())
 }
 
-pub fn push_game_update(app_handle: &AppHandle, meta: &DownloadableMetadata, status: GameStatusWithTransient) {
+pub fn push_game_update(
+    app_handle: &AppHandle,
+    meta: &DownloadableMetadata,
+    status: GameStatusWithTransient,
+) {
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),

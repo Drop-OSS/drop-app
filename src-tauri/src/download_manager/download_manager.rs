@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
     sync::{
         mpsc::{SendError, Sender},
-        Arc, Mutex, MutexGuard,
+        MutexGuard,
     },
     thread::JoinHandle,
 };
@@ -12,8 +12,12 @@ use std::{
 use log::info;
 use serde::Serialize;
 
-
-use super::{application_download_error::ApplicationDownloadError, download_manager_builder::{CurrentProgressObject, DownloadAgent}, downloadable_metadata::DownloadableMetadata, queue::Queue};
+use super::{
+    application_download_error::ApplicationDownloadError,
+    download_manager_builder::{CurrentProgressObject, DownloadAgent},
+    downloadable_metadata::DownloadableMetadata,
+    queue::Queue,
+};
 
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the DownloadManager
@@ -103,10 +107,11 @@ impl DownloadManager {
 
     pub fn queue_download(
         &self,
-        download: DownloadAgent
+        download: DownloadAgent,
     ) -> Result<(), SendError<DownloadManagerSignal>> {
         info!("Adding download id {:?}", download.metadata());
-        self.command_sender.send(DownloadManagerSignal::Queue(download))?;
+        self.command_sender
+            .send(DownloadManagerSignal::Queue(download))?;
         self.command_sender.send(DownloadManagerSignal::Go)
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<DownloadableMetadata>> {

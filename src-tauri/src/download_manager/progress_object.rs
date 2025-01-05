@@ -98,7 +98,8 @@ impl ProgressObject {
 
             let amount_since_last_update = current_amount - amount_at_last_update;
 
-            let kilobytes_per_second = amount_since_last_update / (last_update_difference as usize).max(1);
+            let kilobytes_per_second =
+                amount_since_last_update / (last_update_difference as usize).max(1);
 
             let remaining = max - current_amount; // bytes
             let time_remaining = (remaining / 1000) / kilobytes_per_second.max(1);

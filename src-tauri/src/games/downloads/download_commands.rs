@@ -1,6 +1,9 @@
 use std::sync::{Arc, Mutex};
 
-use crate::{download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, AppState};
+use crate::{
+    download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata},
+    AppState,
+};
 
 use super::download_agent::GameDownloadAgent;
 
@@ -12,9 +15,12 @@ pub fn download_game(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), String> {
     let sender = state.lock().unwrap().download_manager.get_sender();
-    let game_download_agent = Arc::new(
-        Box::new(GameDownloadAgent::new(game_id, game_version, install_dir, sender)) as Box<dyn Downloadable + Send + Sync>
-    );
+    let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new(
+        game_id,
+        game_version,
+        install_dir,
+        sender,
+    )) as Box<dyn Downloadable + Send + Sync>);
     state
         .lock()
         .unwrap()

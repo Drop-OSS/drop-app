@@ -1,9 +1,11 @@
-use std::{fmt::{self, Debug}, sync::{mpsc::Sender, Arc}};
+use std::sync::Arc;
 
 use tauri::AppHandle;
 
 use super::{
-    application_download_error::ApplicationDownloadError, download_manager::{DownloadManagerSignal, DownloadStatus}, download_thread_control_flag::DownloadThreadControl, downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject
+    application_download_error::ApplicationDownloadError, download_manager::DownloadStatus,
+    download_thread_control_flag::DownloadThreadControl,
+    downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject,
 };
 
 pub trait Downloadable: Send + Sync {

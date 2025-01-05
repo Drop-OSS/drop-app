@@ -15,7 +15,11 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    db::{GameDownloadStatus, ApplicationTransientStatus, DATA_ROOT_DIR}, download_manager::{downloadable::Downloadable, downloadable_metadata::DownloadableMetadata}, games::library::push_game_update, games::state::GameStatusManager, AppState, DB
+    db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
+    download_manager::downloadable_metadata::DownloadableMetadata,
+    games::library::push_game_update,
+    games::state::GameStatusManager,
+    AppState, DB,
 };
 
 pub struct ProcessManager<'a> {
@@ -85,7 +89,7 @@ impl ProcessManager<'_> {
                 child.kill()?;
                 child.wait()?;
                 Ok(())
-            },
+            }
             None => Err(io::Error::new(
                 io::ErrorKind::NotFound,
                 "Game ID not running",
@@ -93,7 +97,11 @@ impl ProcessManager<'_> {
         };
     }
 
-    fn on_process_finish(&mut self, meta: DownloadableMetadata, result: Result<ExitStatus, std::io::Error>) {
+    fn on_process_finish(
+        &mut self,
+        meta: DownloadableMetadata,
+        result: Result<ExitStatus, std::io::Error>,
+    ) {
         if !self.processes.contains_key(&meta) {
             warn!("process on_finish was called, but game_id is no longer valid. finished with result: {:?}", result);
             return;
@@ -148,7 +156,10 @@ impl ProcessManager<'_> {
         }
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
-        info!("Launching process {:?} with games {:?}", meta, db_lock.applications.game_versions);
+        info!(
+            "Launching process {:?} with games {:?}",
+            meta, db_lock.applications.game_versions
+        );
 
         let game_status = db_lock
             .applications
@@ -210,10 +221,12 @@ impl ProcessManager<'_> {
             .truncate(true)
             .read(true)
             .create(true)
-            .open(
-                self.log_output_dir
-                    .join(format!("{}-{}-{}.log", meta.id.clone(), meta.version.clone().unwrap_or_default(), current_time.timestamp())),
-            )
+            .open(self.log_output_dir.join(format!(
+                "{}-{}-{}.log",
+                meta.id.clone(),
+                meta.version.clone().unwrap_or_default(),
+                current_time.timestamp()
+            )))
             .map_err(|v| v.to_string())?;
 
         let error_file = OpenOptions::new()

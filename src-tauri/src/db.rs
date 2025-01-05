@@ -2,7 +2,7 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
-    sync::{Arc, LazyLock, Mutex, RwLockWriteGuard}, time::{Instant, SystemTime, UNIX_EPOCH},
+    sync::{LazyLock, Mutex, RwLockWriteGuard},
 };
 
 use chrono::Utc;
@@ -14,7 +14,12 @@ use serde_with::serde_as;
 use tauri::AppHandle;
 use url::Url;
 
-use crate::{download_manager::downloadable_metadata::DownloadableMetadata, games::{library::push_game_update, state::GameStatusManager}, process::process_manager::Platform, DB};
+use crate::{
+    download_manager::downloadable_metadata::DownloadableMetadata,
+    games::{library::push_game_update, state::GameStatusManager},
+    process::process_manager::Platform,
+    DB,
+};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
 pub struct DatabaseAuth {
@@ -71,19 +76,10 @@ pub struct DatabaseApplications {
     pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Settings {
     pub autostart: bool,
     // ... other settings ...
-}
-
-impl Default for Settings {
-    fn default() -> Self {
-        Self {
-            autostart: false,
-            // ... other settings defaults ...
-        }
-    }
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -93,7 +89,7 @@ pub struct Database {
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
     pub applications: DatabaseApplications,
-    pub prev_database: Option<PathBuf>
+    pub prev_database: Option<PathBuf>,
 }
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
@@ -137,11 +133,10 @@ impl DatabaseImpls for DatabaseInterface {
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
-            true =>
-                match PathDatabase::load_from_path(db_path.clone()) {
-                    Ok(db) => db,
-                    Err(e) => handle_invalid_database(e, db_path, games_base_dir),
-                },
+            true => match PathDatabase::load_from_path(db_path.clone()) {
+                Ok(db) => db,
+                Err(e) => handle_invalid_database(e, db_path, games_base_dir),
+            },
             false => {
                 let default = Database {
                     settings: Settings::default(),
@@ -247,8 +242,12 @@ pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Downloada
 }
 
 // TODO: Make the error relelvant rather than just assume that it's a Deserialize error
-fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir: PathBuf) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
-    let new_path = { 
+fn handle_invalid_database(
+    _e: RustbreakError,
+    db_path: PathBuf,
+    games_base_dir: PathBuf,
+) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
+    let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone().into_os_string();
         base.push(".");
@@ -271,8 +270,5 @@ fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir:
         settings: Settings { autostart: false },
     };
 
-    PathDatabase::create_at_path(db_path, db)
-        .expect("Database could not be created")
-
-
+    PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
 }
