@@ -12,7 +12,7 @@ export type SerializedGameStatus = [
   OptionGameStatus | null
 ];
 
-const parseStatus = (status: SerializedGameStatus): GameStatus => {
+export const parseStatus = (status: SerializedGameStatus): GameStatus => {
   if (status[0]) {
     return {
       type: status[0].type,
