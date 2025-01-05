@@ -249,6 +249,7 @@ impl GameDownloadAgent {
         let base_url = DB.fetch_base_url();
 
 
+        
         let contexts = self.contexts.lock().unwrap();
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
@@ -288,6 +289,7 @@ impl GameDownloadAgent {
 
         let newly_completed = completed_indexes.to_owned();
 
+
         let completed_lock_len = {
             let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
             for (item, _) in newly_completed.iter() {
@@ -297,8 +299,10 @@ impl GameDownloadAgent {
             completed_contexts_lock.len()
         };
 
+        info!("Got newly completed");
+
         // If we're not out of contexts, we're not done, so we don't fire completed
-        if completed_lock_len != self.contexts.lock().unwrap().len() {
+        if completed_lock_len != contexts.len() {
             info!("da for {} exited without completing", self.id.clone());
             self.stored_manifest
                 .set_completed_contexts(&self.completed_contexts.lock().unwrap().clone().into());
@@ -307,6 +311,9 @@ impl GameDownloadAgent {
             info!("Wrote completed contexts");
             return Ok(false);
         }
+
+        info!("Sending completed signal");
+
 
         // We've completed
         self.sender

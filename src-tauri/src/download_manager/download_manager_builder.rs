@@ -238,6 +238,7 @@ impl DownloadManagerBuilder {
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
                 },
             }
+            sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
         }));
 
         self.set_status(DownloadManagerStatus::Downloading);
