@@ -6,14 +6,15 @@ use crate::download_manager::progress_object::ProgressHandle;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::RemoteAccessError;
 use crate::DB;
-use log::warn;
+use log::{info, warn};
 use md5::{Context, Digest};
-use reqwest::blocking::Response;
+use reqwest::blocking::{Client, Request, RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -64,18 +65,18 @@ impl Seek for DropWriter<File> {
     }
 }
 
-pub struct DropDownloadPipeline<R: Read, W: Write> {
+pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
     pub source: R,
     pub destination: DropWriter<W>,
-    pub control_flag: DownloadThreadControl,
+    pub control_flag: &'a DownloadThreadControl,
     pub progress: ProgressHandle,
     pub size: usize,
 }
-impl DropDownloadPipeline<Response, File> {
+impl<'a> DropDownloadPipeline<'a, Response, File> {
     fn new(
         source: Response,
         destination: DropWriter<File>,
-        control_flag: DownloadThreadControl,
+        control_flag: &'a DownloadThreadControl,
         progress: ProgressHandle,
         size: usize,
     ) -> Self {
@@ -120,9 +121,10 @@ impl DropDownloadPipeline<Response, File> {
 }
 
 pub fn download_game_chunk(
-    ctx: DropDownloadContext,
-    control_flag: DownloadThreadControl,
+    ctx: &DropDownloadContext,
+    control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
+    request: RequestBuilder
 ) -> Result<bool, ApplicationDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -130,25 +132,7 @@ pub fn download_game_chunk(
         return Ok(false);
     }
 
-    let base_url = DB.fetch_base_url();
-
-    let client = reqwest::blocking::Client::new();
-    let chunk_url = base_url
-        .join(&format!(
-            "/api/v1/client/chunk?id={}&version={}&name={}&chunk={}",
-            // Encode the parts we don't trust
-            ctx.game_id,
-            encode(&ctx.version),
-            encode(&ctx.file_name),
-            ctx.index
-        ))
-        .unwrap();
-
-    let header = generate_authorization_header();
-
-    let response = client
-        .get(chunk_url)
-        .header("Authorization", header)
+    let response = request
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
@@ -193,7 +177,7 @@ pub fn download_game_chunk(
     #[cfg(unix)]
     {
         let permissions = Permissions::from_mode(ctx.permissions);
-        set_permissions(ctx.path, permissions).unwrap();
+        set_permissions(ctx.path.clone(), permissions).unwrap();
     }
 
     /*

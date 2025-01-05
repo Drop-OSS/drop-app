@@ -246,11 +246,17 @@ impl GameDownloadAgent {
         let completed_indexes = Arc::new(boxcar::Vec::new());
         let completed_indexes_loop_arc = completed_indexes.clone();
 
+        let base_url = DB.fetch_base_url();
+
+
+        let contexts = self.contexts.lock().unwrap();
         pool.scope(|scope| {
-            for (index, context) in self.contexts.lock().unwrap().iter().enumerate() {
+            let client = &reqwest::blocking::Client::new();
+            for (index, context) in contexts.iter().enumerate() {
+                let client = client.clone();
                 let completed_indexes = completed_indexes_loop_arc.clone();
 
-                let progress = self.progress.get(index); // Clone arcs
+                let progress = self.progress.get(index);
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
                 // If we've done this one already, skip it
                 if self.completed_contexts.lock().unwrap().contains(&index) {
@@ -258,13 +264,13 @@ impl GameDownloadAgent {
                     continue;
                 }
 
-                let context = context.clone();
-                let control_flag = self.control_flag.clone(); // Clone arcs
-
                 let sender = self.sender.clone();
 
+                let request = generate_request(&base_url, client, &context);
+        
+
                 scope.spawn(move |_| {
-                    match download_game_chunk(context.clone(), control_flag, progress_handle) {
+                    match download_game_chunk(context, &self.control_flag, progress_handle, request) {
                         Ok(res) => {
                             if res {
                                 completed_indexes.push(index);
@@ -275,6 +281,7 @@ impl GameDownloadAgent {
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
+                    info!("Completed context id {}", index);
                 });
             }
         });
@@ -308,6 +315,26 @@ impl GameDownloadAgent {
 
         Ok(true)
     }
+}
+
+fn generate_request(base_url: &url::Url, client: reqwest::blocking::Client, context: &DropDownloadContext) -> reqwest::blocking::RequestBuilder {
+    let chunk_url = base_url
+        .join(&format!(
+            "/api/v1/client/chunk?id={}&version={}&name={}&chunk={}",
+            // Encode the parts we don't trust
+            context.game_id,
+            encode(&context.version),
+            encode(&context.file_name),
+            context.index
+        ))
+        .unwrap();
+        
+    let header = generate_authorization_header();
+        
+    let request = client
+        .get(chunk_url)
+        .header("Authorization", header);
+    request
 }
 
 impl Downloadable for GameDownloadAgent {
