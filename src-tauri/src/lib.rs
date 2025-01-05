@@ -2,7 +2,9 @@ mod auth;
 mod db;
 mod games;
 
+mod autostart;
 mod cleanup;
+mod debug;
 mod process;
 mod remote;
 mod tools;
@@ -10,13 +12,18 @@ pub mod download_manager;
 #[cfg(test)]
 mod tests;
 
+use crate::autostart::{get_autostart_enabled, toggle_autostart};
 use crate::db::DatabaseImpls;
-use auth::{auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake, retry_connect};
+use auth::{
+    auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake,
+    retry_connect, sign_out,
+};
 use cleanup::{cleanup_and_exit, quit};
 use db::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface, GameDownloadStatus,
     DATA_ROOT_DIR,
 };
+use debug::fetch_system_data;
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
 use games::downloads::download_commands::{cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads};
@@ -182,6 +189,11 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     info!("finished setup!");
 
+    // Sync autostart state
+    if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
+        warn!("Failed to sync autostart state: {}", e);
+    }
+
     AppState {
         status: app_status,
         user,
@@ -214,10 +226,12 @@ pub fn run() {
             // Core utils
             fetch_state,
             quit,
+            fetch_system_data,
             // Auth
             auth_initiate,
             retry_connect,
             manual_recieve_handshake,
+            sign_out,
             // Remote
             use_remote,
             gen_drop_url,
@@ -238,10 +252,16 @@ pub fn run() {
             uninstall_game,
             // Processes
             launch_game,
-            kill_game
+            kill_game,
+            toggle_autostart,
+            get_autostart_enabled,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec!["--minimize"]),
+        ))
         .setup(|app| {
             let handle = app.handle().clone();
             let state = setup(handle);

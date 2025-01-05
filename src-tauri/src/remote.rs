@@ -6,6 +6,7 @@ use std::{
 
 use http::StatusCode;
 use log::{info, warn};
+use reqwest::blocking::Response;
 use serde::Deserialize;
 use url::{ParseError, Url};
 
@@ -19,10 +20,11 @@ pub enum RemoteAccessError {
     InvalidEndpoint,
     HandshakeFailed(String),
     GameNotFound,
-    InvalidResponse,
+    InvalidResponse(DropServerError),
     InvalidRedirect,
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
+    Generic(String),
 }
 
 impl Display for RemoteAccessError {
@@ -45,7 +47,7 @@ impl Display for RemoteAccessError {
             RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
             RemoteAccessError::HandshakeFailed(message) => write!(f, "Failed to complete handshake: {}", message),
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),
-            RemoteAccessError::InvalidResponse => write!(f, "Server returned an invalid response"),
+            RemoteAccessError::InvalidResponse(error) => write!(f, "Server returned an invalid response: {} {}", error.status_code, error.status_message),
             RemoteAccessError::InvalidRedirect => write!(f, "Server redirect was invalid"),
             RemoteAccessError::ManifestDownloadFailed(status, response) => write!(
                 f,
@@ -53,6 +55,7 @@ impl Display for RemoteAccessError {
                 status, response
             ),
             RemoteAccessError::OutOfSync => write!(f, "Server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other."),
+            RemoteAccessError::Generic(message) => write!(f, "{}", message),
         }
     }
 }
@@ -75,7 +78,7 @@ impl From<u16> for RemoteAccessError {
 
 impl std::error::Error for RemoteAccessError {}
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct DropServerError {
     pub status_code: usize,

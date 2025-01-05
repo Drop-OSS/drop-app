@@ -93,7 +93,9 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let path_chunks: Vec<&str> = path.split("/").collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
-        return Err(RemoteAccessError::InvalidResponse);
+        return Err(RemoteAccessError::HandshakeFailed(
+            "failed to parse token".to_string(),
+        ));
     }
 
     let base_url = {
@@ -229,4 +231,30 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
     }
 
     Ok((AppStatus::SignedOut, None))
+}
+
+#[tauri::command]
+pub fn sign_out(app: AppHandle) -> Result<(), String> {
+    info!("Signing out user");
+    
+    // Clear auth from database
+    {
+        let mut handle = DB.borrow_data_mut().unwrap();
+        handle.auth = None;
+        drop(handle);
+        DB.save().unwrap();
+    }
+
+    // Update app state
+    {
+        let app_state = app.state::<Mutex<AppState>>();
+        let mut app_state_handle = app_state.lock().unwrap();
+        app_state_handle.status = AppStatus::SignedOut;
+        app_state_handle.user = None;
+    }
+
+    // Emit event for frontend
+    app.emit("auth/signedout", ()).unwrap();
+
+    Ok(())
 }

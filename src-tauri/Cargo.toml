@@ -43,6 +43,7 @@ chrono = "0.4.38"
 tauri-plugin-os = "2"
 boxcar = "0.2.7"
 umu-wrapper-lib = "0.1.0"
+tauri-plugin-autostart = "2.0.0"
 shared_child = "1.0.1"
 serde_with = "3.12.0"
 

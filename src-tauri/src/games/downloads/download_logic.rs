@@ -4,7 +4,7 @@ use crate::download_manager::application_download_error::ApplicationDownloadErro
 use crate::download_manager::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use crate::download_manager::progress_object::ProgressHandle;
 use crate::games::downloads::manifest::DropDownloadContext;
-use crate::remote::RemoteAccessError;
+use crate::remote::{DropServerError, RemoteAccessError};
 use crate::DB;
 use log::{info, warn};
 use md5::{Context, Digest};
@@ -154,7 +154,7 @@ pub fn download_game_chunk(
     let content_length = response.content_length();
     if content_length.is_none() {
         return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidResponse,
+            RemoteAccessError::InvalidResponse(response.json::<DropServerError>().unwrap()),
         ));
     }
 

@@ -17,16 +17,10 @@ use url::Url;
 use crate::{download_manager::downloadable_metadata::DownloadableMetadata, games::{library::push_game_update, state::GameStatusManager}, process::process_manager::Platform, DB};
 
 #[derive(serde::Serialize, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
     pub client_id: String,
-}
-
-pub struct GameStatusData {
-    version_name: String,
-    install_dir: String,
 }
 
 // Strings are version names for a particular game
@@ -77,9 +71,25 @@ pub struct DatabaseApplications {
     pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
 }
 
-#[derive(Serialize, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Settings {
+    pub autostart: bool,
+    // ... other settings ...
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            autostart: false,
+            // ... other settings defaults ...
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Database {
+    #[serde(default)]
+    pub settings: Settings,
     pub auth: Option<DatabaseAuth>,
     pub base_url: String,
     pub applications: DatabaseApplications,
@@ -124,7 +134,6 @@ impl DatabaseImpls for DatabaseInterface {
         debug!("Creating logs directory");
         create_dir_all(logs_root_dir.clone()).unwrap();
 
-        #[allow(clippy::let_and_return)]
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
@@ -135,6 +144,7 @@ impl DatabaseImpls for DatabaseInterface {
                 },
             false => {
                 let default = Database {
+                    settings: Settings::default(),
                     auth: None,
                     base_url: "".to_string(),
                     applications: DatabaseApplications {
@@ -258,6 +268,7 @@ fn handle_invalid_database(_e: RustbreakError, db_path: PathBuf, games_base_dir:
             installed_game_version: HashMap::new(),
         },
         prev_database: Some(new_path.into()),
+        settings: Settings { autostart: false },
     };
 
     PathDatabase::create_at_path(db_path, db)
