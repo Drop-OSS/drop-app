@@ -2,7 +2,7 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::{error, info};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
@@ -91,10 +91,12 @@ fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
         .send()?;
 
     if response.status() != 200 {
-        return Err(response.status().as_u16().into());
+        let err = response.json().unwrap();
+        warn!("{:?}", err);
+        return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let games: Vec<Game> = response.json::<Vec<Game>>()?;
+    let games: Vec<Game> = response.json()?;
 
     let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
@@ -155,12 +157,12 @@ fn fetch_game_logic(
         return Err(RemoteAccessError::GameNotFound);
     }
     if response.status() != 200 {
-        return Err(RemoteAccessError::InvalidCodeError(
-            response.status().into(),
-        ));
+        let err = response.json().unwrap();
+        warn!("{:?}", err);
+        return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let game = response.json::<Game>()?;
+    let game: Game = response.json()?;
     state_handle.games.insert(id.clone(), game.clone());
 
     let mut db_handle = DB.borrow_data_mut().unwrap();
@@ -217,19 +219,19 @@ fn fetch_game_verion_options_logic(
         .send()?;
 
     if response.status() != 200 {
-        return Err(RemoteAccessError::InvalidCodeError(
-            response.status().into(),
-        ));
+        let err = response.json().unwrap();
+        warn!("{:?}", err);
+        return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let data = response.json::<Vec<GameVersionOption>>()?;
+    let data: Vec<GameVersionOption> = response.json()?;
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
-    let data = data
+    let data: Vec<GameVersionOption> = data
         .into_iter()
         .filter(|v| process_manager_lock.valid_platform(&v.platform).unwrap())
-        .collect::<Vec<GameVersionOption>>();
+        .collect();
     drop(process_manager_lock);
     drop(state_lock);
 
@@ -363,7 +365,7 @@ pub fn on_game_complete(
         .header("Authorization", header)
         .send()?;
 
-    let data = response.json::<GameVersion>()?;
+    let data: GameVersion = response.json()?;
 
     let mut handle = DB.borrow_data_mut().unwrap();
     handle

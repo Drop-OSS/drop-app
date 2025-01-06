@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use tauri::AppHandle;
 
 #[tauri::command]
@@ -7,7 +7,7 @@ pub fn quit(app: tauri::AppHandle) {
 }
 
 pub fn cleanup_and_exit(app: &AppHandle) {
-    info!("exiting drop application...");
+    debug!("Cleaning up and exiting application");
 
     app.exit(0);
 }

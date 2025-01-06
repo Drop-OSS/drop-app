@@ -126,9 +126,7 @@ impl DatabaseImpls for DatabaseInterface {
 
         debug!("Creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
-        debug!("Creating games directory");
         create_dir_all(games_base_dir.clone()).unwrap();
-        debug!("Creating logs directory");
         create_dir_all(logs_root_dir.clone()).unwrap();
 
         let exists = fs::exists(db_path.clone()).unwrap();

@@ -1,5 +1,5 @@
 use crate::DB;
-use log::info;
+use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 
@@ -8,10 +8,10 @@ pub async fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), Strin
     let manager = app.autolaunch();
     if enabled {
         manager.enable().map_err(|e| e.to_string())?;
-        info!("Enabled autostart");
+        debug!("Enabled autostart");
     } else {
         manager.disable().map_err(|e| e.to_string())?;
-        info!("Disabled autostart");
+        debug!("Disabled autostart");
     }
 
     // Store the state in DB
@@ -58,10 +58,10 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
     if current_state != should_be_enabled {
         if should_be_enabled {
             manager.enable().map_err(|e| e.to_string())?;
-            info!("Synced autostart: enabled");
+            debug!("Synced autostart: enabled");
         } else {
             manager.disable().map_err(|e| e.to_string())?;
-            info!("Synced autostart: disabled");
+            debug!("Synced autostart: disabled");
         }
     }
 

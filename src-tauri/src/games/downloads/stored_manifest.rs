@@ -5,7 +5,7 @@ use std::{
     sync::Mutex,
 };
 
-use log::error;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use serde_binary::binary_stream::Endian;
 
@@ -46,7 +46,7 @@ impl StoredManifest {
         match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
             Ok(manifest) => manifest,
             Err(e) => {
-                error!("{}", e);
+                warn!("{}", e);
                 StoredManifest::new(game_id, game_version, base_path)
             }
         }

@@ -69,7 +69,6 @@ impl ProcessManager<'_> {
     // I think if we just join the install_dir to whatever the user provides us, we'll be alright
     // In future, we should have a separate field for executable name and it's arguments
     fn process_command(&self, install_dir: &String, raw_command: String) -> (PathBuf, Vec<String>) {
-        // let command_components = raw_command.split(" ").collect::<Vec<&str>>();
         let root = raw_command;
 
         let install_dir = Path::new(install_dir);

@@ -1,7 +1,7 @@
 use std::{env, sync::Mutex};
 
 use chrono::Utc;
-use log::{info, warn};
+use log::{debug, error, info, warn};
 use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
@@ -74,17 +74,17 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         .send()?;
 
     if response.status() != 200 {
-        let data = response.json::<DropServerError>()?;
-        info!("Could not fetch user: {}", data.status_message);
+        let err: DropServerError = response.json().unwrap();
+        warn!("{:?}", err);
 
-        if data.status_message == "Nonce expired" {
+        if err.status_message == "Nonce expired" {
             return Err(RemoteAccessError::OutOfSync);
         }
 
-        return Err(RemoteAccessError::InvalidCodeError(0));
+        return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let user = response.json::<User>()?;
+    let user = response.json()?;
 
     Ok(user)
 }
@@ -113,8 +113,8 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = reqwest::blocking::Client::new();
     let response = client.post(endpoint).json(&body).send()?;
-    info!("{}", response.status().as_u16());
-    let response_struct = response.json::<HandshakeResponse>()?;
+    debug!("Handshake responsded with {}", response.status().as_u16());
+    let response_struct: HandshakeResponse = response.json()?;
 
     {
         let mut handle = DB.borrow_data_mut().unwrap();
@@ -173,8 +173,8 @@ fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     let response = client.post(endpoint.to_string()).json(&body).send()?;
 
     if response.status() != 200 {
-        let data = response.json::<DropServerError>()?;
-        info!("Could not start handshake: {}", data.status_message);
+        let data: DropServerError = response.json()?;
+        error!("Could not start handshake: {}", data.status_message);
 
         return Err(RemoteAccessError::HandshakeFailed(data.status_message));
     }
@@ -182,7 +182,7 @@ fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     let redir_url = response.text()?;
     let complete_redir_url = base_url.join(&redir_url)?;
 
-    info!("opening web browser to continue authentication");
+    debug!("opening web browser to continue authentication");
     webbrowser::open(complete_redir_url.as_ref()).unwrap();
 
     Ok(())
@@ -235,8 +235,6 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
 
 #[tauri::command]
 pub fn sign_out(app: AppHandle) -> Result<(), String> {
-    info!("Signing out user");
-
     // Clear auth from database
     {
         let mut handle = DB.borrow_data_mut().unwrap();

@@ -134,9 +134,10 @@ pub fn download_game_chunk(
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
-        warn!("{}", response.text().unwrap());
+        let err = response.json().unwrap();
+        warn!("{:?}", err);
         return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidCodeError(400),
+            RemoteAccessError::InvalidResponse(err),
         ));
     }
 
@@ -150,7 +151,7 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        error!("Recieved 0 length content from server");
+        warn!("Recieved 0 length content from server");
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse(response.json().unwrap()),
         ));

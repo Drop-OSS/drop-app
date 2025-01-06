@@ -15,6 +15,7 @@ use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use slice_deque::SliceDeque;
+use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::mpsc::Sender;
@@ -157,7 +158,7 @@ impl GameDownloadAgent {
             ));
         }
 
-        let manifest_download = response.json::<DropManifest>().unwrap();
+        let manifest_download: DropManifest = response.json().unwrap();
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);

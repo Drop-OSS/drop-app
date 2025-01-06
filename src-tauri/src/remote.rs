@@ -15,7 +15,6 @@ use crate::{AppState, AppStatus, DB};
 pub enum RemoteAccessError {
     FetchError(Arc<reqwest::Error>),
     ParsingError(ParseError),
-    InvalidCodeError(u16),
     InvalidEndpoint,
     HandshakeFailed(String),
     GameNotFound,
@@ -42,7 +41,6 @@ impl Display for RemoteAccessError {
             RemoteAccessError::ParsingError(parse_error) => {
                 write!(f, "{}", parse_error)
             }
-            RemoteAccessError::InvalidCodeError(error) => write!(f, "Invalid HTTP code {}", error),
             RemoteAccessError::InvalidEndpoint => write!(f, "Invalid drop endpoint"),
             RemoteAccessError::HandshakeFailed(message) => write!(f, "Failed to complete handshake: {}", message),
             RemoteAccessError::GameNotFound => write!(f, "Could not find game on server"),
@@ -69,11 +67,6 @@ impl From<ParseError> for RemoteAccessError {
         RemoteAccessError::ParsingError(err)
     }
 }
-impl From<u16> for RemoteAccessError {
-    fn from(err: u16) -> Self {
-        RemoteAccessError::InvalidCodeError(err)
-    }
-}
 
 impl std::error::Error for RemoteAccessError {}
 
@@ -92,7 +85,7 @@ struct DropHealthcheck {
     app_name: String,
 }
 
-async fn use_remote_logic<'a>(
+fn use_remote_logic<'a>(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'a>>>,
 ) -> Result<(), RemoteAccessError> {
@@ -101,9 +94,9 @@ async fn use_remote_logic<'a>(
 
     // Test Drop url
     let test_endpoint = base_url.join("/api/v1")?;
-    let response = reqwest::get(test_endpoint.to_string()).await?;
+    let response = reqwest::blocking::get(test_endpoint.to_string())?;
 
-    let result = response.json::<DropHealthcheck>().await?;
+    let result: DropHealthcheck = response.json()?;
 
     if result.app_name != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
@@ -124,11 +117,11 @@ async fn use_remote_logic<'a>(
 }
 
 #[tauri::command]
-pub async fn use_remote<'a>(
+pub fn use_remote<'a>(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'a>>>,
 ) -> Result<(), String> {
-    let result = use_remote_logic(url, state).await;
+    let result = use_remote_logic(url, state);
 
     if result.is_err() {
         return Err(result.err().unwrap().to_string());
