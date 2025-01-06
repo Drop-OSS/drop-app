@@ -59,6 +59,45 @@
         </div>
       </li>
     </ul>
+    <div class="border-t border-zinc-600 py-6">
+      <h3 class="text-base font-display font-semibold text-zinc-100">
+        Download Settings
+      </h3>
+      <p class="mt-1 text-sm text-zinc-400 max-w-xl">
+        Configure how Drop downloads games and other content.
+      </p>
+
+      <div class="mt-6 max-w-xl">
+        <label for="threads" class="block text-sm font-medium text-zinc-100">
+          Maximum Download Threads
+        </label>
+        <div class="mt-2">
+          <input
+            type="number"
+            name="threads"
+            id="threads"
+            min="1"
+            max="32"
+            v-model="downloadThreads"
+            class="block w-full rounded-md border-0 py-1.5 text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 bg-zinc-800 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+          />
+        </div>
+        <p class="mt-2 text-sm text-zinc-400">
+          The maximum number of concurrent download threads. Higher values may download faster but use more system resources. Default is 4.
+        </p>
+      </div>
+
+      <div class="mt-6">
+        <button
+          type="button"
+          :disabled="!downloadThreadsChanged"
+          @click="saveDownloadThreads"
+          class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-blue-600/50 disabled:cursor-not-allowed"
+        >
+          Save Changes
+        </button>
+      </div>
+    </div>
   </div>
   <TransitionRoot as="template" :show="open">
     <Dialog class="relative z-50" @close="open = false">
@@ -180,6 +219,9 @@ const createDirectoryLoading = ref(false);
 
 const dirs = ref<Array<string>>([]);
 
+const downloadThreads = ref(4);
+const downloadThreadsChanged = computed(() => downloadThreads.value !== 4);
+
 async function updateDirs() {
   const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");
   dirs.value = newDirs;
@@ -234,5 +276,9 @@ async function submitDirectory() {
 async function deleteDirectory(index: number) {
   await invoke("delete_download_dir", { index });
   await updateDirs();
+}
+
+async function saveDownloadThreads() {
+  //Would save download threads downloadThreads.value);
 }
 </script>
