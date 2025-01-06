@@ -5,11 +5,10 @@ mod games;
 mod autostart;
 mod cleanup;
 mod debug;
-pub mod download_manager;
+mod download_manager;
 mod process;
 mod remote;
 pub mod settings;
-mod tools;
 
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
 use crate::db::DatabaseImpls;
