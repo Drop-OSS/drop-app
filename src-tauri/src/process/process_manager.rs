@@ -8,7 +8,7 @@ use std::{
     thread::spawn,
 };
 
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
 use tauri::{AppHandle, Manager};
@@ -106,7 +106,7 @@ impl ProcessManager<'_> {
             return;
         }
 
-        info!("process for {:?} exited with {:?}", meta, result);
+        debug!("process for {:?} exited with {:?}", meta, result);
 
         self.processes.remove(&meta);
 
@@ -155,7 +155,7 @@ impl ProcessManager<'_> {
         }
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
-        info!(
+        debug!(
             "Launching process {:?} with games {:?}",
             meta, db_lock.applications.game_versions
         );
@@ -164,7 +164,7 @@ impl ProcessManager<'_> {
             .applications
             .game_statuses
             .get(&meta.id)
-            .ok_or("Game not installed")?;
+            .ok_or("game not installed")?;
 
         let status_metadata: Option<(&String, &String)> = match game_status {
             GameDownloadStatus::Installed {
@@ -179,7 +179,7 @@ impl ProcessManager<'_> {
         };
 
         if status_metadata.is_none() {
-            return Err("Game has not been downloaded.".to_owned());
+            return Err("game has not been downloaded.".to_owned());
         }
 
         let (version_name, install_dir) = status_metadata.unwrap();

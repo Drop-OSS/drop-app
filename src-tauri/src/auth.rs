@@ -35,6 +35,7 @@ struct HandshakeResponse {
     id: String,
 }
 
+// TODO: Change return value on Err
 pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
     let client_private_key = EcKey::private_key_from_pem(private_key.as_bytes()).unwrap();
     let pkey_private_key = PKey::from_ec_key(client_private_key).unwrap();

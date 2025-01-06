@@ -245,6 +245,7 @@ impl GameDownloadAgent {
         Ok(())
     }
 
+    // TODO: Change return value on Err
     pub fn run(&self) -> Result<bool, ()> {
         info!("downloading game: {}", self.id);
         let max_download_threads = DB.borrow_data().unwrap().settings.max_download_threads;
