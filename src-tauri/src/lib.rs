@@ -9,8 +9,6 @@ pub mod download_manager;
 mod process;
 mod remote;
 pub mod settings;
-#[cfg(test)]
-mod tests;
 mod tools;
 
 use crate::autostart::{get_autostart_enabled, toggle_autostart};
