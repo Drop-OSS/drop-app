@@ -280,5 +280,6 @@ async function deleteDirectory(index: number) {
 
 async function saveDownloadThreads() {
   //Would save download threads downloadThreads.value);
+  await invoke("amend_settings", { newSettings: { max_download_threads: downloadThreads.value } })
 }
 </script>
