@@ -1,4 +1,5 @@
 use crate::{DATA_ROOT_DIR, DB};
+use log::LevelFilter;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -7,6 +8,7 @@ pub struct SystemData {
     client_id: String,
     base_url: String,
     data_dir: String,
+    log_level: String,
 }
 
 #[tauri::command]
@@ -16,6 +18,7 @@ pub fn fetch_system_data() -> Result<SystemData, String> {
         client_id: db_handle.auth.as_ref().unwrap().client_id.clone(),
         base_url: db_handle.base_url.clone(),
         data_dir: DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string(),
+        log_level: std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
     };
     drop(db_handle);
 
