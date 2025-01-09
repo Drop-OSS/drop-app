@@ -1,10 +1,13 @@
 use std::{
-    collections::HashMap, fs::{self, create_dir_all}, path::{Path, PathBuf}, sync::{LazyLock, Mutex, RwLockWriteGuard}
+    collections::HashMap,
+    fs::{self, create_dir_all},
+    path::{Path, PathBuf},
+    sync::{LazyLock, Mutex, RwLockWriteGuard},
 };
 
 use chrono::Utc;
 use directories::BaseDirs;
-use log::debug;
+use log::{debug, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::serde_as;
@@ -12,7 +15,11 @@ use tauri::AppHandle;
 use url::Url;
 
 use crate::{
-    download_manager::downloadable_metadata::DownloadableMetadata, games::{library::push_game_update, state::GameStatusManager}, process::process_manager::Platform, settings::Settings, DB
+    download_manager::downloadable_metadata::DownloadableMetadata,
+    games::{library::push_game_update, state::GameStatusManager},
+    process::process_manager::Platform,
+    settings::Settings,
+    DB,
 };
 
 #[derive(serde::Serialize, Clone, Deserialize)]
@@ -69,7 +76,6 @@ pub struct DatabaseApplications {
     #[serde(skip)]
     pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
 }
-
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Database {
@@ -237,13 +243,16 @@ fn handle_invalid_database(
     let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone();
-        base.push(".");
-        base.push(time.to_string());
+        base.set_file_name(format!("drop.db.backup-{}", time.to_string()));
         base
     };
+    info!("{:?}", new_path);
     fs::rename(&db_path, &new_path).unwrap();
 
-    let db = Database ::new(games_base_dir.into_os_string().into_string().unwrap(), Some(new_path.into()));
+    let db = Database::new(
+        games_base_dir.into_os_string().into_string().unwrap(),
+        Some(new_path.into()),
+    );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
 }
