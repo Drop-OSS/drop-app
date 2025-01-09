@@ -44,8 +44,45 @@ import {
 import type { Component } from "vue";
 import type { NavigationItem } from "~/types";
 import { platform } from '@tauri-apps/plugin-os';
+import { invoke } from "@tauri-apps/api/core";
 
-const navigation: Array<NavigationItem & { icon: Component }> = [
+const systemData = await invoke<{
+  clientId: string;
+  baseUrl: string;
+  dataDir: string;
+  logLevel: string;
+}>("fetch_system_data");
+
+const isDebugMode = ref(systemData.logLevel.toLowerCase() === "debug");
+const debugRevealed = ref(false);
+
+// Track shift key state and debug reveal
+onMounted(() => {
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift') {
+      isDebugMode.value = true;
+      debugRevealed.value = true;
+    }
+  });
+  
+  window.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift') {
+      isDebugMode.value = debugRevealed.value || systemData.logLevel.toLowerCase() === "debug";
+    }
+  });
+
+  // Reset debug reveal when leaving the settings page
+  const router = useRouter();
+  router.beforeEach((to) => {
+    if (!to.path.startsWith('/settings')) {
+      debugRevealed.value = false;
+      isDebugMode.value = systemData.logLevel.toLowerCase() === "debug";
+    }
+  });
+});
+
+// Make navigation reactive by wrapping in computed
+const navigation = computed(() => [
   {
     label: "Home",
     route: "/settings",
@@ -53,7 +90,7 @@ const navigation: Array<NavigationItem & { icon: Component }> = [
     icon: HomeIcon,
   },
   {
-    label: "Interface",
+    label: "Interface", 
     route: "/settings/interface",
     prefix: "/settings/interface",
     icon: RectangleGroupIcon,
@@ -64,15 +101,21 @@ const navigation: Array<NavigationItem & { icon: Component }> = [
     prefix: "/settings/downloads",
     icon: ArrowDownTrayIcon,
   },
-  {
+  ...(isDebugMode.value ? [{
     label: "Debug Info",
-    route: "/settings/debug",
+    route: "/settings/debug", 
     prefix: "/settings/debug",
     icon: BugAntIcon,
-  },
-];
+  }] : []),
+]);
 
 const currentPlatform = platform();
 
-const currentPageIndex = useCurrentNavigationIndex(navigation);
+// Use .value to unwrap the computed ref
+const currentPageIndex = useCurrentNavigationIndex(navigation.value);
+
+// Watch for navigation changes and update currentPageIndex
+watch(navigation, (newNav) => {
+  currentPageIndex.value = useCurrentNavigationIndex(newNav).value;
+});
 </script>
