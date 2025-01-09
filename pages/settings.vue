@@ -73,11 +73,6 @@ const navigation: Array<NavigationItem & { icon: Component }> = [
 ];
 
 const currentPlatform = platform();
-switch (currentPlatform) {
-  case "linux":
-    navigation.splice(2, 0, { label: "Compatibility", route: "/settings/compatibility", prefix: "/settings/compatibility", icon: CubeIcon });
-    break;
-}
 
 const currentPageIndex = useCurrentNavigationIndex(navigation);
 </script>
