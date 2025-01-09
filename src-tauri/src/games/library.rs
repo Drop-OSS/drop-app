@@ -209,7 +209,7 @@ fn fetch_game_verion_options_logic(
     let base_url = DB.fetch_base_url();
 
     let endpoint =
-        base_url.join(format!("/api/v1/client/metadata/versions?id={}", game_id).as_str())?;
+        base_url.join(format!("/api/v1/client/game/versions?id={}", game_id).as_str())?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
@@ -351,7 +351,7 @@ pub fn on_game_complete(
 
     let endpoint = base_url.join(
         format!(
-            "/api/v1/client/metadata/version?id={}&version={}",
+            "/api/v1/client/game/version?id={}&version={}",
             meta.id,
             encode(meta.version.as_ref().unwrap())
         )
