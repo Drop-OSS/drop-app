@@ -38,7 +38,6 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
-use process::compat::CompatibilityManager;
 use process::process_commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::{gen_drop_url, use_remote};
@@ -87,8 +86,6 @@ pub struct AppState<'a> {
     download_manager: Arc<DownloadManager>,
     #[serde(skip_serializing)]
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
-    #[serde(skip_serializing)]
-    compat_manager: Arc<Mutex<CompatibilityManager>>,
 }
 
 #[tauri::command]
@@ -127,7 +124,6 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
-    let compat_manager = Arc::new(Mutex::new(CompatibilityManager::new()));
 
     debug!("Checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -138,7 +134,6 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             games,
             download_manager,
             process_manager,
-            compat_manager,
         };
     }
 
@@ -200,7 +195,6 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         games,
         download_manager,
         process_manager,
-        compat_manager,
     }
 }
 
