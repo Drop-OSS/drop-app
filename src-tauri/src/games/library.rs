@@ -8,14 +8,15 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::db::GameVersion;
-use crate::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
+use crate::database::db::GameVersion;
+use crate::database::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
+use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::process::process_manager::Platform;
-use crate::remote::RemoteAccessError;
-use crate::{auth::generate_authorization_header, AppState, DB};
+use crate::remote::auth::generate_authorization_header;
+use crate::{AppState, DB};
 
 #[derive(serde::Serialize)]
 pub struct FetchGameStruct {
@@ -239,10 +240,7 @@ fn fetch_game_verion_options_logic(
 }
 
 #[tauri::command]
-pub fn uninstall_game(
-    game_id: String,
-    app_handle: AppHandle,
-) -> Result<(), String> {
+pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), String> {
     let meta = get_current_meta(&game_id)?;
     println!("{:?}", meta);
     uninstall_game_logic(meta, &app_handle);

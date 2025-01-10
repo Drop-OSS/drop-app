@@ -1,14 +1,20 @@
 use std::sync::Mutex;
 
 use crate::{
-    db::GameDownloadStatus,
+    database::db::GameDownloadStatus,
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
+    error::user_error::UserValue,
     games::library::get_current_meta,
     AppState, DB,
 };
 
+use super::error::ProcessError;
+
 #[tauri::command]
-pub fn launch_game(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
+pub fn launch_game(
+    id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> UserValue<(), ProcessError> {
     let state_lock = state.lock().unwrap();
     let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
 
@@ -20,14 +26,11 @@ pub fn launch_game(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resu
         .get(&id)
         .cloned()
     {
-        Some(GameDownloadStatus::Installed {
-            version_name,
-            ..
-        }) => version_name,
-        Some(GameDownloadStatus::SetupRequired {
-            ..
-        }) => return Err(String::from("Game setup still required")),
-        _ => return Err(String::from("Game not installed")),
+        Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
+        Some(GameDownloadStatus::SetupRequired { .. }) => {
+            return Err(ProcessError::SetupRequired).into()
+        }
+        _ => return Err(ProcessError::NotInstalled).into(),
     };
 
     let meta = DownloadableMetadata {
@@ -36,12 +39,15 @@ pub fn launch_game(id: String, state: tauri::State<'_, Mutex<AppState>>) -> Resu
         download_type: DownloadType::Game,
     };
 
-    process_manager_lock.launch_process(meta)?;
+    match process_manager_lock.launch_process(meta) {
+        Ok(_) => {}
+        Err(e) => return UserValue::Err(e),
+    };
 
     drop(process_manager_lock);
     drop(state_lock);
 
-    Ok(())
+    UserValue::Ok(())
 }
 
 #[tauri::command]

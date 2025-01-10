@@ -1,6 +1,5 @@
 use crate::auth::generate_authorization_header;
-use crate::db::{set_game_status, ApplicationTransientStatus, DatabaseImpls};
-use crate::download_manager::application_download_error::ApplicationDownloadError;
+use crate::database::db::{set_game_status, ApplicationTransientStatus, DatabaseImpls};
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
@@ -8,9 +7,10 @@ use crate::download_manager::download_thread_control_flag::{
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata};
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
+use crate::error::application_download_error::ApplicationDownloadError;
+use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::library::{on_game_complete, push_game_update};
-use crate::remote::RemoteAccessError;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;

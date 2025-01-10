@@ -1,4 +1,4 @@
-pub mod application_download_error;
+pub mod commands;
 pub mod download_manager;
 pub mod download_manager_builder;
 pub mod download_thread_control_flag;

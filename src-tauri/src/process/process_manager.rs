@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{File, OpenOptions},
-    io,
+    io::{self, Error},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus},
     sync::{Arc, Mutex},
@@ -15,12 +15,14 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
+    database::db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
     download_manager::downloadable_metadata::DownloadableMetadata,
     games::library::push_game_update,
     games::state::GameStatusManager,
     AppState, DB,
 };
+
+use super::error::ProcessError;
 
 pub struct ProcessManager<'a> {
     current_platform: Platform,
@@ -149,9 +151,9 @@ impl ProcessManager<'_> {
             .contains_key(&(current.clone(), platform.clone())))
     }
 
-    pub fn launch_process(&mut self, meta: DownloadableMetadata) -> Result<(), String> {
+    pub fn launch_process(&mut self, meta: DownloadableMetadata) -> Result<(), ProcessError> {
         if self.processes.contains_key(&meta) {
-            return Err("Game or setup is already running.".to_owned());
+            return Err(ProcessError::AlreadyRunning);
         }
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
@@ -164,13 +166,13 @@ impl ProcessManager<'_> {
             .applications
             .game_statuses
             .get(&meta.id)
-            .ok_or("game not installed")?;
+            .ok_or(ProcessError::NotInstalled)?;
 
         let status_metadata: Option<(&String, &String)> = match game_status {
             GameDownloadStatus::Installed {
                 version_name,
                 install_dir,
-            } => Some((version_name, install_dir)),
+            } => Some((&version_name, &install_dir)),
             GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,
@@ -179,7 +181,7 @@ impl ProcessManager<'_> {
         };
 
         if status_metadata.is_none() {
-            return Err("game has not been downloaded.".to_owned());
+            return Err(ProcessError::NotDownloaded);
         }
 
         let (version_name, install_dir) = status_metadata.unwrap();
@@ -188,9 +190,9 @@ impl ProcessManager<'_> {
             .applications
             .game_versions
             .get(&meta.id)
-            .ok_or("Invalid game ID".to_owned())?
+            .ok_or(ProcessError::InvalidID)?
             .get(version_name)
-            .ok_or("Invalid version name".to_owned())?;
+            .ok_or(ProcessError::InvalidVersion)?;
 
         let raw_command: String = match game_status {
             GameDownloadStatus::Installed {
@@ -226,7 +228,7 @@ impl ProcessManager<'_> {
                 meta.version.clone().unwrap_or_default(),
                 current_time.timestamp()
             )))
-            .map_err(|v| v.to_string())?;
+            .map_err(|e| ProcessError::IOError(e))?;
 
         let error_file = OpenOptions::new()
             .write(true)
@@ -239,7 +241,7 @@ impl ProcessManager<'_> {
                 meta.version.clone().unwrap_or_default(),
                 current_time.timestamp()
             )))
-            .map_err(|v| v.to_string())?;
+            .map_err(|e| ProcessError::IOError(e))?;
 
         let current_platform = self.current_platform.clone();
         let target_platform = game_version.platform.clone();
@@ -247,20 +249,21 @@ impl ProcessManager<'_> {
         let game_launcher = self
             .game_launchers
             .get(&(current_platform, target_platform))
-            .ok_or("Invalid version for this platform.")
-            .map_err(|e| e.to_string())?;
+            .ok_or(ProcessError::InvalidPlatform)?;
 
-        let launch_process = game_launcher.launch_process(
-            &meta,
-            command.to_str().unwrap().to_owned(),
-            args,
-            target_current_dir,
-            log_file,
-            error_file,
-        )?;
+        let launch_process = game_launcher
+            .launch_process(
+                &meta,
+                command.to_str().unwrap().to_owned(),
+                args,
+                target_current_dir,
+                log_file,
+                error_file,
+            )
+            .map_err(|e| ProcessError::IOError(e))?;
 
         let launch_process_handle =
-            Arc::new(SharedChild::new(launch_process).map_err(|e| e.to_string())?);
+            Arc::new(SharedChild::new(launch_process).map_err(|e| ProcessError::IOError(e))?);
 
         db_lock
             .applications
@@ -315,7 +318,7 @@ pub trait ProcessHandler: Send + 'static {
         current_dir: &str,
         log_file: File,
         error_file: File,
-    ) -> Result<Child, String>;
+    ) -> Result<Child, Error>;
 }
 
 struct NativeGameLauncher;
@@ -328,14 +331,13 @@ impl ProcessHandler for NativeGameLauncher {
         current_dir: &str,
         log_file: File,
         error_file: File,
-    ) -> Result<Child, String> {
+    ) -> Result<Child, Error> {
         Command::new(command)
             .current_dir(current_dir)
             .stdout(log_file)
             .stderr(error_file)
             .args(args)
             .spawn()
-            .map_err(|v| v.to_string())
     }
 }
 
@@ -350,12 +352,11 @@ impl ProcessHandler for UMULauncher {
         _current_dir: &str,
         _log_file: File,
         _error_file: File,
-    ) -> Result<Child, String> {
+    ) -> Result<Child, Error> {
         UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, command)
             .game_id(String::from("0"))
             .launch_args(args)
             .build()
             .spawn()
-            .map_err(|x| x.to_string())
     }
 }

@@ -10,10 +10,12 @@ use std::{
 use log::info;
 use tauri::{AppHandle, Emitter};
 
-use crate::games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent};
+use crate::{
+    error::application_download_error::ApplicationDownloadError,
+    games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
+};
 
 use super::{
-    application_download_error::ApplicationDownloadError,
     download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
     downloadable::Downloadable,
@@ -54,7 +56,7 @@ whichever download queue order is required.
 +----------------------------------------------------------------------------+
 
 This download queue does not actually own any of the DownloadAgents. It is
-simply a id-based reference system. The actual Agents are stored in the
+simply an id-based reference system. The actual Agents are stored in the
 download_agent_registry HashMap, as ordering is no issue here. This is why
 appending or removing from the download_queue must be done via signals.
 

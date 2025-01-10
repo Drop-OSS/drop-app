@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
+use crate::error::application_download_error::ApplicationDownloadError;
+
 use super::{
-    application_download_error::ApplicationDownloadError, download_manager::DownloadStatus,
-    download_thread_control_flag::DownloadThreadControl,
+    download_manager::DownloadStatus, download_thread_control_flag::DownloadThreadControl,
     downloadable_metadata::DownloadableMetadata, progress_object::ProgressObject,
 };
 

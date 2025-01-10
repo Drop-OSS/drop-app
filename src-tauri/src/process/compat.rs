@@ -4,7 +4,7 @@ use std::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
-use crate::db::DATA_ROOT_DIR;
+use crate::database::db::DATA_ROOT_DIR;
 
 pub struct CompatibilityManager {
     compat_tools_path: PathBuf,

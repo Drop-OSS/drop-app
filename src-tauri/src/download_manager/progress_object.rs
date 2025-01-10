@@ -138,19 +138,22 @@ impl ProgressObject {
     }
 }
 
-#[throttle(10, Duration::from_secs(1))]
+#[throttle(50, Duration::from_secs(1))]
 fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
-    progress_object.sender
-    .send(DownloadManagerSignal::UpdateUIStats(
-        kilobytes_per_second,
-        time_remaining,
-    ))
-    .unwrap();
+    progress_object
+        .sender
+        .send(DownloadManagerSignal::UpdateUIStats(
+            kilobytes_per_second,
+            time_remaining,
+        ))
+        .unwrap();
 }
 
-#[throttle(10, Duration::from_secs(1))]
+#[throttle(50, Duration::from_secs(1))]
 fn update_queue(progress: &ProgressObject) {
-    progress.sender
+    progress
+        .sender
         .send(DownloadManagerSignal::UpdateUIQueue)
         .unwrap();
 }
+

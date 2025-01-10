@@ -1,5 +1,5 @@
 use crate::{
-    db::{ApplicationTransientStatus, GameDownloadStatus},
+    database::db::{ApplicationTransientStatus, GameDownloadStatus},
     DB,
 };
 
