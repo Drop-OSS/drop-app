@@ -133,7 +133,7 @@ impl GameDownloadAgent {
         let manifest_url = base_url
             .join(
                 format!(
-                    "/api/v1/client/metadata/manifest?id={}&version={}",
+                    "/api/v1/client/game/manifest?id={}&version={}",
                     self.id,
                     encode(&self.version)
                 )

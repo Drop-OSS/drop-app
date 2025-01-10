@@ -58,26 +58,6 @@
           </p>
         </div>
 
-        <div v-if="compatInfo">
-          <div class="flex items-center gap-x-3">
-            <CubeIcon class="h-5 w-5 text-zinc-400" />
-            <h3 class="text-sm font-medium leading-6 text-zinc-100">
-              Compatibility Settings
-            </h3>
-          </div>
-          <div class="mt-2 ml-8 space-y-1">
-            <p class="text-sm text-zinc-400 font-mono">
-              Enabled: {{ compatInfo.enabled ? "Yes" : "No" }}
-            </p>
-            <p class="text-sm text-zinc-400 font-mono">
-              Runner: {{ compatInfo.runner || "Not configured" }}
-            </p>
-            <p class="text-sm text-zinc-400 font-mono">
-              Prefix: {{ compatInfo.prefix || "Not configured" }}
-            </p>
-          </div>
-        </div>
-
         <div class="pt-6 flex gap-x-4">
           <button
             @click="() => openDataDir()"
@@ -119,11 +99,6 @@ const clientId = ref<string | null>(null);
 const platformInfo = ref("Loading...");
 const baseUrl = ref<string | null>(null);
 const dataDir = ref<string | null>(null);
-const compatInfo = ref<{
-  enabled: boolean;
-  runner: string | null;
-  prefix: string | null;
-} | null>(null);
 
 const systemData = await invoke<{
   clientId: string;
