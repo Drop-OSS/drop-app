@@ -36,7 +36,7 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
-use process::process_commands::{kill_game, launch_game};
+use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{
     self, auth_initiate, generate_authorization_header, manual_recieve_handshake,
