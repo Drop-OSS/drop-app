@@ -24,10 +24,11 @@ use download_manager::commands::{
 };
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use games::downloads::commands::download_game;
-use games::library::{
-    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game,
+use games::commands::{
+    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
+use games::downloads::commands::download_game;
+use games::library::Game;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
 use log::{debug, info, warn, LevelFilter};
@@ -42,7 +43,7 @@ use remote::auth::{
     self, auth_initiate, generate_authorization_header, manual_recieve_handshake,
     recieve_handshake, retry_connect, sign_out,
 };
-use remote::remote::{gen_drop_url, use_remote};
+use remote::commands::{gen_drop_url, use_remote};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;

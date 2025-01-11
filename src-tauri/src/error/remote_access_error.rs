@@ -7,7 +7,7 @@ use std::{
 use http::StatusCode;
 use url::ParseError;
 
-use crate::remote::remote::DropServerError;
+use super::drop_server_error::DropServerError;
 
 #[derive(Debug, Clone)]
 pub enum RemoteAccessError {

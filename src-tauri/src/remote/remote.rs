@@ -11,22 +11,13 @@ use url::{ParseError, Url};
 
 use crate::{error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB};
 
-#[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct DropServerError {
-    pub status_code: usize,
-    pub status_message: String,
-    pub message: String,
-    pub url: String,
-}
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct DropHealthcheck {
     app_name: String,
 }
 
-fn use_remote_logic(
+pub fn use_remote_logic(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
@@ -55,35 +46,4 @@ fn use_remote_logic(
     DB.save().unwrap();
 
     Ok(())
-}
-
-#[tauri::command]
-pub fn use_remote<'a>(
-    url: String,
-    state: tauri::State<'_, Mutex<AppState<'a>>>,
-) -> Result<(), String> {
-    let result = use_remote_logic(url, state);
-
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn gen_drop_url(path: String) -> Result<String, String> {
-    let base_url = {
-        let handle = DB.borrow_data().unwrap();
-
-        if handle.base_url.is_empty() {
-            return Ok("".to_string());
-        };
-
-        Url::parse(&handle.base_url).unwrap()
-    };
-
-    let url = base_url.join(&path).unwrap();
-
-    Ok(url.to_string())
 }

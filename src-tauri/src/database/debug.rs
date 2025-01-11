@@ -1,5 +1,4 @@
 use crate::{DATA_ROOT_DIR, DB};
-use log::LevelFilter;
 use serde::Serialize;
 
 #[derive(Serialize)]
