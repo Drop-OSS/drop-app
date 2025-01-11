@@ -9,8 +9,7 @@ use url::Url;
 
 use crate::{
     database::db::{DatabaseAuth, DatabaseImpls},
-    error::drop_server_error::DropServerError,
-    error::remote_access_error::RemoteAccessError,
+    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError, user_error::UserValue},
     AppState, AppStatus, User, DB,
 };
 
@@ -63,7 +62,7 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-pub fn fetch_user() -> Result<User, RemoteAccessError> {
+pub fn fetch_user() -> UserValue<User, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
     let endpoint = base_url.join("/api/v1/client/user")?;
@@ -73,22 +72,23 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let response = client
         .get(endpoint.to_string())
         .header("Authorization", header)
-        .send()?;
-
+        .send();
     if response.status() != 200 {
         let err: DropServerError = response.json().unwrap();
         warn!("{:?}", err);
 
         if err.status_message == "Nonce expired" {
-            return Err(RemoteAccessError::OutOfSync);
+            return UserValue::Err(RemoteAccessError::OutOfSync);
         }
 
-        return Err(RemoteAccessError::InvalidResponse(err));
+        return UserValue::Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let user = response.json()?;
+    match response.json::<User>() {
+        Ok(data) => UserValue::Ok(data),
+        Err(e) => UserValue::Err(e.into())
+    }
 
-    Ok(user)
 }
 
 fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
@@ -153,7 +153,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/finished", ()).unwrap();
 }
 
-pub fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
+pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     let base_url = {
         let db_lock = DB.borrow_data().unwrap();
         Url::parse(&db_lock.base_url.clone())?

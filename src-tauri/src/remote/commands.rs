@@ -3,10 +3,10 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{AppState, AppStatus, DB};
+use crate::{error::{remote_access_error::RemoteAccessError, user_error::UserValue}, AppState, AppStatus, DB};
 
 use super::{
-    auth::{auth_initiate_wrapper, recieve_handshake, setup},
+    auth::{auth_initiate_logic, recieve_handshake, setup},
     remote::use_remote_logic,
 };
 
@@ -42,7 +42,7 @@ pub fn gen_drop_url(path: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn sign_out(app: AppHandle) -> Result<(), String> {
+pub fn sign_out(app: AppHandle) {
     // Clear auth from database
     {
         let mut handle = DB.borrow_data_mut().unwrap();
@@ -61,8 +61,6 @@ pub fn sign_out(app: AppHandle) -> Result<(), String> {
 
     // Emit event for frontend
     app.emit("auth/signedout", ()).unwrap();
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -78,13 +76,8 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()>
 }
 
 #[tauri::command]
-pub fn auth_initiate() -> Result<(), String> {
-    let result = auth_initiate_wrapper();
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(())
+pub fn auth_initiate() -> UserValue<(), RemoteAccessError> {
+    auth_initiate_logic().into()
 }
 
 #[tauri::command]

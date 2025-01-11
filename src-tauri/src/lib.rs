@@ -40,10 +40,10 @@ use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{
-    self, auth_initiate, generate_authorization_header, manual_recieve_handshake,
-    recieve_handshake, retry_connect, sign_out,
+    self, generate_authorization_header,
+    recieve_handshake,
 };
-use remote::commands::{gen_drop_url, use_remote};
+use remote::commands::{auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
