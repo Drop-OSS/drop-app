@@ -17,12 +17,10 @@ use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 use crate::{
     database::db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
     download_manager::downloadable_metadata::DownloadableMetadata,
-    games::library::push_game_update,
-    games::state::GameStatusManager,
+    error::process_error::ProcessError,
+    games::{library::push_game_update, state::GameStatusManager},
     AppState, DB,
 };
-
-use super::error::ProcessError;
 
 pub struct ProcessManager<'a> {
     current_platform: Platform,
@@ -228,7 +226,7 @@ impl ProcessManager<'_> {
                 meta.version.clone().unwrap_or_default(),
                 current_time.timestamp()
             )))
-            .map_err(|e| ProcessError::IOError(e))?;
+            .map_err(ProcessError::IOError)?;
 
         let error_file = OpenOptions::new()
             .write(true)
@@ -241,7 +239,7 @@ impl ProcessManager<'_> {
                 meta.version.clone().unwrap_or_default(),
                 current_time.timestamp()
             )))
-            .map_err(|e| ProcessError::IOError(e))?;
+            .map_err(ProcessError::IOError)?;
 
         let current_platform = self.current_platform.clone();
         let target_platform = game_version.platform.clone();
@@ -260,10 +258,10 @@ impl ProcessManager<'_> {
                 log_file,
                 error_file,
             )
-            .map_err(|e| ProcessError::IOError(e))?;
+            .map_err(ProcessError::IOError)?;
 
         let launch_process_handle =
-            Arc::new(SharedChild::new(launch_process).map_err(|e| ProcessError::IOError(e))?);
+            Arc::new(SharedChild::new(launch_process).map_err(ProcessError::IOError)?);
 
         db_lock
             .applications

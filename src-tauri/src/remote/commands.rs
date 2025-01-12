@@ -3,7 +3,10 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
-use crate::{error::{remote_access_error::RemoteAccessError, user_error::UserValue}, AppState, AppStatus, DB};
+use crate::{
+    error::{remote_access_error::RemoteAccessError, user_error::UserValue},
+    AppState, AppStatus, DB,
+};
 
 use super::{
     auth::{auth_initiate_logic, recieve_handshake, setup},
@@ -11,34 +14,24 @@ use super::{
 };
 
 #[tauri::command]
-pub fn use_remote<'a>(
+pub fn use_remote(
     url: String,
-    state: tauri::State<'_, Mutex<AppState<'a>>>,
-) -> Result<(), String> {
-    let result = use_remote_logic(url, state);
-
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(())
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
+) -> UserValue<(), RemoteAccessError> {
+    UserValue::Ok(use_remote_logic(url, state)?)
 }
 
 #[tauri::command]
-pub fn gen_drop_url(path: String) -> Result<String, String> {
+pub fn gen_drop_url(path: String) -> UserValue<String, RemoteAccessError> {
     let base_url = {
         let handle = DB.borrow_data().unwrap();
 
-        if handle.base_url.is_empty() {
-            return Ok("".to_string());
-        };
-
-        Url::parse(&handle.base_url).unwrap()
+        Url::parse(&handle.base_url).map_err(RemoteAccessError::ParsingError)?
     };
 
     let url = base_url.join(&path).unwrap();
 
-    Ok(url.to_string())
+    UserValue::Ok(url.to_string())
 }
 
 #[tauri::command]
@@ -63,16 +56,15 @@ pub fn sign_out(app: AppHandle) {
     app.emit("auth/signedout", ()).unwrap();
 }
 
+// TODO: Fix / clarify the return values for this command
 #[tauri::command]
-pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
-    let (app_status, user) = setup()?;
+pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
+    let (app_status, user) = setup();
 
     let mut guard = state.lock().unwrap();
     guard.status = app_status;
     guard.user = user;
     drop(guard);
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -81,7 +73,6 @@ pub fn auth_initiate() -> UserValue<(), RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn manual_recieve_handshake(app: AppHandle, token: String) -> Result<(), String> {
+pub fn manual_recieve_handshake(app: AppHandle, token: String) {
     recieve_handshake(app, format!("handshake/{}", token));
-    Ok(())
 }

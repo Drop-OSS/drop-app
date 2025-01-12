@@ -283,17 +283,13 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
     }
 }
 
-pub fn get_current_meta(game_id: &String) -> Result<DownloadableMetadata, String> {
-    match DB
-        .borrow_data()
+pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
+    DB.borrow_data()
         .unwrap()
         .applications
         .installed_game_version
         .get(game_id)
-    {
-        Some(meta) => Ok(meta.clone()),
-        None => Err(String::from("Could not find installed version")),
-    }
+        .cloned()
 }
 
 pub fn on_game_complete(

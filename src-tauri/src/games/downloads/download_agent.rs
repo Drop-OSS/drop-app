@@ -208,7 +208,8 @@ impl GameDownloadAgent {
         {
             let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
             completed_contexts_lock.clear();
-            completed_contexts_lock.extend(self.stored_manifest.get_completed_contexts());
+            completed_contexts_lock
+                .extend_from_slice(&self.stored_manifest.get_completed_contexts());
         }
 
         for (raw_path, chunk) in manifest {

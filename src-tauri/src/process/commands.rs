@@ -3,12 +3,10 @@ use std::sync::Mutex;
 use crate::{
     database::db::GameDownloadStatus,
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
-    error::user_error::UserValue,
+    error::{process_error::ProcessError, user_error::UserValue},
     games::library::get_current_meta,
     AppState, DB,
 };
-
-use super::error::ProcessError;
 
 #[tauri::command]
 pub fn launch_game(
@@ -51,11 +49,15 @@ pub fn launch_game(
 }
 
 #[tauri::command]
-pub fn kill_game(game_id: String, state: tauri::State<'_, Mutex<AppState>>) -> Result<(), String> {
-    let meta = get_current_meta(&game_id)?;
+pub fn kill_game(
+    game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> UserValue<(), ProcessError> {
+    let meta = get_current_meta(&game_id).ok_or(ProcessError::NotInstalled)?;
     let state_lock = state.lock().unwrap();
     let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
     process_manager_lock
         .kill_game(meta)
-        .map_err(|x| x.to_string())
+        .map_err(ProcessError::IOError)
+        .into()
 }

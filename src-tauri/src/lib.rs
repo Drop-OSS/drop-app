@@ -15,12 +15,11 @@ use crate::commands::{get_autostart_enabled, toggle_autostart};
 use crate::database::db::DatabaseImpls;
 use cleanup::{cleanup_and_exit, quit};
 use commands::fetch_state;
-use database::db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
-    GameDownloadStatus, DATA_ROOT_DIR,
+use database::commands::{
+    add_download_dir, amend_settings, delete_download_dir, fetch_download_dir_stats,
+    fetch_system_data,
 };
-use database::debug::fetch_system_data;
-use database::settings::amend_settings;
+use database::db::{DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
@@ -41,11 +40,10 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
-use remote::auth::{
-    self, generate_authorization_header,
-    recieve_handshake,
+use remote::auth::{self, generate_authorization_header, recieve_handshake};
+use remote::commands::{
+    auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
 };
-use remote::commands::{auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -135,7 +133,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     debug!("Database is set up");
 
-    let (app_status, user) = auth::setup().unwrap();
+    let (app_status, user) = auth::setup();
 
     let db_handle = DB.borrow_data().unwrap();
     let mut missing_games = Vec::new();

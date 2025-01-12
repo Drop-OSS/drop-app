@@ -7,7 +7,7 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use log::info;
+use log::{debug, error, info};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
@@ -241,6 +241,7 @@ impl DownloadManagerBuilder {
             match download_agent.download(&app_handle) {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
+                    debug!("download {:?} has completed", download_agent.metadata());
                     download_agent.on_complete(&app_handle);
                     sender
                         .send(DownloadManagerSignal::Completed(download_agent.metadata()))
@@ -251,6 +252,7 @@ impl DownloadManagerBuilder {
                     download_agent.on_incomplete(&app_handle);
                 }
                 Err(e) => {
+                    error!("download {:?} has error {}", download_agent.metadata(), &e);
                     download_agent.on_error(&app_handle, e.clone());
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
                 }

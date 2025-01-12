@@ -15,10 +15,10 @@ use tauri::AppHandle;
 use url::Url;
 
 use crate::{
+    database::settings::Settings,
     download_manager::downloadable_metadata::DownloadableMetadata,
     games::{library::push_game_update, state::GameStatusManager},
     process::process_manager::Platform,
-    database::settings::Settings,
     DB,
 };
 
@@ -164,61 +164,6 @@ impl DatabaseImpls for DatabaseInterface {
     }
 }
 
-#[tauri::command]
-pub fn add_download_dir(new_dir: PathBuf) -> Result<(), String> {
-    // Check the new directory is all good
-    let new_dir_path = Path::new(&new_dir);
-    if new_dir_path.exists() {
-        let metadata = new_dir_path
-            .metadata()
-            .map_err(|e| format!("Unable to access file or directory: {}", e))?;
-        if !metadata.is_dir() {
-            return Err("Invalid path: not a directory".to_string());
-        }
-        let dir_contents = new_dir_path
-            .read_dir()
-            .map_err(|e| format!("Unable to check directory contents: {}", e))?;
-        if dir_contents.count() != 0 {
-            return Err("Directory is not empty".to_string());
-        }
-    } else {
-        create_dir_all(new_dir_path)
-            .map_err(|e| format!("Unable to create directories to path: {}", e))?;
-    }
-
-    // Add it to the dictionary
-    let mut lock = DB.borrow_data_mut().unwrap();
-    if lock.applications.install_dirs.contains(&new_dir) {
-        return Err("Download directory already used".to_string());
-    }
-    lock.applications.install_dirs.push(new_dir);
-    drop(lock);
-    DB.save().unwrap();
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn delete_download_dir(index: usize) -> Result<(), String> {
-    let mut lock = DB.borrow_data_mut().unwrap();
-    lock.applications.install_dirs.remove(index);
-    drop(lock);
-    DB.save().unwrap();
-
-    Ok(())
-}
-
-// Will, in future, return disk/remaining size
-// Just returns the directories that have been set up
-#[tauri::command]
-pub fn fetch_download_dir_stats() -> Result<Vec<PathBuf>, String> {
-    let lock = DB.borrow_data().unwrap();
-    let directories = lock.applications.install_dirs.clone();
-    drop(lock);
-
-    Ok(directories)
-}
-
 pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &DownloadableMetadata)>(
     app_handle: &AppHandle,
     meta: DownloadableMetadata,
@@ -233,7 +178,6 @@ pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Downloada
 
     push_game_update(app_handle, &meta, status);
 }
-
 // TODO: Make the error relelvant rather than just assume that it's a Deserialize error
 fn handle_invalid_database(
     _e: RustbreakError,

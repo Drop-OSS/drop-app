@@ -1,4 +1,7 @@
-use std::{fmt::Display, ops::{FromResidual, Try}};
+use std::{
+    fmt::Display,
+    ops::{FromResidual, Try},
+};
 
 use serde::Serialize;
 
@@ -41,12 +44,23 @@ impl<T: Serialize, D: Display> Try for UserValue<T, D> {
     }
 
     fn branch(self) -> std::ops::ControlFlow<Self::Residual, Self::Output> {
-        todo!()
+        match self {
+            UserValue::Ok(data) => std::ops::ControlFlow::Continue(data),
+            UserValue::Err(e) => std::ops::ControlFlow::Break(e),
+        }
+    }
+}
+impl<T: Serialize, D: Display> FromResidual for UserValue<T, D> {
+    fn from_residual(residual: <Self as std::ops::Try>::Residual) -> Self {
+        UserValue::Err(residual)
+    }
+}
+impl<T: Serialize, D: Display, U> FromResidual<Result<U, D>> for UserValue<T, D> {
+    fn from_residual(residual: Result<U, D>) -> Self {
+        match residual {
+            Ok(_) => unreachable!(),
+            Err(e) => UserValue::Err(e),
+        }
     }
 }
 
-impl<T: Serialize, D: Display> FromResidual for UserValue<T, D> {
-    fn from_residual(residual: <Self as std::ops::Try>::Residual) -> Self {
-        todo!()
-    }
-}

@@ -3,6 +3,9 @@ use std::sync::Mutex;
 use tauri::AppHandle;
 
 use crate::{
+    error::{
+        library_error::LibraryError, remote_access_error::RemoteAccessError, user_error::UserValue,
+    },
     games::library::{get_current_meta, uninstall_game_logic},
     AppState,
 };
@@ -16,41 +19,39 @@ use super::{
 };
 
 #[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<Vec<Game>, String> {
-    fetch_library_logic(app).map_err(|e| e.to_string())
+pub fn fetch_library(app: AppHandle) -> UserValue<Vec<Game>, RemoteAccessError> {
+    fetch_library_logic(app).into()
 }
 
 #[tauri::command]
-pub fn fetch_game(game_id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
-    let result = fetch_game_logic(game_id, app);
-
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(result.unwrap())
+pub fn fetch_game(
+    game_id: String,
+    app: tauri::AppHandle,
+) -> UserValue<FetchGameStruct, RemoteAccessError> {
+    fetch_game_logic(game_id, app).into()
 }
 
 #[tauri::command]
-pub fn fetch_game_status(id: String) -> Result<GameStatusWithTransient, String> {
-    let status = GameStatusManager::fetch_state(&id);
-
-    Ok(status)
+pub fn fetch_game_status(id: String) -> GameStatusWithTransient {
+    GameStatusManager::fetch_state(&id)
 }
 
 #[tauri::command]
-pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), String> {
-    let meta = get_current_meta(&game_id)?;
+pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> UserValue<(), LibraryError> {
+    let meta = match get_current_meta(&game_id) {
+        Some(data) => data,
+        None => return UserValue::Err(LibraryError::MetaNotFound(game_id)),
+    };
     println!("{:?}", meta);
     uninstall_game_logic(meta, &app_handle);
 
-    Ok(())
+    UserValue::Ok(())
 }
 
 #[tauri::command]
 pub fn fetch_game_verion_options(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersionOption>, String> {
-    fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
+) -> UserValue<Vec<GameVersionOption>, RemoteAccessError> {
+    fetch_game_verion_options_logic(game_id, state).into()
 }

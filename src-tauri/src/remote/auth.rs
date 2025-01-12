@@ -9,7 +9,7 @@ use url::Url;
 
 use crate::{
     database::db::{DatabaseAuth, DatabaseImpls},
-    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError, user_error::UserValue},
+    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
 
@@ -62,7 +62,7 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-pub fn fetch_user() -> UserValue<User, RemoteAccessError> {
+pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
     let endpoint = base_url.join("/api/v1/client/user")?;
@@ -72,23 +72,22 @@ pub fn fetch_user() -> UserValue<User, RemoteAccessError> {
     let response = client
         .get(endpoint.to_string())
         .header("Authorization", header)
-        .send();
+        .send()?;
     if response.status() != 200 {
         let err: DropServerError = response.json().unwrap();
         warn!("{:?}", err);
 
         if err.status_message == "Nonce expired" {
-            return UserValue::Err(RemoteAccessError::OutOfSync);
+            return Err(RemoteAccessError::OutOfSync);
         }
 
-        return UserValue::Err(RemoteAccessError::InvalidResponse(err));
+        return Err(RemoteAccessError::InvalidResponse(err));
     }
 
     match response.json::<User>() {
-        Ok(data) => UserValue::Ok(data),
-        Err(e) => UserValue::Err(e.into())
+        Ok(data) => Ok(data),
+        Err(e) => Err(e.into()),
     }
-
 }
 
 fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
@@ -184,7 +183,7 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     Ok(())
 }
 
-pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
+pub fn setup() -> (AppStatus, Option<User>) {
     let data = DB.borrow_data().unwrap();
     let auth = data.auth.clone();
     drop(data);
@@ -195,14 +194,12 @@ pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
             let error = user_result.err().unwrap();
             warn!("auth setup failed with: {}", error);
             match error {
-                RemoteAccessError::FetchError(_) => {
-                    return Ok((AppStatus::ServerUnavailable, None))
-                }
-                _ => return Ok((AppStatus::SignedInNeedsReauth, None)),
+                RemoteAccessError::FetchError(_) => return (AppStatus::ServerUnavailable, None),
+                _ => return (AppStatus::SignedInNeedsReauth, None),
             }
         }
-        return Ok((AppStatus::SignedIn, Some(user_result.unwrap())));
+        return (AppStatus::SignedIn, Some(user_result.unwrap()));
     }
 
-    Ok((AppStatus::SignedOut, None))
+    (AppStatus::SignedOut, None)
 }
