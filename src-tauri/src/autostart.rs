@@ -65,3 +65,12 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
 
     Ok(())
 }
+#[tauri::command]
+pub fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    toggle_autostart_logic(app, enabled)
+}
+
+#[tauri::command]
+pub fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
+    get_autostart_enabled_logic(app)
+}

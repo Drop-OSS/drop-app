@@ -11,8 +11,8 @@ mod error;
 mod process;
 mod remote;
 
-use crate::commands::{get_autostart_enabled, toggle_autostart};
 use crate::database::db::DatabaseImpls;
+use autostart::{get_autostart_enabled, toggle_autostart};
 use cleanup::{cleanup_and_exit, quit};
 use commands::fetch_state;
 use database::commands::{

@@ -14,12 +14,3 @@ pub fn fetch_state(
     drop(guard);
     Ok(cloned_state)
 }
-#[tauri::command]
-pub fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
-    toggle_autostart_logic(app, enabled)
-}
-
-#[tauri::command]
-pub fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
-    get_autostart_enabled_logic(app)
-}
