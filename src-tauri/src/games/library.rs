@@ -227,7 +227,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
     push_game_update(
         app_handle,
-        &meta,
+        &meta.id,
         (None, Some(ApplicationTransientStatus::Uninstalling {})),
     );
 
@@ -275,7 +275,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
                 push_game_update(
                     &app_handle,
-                    &meta,
+                    &meta.id,
                     (Some(GameDownloadStatus::Remote {}), None),
                 );
             }
@@ -368,16 +368,12 @@ pub fn on_game_complete(
     Ok(())
 }
 
-pub fn push_game_update(
-    app_handle: &AppHandle,
-    meta: &DownloadableMetadata,
-    status: GameStatusWithTransient,
-) {
+pub fn push_game_update(app_handle: &AppHandle, game_id: &String, status: GameStatusWithTransient) {
     app_handle
         .emit(
-            &format!("update_game/{}", meta.id),
+            &format!("update_game/{}", game_id),
             GameUpdateEvent {
-                game_id: meta.id.clone(),
+                game_id: game_id.clone(),
                 status,
             },
         )

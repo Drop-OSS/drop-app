@@ -133,7 +133,8 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     debug!("Database is set up");
 
-    let (app_status, user) = auth::setup();
+    // TODO: Account for possible failure
+    let (app_status, user) = auth::setup().unwrap();
 
     let db_handle = DB.borrow_data().unwrap();
     let mut missing_games = Vec::new();

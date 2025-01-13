@@ -176,7 +176,7 @@ pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Downloada
 
     let status = GameStatusManager::fetch_state(&meta.id);
 
-    push_game_update(app_handle, &meta, status);
+    push_game_update(app_handle, &meta.id, status);
 }
 // TODO: Make the error relelvant rather than just assume that it's a Deserialize error
 fn handle_invalid_database(

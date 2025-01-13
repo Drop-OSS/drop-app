@@ -16,7 +16,7 @@ use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
     database::db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
-    download_manager::downloadable_metadata::DownloadableMetadata,
+    download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
     AppState, DB,
@@ -25,7 +25,7 @@ use crate::{
 pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
-    processes: HashMap<DownloadableMetadata, Arc<SharedChild>>,
+    processes: HashMap<String, Arc<SharedChild>>,
     app_handle: AppHandle,
     game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
@@ -82,8 +82,8 @@ impl ProcessManager<'_> {
          */
         (absolute_exe, Vec::new())
     }
-    pub fn kill_game(&mut self, meta: DownloadableMetadata) -> Result<(), io::Error> {
-        return match self.processes.get(&meta) {
+    pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
+        return match self.processes.get(&game_id) {
             Some(child) => {
                 child.kill()?;
                 child.wait()?;
@@ -96,24 +96,26 @@ impl ProcessManager<'_> {
         };
     }
 
-    fn on_process_finish(
-        &mut self,
-        meta: DownloadableMetadata,
-        result: Result<ExitStatus, std::io::Error>,
-    ) {
-        if !self.processes.contains_key(&meta) {
+    fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
+        if !self.processes.contains_key(&game_id) {
             warn!("process on_finish was called, but game_id is no longer valid. finished with result: {:?}", result);
             return;
         }
 
-        debug!("process for {:?} exited with {:?}", meta, result);
+        debug!("process for {:?} exited with {:?}", &game_id, result);
 
-        self.processes.remove(&meta);
+        self.processes.remove(&game_id);
 
         let mut db_handle = DB.borrow_data_mut().unwrap();
+        let meta = db_handle
+            .applications
+            .installed_game_version
+            .get(&game_id)
+            .cloned()
+            .unwrap();
         db_handle.applications.transient_statuses.remove(&meta);
 
-        let current_state = db_handle.applications.game_statuses.get(&meta.id).cloned();
+        let current_state = db_handle.applications.game_statuses.get(&game_id).cloned();
         if let Some(saved_state) = current_state {
             if let GameDownloadStatus::SetupRequired {
                 version_name,
@@ -123,7 +125,7 @@ impl ProcessManager<'_> {
                 if let Ok(exit_code) = result {
                     if exit_code.success() {
                         db_handle.applications.game_statuses.insert(
-                            meta.id.clone(),
+                            game_id.clone(),
                             GameDownloadStatus::Installed {
                                 version_name: version_name.to_string(),
                                 install_dir: install_dir.to_string(),
@@ -135,9 +137,9 @@ impl ProcessManager<'_> {
         }
         drop(db_handle);
 
-        let status = GameStatusManager::fetch_state(&meta.id);
+        let status = GameStatusManager::fetch_state(&game_id);
 
-        push_game_update(&self.app_handle, &meta, status);
+        push_game_update(&self.app_handle, &game_id, status);
 
         // TODO better management
     }
@@ -149,21 +151,41 @@ impl ProcessManager<'_> {
             .contains_key(&(current.clone(), platform.clone())))
     }
 
-    pub fn launch_process(&mut self, meta: DownloadableMetadata) -> Result<(), ProcessError> {
-        if self.processes.contains_key(&meta) {
+    pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
+        if self.processes.contains_key(&game_id) {
             return Err(ProcessError::AlreadyRunning);
         }
+
+        let version = match DB
+            .borrow_data()
+            .unwrap()
+            .applications
+            .game_statuses
+            .get(&game_id)
+            .cloned()
+        {
+            Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
+            Some(GameDownloadStatus::SetupRequired { .. }) => {
+                return Err(ProcessError::SetupRequired).into()
+            }
+            _ => return Err(ProcessError::NotInstalled).into(),
+        };
+        let meta = DownloadableMetadata {
+            id: game_id.clone(),
+            version: Some(version.clone()),
+            download_type: DownloadType::Game,
+        };
 
         let mut db_lock = DB.borrow_data_mut().unwrap();
         debug!(
             "Launching process {:?} with games {:?}",
-            meta, db_lock.applications.game_versions
+            &game_id, db_lock.applications.game_versions
         );
 
         let game_status = db_lock
             .applications
             .game_statuses
-            .get(&meta.id)
+            .get(&game_id)
             .ok_or(ProcessError::NotInstalled)?;
 
         let status_metadata: Option<(&String, &String)> = match game_status {
@@ -187,7 +209,7 @@ impl ProcessManager<'_> {
         let game_version = db_lock
             .applications
             .game_versions
-            .get(&meta.id)
+            .get(&game_id)
             .ok_or(ProcessError::InvalidID)?
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
@@ -222,8 +244,8 @@ impl ProcessManager<'_> {
             .create(true)
             .open(self.log_output_dir.join(format!(
                 "{}-{}-{}.log",
-                meta.id.clone(),
-                meta.version.clone().unwrap_or_default(),
+                &game_id,
+                &version,
                 current_time.timestamp()
             )))
             .map_err(ProcessError::IOError)?;
@@ -235,8 +257,8 @@ impl ProcessManager<'_> {
             .create(true)
             .open(self.log_output_dir.join(format!(
                 "{}-{}-{}-error.log",
-                meta.id.clone(),
-                meta.version.clone().unwrap_or_default(),
+                &game_id,
+                &version,
                 current_time.timestamp()
             )))
             .map_err(ProcessError::IOError)?;
@@ -270,7 +292,7 @@ impl ProcessManager<'_> {
 
         push_game_update(
             &self.app_handle,
-            &meta,
+            &meta.id,
             (None, Some(ApplicationTransientStatus::Running {})),
         );
 
@@ -285,7 +307,7 @@ impl ProcessManager<'_> {
             let app_state_handle = app_state.lock().unwrap();
 
             let mut process_manager_handle = app_state_handle.process_manager.lock().unwrap();
-            process_manager_handle.on_process_finish(wait_thread_game_id, result);
+            process_manager_handle.on_process_finish(wait_thread_game_id.id, result);
 
             // As everything goes out of scope, they should get dropped
             // But just to explicit about it
@@ -293,7 +315,7 @@ impl ProcessManager<'_> {
             drop(app_state_handle);
         });
 
-        self.processes.insert(meta, wait_thread_handle);
+        self.processes.insert(meta.id, wait_thread_handle);
 
         info!("finished spawning process");
 

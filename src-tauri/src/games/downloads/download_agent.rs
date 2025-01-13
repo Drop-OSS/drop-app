@@ -102,7 +102,7 @@ impl GameDownloadAgent {
         let timer = Instant::now();
         push_game_update(
             app_handle,
-            &self.metadata(),
+            &self.metadata().id,
             (
                 None,
                 Some(ApplicationTransientStatus::Downloading {
