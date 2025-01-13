@@ -1042,6 +1042,7 @@ dependencies = [
  "log",
  "log4rs",
  "md5",
+ "merge-struct",
  "openssl",
  "parking_lot 0.12.3",
  "rayon",
@@ -1051,6 +1052,7 @@ dependencies = [
  "serde",
  "serde-binary",
  "serde_json",
+ "serde_merge",
  "serde_with",
  "shared_child",
  "slice-deque",
@@ -2451,6 +2453,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "merge-struct"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d82012d21e24135b839b6b9bebd622b7ff0cb40071498bc2d066d3a6d04dd4a"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3899,6 +3911,17 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_merge"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "606e91878516232ac3b16c12e063d4468d762f16d77e7aef14a1f2326c5f409b"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

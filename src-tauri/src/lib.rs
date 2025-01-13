@@ -16,8 +16,8 @@ use crate::database::db::DatabaseImpls;
 use cleanup::{cleanup_and_exit, quit};
 use commands::fetch_state;
 use database::commands::{
-    add_download_dir, amend_settings, delete_download_dir, fetch_download_dir_stats,
-    fetch_system_data,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data,
+    update_settings,
 };
 use database::db::{DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
 use download_manager::commands::{
@@ -216,7 +216,7 @@ pub fn run() {
             quit,
             fetch_system_data,
             // User utils
-            amend_settings,
+            update_settings,
             // Auth
             auth_initiate,
             retry_connect,

@@ -1,5 +1,7 @@
 use crate::auth::generate_authorization_header;
-use crate::database::db::{set_game_status, ApplicationTransientStatus, DatabaseImpls};
+use crate::database::db::{
+    set_game_status, ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus,
+};
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
@@ -10,7 +12,7 @@ use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::games::library::{on_game_complete, push_game_update};
+use crate::games::library::{on_game_complete, push_game_update, GameUpdateEvent};
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
@@ -248,9 +250,12 @@ impl GameDownloadAgent {
 
     // TODO: Change return value on Err
     pub fn run(&self) -> Result<bool, ()> {
-        info!("downloading game: {}", self.id);
         let max_download_threads = DB.borrow_data().unwrap().settings.max_download_threads;
 
+        info!(
+            "downloading game: {} with {} threads",
+            self.id, max_download_threads
+        );
         let pool = ThreadPoolBuilder::new()
             .num_threads(max_download_threads)
             .build()
@@ -402,8 +407,18 @@ impl Downloadable for GameDownloadAgent {
         .unwrap();
     }
 
-    fn on_incomplete(&self, _app_handle: &tauri::AppHandle) {
+    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
+        let meta = self.metadata();
         *self.status.lock().unwrap() = DownloadStatus::Queued;
+        app_handle
+            .emit(
+                &format!("update_game/{}", meta.id),
+                GameUpdateEvent {
+                    game_id: meta.id.clone(),
+                    status: (Some(GameDownloadStatus::Remote {}), None),
+                },
+            )
+            .unwrap();
     }
 
     fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}

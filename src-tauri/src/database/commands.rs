@@ -4,9 +4,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use log::debug;
 use serde_json::Value;
 
-use crate::{error::user_error::UserValue, DB};
+use crate::{database::settings::Settings, error::user_error::UserValue, DB};
 
 use super::{db::DATA_ROOT_DIR, debug::SystemData};
 
@@ -58,10 +59,17 @@ pub fn add_download_dir(new_dir: PathBuf) -> UserValue<(), Error> {
 }
 
 #[tauri::command]
-pub fn amend_settings(new_settings: Value) {
+pub fn update_settings(new_settings: Value) {
     println!("{}", new_settings);
-    let db_lock = DB.borrow_data_mut().unwrap();
-    let mut current_settings = db_lock.settings.clone();
+    let mut db_lock = DB.borrow_data_mut().unwrap();
+    let mut current_settings = serde_json::to_value(db_lock.settings.clone()).unwrap();
+    for (key, value) in new_settings.as_object().unwrap() {
+        current_settings[key] = value.clone();
+    }
+    println!("New settings unset: {}", &current_settings);
+    let new_settings: Settings = serde_json::from_value(current_settings).unwrap();
+    db_lock.settings = new_settings;
+    println!("New Settings: {:?}", db_lock.settings);
 }
 
 #[tauri::command]
