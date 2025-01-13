@@ -4,7 +4,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use log::debug;
 use serde_json::Value;
 
 use crate::{database::settings::Settings, error::user_error::UserValue, DB};
