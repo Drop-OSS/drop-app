@@ -8,14 +8,15 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::db::GameVersion;
-use crate::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
+use crate::database::db::GameVersion;
+use crate::database::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
+use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::process::process_manager::Platform;
-use crate::remote::RemoteAccessError;
-use crate::{auth::generate_authorization_header, AppState, DB};
+use crate::remote::auth::generate_authorization_header;
+use crate::{AppState, DB};
 
 #[derive(serde::Serialize)]
 pub struct FetchGameStruct {
@@ -78,7 +79,7 @@ pub struct GameVersionOption {
     // total_size: usize,
 }
 
-fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
+pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
     let library_url = base_url.join("/api/v1/client/user/library")?;
 
@@ -118,12 +119,7 @@ fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
     Ok(games)
 }
 
-#[tauri::command]
-pub fn fetch_library(app: AppHandle) -> Result<Vec<Game>, String> {
-    fetch_library_logic(app).map_err(|e| e.to_string())
-}
-
-fn fetch_game_logic(
+pub fn fetch_game_logic(
     id: String,
     app: tauri::AppHandle,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
@@ -184,25 +180,7 @@ fn fetch_game_logic(
     Ok(data)
 }
 
-#[tauri::command]
-pub fn fetch_game(game_id: String, app: tauri::AppHandle) -> Result<FetchGameStruct, String> {
-    let result = fetch_game_logic(game_id, app);
-
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(result.unwrap())
-}
-
-#[tauri::command]
-pub fn fetch_game_status(id: String) -> Result<GameStatusWithTransient, String> {
-    let status = GameStatusManager::fetch_state(&id);
-
-    Ok(status)
-}
-
-fn fetch_game_verion_options_logic(
+pub fn fetch_game_verion_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
@@ -238,19 +216,7 @@ fn fetch_game_verion_options_logic(
     Ok(data)
 }
 
-#[tauri::command]
-pub fn uninstall_game(
-    game_id: String,
-    app_handle: AppHandle,
-) -> Result<(), String> {
-    let meta = get_current_meta(&game_id)?;
-    println!("{:?}", meta);
-    uninstall_game_logic(meta, &app_handle);
-
-    Ok(())
-}
-
-fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
+pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
     println!("Triggered uninstall for agent");
     let mut db_handle = DB.borrow_data_mut().unwrap();
     db_handle
@@ -261,7 +227,7 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
 
     push_game_update(
         app_handle,
-        &meta,
+        &meta.id,
         (None, Some(ApplicationTransientStatus::Uninstalling {})),
     );
 
@@ -309,7 +275,7 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
 
                 push_game_update(
                     &app_handle,
-                    &meta,
+                    &meta.id,
                     (Some(GameDownloadStatus::Remote {}), None),
                 );
             }
@@ -317,25 +283,13 @@ fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
     }
 }
 
-pub fn get_current_meta(game_id: &String) -> Result<DownloadableMetadata, String> {
-    match DB
-        .borrow_data()
+pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
+    DB.borrow_data()
         .unwrap()
         .applications
         .installed_game_version
         .get(game_id)
-    {
-        Some(meta) => Ok(meta.clone()),
-        None => Err(String::from("Could not find installed version")),
-    }
-}
-
-#[tauri::command]
-pub fn fetch_game_verion_options(
-    game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersionOption>, String> {
-    fetch_game_verion_options_logic(game_id, state).map_err(|e| e.to_string())
+        .cloned()
 }
 
 pub fn on_game_complete(
@@ -414,16 +368,12 @@ pub fn on_game_complete(
     Ok(())
 }
 
-pub fn push_game_update(
-    app_handle: &AppHandle,
-    meta: &DownloadableMetadata,
-    status: GameStatusWithTransient,
-) {
+pub fn push_game_update(app_handle: &AppHandle, game_id: &String, status: GameStatusWithTransient) {
     app_handle
         .emit(
-            &format!("update_game/{}", meta.id),
+            &format!("update_game/{}", game_id),
             GameUpdateEvent {
-                game_id: meta.id.clone(),
+                game_id: game_id.clone(),
                 status,
             },
         )

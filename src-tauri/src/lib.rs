@@ -1,35 +1,35 @@
-mod auth;
-mod db;
+#![feature(try_trait_v2)]
+
+mod database;
 mod games;
 
 mod autostart;
 mod cleanup;
-mod debug;
+mod commands;
 mod download_manager;
+mod error;
 mod process;
 mod remote;
-pub mod settings;
 
-use crate::autostart::{get_autostart_enabled, toggle_autostart};
-use crate::db::DatabaseImpls;
-use auth::{
-    auth_initiate, generate_authorization_header, manual_recieve_handshake, recieve_handshake,
-    retry_connect, sign_out,
-};
+use crate::database::db::DatabaseImpls;
+use autostart::{get_autostart_enabled, toggle_autostart};
 use cleanup::{cleanup_and_exit, quit};
-use db::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, DatabaseInterface,
-    GameDownloadStatus, DATA_ROOT_DIR,
+use commands::fetch_state;
+use database::commands::{
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data,
+    update_settings,
 };
-use debug::fetch_system_data;
+use database::db::{DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
+use download_manager::commands::{
+    cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
+};
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use games::downloads::download_commands::{
-    cancel_game, download_game, move_game_in_queue, pause_game_downloads, resume_game_downloads,
+use games::commands::{
+    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
-use games::library::{
-    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game, Game,
-};
+use games::downloads::commands::download_game;
+use games::library::Game;
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
 use log::{debug, info, warn, LevelFilter};
@@ -38,11 +38,13 @@ use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
-use process::process_commands::{kill_game, launch_game};
+use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
-use remote::{gen_drop_url, use_remote};
+use remote::auth::{self, generate_authorization_header, recieve_handshake};
+use remote::commands::{
+    auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
+};
 use serde::{Deserialize, Serialize};
-use settings::amend_settings;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
@@ -88,14 +90,6 @@ pub struct AppState<'a> {
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
 }
 
-#[tauri::command]
-fn fetch_state(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<String, String> {
-    let guard = state.lock().unwrap();
-    let cloned_state = serde_json::to_string(&guard.clone()).map_err(|e| e.to_string())?;
-    drop(guard);
-    Ok(cloned_state)
-}
-
 fn setup(handle: AppHandle) -> AppState<'static> {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
@@ -139,6 +133,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     debug!("Database is set up");
 
+    // TODO: Account for possible failure
     let (app_status, user) = auth::setup().unwrap();
 
     let db_handle = DB.borrow_data().unwrap();
@@ -147,8 +142,8 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     drop(db_handle);
     for (game_id, status) in statuses.into_iter() {
         match status {
-            db::GameDownloadStatus::Remote {} => {}
-            db::GameDownloadStatus::SetupRequired {
+            database::db::GameDownloadStatus::Remote {} => {}
+            database::db::GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir,
             } => {
@@ -157,7 +152,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                     missing_games.push(game_id);
                 }
             }
-            db::GameDownloadStatus::Installed {
+            database::db::GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir,
             } => {
@@ -222,7 +217,7 @@ pub fn run() {
             quit,
             fetch_system_data,
             // User utils
-            amend_settings,
+            update_settings,
             // Auth
             auth_initiate,
             retry_connect,
@@ -241,9 +236,9 @@ pub fn run() {
             fetch_game_verion_options,
             // Downloads
             download_game,
-            move_game_in_queue,
-            pause_game_downloads,
-            resume_game_downloads,
+            move_download_in_queue,
+            pause_downloads,
+            resume_downloads,
             cancel_game,
             uninstall_game,
             // Processes

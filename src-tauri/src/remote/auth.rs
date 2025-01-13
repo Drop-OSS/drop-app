@@ -8,8 +8,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    db::{DatabaseAuth, DatabaseImpls},
-    remote::{DropServerError, RemoteAccessError},
+    database::db::{DatabaseAuth, DatabaseImpls},
+    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
 
@@ -73,7 +73,6 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         .get(endpoint.to_string())
         .header("Authorization", header)
         .send()?;
-
     if response.status() != 200 {
         let err: DropServerError = response.json().unwrap();
         warn!("{:?}", err);
@@ -85,9 +84,7 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let user = response.json()?;
-
-    Ok(user)
+    response.json::<User>().map_err(|e| e.into())
 }
 
 fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
@@ -138,12 +135,6 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     Ok(())
 }
 
-#[tauri::command]
-pub fn manual_recieve_handshake(app: AppHandle, token: String) -> Result<(), String> {
-    recieve_handshake(app, format!("handshake/{}", token));
-    Ok(())
-}
-
 pub fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
     app.emit("auth/processing", ()).unwrap();
@@ -158,7 +149,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/finished", ()).unwrap();
 }
 
-fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
+pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     let base_url = {
         let db_lock = DB.borrow_data().unwrap();
         Url::parse(&db_lock.base_url.clone())?
@@ -189,71 +180,15 @@ fn auth_initiate_wrapper() -> Result<(), RemoteAccessError> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn auth_initiate() -> Result<(), String> {
-    let result = auth_initiate_wrapper();
-    if result.is_err() {
-        return Err(result.err().unwrap().to_string());
-    }
-
-    Ok(())
-}
-
-#[tauri::command]
-pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
-    let (app_status, user) = setup()?;
-
-    let mut guard = state.lock().unwrap();
-    guard.status = app_status;
-    guard.user = user;
-    drop(guard);
-
-    Ok(())
-}
-
-pub fn setup() -> Result<(AppStatus, Option<User>), ()> {
+pub fn setup() -> Result<(AppStatus, Option<User>), RemoteAccessError> {
     let data = DB.borrow_data().unwrap();
     let auth = data.auth.clone();
     drop(data);
 
     if auth.is_some() {
-        let user_result = fetch_user();
-        if user_result.is_err() {
-            let error = user_result.err().unwrap();
-            warn!("auth setup failed with: {}", error);
-            match error {
-                RemoteAccessError::FetchError(_) => {
-                    return Ok((AppStatus::ServerUnavailable, None))
-                }
-                _ => return Ok((AppStatus::SignedInNeedsReauth, None)),
-            }
-        }
-        return Ok((AppStatus::SignedIn, Some(user_result.unwrap())));
+        let user_result = fetch_user()?;
+        return Ok((AppStatus::SignedIn, Some(user_result)));
     }
 
     Ok((AppStatus::SignedOut, None))
-}
-
-#[tauri::command]
-pub fn sign_out(app: AppHandle) -> Result<(), String> {
-    // Clear auth from database
-    {
-        let mut handle = DB.borrow_data_mut().unwrap();
-        handle.auth = None;
-        drop(handle);
-        DB.save().unwrap();
-    }
-
-    // Update app state
-    {
-        let app_state = app.state::<Mutex<AppState>>();
-        let mut app_state_handle = app_state.lock().unwrap();
-        app_state_handle.status = AppStatus::SignedOut;
-        app_state_handle.user = None;
-    }
-
-    // Emit event for frontend
-    app.emit("auth/signedout", ()).unwrap();
-
-    Ok(())
 }

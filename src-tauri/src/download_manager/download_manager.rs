@@ -12,8 +12,9 @@ use std::{
 use log::info;
 use serde::Serialize;
 
+use crate::error::application_download_error::ApplicationDownloadError;
+
 use super::{
-    application_download_error::ApplicationDownloadError,
     download_manager_builder::{CurrentProgressObject, DownloadAgent},
     downloadable_metadata::DownloadableMetadata,
     queue::Queue,

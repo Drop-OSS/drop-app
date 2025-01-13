@@ -3,8 +3,7 @@ use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 
-#[tauri::command]
-pub async fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
     if enabled {
         manager.enable().map_err(|e| e.to_string())?;
@@ -23,23 +22,22 @@ pub async fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), Strin
     Ok(())
 }
 
-#[tauri::command]
-pub async fn get_autostart_enabled(app: AppHandle) -> Result<bool, String> {
+pub fn get_autostart_enabled_logic(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
     // First check DB state
-    let db_handle = DB.borrow_data().map_err(|e| e.to_string())?;
+    let db_handle = DB.borrow_data().unwrap();
     let db_state = db_handle.settings.autostart;
     drop(db_handle);
 
     // Get actual system state
     let manager = app.autolaunch();
-    let system_state = manager.is_enabled().map_err(|e| e.to_string())?;
+    let system_state = manager.is_enabled()?;
 
     // If they don't match, sync to DB state
     if db_state != system_state {
         if db_state {
-            manager.enable().map_err(|e| e.to_string())?;
+            manager.enable()?;
         } else {
-            manager.disable().map_err(|e| e.to_string())?;
+            manager.disable()?;
         }
     }
 
@@ -66,4 +64,13 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
     }
 
     Ok(())
+}
+#[tauri::command]
+pub fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    toggle_autostart_logic(app, enabled)
+}
+
+#[tauri::command]
+pub fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
+    get_autostart_enabled_logic(app)
 }

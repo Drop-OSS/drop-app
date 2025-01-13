@@ -3,7 +3,7 @@ use std::{
     io,
 };
 
-use crate::remote::RemoteAccessError;
+use super::{remote_access_error::RemoteAccessError, setup_error::SetupError};
 
 // TODO: Rename / separate from downloads
 #[derive(Debug, Clone)]
@@ -25,19 +25,6 @@ impl Display for ApplicationDownloadError {
             ApplicationDownloadError::Checksum => write!(f, "Checksum failed to validate for download"),
             ApplicationDownloadError::IoError(error) => write!(f, "{}", error),
             ApplicationDownloadError::DownloadError => write!(f, "Download failed. See Download Manager status for specific error"),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub enum SetupError {
-    Context,
-}
-
-impl Display for SetupError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SetupError::Context => write!(f, "Failed to generate contexts for download"),
         }
     }
 }
