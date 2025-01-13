@@ -84,10 +84,7 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    match response.json::<User>() {
-        Ok(data) => Ok(data),
-        Err(e) => Err(e.into()),
-    }
+    response.json::<User>().map_err(|e| e.into())
 }
 
 fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
