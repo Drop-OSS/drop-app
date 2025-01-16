@@ -92,13 +92,15 @@ pub struct AppState<'a> {
 
 fn setup(handle: AppHandle) -> AppState<'static> {
     let logfile = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "{d} | {l} | {f}:{L} - {m}{n}",
+        )))
         .append(false)
         .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} | {h({l})} - {m}{n}")))
         .build();
 
     let config = Config::builder()
