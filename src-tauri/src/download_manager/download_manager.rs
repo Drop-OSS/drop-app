@@ -3,8 +3,7 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     sync::{
-        mpsc::{SendError, Sender},
-        MutexGuard,
+        mpsc::{SendError, Sender}, Mutex, MutexGuard
     },
     thread::JoinHandle,
 };
@@ -84,7 +83,7 @@ pub enum DownloadStatus {
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManager {
-    terminator: JoinHandle<Result<(), ()>>,
+    terminator: Mutex<JoinHandle<Result<(), ()>>>,
     download_queue: Queue,
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
@@ -174,7 +173,7 @@ impl DownloadManager {
     pub fn resume_downloads(&self) {
         self.command_sender.send(DownloadManagerSignal::Go).unwrap();
     }
-    pub fn ensure_terminated(self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
+    pub fn ensure_terminated(&self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
         self.command_sender
             .send(DownloadManagerSignal::Finish)
             .unwrap();

@@ -315,7 +315,7 @@ pub fn run() {
                         app.webview_windows().get("main").unwrap().show().unwrap();
                     }
                     "quit" => {
-                        cleanup_and_exit(app);
+                        cleanup_and_exit(app, &state);
                     }
 
                     _ => {
