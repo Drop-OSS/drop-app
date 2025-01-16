@@ -83,7 +83,7 @@ pub enum DownloadStatus {
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManager {
-    terminator: Mutex<JoinHandle<Result<(), ()>>>,
+    terminator: Mutex<Option<JoinHandle<Result<(), ()>>>>,
     download_queue: Queue,
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
@@ -98,7 +98,7 @@ impl DownloadManager {
         command_sender: Sender<DownloadManagerSignal>,
     ) -> Self {
         Self {
-            terminator,
+            terminator: Mutex::new(Some(terminator)),
             download_queue,
             progress,
             command_sender,
@@ -177,7 +177,8 @@ impl DownloadManager {
         self.command_sender
             .send(DownloadManagerSignal::Finish)
             .unwrap();
-        self.terminator.join()
+        let terminator = self.terminator.lock().unwrap().take();
+        terminator.unwrap().join()
     }
     pub fn uninstall_application(&self, meta: DownloadableMetadata) {
         self.command_sender
