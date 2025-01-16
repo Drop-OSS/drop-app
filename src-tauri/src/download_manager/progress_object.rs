@@ -76,7 +76,7 @@ impl ProgressObject {
         if current_amount >= to_update {
             self.points_towards_update
                 .fetch_sub(to_update, Ordering::Relaxed);
-            update_queue(&self);
+            update_queue(self);
         }
 
         let last_update = self.last_update.read().unwrap();
@@ -102,7 +102,7 @@ impl ProgressObject {
             let remaining = max - current_amount; // bytes
             let time_remaining = (remaining / 1000) / kilobytes_per_second.max(1);
 
-            update_ui(&self, kilobytes_per_second, time_remaining);
+            update_ui(self, kilobytes_per_second, time_remaining);
         }
     }
 
@@ -156,4 +156,3 @@ fn update_queue(progress: &ProgressObject) {
         .send(DownloadManagerSignal::UpdateUIQueue)
         .unwrap();
 }
-

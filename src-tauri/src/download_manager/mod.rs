@@ -6,3 +6,4 @@ pub mod downloadable;
 pub mod downloadable_metadata;
 pub mod progress_object;
 pub mod queue;
+pub mod rolling_progress_updates;
