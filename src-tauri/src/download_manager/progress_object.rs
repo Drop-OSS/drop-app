@@ -19,12 +19,10 @@ pub struct ProgressObject {
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
     start: Arc<Mutex<Instant>>,
     sender: Sender<DownloadManagerSignal>,
-    points_towards_update: Arc<AtomicUsize>,
-    points_to_push_update: Arc<AtomicUsize>,
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<128>
+    rolling: RollingProgressWindow<1024>
 }
 
 pub struct ProgressHandle {
@@ -45,25 +43,20 @@ impl ProgressHandle {
     pub fn add(&self, amount: usize) {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
-        push_update(&self.progress_object, amount);
+        calculate_update(&self.progress_object, amount);
     }
 }
-
-static PROGRESS_UPDATES: usize = 100;
 
 impl ProgressObject {
     pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
         let arr = Mutex::new((0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect());
         // TODO: consolidate this calculation with the set_max function below
-        let points_to_push_update = max / PROGRESS_UPDATES;
         Self {
             max: Arc::new(Mutex::new(max)),
             progress_instances: Arc::new(arr),
             start: Arc::new(Mutex::new(Instant::now())),
             sender,
 
-            points_towards_update: Arc::new(AtomicUsize::new(0)),
-            points_to_push_update: Arc::new(AtomicUsize::new(points_to_push_update)),
             last_update_time: Arc::new(AtomicInstant::now()),
             bytes_last_update: Arc::new(AtomicUsize::new(0)),
             rolling: RollingProgressWindow::new(),
@@ -88,9 +81,6 @@ impl ProgressObject {
     }
     pub fn set_max(&self, new_max: usize) {
         *self.max.lock().unwrap() = new_max;
-        self.points_to_push_update
-            .store(new_max / PROGRESS_UPDATES, Ordering::Relaxed);
-        info!("points to push update: {}", new_max / PROGRESS_UPDATES);
     }
     pub fn set_size(&self, length: usize) {
         *self.progress_instances.lock().unwrap() =
@@ -107,27 +97,9 @@ impl ProgressObject {
     }
 }
 
-#[throttle(1, Duration::from_millis(100))]
-fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
-    progress_object
-        .sender
-        .send(DownloadManagerSignal::UpdateUIStats(
-            progress_object.rolling.get_average(),
-            time_remaining,
-        ))
-        .unwrap();
-}
-
-#[throttle(1, Duration::from_millis(100))]
-fn update_queue(progress: &ProgressObject) {
-    progress
-        .sender
-        .send(DownloadManagerSignal::UpdateUIQueue)
-        .unwrap();
-}
 
 #[throttle(1, Duration::from_millis(20))]
-pub fn push_update(progress: &ProgressObject, amount_added: usize) {
+pub fn calculate_update(progress: &ProgressObject, amount_added: usize) {
     let last_update_time = progress.last_update_time.swap(Instant::now(), Ordering::SeqCst);
     let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis();
 
@@ -141,9 +113,34 @@ pub fn push_update(progress: &ProgressObject, amount_added: usize) {
             bytes_since_last_update / (time_since_last_update as usize).max(1);
 
     let bytes_remaining = max - current_bytes_downloaded; // bytes
-    let time_remaining = (bytes_remaining / 1000) / kilobytes_per_second.max(1);
 
     progress.update_window(kilobytes_per_second);
+    push_update(progress, bytes_remaining);
+}
 
-    update_ui(progress, kilobytes_per_second, time_remaining);
+#[throttle(1, Duration::from_millis(500))]
+pub fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
+    let average_speed = progress.rolling.get_average();
+    let time_remaining = (bytes_remaining / 1000) / average_speed.max(1);
+
+
+    update_ui(progress, average_speed, time_remaining);
+    update_queue(progress);
+}
+
+fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
+    progress_object
+        .sender
+        .send(DownloadManagerSignal::UpdateUIStats(
+            kilobytes_per_second,
+            time_remaining,
+        ))
+        .unwrap();
+}
+
+fn update_queue(progress: &ProgressObject) {
+    progress
+        .sender
+        .send(DownloadManagerSignal::UpdateUIQueue)
+        .unwrap();
 }
