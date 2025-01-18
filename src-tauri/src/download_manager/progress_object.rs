@@ -7,10 +7,11 @@ use std::{
     time::{Duration, Instant},
 };
 
+use atomic_instant_full::AtomicInstant;
 use log::info;
 use throttle_my_fn::throttle;
 
-use super::download_manager::DownloadManagerSignal;
+use super::{download_manager::DownloadManagerSignal, rolling_progress_updates::RollingProgressWindow};
 
 #[derive(Clone)]
 pub struct ProgressObject {
@@ -20,8 +21,10 @@ pub struct ProgressObject {
     sender: Sender<DownloadManagerSignal>,
     points_towards_update: Arc<AtomicUsize>,
     points_to_push_update: Arc<AtomicUsize>,
-    last_update: Arc<RwLock<Instant>>,
-    amount_last_update: Arc<AtomicUsize>,
+    //last_update: Arc<RwLock<Instant>>,
+    last_update_time: Arc<AtomicInstant>,
+    bytes_last_update: Arc<AtomicUsize>,
+    rolling: RollingProgressWindow<128>
 }
 
 pub struct ProgressHandle {
@@ -42,7 +45,7 @@ impl ProgressHandle {
     pub fn add(&self, amount: usize) {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
-        self.progress_object.check_push_update(amount);
+        push_update(&self.progress_object, amount);
     }
 }
 
@@ -61,50 +64,13 @@ impl ProgressObject {
 
             points_towards_update: Arc::new(AtomicUsize::new(0)),
             points_to_push_update: Arc::new(AtomicUsize::new(points_to_push_update)),
-            last_update: Arc::new(RwLock::new(Instant::now())),
-            amount_last_update: Arc::new(AtomicUsize::new(0)),
+            last_update_time: Arc::new(AtomicInstant::now()),
+            bytes_last_update: Arc::new(AtomicUsize::new(0)),
+            rolling: RollingProgressWindow::new(),
         }
     }
 
-    pub fn check_push_update(&self, amount_added: usize) {
-        let current_amount = self
-            .points_towards_update
-            .fetch_add(amount_added, Ordering::Relaxed);
-
-        let to_update = self.points_to_push_update.fetch_add(0, Ordering::Relaxed);
-
-        if current_amount >= to_update {
-            self.points_towards_update
-                .fetch_sub(to_update, Ordering::Relaxed);
-            update_queue(self);
-        }
-
-        let last_update = self.last_update.read().unwrap();
-        let last_update_difference = Instant::now().duration_since(*last_update).as_millis();
-        if last_update_difference > 1000 {
-            // push update
-            drop(last_update);
-            let mut last_update = self.last_update.write().unwrap();
-            *last_update = Instant::now();
-            drop(last_update);
-
-            let current_amount = self.sum();
-            let max = self.get_max();
-            let amount_at_last_update = self.amount_last_update.fetch_add(0, Ordering::Relaxed);
-            self.amount_last_update
-                .store(current_amount, Ordering::Relaxed);
-
-            let amount_since_last_update = current_amount - amount_at_last_update;
-
-            let kilobytes_per_second =
-                amount_since_last_update / (last_update_difference as usize).max(1);
-
-            let remaining = max - current_amount; // bytes
-            let time_remaining = (remaining / 1000) / kilobytes_per_second.max(1);
-
-            update_ui(self, kilobytes_per_second, time_remaining);
-        }
-    }
+    
 
     pub fn set_time_now(&self) {
         *self.start.lock().unwrap() = Instant::now();
@@ -136,23 +102,48 @@ impl ProgressObject {
     pub fn get(&self, index: usize) -> Arc<AtomicUsize> {
         self.progress_instances.lock().unwrap()[index].clone()
     }
+    fn update_window(&self, kilobytes_per_second: usize) {
+        self.rolling.update(kilobytes_per_second);
+    }
 }
 
-#[throttle(50, Duration::from_secs(1))]
+#[throttle(1, Duration::from_millis(100))]
 fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
     progress_object
         .sender
         .send(DownloadManagerSignal::UpdateUIStats(
-            kilobytes_per_second,
+            progress_object.rolling.get_average(),
             time_remaining,
         ))
         .unwrap();
 }
 
-#[throttle(50, Duration::from_secs(1))]
+#[throttle(1, Duration::from_millis(100))]
 fn update_queue(progress: &ProgressObject) {
     progress
         .sender
         .send(DownloadManagerSignal::UpdateUIQueue)
         .unwrap();
+}
+
+#[throttle(1, Duration::from_millis(20))]
+pub fn push_update(progress: &ProgressObject, amount_added: usize) {
+    let last_update_time = progress.last_update_time.swap(Instant::now(), Ordering::SeqCst);
+    let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis();
+
+    let current_bytes_downloaded = progress.sum();
+    let max = progress.get_max();
+    let bytes_at_last_update = progress.bytes_last_update.swap(current_bytes_downloaded, Ordering::Relaxed);
+
+    let bytes_since_last_update = current_bytes_downloaded - bytes_at_last_update;
+
+    let kilobytes_per_second =
+            bytes_since_last_update / (time_since_last_update as usize).max(1);
+
+    let bytes_remaining = max - current_bytes_downloaded; // bytes
+    let time_remaining = (bytes_remaining / 1000) / kilobytes_per_second.max(1);
+
+    progress.update_window(kilobytes_per_second);
+
+    update_ui(progress, kilobytes_per_second, time_remaining);
 }

@@ -180,15 +180,19 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     Ok(())
 }
 
-pub fn setup() -> Result<(AppStatus, Option<User>), RemoteAccessError> {
+pub fn setup() -> (AppStatus, Option<User>) {
     let data = DB.borrow_data().unwrap();
     let auth = data.auth.clone();
     drop(data);
 
     if auth.is_some() {
-        let user_result = fetch_user()?;
-        return Ok((AppStatus::SignedIn, Some(user_result)));
+        let user_result = match fetch_user() {
+            Ok(data) => data,
+            Err(RemoteAccessError::FetchError(_)) => return (AppStatus::ServerUnavailable, None),
+            Err(_) => return (AppStatus::SignedInNeedsReauth, None),
+        };
+        return (AppStatus::SignedIn, Some(user_result));
     }
 
-    Ok((AppStatus::SignedOut, None))
+    (AppStatus::SignedOut, None)
 }

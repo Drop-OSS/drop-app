@@ -57,14 +57,13 @@ pub fn sign_out(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> UserValue<(), RemoteAccessError> {
-    let (app_status, user) = setup()?;
+pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
+    let (app_status, user) = setup();
 
     let mut guard = state.lock().unwrap();
     guard.status = app_status;
     guard.user = user;
     drop(guard);
-    UserValue::Ok(())
 }
 
 #[tauri::command]

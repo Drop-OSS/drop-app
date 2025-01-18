@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::{debug, error};
 use tauri::AppHandle;
 
 use crate::AppState;
@@ -12,7 +12,12 @@ pub fn cleanup_and_exit(app: &AppHandle, state: &tauri::State<'_, std::sync::Mut
     debug!("Cleaning up and exiting application");
     let download_manager = state.lock().unwrap().download_manager.clone();
     match download_manager.ensure_terminated() {
-        Ok(_) => {},
+        Ok(res) => {
+            match res {
+                Ok(_) => debug!("Download manager terminated correctly"),
+                Err(_) => error!("Download manager failed to terminate correctly"),
+            }
+        },
         Err(e) => panic!("{:?}", e),
     }
 

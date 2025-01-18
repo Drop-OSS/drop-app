@@ -45,6 +45,7 @@ use remote::commands::{
     auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
 };
 use serde::{Deserialize, Serialize};
+use tauri::ipc::IpcResponse;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
@@ -136,7 +137,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     debug!("Database is set up");
 
     // TODO: Account for possible failure
-    let (app_status, user) = auth::setup().unwrap();
+    let (app_status, user) = auth::setup();
 
     let db_handle = DB.borrow_data().unwrap();
     let mut missing_games = Vec::new();
@@ -315,7 +316,7 @@ pub fn run() {
                         app.webview_windows().get("main").unwrap().show().unwrap();
                     }
                     "quit" => {
-                        cleanup_and_exit(app, &state);
+                        cleanup_and_exit(app, &app.state());
                     }
 
                     _ => {
