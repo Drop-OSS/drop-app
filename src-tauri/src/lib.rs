@@ -100,7 +100,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} | {h({l})} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f}:{L} - {m}{n}")))
         .build();
 
     let config = Config::builder()
