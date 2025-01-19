@@ -136,7 +136,7 @@ impl GameDownloadAgent {
         let manifest_url = base_url
             .join(
                 format!(
-                    "/api/v1/client/game/manifest?id={}&version={}",
+                    "/api/v1/client/metadata/manifest?id={}&version={}",
                     self.id,
                     encode(&self.version)
                 )
@@ -308,7 +308,6 @@ impl GameDownloadAgent {
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
-                    info!("Completed context id {}", index);
                 });
             }
         });

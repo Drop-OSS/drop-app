@@ -306,6 +306,7 @@ async function installFlow() {
     versionOptions.value = await invoke("fetch_game_verion_options", {
       gameId: game.value.id,
     });
+    console.log(versionOptions.value);
     installDirs.value = await invoke("fetch_download_dir_stats");
   } catch (error) {
     installError.value = (error as string).toString();

@@ -180,7 +180,7 @@ pub fn fetch_game_verion_options_logic(
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let client = reqwest::blocking::Client::new();
     
-    let response = make_request(&client, &["/api/v1/client/game/versions"], &[("id", &game_id)], |r| {
+    let response = make_request(&client, &["/api/v1/client/metadata/versions"], &[("id", &game_id)], |r| {
         r.header("Authorization", generate_authorization_header())
     })?.send()?;
 
@@ -189,10 +189,8 @@ pub fn fetch_game_verion_options_logic(
         warn!("{:?}", err);
         return Err(RemoteAccessError::InvalidResponse(err));
     }
-    let text = response.text().unwrap();
-    println!("JSON Text: {}", text);
 
-    let data: Vec<GameVersionOption> = serde_json::from_str(&text).unwrap();
+    let data: Vec<GameVersionOption> = response.json()?;
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
@@ -295,7 +293,7 @@ pub fn on_game_complete(
 
     let endpoint = base_url.join(
         format!(
-            "/api/v1/client/game/version?id={}&version={}",
+            "/api/v1/client/metadata/version?id={}&version={}",
             meta.id,
             encode(meta.version.as_ref().unwrap())
         )
