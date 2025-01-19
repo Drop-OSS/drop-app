@@ -3,10 +3,12 @@ use std::{
     io,
 };
 
+use serde_with::SerializeDisplay;
+
 use super::{remote_access_error::RemoteAccessError, setup_error::SetupError};
 
 // TODO: Rename / separate from downloads
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerializeDisplay)]
 pub enum ApplicationDownloadError {
     Communication(RemoteAccessError),
     Checksum,

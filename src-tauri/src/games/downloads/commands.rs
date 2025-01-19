@@ -1,8 +1,7 @@
 use std::sync::{mpsc::SendError, Arc, Mutex};
 
 use crate::{
-    download_manager::{download_manager::DownloadManagerSignal, downloadable::Downloadable},
-    error::user_error::UserValue,
+    download_manager::{download_manager::DownloadManagerSignal, downloadable::Downloadable, internal_error::InternalError},
     AppState,
 };
 
@@ -14,7 +13,7 @@ pub fn download_game(
     game_version: String,
     install_dir: usize,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> UserValue<(), SendError<DownloadManagerSignal>> {
+) -> Result<(), InternalError<DownloadManagerSignal>> {
     let sender = state.lock().unwrap().download_manager.get_sender();
     let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new(
         game_id,
@@ -22,10 +21,9 @@ pub fn download_game(
         install_dir,
         sender,
     )) as Box<dyn Downloadable + Send + Sync>);
-    state
+    Ok(state
         .lock()
         .unwrap()
         .download_manager
-        .queue_download(game_download_agent)
-        .into()
+        .queue_download(game_download_agent)?)
 }

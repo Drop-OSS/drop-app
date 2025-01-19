@@ -1,5 +1,8 @@
 use std::{fmt::Display, io::Error};
 
+use serde_with::SerializeDisplay;
+
+#[derive(SerializeDisplay)]
 pub enum ProcessError {
     SetupRequired,
     NotInstalled,

@@ -1,5 +1,8 @@
 use std::fmt::Display;
 
+use serde_with::SerializeDisplay;
+
+#[derive(SerializeDisplay)]
 pub enum LibraryError {
     MetaNotFound(String),
 }

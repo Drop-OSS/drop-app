@@ -180,7 +180,7 @@ pub fn fetch_game_verion_options_logic(
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let client = reqwest::blocking::Client::new();
     
-    let response = make_request(&client, &["/api/v1/client/metadata/versions"], &[("id", &game_id)], |r| {
+    let response = make_request(&client, &["/api/v1/client/game/versions"], &[("id", &game_id)], |r| {
         r.header("Authorization", generate_authorization_header())
     })?.send()?;
 

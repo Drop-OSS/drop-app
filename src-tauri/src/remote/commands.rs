@@ -4,7 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    error::{remote_access_error::RemoteAccessError, user_error::UserValue},
+    error::remote_access_error::RemoteAccessError,
     AppState, AppStatus, DB,
 };
 
@@ -17,12 +17,12 @@ use super::{
 pub fn use_remote(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
-) -> UserValue<(), RemoteAccessError> {
-    UserValue::Ok(use_remote_logic(url, state)?)
+) -> Result<(), RemoteAccessError> {
+    Ok(use_remote_logic(url, state)?)
 }
 
 #[tauri::command]
-pub fn gen_drop_url(path: String) -> UserValue<String, RemoteAccessError> {
+pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
     let base_url = {
         let handle = DB.borrow_data().unwrap();
 
@@ -31,7 +31,7 @@ pub fn gen_drop_url(path: String) -> UserValue<String, RemoteAccessError> {
 
     let url = base_url.join(&path).unwrap();
 
-    UserValue::Ok(url.to_string())
+    Ok(url.to_string())
 }
 
 #[tauri::command]
@@ -67,7 +67,7 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
 }
 
 #[tauri::command]
-pub fn auth_initiate() -> UserValue<(), RemoteAccessError> {
+pub fn auth_initiate() -> Result<(), RemoteAccessError> {
     auth_initiate_logic().into()
 }
 

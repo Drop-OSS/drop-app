@@ -5,11 +5,12 @@ use std::{
 };
 
 use http::StatusCode;
+use serde_with::SerializeDisplay;
 use url::ParseError;
 
 use super::drop_server_error::DropServerError;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, SerializeDisplay)]
 pub enum RemoteAccessError {
     FetchError(Arc<reqwest::Error>),
     ParsingError(ParseError),

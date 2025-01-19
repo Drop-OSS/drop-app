@@ -4,4 +4,3 @@ pub mod library_error;
 pub mod process_error;
 pub mod remote_access_error;
 pub mod setup_error;
-pub mod user_error;
