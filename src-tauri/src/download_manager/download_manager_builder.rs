@@ -284,14 +284,14 @@ impl DownloadManagerBuilder {
     }
     fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         debug!("got signal Error");
-        let current_agent = self.current_download_agent.clone().unwrap();
+        if let Some(current_agent) = self.current_download_agent.clone() {
+            current_agent.on_error(&self.app_handle, error.clone());
 
-        current_agent.on_error(&self.app_handle, error.clone());
+            self.stop_and_wait_current_download();
+            self.remove_and_cleanup_front_download(&current_agent.metadata());
 
-        self.stop_and_wait_current_download();
-        self.remove_and_cleanup_front_download(&current_agent.metadata());
-
-        self.set_status(DownloadManagerStatus::Error(error));
+            self.set_status(DownloadManagerStatus::Error(error));
+        }
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");
