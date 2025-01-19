@@ -178,11 +178,8 @@ impl GameDownloadAgent {
 
         let chunk_count = contexts.iter().map(|chunk| chunk.length).sum();
 
-        debug!("Setting ProgressObject max to {}", chunk_count);
         self.progress.set_max(chunk_count);
-        debug!("Setting ProgressObject size to {}", length);
         self.progress.set_size(length);
-        debug!("Setting ProgressObject time to now");
         self.progress.set_time_now();
     }
 

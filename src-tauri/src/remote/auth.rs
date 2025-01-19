@@ -111,7 +111,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = reqwest::blocking::Client::new();
     let response = client.post(endpoint).json(&body).send()?;
-    debug!("Handshake responsded with {}", response.status().as_u16());
+    debug!("handshake responsded with {}", response.status().as_u16());
     let response_struct: HandshakeResponse = response.json()?;
 
     {
@@ -166,7 +166,7 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
 
     if response.status() != 200 {
         let data: DropServerError = response.json()?;
-        error!("Could not start handshake: {}", data.status_message);
+        error!("could not start handshake: {}", data.status_message);
 
         return Err(RemoteAccessError::HandshakeFailed(data.status_message));
     }

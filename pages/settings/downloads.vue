@@ -254,7 +254,7 @@ async function submitDirectory() {
   try {
     error.value = undefined;
     if (!currentDirectory.value)
-      throw new Error("Please select a directory first.");
+      throw new Error("Please select a directory first");
     createDirectoryLoading.value = true;
 
     // Add directory

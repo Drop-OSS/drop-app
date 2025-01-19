@@ -205,7 +205,7 @@ pub fn fetch_game_verion_options_logic(
 }
 
 pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
-    println!("Triggered uninstall for agent");
+    println!("triggered uninstall for agent");
     let mut db_handle = DB.borrow_data_mut().unwrap();
     db_handle
         .applications

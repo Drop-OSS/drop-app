@@ -7,10 +7,10 @@ pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), Strin
     let manager = app.autolaunch();
     if enabled {
         manager.enable().map_err(|e| e.to_string())?;
-        debug!("Enabled autostart");
+        debug!("enabled autostart");
     } else {
         manager.disable().map_err(|e| e.to_string())?;
-        debug!("Disabled autostart");
+        debug!("eisabled autostart");
     }
 
     // Store the state in DB
@@ -56,10 +56,10 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
     if current_state != should_be_enabled {
         if should_be_enabled {
             manager.enable().map_err(|e| e.to_string())?;
-            debug!("Synced autostart: enabled");
+            debug!("synced autostart: enabled");
         } else {
             manager.disable().map_err(|e| e.to_string())?;
-            debug!("Synced autostart: disabled");
+            debug!("synced autostart: disabled");
         }
     }
 

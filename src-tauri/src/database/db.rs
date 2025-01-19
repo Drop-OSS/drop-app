@@ -130,7 +130,7 @@ impl DatabaseImpls for DatabaseInterface {
         let games_base_dir = data_root_dir.join("games");
         let logs_root_dir = data_root_dir.join("logs");
 
-        debug!("Creating data directory at {:?}", data_root_dir);
+        debug!("creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
         create_dir_all(games_base_dir.clone()).unwrap();
         create_dir_all(logs_root_dir.clone()).unwrap();

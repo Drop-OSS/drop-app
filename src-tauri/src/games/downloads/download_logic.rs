@@ -151,7 +151,7 @@ pub fn download_game_chunk(
 
     let content_length = response.content_length();
     if content_length.is_none() {
-        warn!("Recieved 0 length content from server");
+        warn!("recieved 0 length content from server");
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse(response.json().unwrap()),
         ));

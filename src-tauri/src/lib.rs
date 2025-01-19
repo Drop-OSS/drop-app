@@ -121,7 +121,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
 
-    debug!("Checking if database is set up");
+    debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();
     if !is_set_up {
         return AppState {
@@ -133,7 +133,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         };
     }
 
-    debug!("Database is set up");
+    debug!("database is set up");
 
     // TODO: Account for possible failure
     let (app_status, user) = auth::setup();
@@ -183,7 +183,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     // Sync autostart state
     if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
-        warn!("Failed to sync autostart state: {}", e);
+        warn!("failed to sync autostart state: {}", e);
     }
 
     AppState {
@@ -320,7 +320,7 @@ pub fn run() {
                     }
 
                     _ => {
-                        println!("Menu event not handled: {:?}", event.id);
+                        println!("menu event not handled: {:?}", event.id);
                     }
                 })
                 .build(app)

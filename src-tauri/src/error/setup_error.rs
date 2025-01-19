@@ -8,7 +8,7 @@ pub enum SetupError {
 impl Display for SetupError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            SetupError::Context => write!(f, "Failed to generate contexts for download"),
+            SetupError::Context => write!(f, "failed to generate contexts for download"),
         }
     }
 }

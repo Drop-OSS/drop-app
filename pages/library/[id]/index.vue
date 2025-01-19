@@ -320,7 +320,7 @@ const installDir = ref(0);
 async function install() {
   try {
     if (!versionOptions.value)
-      throw new Error("Versions have not been loaded.");
+      throw new Error("Versions have not been loaded");
     installLoading.value = true;
     await invoke("download_game", {
       gameId: game.value.id,

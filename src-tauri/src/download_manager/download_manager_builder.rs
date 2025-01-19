@@ -179,13 +179,13 @@ impl DownloadManagerBuilder {
         }
     }
     fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
-        debug!("Got signal Queue");
+        debug!("got signal Queue");
         let meta = download_agent.metadata();
 
-        debug!("Queue metadata: {:?}", meta);
+        debug!("queue metadata: {:?}", meta);
 
         if self.download_queue.exists(meta.clone()) {
-            warn!("Download with same ID already exists");
+            warn!("download with same ID already exists");
             return;
         }
 
@@ -199,7 +199,7 @@ impl DownloadManagerBuilder {
     }
 
     fn manage_go_signal(&mut self) {
-        debug!("Got signal Go");
+        debug!("got signal Go");
         if self.download_agent_registry.is_empty() {
             debug!(
                 "Download agent registry: {:?}",
@@ -265,7 +265,7 @@ impl DownloadManagerBuilder {
         active_control_flag.set(DownloadThreadControlFlag::Go);
     }
     fn manage_stop_signal(&mut self) {
-        debug!("Got signal Stop");
+        debug!("got signal Stop");
 
         if let Some(active_control_flag) = self.active_control_flag.clone() {
             self.set_status(DownloadManagerStatus::Paused);
@@ -305,7 +305,7 @@ impl DownloadManagerBuilder {
                 self.download_queue.pop_front();
 
                 self.cleanup_current_download();
-                debug!("Current download queue: {:?}", self.download_queue.read());
+                debug!("current download queue: {:?}", self.download_queue.read());
             }
             // TODO: Collapse these two into a single if statement somehow
             else if let Some(download_agent) = self.download_agent_registry.get(meta) {
