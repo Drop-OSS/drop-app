@@ -4,8 +4,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    error::remote_access_error::RemoteAccessError,
-    AppState, AppStatus, DB,
+    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db}, error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB
 };
 
 use super::{
@@ -24,7 +23,7 @@ pub fn use_remote(
 #[tauri::command]
 pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
     let base_url = {
-        let handle = DB.borrow_data().unwrap();
+        let handle = borrow_db_checked();
 
         Url::parse(&handle.base_url).map_err(RemoteAccessError::ParsingError)?
     };
@@ -38,10 +37,10 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
 pub fn sign_out(app: AppHandle) {
     // Clear auth from database
     {
-        let mut handle = DB.borrow_data_mut().unwrap();
+        let mut handle = borrow_db_mut_checked();
         handle.auth = None;
         drop(handle);
-        DB.save().unwrap();
+        save_db();
     }
 
     // Update app state

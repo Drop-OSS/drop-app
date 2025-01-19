@@ -2,12 +2,12 @@ use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
     path::{Path, PathBuf},
-    sync::{LazyLock, Mutex, RwLockWriteGuard},
+    sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use chrono::Utc;
 use directories::BaseDirs;
-use log::{debug, info};
+use log::{debug, error, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_with::serde_as;
@@ -169,10 +169,10 @@ pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &Downloada
     meta: DownloadableMetadata,
     setter: F,
 ) {
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
     setter(&mut db_handle, &meta);
     drop(db_handle);
-    DB.save().unwrap();
+    save_db();
 
     let status = GameStatusManager::fetch_state(&meta.id);
 
@@ -199,4 +199,35 @@ fn handle_invalid_database(
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
+}
+
+
+pub fn borrow_db_checked<'a>() -> RwLockReadGuard<'a, Database> {
+    match DB.borrow_data() {
+        Ok(data) => data,
+        Err(e) => {
+            error!("database borrow failed with error {}", e);
+            panic!("database borrow failed with error {}", e);
+        },
+    }
+}
+
+pub fn borrow_db_mut_checked<'a>() -> RwLockWriteGuard<'a, Database> {
+    match DB.borrow_data_mut() {
+        Ok(data) => data,
+        Err(e) => {
+            error!("database borrow mut failed with error {}", e);
+            panic!("database borrow mut failed with error {}", e);
+        }
+    }
+}
+
+pub fn save_db() {
+    match DB.save() {
+        Ok(_) => {},
+        Err(e) => {
+            error!("database failed to save with error {}", e);
+            panic!("database failed to save with error {}", e)
+        },
+    }
 }

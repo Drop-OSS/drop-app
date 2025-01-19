@@ -9,7 +9,7 @@ use log::{debug, info, warn};
 use serde::Deserialize;
 use url::{ParseError, Url};
 
-use crate::{error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB};
+use crate::{database::db::{borrow_db_mut_checked, save_db}, error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,11 +39,11 @@ pub fn use_remote_logic(
     app_state.status = AppStatus::SignedOut;
     drop(app_state);
 
-    let mut db_state = DB.borrow_data_mut().unwrap();
+    let mut db_state = borrow_db_mut_checked();
     db_state.base_url = base_url.to_string();
     drop(db_state);
 
-    DB.save().unwrap();
+    save_db();
 
     Ok(())
 }

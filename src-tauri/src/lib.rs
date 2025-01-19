@@ -18,7 +18,7 @@ use commands::fetch_state;
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data, fetch_settings, update_settings
 };
-use database::db::{DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
+use database::db::{borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
@@ -138,7 +138,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     // TODO: Account for possible failure
     let (app_status, user) = auth::setup();
 
-    let db_handle = DB.borrow_data().unwrap();
+    let db_handle = borrow_db_checked();
     let mut missing_games = Vec::new();
     let statuses = db_handle.applications.game_statuses.clone();
     drop(db_handle);
@@ -168,7 +168,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     info!("detected games missing: {:?}", missing_games);
 
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
     for game_id in missing_games {
         db_handle
             .applications
@@ -327,7 +327,7 @@ pub fn run() {
                 .expect("error while setting up tray menu");
 
             {
-                let mut db_handle = DB.borrow_data_mut().unwrap();
+                let mut db_handle = borrow_db_mut_checked();
                 if let Some(original) = db_handle.prev_database.take() {
                     warn!(
                         "Database corrupted. Original file at {}",

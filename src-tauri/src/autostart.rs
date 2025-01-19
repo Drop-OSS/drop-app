@@ -1,4 +1,4 @@
-use crate::DB;
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db};
 use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
@@ -14,17 +14,17 @@ pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), Strin
     }
 
     // Store the state in DB
-    let mut db_handle = DB.borrow_data_mut().map_err(|e| e.to_string())?;
+    let mut db_handle = borrow_db_mut_checked();
     db_handle.settings.autostart = enabled;
     drop(db_handle);
-    DB.save().map_err(|e| e.to_string())?;
+    save_db();
 
     Ok(())
 }
 
 pub fn get_autostart_enabled_logic(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
     // First check DB state
-    let db_handle = DB.borrow_data().unwrap();
+    let db_handle = borrow_db_checked();
     let db_state = db_handle.settings.autostart;
     drop(db_handle);
 
@@ -46,7 +46,7 @@ pub fn get_autostart_enabled_logic(app: AppHandle) -> Result<bool, tauri_plugin_
 
 // New function to sync state on startup
 pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
-    let db_handle = DB.borrow_data().map_err(|e| e.to_string())?;
+    let db_handle = borrow_db_checked();
     let should_be_enabled = db_handle.settings.autostart;
     drop(db_handle);
 

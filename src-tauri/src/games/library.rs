@@ -8,7 +8,7 @@ use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 use urlencoding::encode;
 
-use crate::database::db::GameVersion;
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, GameVersion};
 use crate::database::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
@@ -103,7 +103,7 @@ pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessErro
     let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
 
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
 
     for game in games.iter() {
         handle.games.insert(game.id.clone(), game.clone());
@@ -155,7 +155,7 @@ pub fn fetch_game_logic(
     let game: Game = response.json()?;
     state_handle.games.insert(id.clone(), game.clone());
 
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
 
     db_handle
         .applications
@@ -206,7 +206,7 @@ pub fn fetch_game_verion_options_logic(
 
 pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
     println!("triggered uninstall for agent");
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
     db_handle
         .applications
         .transient_statuses
@@ -249,7 +249,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 error!("{}", e);
             }
             Ok(_) => {
-                let mut db_handle = DB.borrow_data_mut().unwrap();
+                let mut db_handle = borrow_db_mut_checked();
                 db_handle.applications.transient_statuses.remove(&meta);
                 db_handle
                     .applications
@@ -257,7 +257,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                     .entry(meta.id.clone())
                     .and_modify(|e| *e = GameDownloadStatus::Remote {});
                 drop(db_handle);
-                DB.save().unwrap();
+                save_db();
 
                 debug!("uninstalled game id {}", &meta.id);
 
@@ -272,8 +272,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 }
 
 pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
-    DB.borrow_data()
-        .unwrap()
+    borrow_db_checked()
         .applications
         .installed_game_version
         .get(game_id)
@@ -309,7 +308,7 @@ pub fn on_game_complete(
 
     let data: GameVersion = response.json()?;
 
-    let mut handle = DB.borrow_data_mut().unwrap();
+    let mut handle = borrow_db_mut_checked();
     handle
         .applications
         .game_versions
@@ -322,7 +321,7 @@ pub fn on_game_complete(
         .insert(meta.id.clone(), meta.clone());
 
     drop(handle);
-    DB.save().unwrap();
+    save_db();
 
     let status = if data.setup_command.is_empty() {
         GameDownloadStatus::Installed {
@@ -336,13 +335,13 @@ pub fn on_game_complete(
         }
     };
 
-    let mut db_handle = DB.borrow_data_mut().unwrap();
+    let mut db_handle = borrow_db_mut_checked();
     db_handle
         .applications
         .game_statuses
         .insert(meta.id.clone(), status.clone());
     drop(db_handle);
-    DB.save().unwrap();
+    save_db();
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),

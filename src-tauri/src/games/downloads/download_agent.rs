@@ -1,6 +1,6 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::{
-    set_game_status, ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus,
+    borrow_db_checked, set_game_status, ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus
 };
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{
@@ -56,7 +56,7 @@ impl GameDownloadAgent {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
-        let db_lock = DB.borrow_data().unwrap();
+        let db_lock = borrow_db_checked();
         let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
 
@@ -243,7 +243,7 @@ impl GameDownloadAgent {
 
     // TODO: Change return value on Err
     pub fn run(&self) -> Result<bool, ()> {
-        let max_download_threads = DB.borrow_data().unwrap().settings.max_download_threads;
+        let max_download_threads = borrow_db_checked().settings.max_download_threads;
 
         debug!(
             "downloading game: {} with {} threads",

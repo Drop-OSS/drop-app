@@ -289,9 +289,8 @@ impl DownloadManagerBuilder {
 
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
-
-            self.set_status(DownloadManagerStatus::Error(error));
         }
+        self.set_status(DownloadManagerStatus::Error(error));
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");

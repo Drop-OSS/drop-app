@@ -8,7 +8,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{DatabaseAuth, DatabaseImpls},
+    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseAuth, DatabaseImpls},
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
@@ -51,7 +51,7 @@ pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
 
 pub fn generate_authorization_header() -> String {
     let certs = {
-        let db = DB.borrow_data().unwrap();
+        let db = borrow_db_checked();
         db.auth.clone().unwrap()
     };
 
@@ -97,7 +97,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     }
 
     let base_url = {
-        let handle = DB.borrow_data().unwrap();
+        let handle = borrow_db_checked();
         Url::parse(handle.base_url.as_str())?
     };
 
@@ -115,14 +115,14 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let response_struct: HandshakeResponse = response.json()?;
 
     {
-        let mut handle = DB.borrow_data_mut().unwrap();
+        let mut handle = borrow_db_mut_checked();
         handle.auth = Some(DatabaseAuth {
             private: response_struct.private,
             cert: response_struct.certificate,
             client_id: response_struct.id,
         });
         drop(handle);
-        DB.save().unwrap();
+        save_db();
     }
 
     {
@@ -151,7 +151,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
 
 pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     let base_url = {
-        let db_lock = DB.borrow_data().unwrap();
+        let db_lock = borrow_db_checked();
         Url::parse(&db_lock.base_url.clone())?
     };
 
@@ -181,7 +181,7 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
 }
 
 pub fn setup() -> (AppStatus, Option<User>) {
-    let data = DB.borrow_data().unwrap();
+    let data = borrow_db_checked();
     let auth = data.auth.clone();
     drop(data);
 

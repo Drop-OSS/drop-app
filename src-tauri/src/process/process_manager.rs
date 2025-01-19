@@ -15,7 +15,7 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    database::db::{ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
+    database::db::{borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
@@ -106,7 +106,7 @@ impl ProcessManager<'_> {
 
         self.processes.remove(&game_id);
 
-        let mut db_handle = DB.borrow_data_mut().unwrap();
+        let mut db_handle = borrow_db_mut_checked();
         let meta = db_handle
             .applications
             .installed_game_version
@@ -176,7 +176,7 @@ impl ProcessManager<'_> {
             download_type: DownloadType::Game,
         };
 
-        let mut db_lock = DB.borrow_data_mut().unwrap();
+        let mut db_lock = borrow_db_mut_checked();
         debug!(
             "Launching process {:?} with games {:?}",
             &game_id, db_lock.applications.game_versions
