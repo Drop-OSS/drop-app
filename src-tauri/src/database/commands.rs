@@ -68,7 +68,10 @@ pub fn update_settings(new_settings: Value) {
     db_lock.settings = new_settings;
     println!("New Settings: {:?}", db_lock.settings);
 }
-
+#[tauri::command]
+pub fn fetch_settings() -> Settings {
+    DB.borrow_data().unwrap().settings.clone()
+}
 #[tauri::command]
 pub fn fetch_system_data() -> SystemData {
     let db_handle = DB.borrow_data().unwrap();

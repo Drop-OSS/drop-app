@@ -210,6 +210,7 @@ import {
 } from "@headlessui/vue";
 import { FolderIcon, TrashIcon, XCircleIcon } from "@heroicons/vue/16/solid";
 import { invoke } from "@tauri-apps/api/core";
+import { type Settings } from "~/types";
 
 const open = ref(false);
 const currentDirectory = ref<string | undefined>(undefined);
@@ -218,8 +219,7 @@ const createDirectoryLoading = ref(false);
 
 const dirs = ref<Array<string>>([]);
 
-const downloadThreads = ref(4);
-const downloadThreadsChanged = computed(() => downloadThreads.value !== 4);
+const downloadThreads = ref(((await invoke("fetch_settings")) as Settings).maxDownloadThreads ?? 0);
 
 async function updateDirs() {
   const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");

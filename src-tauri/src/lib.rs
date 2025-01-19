@@ -16,8 +16,7 @@ use autostart::{get_autostart_enabled, toggle_autostart};
 use cleanup::{cleanup_and_exit, quit};
 use commands::fetch_state;
 use database::commands::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data,
-    update_settings,
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data, fetch_settings, update_settings
 };
 use database::db::{DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
 use download_manager::commands::{
@@ -221,6 +220,7 @@ pub fn run() {
             fetch_system_data,
             // User utils
             update_settings,
+            fetch_settings,
             // Auth
             auth_initiate,
             retry_connect,

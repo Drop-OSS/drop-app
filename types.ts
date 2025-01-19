@@ -72,3 +72,8 @@ export type DownloadableMetadata = {
   version: string,
   downloadType: DownloadableType
 }
+
+export type Settings = {
+  autostart: boolean,
+  maxDownloadThreads: number,
+}
