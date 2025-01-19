@@ -3,9 +3,7 @@ use std::sync::Mutex;
 use tauri::AppHandle;
 
 use crate::{
-    error::{
-        library_error::LibraryError, remote_access_error::RemoteAccessError,
-    },
+    error::{library_error::LibraryError, remote_access_error::RemoteAccessError},
     games::library::{get_current_meta, uninstall_game_logic},
     AppState,
 };

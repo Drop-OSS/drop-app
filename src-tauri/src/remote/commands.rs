@@ -4,7 +4,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db}, error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB
+    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db},
+    error::remote_access_error::RemoteAccessError,
+    AppState, AppStatus,
 };
 
 use super::{
@@ -17,7 +19,7 @@ pub fn use_remote(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
-    Ok(use_remote_logic(url, state)?)
+    use_remote_logic(url, state)
 }
 
 #[tauri::command]
@@ -67,7 +69,7 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
 
 #[tauri::command]
 pub fn auth_initiate() -> Result<(), RemoteAccessError> {
-    auth_initiate_logic().into()
+    auth_initiate_logic()
 }
 
 #[tauri::command]

@@ -1,7 +1,10 @@
-use std::sync::{mpsc::SendError, Arc, Mutex};
+use std::sync::{Arc, Mutex};
 
 use crate::{
-    download_manager::{download_manager::DownloadManagerSignal, downloadable::Downloadable, internal_error::InternalError},
+    download_manager::{
+        download_manager::DownloadManagerSignal, downloadable::Downloadable,
+        internal_error::InternalError,
+    },
     AppState,
 };
 

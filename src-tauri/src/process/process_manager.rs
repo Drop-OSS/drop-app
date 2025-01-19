@@ -15,7 +15,9 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    database::db::{borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR},
+    database::db::{
+        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR,
+    },
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
@@ -83,7 +85,7 @@ impl ProcessManager<'_> {
         (absolute_exe, Vec::new())
     }
     pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
-        return match self.processes.get(&game_id) {
+        match self.processes.get(&game_id) {
             Some(child) => {
                 child.kill()?;
                 child.wait()?;
@@ -93,7 +95,7 @@ impl ProcessManager<'_> {
                 io::ErrorKind::NotFound,
                 "Game ID not running",
             )),
-        };
+        }
     }
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
@@ -166,9 +168,9 @@ impl ProcessManager<'_> {
         {
             Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
             Some(GameDownloadStatus::SetupRequired { .. }) => {
-                return Err(ProcessError::SetupRequired).into()
+                return Err(ProcessError::SetupRequired)
             }
-            _ => return Err(ProcessError::NotInstalled).into(),
+            _ => return Err(ProcessError::NotInstalled),
         };
         let meta = DownloadableMetadata {
             id: game_id.clone(),
@@ -192,7 +194,7 @@ impl ProcessManager<'_> {
             GameDownloadStatus::Installed {
                 version_name,
                 install_dir,
-            } => Some((&version_name, &install_dir)),
+            } => Some((version_name, install_dir)),
             GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,

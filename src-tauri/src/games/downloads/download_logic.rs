@@ -5,7 +5,7 @@ use crate::download_manager::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
-use log::{error, warn};
+use log::warn;
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
@@ -177,7 +177,6 @@ pub fn download_game_chunk(
         set_permissions(ctx.path.clone(), permissions).unwrap();
     }
 
-    
     let checksum = pipeline
         .finish()
         .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;

@@ -12,11 +12,9 @@ pub fn cleanup_and_exit(app: &AppHandle, state: &tauri::State<'_, std::sync::Mut
     debug!("cleaning up and exiting application");
     let download_manager = state.lock().unwrap().download_manager.clone();
     match download_manager.ensure_terminated() {
-        Ok(res) => {
-            match res {
-                Ok(_) => debug!("download manager terminated correctly"),
-                Err(_) => error!("download manager failed to terminate correctly"),
-            }
+        Ok(res) => match res {
+            Ok(_) => debug!("download manager terminated correctly"),
+            Err(_) => error!("download manager failed to terminate correctly"),
         },
         Err(e) => panic!("{:?}", e),
     }

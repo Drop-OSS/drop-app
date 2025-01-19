@@ -1,9 +1,6 @@
 use std::sync::Mutex;
 
-use crate::{
-    error::process_error::ProcessError,
-    AppState,
-};
+use crate::{error::process_error::ProcessError, AppState};
 
 #[tauri::command]
 pub fn launch_game(

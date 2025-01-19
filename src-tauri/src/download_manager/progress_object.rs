@@ -2,16 +2,17 @@ use std::{
     sync::{
         atomic::{AtomicUsize, Ordering},
         mpsc::Sender,
-        Arc, Mutex, RwLock,
+        Arc, Mutex,
     },
     time::{Duration, Instant},
 };
 
 use atomic_instant_full::AtomicInstant;
-use log::info;
 use throttle_my_fn::throttle;
 
-use super::{download_manager::DownloadManagerSignal, rolling_progress_updates::RollingProgressWindow};
+use super::{
+    download_manager::DownloadManagerSignal, rolling_progress_updates::RollingProgressWindow,
+};
 
 #[derive(Clone)]
 pub struct ProgressObject {
@@ -22,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<1024>
+    rolling: RollingProgressWindow<256>,
 }
 
 pub struct ProgressHandle {
@@ -43,7 +44,7 @@ impl ProgressHandle {
     pub fn add(&self, amount: usize) {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
-        calculate_update(&self.progress_object, amount);
+        calculate_update(&self.progress_object);
     }
 }
 
@@ -62,8 +63,6 @@ impl ProgressObject {
             rolling: RollingProgressWindow::new(),
         }
     }
-
-    
 
     pub fn set_time_now(&self) {
         *self.start.lock().unwrap() = Instant::now();
@@ -97,32 +96,33 @@ impl ProgressObject {
     }
 }
 
-
 #[throttle(1, Duration::from_millis(20))]
-pub fn calculate_update(progress: &ProgressObject, amount_added: usize) {
-    let last_update_time = progress.last_update_time.swap(Instant::now(), Ordering::SeqCst);
+pub fn calculate_update(progress_object: &ProgressObject) {
+    let last_update_time = progress_object
+        .last_update_time
+        .swap(Instant::now(), Ordering::SeqCst);
     let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis();
 
-    let current_bytes_downloaded = progress.sum();
-    let max = progress.get_max();
-    let bytes_at_last_update = progress.bytes_last_update.swap(current_bytes_downloaded, Ordering::Relaxed);
+    let current_bytes_downloaded = progress_object.sum();
+    let max = progress_object.get_max();
+    let bytes_at_last_update = progress_object
+        .bytes_last_update
+        .swap(current_bytes_downloaded, Ordering::Relaxed);
 
     let bytes_since_last_update = current_bytes_downloaded - bytes_at_last_update;
 
-    let kilobytes_per_second =
-            bytes_since_last_update / (time_since_last_update as usize).max(1);
+    let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 
     let bytes_remaining = max - current_bytes_downloaded; // bytes
 
-    progress.update_window(kilobytes_per_second);
-    push_update(progress, bytes_remaining);
+    progress_object.update_window(kilobytes_per_second);
+    push_update(progress_object, bytes_remaining);
 }
 
 #[throttle(1, Duration::from_millis(500))]
 pub fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
     let average_speed = progress.rolling.get_average();
     let time_remaining = (bytes_remaining / 1000) / average_speed.max(1);
-
 
     update_ui(progress, average_speed, time_remaining);
     update_queue(progress);

@@ -1,6 +1,7 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::{
-    borrow_db_checked, set_game_status, ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus
+    borrow_db_checked, set_game_status, ApplicationTransientStatus, DatabaseImpls,
+    GameDownloadStatus,
 };
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{
@@ -18,7 +19,6 @@ use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use slice_deque::SliceDeque;
-use std::collections::HashMap;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
 use std::sync::mpsc::Sender;
@@ -275,17 +275,18 @@ impl GameDownloadAgent {
                 let sender = self.sender.clone();
 
                 // TODO: Error handling
-                let request = make_request(&client, &[
-                    "/api/v1/client/chunk"
-                ], &[
-                    ("id", &context.game_id),
-                    ("version", &context.version),
-                    ("name", &context.file_name),
-                    ("chunk", &context.index.to_string()),                    
-                ],
-                |r| {
-                    r.header("Authorization", generate_authorization_header())
-                }).unwrap();
+                let request = make_request(
+                    &client,
+                    &["/api/v1/client/chunk"],
+                    &[
+                        ("id", &context.game_id),
+                        ("version", &context.version),
+                        ("name", &context.file_name),
+                        ("chunk", &context.index.to_string()),
+                    ],
+                    |r| r.header("Authorization", generate_authorization_header()),
+                )
+                .unwrap();
 
                 scope.spawn(move |_| {
                     match download_game_chunk(context, &self.control_flag, progress_handle, request)
@@ -315,10 +316,12 @@ impl GameDownloadAgent {
             completed_contexts_lock.len()
         };
 
-
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != contexts.len() {
-            info!("download agent for {} exited without completing", self.id.clone());
+            info!(
+                "download agent for {} exited without completing",
+                self.id.clone()
+            );
             self.stored_manifest
                 .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
             self.stored_manifest.write();

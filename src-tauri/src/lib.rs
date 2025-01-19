@@ -16,9 +16,12 @@ use autostart::{get_autostart_enabled, toggle_autostart};
 use cleanup::{cleanup_and_exit, quit};
 use commands::fetch_state;
 use database::commands::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_system_data, fetch_settings, update_settings
+    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
+    fetch_system_data, update_settings,
 };
-use database::db::{borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR};
+use database::db::{
+    borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR,
+};
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
@@ -44,13 +47,13 @@ use remote::commands::{
     auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
 };
 use serde::{Deserialize, Serialize};
-use tauri::ipc::IpcResponse;
 use std::path::Path;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
+use tauri::ipc::IpcResponse;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
@@ -100,7 +103,9 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         .unwrap();
 
     let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new("{d} | {l} | {f}:{L} - {m}{n}")))
+        .encoder(Box::new(PatternEncoder::new(
+            "{d} | {l} | {f}:{L} - {m}{n}",
+        )))
         .build();
 
     let config = Config::builder()

@@ -2,7 +2,7 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
@@ -139,9 +139,10 @@ pub fn fetch_game_logic(
         return Ok(data);
     }
     let client = reqwest::blocking::Client::new();
-    let response = make_request(&client, &["/api/v1/game/", &id],&[], |r| {
+    let response = make_request(&client, &["/api/v1/game/", &id], &[], |r| {
         r.header("Authorization", generate_authorization_header())
-    })?.send()?;
+    })?
+    .send()?;
 
     if response.status() == 404 {
         return Err(RemoteAccessError::GameNotFound);
@@ -179,10 +180,14 @@ pub fn fetch_game_verion_options_logic(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
     let client = reqwest::blocking::Client::new();
-    
-    let response = make_request(&client, &["/api/v1/client/game/versions"], &[("id", &game_id)], |r| {
-        r.header("Authorization", generate_authorization_header())
-    })?.send()?;
+
+    let response = make_request(
+        &client,
+        &["/api/v1/client/game/versions"],
+        &[("id", &game_id)],
+        |r| r.header("Authorization", generate_authorization_header()),
+    )?
+    .send()?;
 
     if response.status() != 200 {
         let err = response.json().unwrap();

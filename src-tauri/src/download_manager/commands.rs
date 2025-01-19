@@ -1,4 +1,4 @@
-use std::sync::{mpsc::SendError, Arc, Mutex};
+use std::sync::Mutex;
 
 use crate::{download_manager::downloadable_metadata::DownloadableMetadata, AppState};
 

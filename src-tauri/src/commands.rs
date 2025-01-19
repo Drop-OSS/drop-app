@@ -1,9 +1,4 @@
-use tauri::AppHandle;
-
-use crate::{
-    autostart::{get_autostart_enabled_logic, toggle_autostart_logic},
-    AppState,
-};
+use crate::AppState;
 
 #[tauri::command]
 pub fn fetch_state(

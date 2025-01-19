@@ -12,7 +12,7 @@ impl<const S: usize> RollingProgressWindow<S> {
     pub fn new() -> Self {
         Self {
             window: Arc::new([(); S].map(|_| AtomicUsize::new(0))),
-            current: Arc::new(AtomicUsize::new(0))
+            current: Arc::new(AtomicUsize::new(0)),
         }
     }
     pub fn update(&self, kilobytes_per_second: usize) {
@@ -22,6 +22,12 @@ impl<const S: usize> RollingProgressWindow<S> {
     }
     pub fn get_average(&self) -> usize {
         let current = self.current.load(Ordering::SeqCst);
-        self.window.iter().enumerate().filter(|(i, _)| i < &current).map(|(_, x)| x.load(Ordering::Relaxed)).sum::<usize>() / S
+        self.window
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| i < &current)
+            .map(|(_, x)| x.load(Ordering::Relaxed))
+            .sum::<usize>()
+            / S
     }
 }

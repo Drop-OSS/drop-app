@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -187,20 +187,22 @@ fn handle_invalid_database(
     let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone();
-        base.set_file_name(format!("drop.db.backup-{}", time.to_string()));
+        base.set_file_name(format!("drop.db.backup-{}", time));
         base
     };
-    info!("old database stored at: {}", new_path.to_string_lossy().to_string());
+    info!(
+        "old database stored at: {}",
+        new_path.to_string_lossy().to_string()
+    );
     fs::rename(&db_path, &new_path).unwrap();
 
     let db = Database::new(
         games_base_dir.into_os_string().into_string().unwrap(),
-        Some(new_path.into()),
+        Some(new_path),
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
 }
-
 
 pub fn borrow_db_checked<'a>() -> RwLockReadGuard<'a, Database> {
     match DB.borrow_data() {
@@ -208,7 +210,7 @@ pub fn borrow_db_checked<'a>() -> RwLockReadGuard<'a, Database> {
         Err(e) => {
             error!("database borrow failed with error {}", e);
             panic!("database borrow failed with error {}", e);
-        },
+        }
     }
 }
 
@@ -224,10 +226,10 @@ pub fn borrow_db_mut_checked<'a>() -> RwLockWriteGuard<'a, Database> {
 
 pub fn save_db() {
     match DB.save() {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(e) => {
             error!("database failed to save with error {}", e);
             panic!("database failed to save with error {}", e)
-        },
+        }
     }
 }

@@ -1,7 +1,4 @@
-use crate::{
-    database::db::{borrow_db_checked, ApplicationTransientStatus, GameDownloadStatus},
-    DB,
-};
+use crate::database::db::{borrow_db_checked, ApplicationTransientStatus, GameDownloadStatus};
 
 pub type GameStatusWithTransient = (
     Option<GameDownloadStatus>,

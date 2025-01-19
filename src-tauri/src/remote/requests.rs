@@ -1,11 +1,8 @@
-use std::ops::Deref;
-
-use reqwest::blocking::{Client, RequestBuilder, Response};
-use url::{ParseError, Url};
+use reqwest::blocking::{Client, RequestBuilder};
 
 use crate::{database::db::DatabaseImpls, error::remote_access_error::RemoteAccessError, DB};
 
-pub fn make_request<'a, T: AsRef<str>, F: FnOnce(RequestBuilder) -> RequestBuilder>(
+pub fn make_request<T: AsRef<str>, F: FnOnce(RequestBuilder) -> RequestBuilder>(
     client: &Client,
     endpoints: &[T],
     params: &[(T, T)],

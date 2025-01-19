@@ -1,15 +1,14 @@
-use std::{
-    error::Error,
-    fmt::{Display, Formatter},
-    sync::{Arc, Mutex},
-};
+use std::sync::Mutex;
 
-use http::StatusCode;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use serde::Deserialize;
-use url::{ParseError, Url};
+use url::Url;
 
-use crate::{database::db::{borrow_db_mut_checked, save_db}, error::remote_access_error::RemoteAccessError, AppState, AppStatus, DB};
+use crate::{
+    database::db::{borrow_db_mut_checked, save_db},
+    error::remote_access_error::RemoteAccessError,
+    AppState, AppStatus,
+};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

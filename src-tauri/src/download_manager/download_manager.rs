@@ -3,7 +3,8 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     sync::{
-        mpsc::{SendError, Sender}, Mutex, MutexGuard
+        mpsc::{SendError, Sender},
+        Mutex, MutexGuard,
     },
     thread::JoinHandle,
 };
@@ -150,7 +151,10 @@ impl DownloadManager {
                 .unwrap();
         }
 
-        debug!("moving download at index {} to index {}", current_index, new_index);
+        debug!(
+            "moving download at index {} to index {}",
+            current_index, new_index
+        );
 
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();

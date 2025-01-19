@@ -1,4 +1,3 @@
-use crate::{DATA_ROOT_DIR, DB};
 use serde::Serialize;
 
 #[derive(Serialize)]

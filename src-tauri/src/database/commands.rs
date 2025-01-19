@@ -6,9 +6,15 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{database::{db::borrow_db_mut_checked, settings::Settings}, download_manager::{download_manager::DownloadManagerSignal, internal_error::InternalError}, DB};
+use crate::{
+    database::{db::borrow_db_mut_checked, settings::Settings},
+    download_manager::internal_error::InternalError,
+};
 
-use super::{db::{borrow_db_checked, save_db, DATA_ROOT_DIR}, debug::SystemData};
+use super::{
+    db::{borrow_db_checked, save_db, DATA_ROOT_DIR},
+    debug::SystemData,
+};
 
 // Will, in future, return disk/remaining size
 // Just returns the directories that have been set up
@@ -36,7 +42,8 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), InternalError<()>> {
             return Err(Error::new(
                 ErrorKind::DirectoryNotEmpty,
                 "Selected directory cannot contain any existing files",
-            ).into());
+            )
+            .into());
         }
     } else {
         create_dir_all(new_dir_path)?;
@@ -48,7 +55,8 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), InternalError<()>> {
         return Err(Error::new(
             ErrorKind::AlreadyExists,
             "Selected directory already exists in database",
-        ).into());
+        )
+        .into());
     }
     lock.applications.install_dirs.push(new_dir);
     drop(lock);

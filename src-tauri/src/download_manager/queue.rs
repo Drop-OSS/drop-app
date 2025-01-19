@@ -32,7 +32,7 @@ impl Queue {
     pub fn pop_front(&self) -> Option<DownloadableMetadata> {
         self.edit().pop_front()
     }
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.inner.lock().unwrap().len() == 0
     }
     pub fn exists(&self, meta: DownloadableMetadata) -> bool {
@@ -52,10 +52,7 @@ impl Queue {
     }
     pub fn pop_front_if_equal(&self, meta: &DownloadableMetadata) -> Option<DownloadableMetadata> {
         let mut queue = self.edit();
-        let front = match queue.front() {
-            Some(front) => front,
-            None => return None,
-        };
+        let front = queue.front()?;
         if front == meta {
             return queue.pop_front();
         }

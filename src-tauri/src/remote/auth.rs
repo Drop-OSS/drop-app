@@ -1,14 +1,16 @@
 use std::{env, sync::Mutex};
 
 use chrono::Utc;
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseAuth, DatabaseImpls},
+    database::db::{
+        borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseAuth, DatabaseImpls,
+    },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
