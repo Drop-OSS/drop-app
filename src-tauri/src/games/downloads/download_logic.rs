@@ -10,7 +10,7 @@ use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
-use std::io::Read;
+use std::io::{ErrorKind, Read};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -39,19 +39,17 @@ impl DropWriter<File> {
 // Write automatically pushes to file and hasher
 impl Write for DropWriter<File> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        /*
         self.hasher.write_all(buf).map_err(|e| {
             io::Error::new(
                 ErrorKind::Other,
                 format!("Unable to write to hasher: {}", e),
             )
         })?;
-         */
         self.destination.write(buf)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        // self.hasher.flush()?;
+        self.hasher.flush()?;
         self.destination.flush()
     }
 }
@@ -179,16 +177,15 @@ pub fn download_game_chunk(
         set_permissions(ctx.path.clone(), permissions).unwrap();
     }
 
-    /*
+    
     let checksum = pipeline
         .finish()
-        .map_err(|e| GameDownloadError::IoError(e))?;
+        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
 
     let res = hex::encode(checksum.0);
     if res != ctx.checksum {
-        return Err(GameDownloadError::Checksum);
+        return Err(ApplicationDownloadError::Checksum);
     }
-     */
 
     Ok(true)
 }
