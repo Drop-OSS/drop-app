@@ -326,12 +326,12 @@ async function install() {
       gameVersion: versionOptions.value[installVersionIndex.value].versionName,
       installDir: installDir.value,
     });
-    installLoading.value = false;
-
     installFlowOpen.value = false;
   } catch (error) {
     installError.value = (error as string).toString();
   }
+
+  installLoading.value = false;
 }
 
 async function launch() {
