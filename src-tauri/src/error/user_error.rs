@@ -5,6 +5,7 @@ use std::{
 
 use serde::Serialize;
 
+#[derive(Debug)]
 pub enum UserValue<T, D>
 where
     T: Serialize,
@@ -33,7 +34,6 @@ impl<T: Serialize, D: Display> From<Result<T, D>> for UserValue<T, D> {
         }
     }
 }
-
 impl<T: Serialize, D: Display> Try for UserValue<T, D> {
     type Output = T;
 

@@ -13,6 +13,7 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::library::{on_game_complete, push_game_update, GameUpdateEvent};
+use crate::remote::requests::make_request;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
@@ -264,8 +265,6 @@ impl GameDownloadAgent {
         let completed_indexes = Arc::new(boxcar::Vec::new());
         let completed_indexes_loop_arc = completed_indexes.clone();
 
-        let base_url = DB.fetch_base_url();
-
         let contexts = self.contexts.lock().unwrap();
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
@@ -283,7 +282,18 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let request = generate_request(&base_url, client, context);
+                // TODO: Error handling
+                let request = make_request(&client, &[
+                    "/api/v1/client/chunk"
+                ], &[
+                    ("id", &context.game_id),
+                    ("version", &context.version),
+                    ("name", &context.file_name),
+                    ("chunk", &context.index.to_string()),                    
+                ],
+                |r| {
+                    r.header("Authorization", generate_authorization_header())
+                }).unwrap();
 
                 scope.spawn(move |_| {
                     match download_game_chunk(context, &self.control_flag, progress_handle, request)
@@ -336,27 +346,6 @@ impl GameDownloadAgent {
 
         Ok(true)
     }
-}
-
-fn generate_request(
-    base_url: &url::Url,
-    client: reqwest::blocking::Client,
-    context: &DropDownloadContext,
-) -> reqwest::blocking::RequestBuilder {
-    let chunk_url = base_url
-        .join(&format!(
-            "/api/v1/client/chunk?id={}&version={}&name={}&chunk={}",
-            // Encode the parts we don't trust
-            context.game_id,
-            encode(&context.version),
-            encode(&context.file_name),
-            context.index
-        ))
-        .unwrap();
-
-    let header = generate_authorization_header();
-
-    client.get(chunk_url).header("Authorization", header)
 }
 
 impl Downloadable for GameDownloadAgent {

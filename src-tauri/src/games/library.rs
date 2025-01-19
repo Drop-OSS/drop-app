@@ -16,6 +16,7 @@ use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::process::process_manager::Platform;
 use crate::remote::auth::generate_authorization_header;
+use crate::remote::requests::make_request;
 use crate::{AppState, DB};
 
 #[derive(serde::Serialize)]
@@ -66,7 +67,7 @@ pub struct StatsUpdateEvent {
 }
 
 // Game version with some fields missing and size information
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GameVersionOption {
     version_index: usize,
@@ -137,17 +138,10 @@ pub fn fetch_game_logic(
 
         return Ok(data);
     }
-
-    let base_url = DB.fetch_base_url();
-
-    let endpoint = base_url.join(&format!("/api/v1/game/{}", id))?;
-    let header = generate_authorization_header();
-
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(endpoint.to_string())
-        .header("Authorization", header)
-        .send()?;
+    let response = make_request(&client, &["/api/v1/game/", &id],&[], |r| {
+        r.header("Authorization", generate_authorization_header())
+    })?.send()?;
 
     if response.status() == 404 {
         return Err(RemoteAccessError::GameNotFound);
@@ -184,25 +178,21 @@ pub fn fetch_game_verion_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
-    let base_url = DB.fetch_base_url();
-
-    let endpoint =
-        base_url.join(format!("/api/v1/client/game/versions?id={}", game_id).as_str())?;
-    let header = generate_authorization_header();
-
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(endpoint.to_string())
-        .header("Authorization", header)
-        .send()?;
+    
+    let response = make_request(&client, &["/api/v1/client/game/versions"], &[("id", &game_id)], |r| {
+        r.header("Authorization", generate_authorization_header())
+    })?.send()?;
 
     if response.status() != 200 {
         let err = response.json().unwrap();
         warn!("{:?}", err);
         return Err(RemoteAccessError::InvalidResponse(err));
     }
+    let text = response.text().unwrap();
+    println!("JSON Text: {}", text);
 
-    let data: Vec<GameVersionOption> = response.json()?;
+    let data: Vec<GameVersionOption> = serde_json::from_str(&text).unwrap();
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
