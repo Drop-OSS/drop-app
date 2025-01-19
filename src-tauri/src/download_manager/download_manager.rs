@@ -8,7 +8,7 @@ use std::{
     thread::JoinHandle,
 };
 
-use log::info;
+use log::{debug, info};
 use serde::Serialize;
 
 use crate::error::application_download_error::ApplicationDownloadError;
@@ -109,7 +109,7 @@ impl DownloadManager {
         &self,
         download: DownloadAgent,
     ) -> Result<(), SendError<DownloadManagerSignal>> {
-        info!("Adding download id {:?}", download.metadata());
+        info!("creating download with meta {:?}", download.metadata());
         self.command_sender
             .send(DownloadManagerSignal::Queue(download))?;
         self.command_sender.send(DownloadManagerSignal::Go)
@@ -150,12 +150,11 @@ impl DownloadManager {
                 .unwrap();
         }
 
-        info!("moving {} to {}", current_index, new_index);
+        debug!("moving download at index {} to index {}", current_index, new_index);
 
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();
         queue.insert(new_index, to_move);
-        info!("new queue: {:?}", queue);
         drop(queue);
 
         if needs_pause {

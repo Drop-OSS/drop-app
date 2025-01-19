@@ -83,10 +83,8 @@ impl GameDownloadAgent {
     // Blocking
     pub fn setup_download(&self) -> Result<(), ApplicationDownloadError> {
         self.ensure_manifest_exists()?;
-        info!("Ensured manifest exists");
 
         self.ensure_contexts()?;
-        info!("Ensured contexts exists");
 
         self.control_flag.set(DownloadThreadControlFlag::Go);
 
@@ -95,11 +93,8 @@ impl GameDownloadAgent {
 
     // Blocking
     pub fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
-        info!("Setting up download");
         self.setup_download()?;
-        info!("Setting progress object params");
         self.set_progress_object_params();
-        info!("Running");
         let timer = Instant::now();
         push_game_update(
             app_handle,
@@ -115,7 +110,7 @@ impl GameDownloadAgent {
             .run()
             .map_err(|_| ApplicationDownloadError::DownloadError);
 
-        info!(
+        debug!(
             "{} took {}ms to download",
             self.id,
             timer.elapsed().as_millis()
@@ -253,7 +248,7 @@ impl GameDownloadAgent {
     pub fn run(&self) -> Result<bool, ()> {
         let max_download_threads = DB.borrow_data().unwrap().settings.max_download_threads;
 
-        info!(
+        debug!(
             "downloading game: {} with {} threads",
             self.id, max_download_threads
         );
@@ -323,20 +318,15 @@ impl GameDownloadAgent {
             completed_contexts_lock.len()
         };
 
-        info!("Got newly completed");
 
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != contexts.len() {
-            info!("da for {} exited without completing", self.id.clone());
+            info!("download agent for {} exited without completing", self.id.clone());
             self.stored_manifest
                 .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
-            info!("Setting completed contexts");
             self.stored_manifest.write();
-            info!("Wrote completed contexts");
             return Ok(false);
         }
-
-        info!("Sending completed signal");
 
         // We've completed
         self.sender

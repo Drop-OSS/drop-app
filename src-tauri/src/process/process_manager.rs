@@ -316,9 +316,6 @@ impl ProcessManager<'_> {
         });
 
         self.processes.insert(meta.id, wait_thread_handle);
-
-        info!("finished spawning process");
-
         Ok(())
     }
 }

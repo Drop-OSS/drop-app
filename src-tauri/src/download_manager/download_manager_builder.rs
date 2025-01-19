@@ -7,7 +7,7 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
@@ -179,13 +179,13 @@ impl DownloadManagerBuilder {
         }
     }
     fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
-        info!("Got signal Queue");
+        debug!("Got signal Queue");
         let meta = download_agent.metadata();
 
-        info!("Meta: {:?}", meta);
+        debug!("Queue metadata: {:?}", meta);
 
         if self.download_queue.exists(meta.clone()) {
-            info!("Download with same ID already exists");
+            warn!("Download with same ID already exists");
             return;
         }
 
@@ -199,9 +199,9 @@ impl DownloadManagerBuilder {
     }
 
     fn manage_go_signal(&mut self) {
-        info!("Got signal Go");
+        debug!("Got signal Go");
         if self.download_agent_registry.is_empty() {
-            info!(
+            debug!(
                 "Download agent registry: {:?}",
                 self.download_agent_registry.len()
             );
@@ -209,19 +209,19 @@ impl DownloadManagerBuilder {
         }
 
         if self.current_download_agent.is_some() {
-            info!(
+            debug!(
                 "Current download agent: {:?}",
                 self.current_download_agent.as_ref().unwrap().metadata()
             );
             return;
         }
 
-        info!("Current download queue: {:?}", self.download_queue.read());
+        debug!("current download queue: {:?}", self.download_queue.read());
 
         // Should always be Some if the above two statements keep going
         let agent_data = self.download_queue.read().front().unwrap().clone();
 
-        info!("Starting download for {:?}", agent_data);
+        info!("starting download for {:?}", agent_data);
 
         let download_agent = self
             .download_agent_registry
@@ -265,7 +265,7 @@ impl DownloadManagerBuilder {
         active_control_flag.set(DownloadThreadControlFlag::Go);
     }
     fn manage_stop_signal(&mut self) {
-        info!("Got signal Stop");
+        debug!("Got signal Stop");
 
         if let Some(active_control_flag) = self.active_control_flag.clone() {
             self.set_status(DownloadManagerStatus::Paused);
@@ -273,10 +273,9 @@ impl DownloadManagerBuilder {
         }
     }
     fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
-        info!("Got signal Completed");
+        debug!("got signal Completed");
         if let Some(interface) = &self.current_download_agent {
             if interface.metadata() == meta {
-                info!("Popping consumed data");
                 self.remove_and_cleanup_front_download(&meta);
             }
         }
@@ -284,7 +283,7 @@ impl DownloadManagerBuilder {
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
     fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
-        info!("Got signal Error");
+        debug!("got signal Error");
         let current_agent = self.current_download_agent.clone().unwrap();
 
         current_agent.on_error(&self.app_handle, error.clone());
@@ -295,7 +294,7 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Error(error));
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
-        info!("Got signal Cancel");
+        debug!("got signal Cancel");
 
         if let Some(current_download) = &self.current_download_agent {
             if &current_download.metadata() == meta {
@@ -306,32 +305,30 @@ impl DownloadManagerBuilder {
                 self.download_queue.pop_front();
 
                 self.cleanup_current_download();
-                info!("Current donwload queue: {:?}", self.download_queue.read());
+                debug!("Current download queue: {:?}", self.download_queue.read());
             }
             // TODO: Collapse these two into a single if statement somehow
             else if let Some(download_agent) = self.download_agent_registry.get(meta) {
-                info!("Object exists in registry");
                 let index = self.download_queue.get_by_meta(meta);
                 if let Some(index) = index {
                     download_agent.on_cancelled(&self.app_handle);
                     let _ = self.download_queue.edit().remove(index).unwrap();
                     let removed = self.download_agent_registry.remove(meta);
-                    info!(
-                        "Removed {:?} from queue {:?}",
+                    debug!(
+                        "removed {:?} from queue {:?}",
                         removed.map(|x| x.metadata()),
                         self.download_queue.read()
                     );
                 }
             }
         } else if let Some(download_agent) = self.download_agent_registry.get(meta) {
-            info!("Object exists in registry");
             let index = self.download_queue.get_by_meta(meta);
             if let Some(index) = index {
                 download_agent.on_cancelled(&self.app_handle);
                 let _ = self.download_queue.edit().remove(index).unwrap();
                 let removed = self.download_agent_registry.remove(meta);
-                info!(
-                    "Removed {:?} from queue {:?}",
+                debug!(
+                    "removed {:?} from queue {:?}",
                     removed.map(|x| x.metadata()),
                     self.download_queue.read()
                 );

@@ -221,7 +221,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
     let previous_state = db_handle.applications.game_statuses.get(&meta.id).cloned();
     if previous_state.is_none() {
-        info!("uninstall job doesn't have previous state, failing silently");
+        warn!("uninstall job doesn't have previous state, failing silently");
         return;
     }
     let previous_state = previous_state.unwrap();
@@ -259,7 +259,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 drop(db_handle);
                 DB.save().unwrap();
 
-                info!("uninstalled game id {}", &meta.id);
+                debug!("uninstalled game id {}", &meta.id);
 
                 push_game_update(
                     &app_handle,

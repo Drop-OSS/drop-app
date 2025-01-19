@@ -190,7 +190,7 @@ fn handle_invalid_database(
         base.set_file_name(format!("drop.db.backup-{}", time.to_string()));
         base
     };
-    info!("{:?}", new_path);
+    info!("old database stored at: {}", new_path.to_string_lossy().to_string());
     fs::rename(&db_path, &new_path).unwrap();
 
     let db = Database::new(

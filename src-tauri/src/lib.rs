@@ -180,7 +180,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     drop(db_handle);
 
-    info!("finished setup!");
+    debug!("finished setup!");
 
     // Sync autostart state
     if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
@@ -259,14 +259,14 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             let state = setup(handle);
-            info!("initialized drop client");
+            debug!("initialized drop client");
             app.manage(Mutex::new(state));
 
             #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
                 app.deep_link().register_all()?;
-                info!("registered all pre-defined deep links");
+                debug!("registered all pre-defined deep links");
             }
 
             let handle = app.handle().clone();
@@ -286,7 +286,7 @@ pub fn run() {
             .unwrap();
 
             app.deep_link().on_open_url(move |event| {
-                info!("handling drop:// url");
+                debug!("handling drop:// url");
                 let binding = event.urls();
                 let url = binding.first().unwrap();
                 if url.host_str().unwrap() == "handshake" {
