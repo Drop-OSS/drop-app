@@ -1,8 +1,8 @@
 <template>
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
+    <ModalStack />
   </NuxtLayout>
-  <ModalStack />
 </template>
 
 <script setup lang="ts">

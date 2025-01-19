@@ -83,7 +83,8 @@
           />
         </div>
         <p class="mt-2 text-sm text-zinc-400">
-          The maximum number of concurrent download threads. Higher values may download faster but use more system resources. Default is 4.
+          The maximum number of concurrent download threads. Higher values may
+          download faster but use more system resources. Default is 4.
         </p>
       </div>
 
@@ -219,7 +220,8 @@ const createDirectoryLoading = ref(false);
 
 const dirs = ref<Array<string>>([]);
 
-const downloadThreads = ref(((await invoke("fetch_settings")) as Settings).maxDownloadThreads ?? 0);
+const settings = await invoke<Settings>("fetch_settings");
+const downloadThreads = ref(settings?.maxDownloadThreads ?? 4);
 
 async function updateDirs() {
   const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");
@@ -279,6 +281,8 @@ async function deleteDirectory(index: number) {
 
 async function saveDownloadThreads() {
   //Would save download threads downloadThreads.value);
-  await invoke("update_settings", { newSettings: { maxDownloadThreads: downloadThreads.value } })
+  await invoke("update_settings", {
+    newSettings: { maxDownloadThreads: downloadThreads.value },
+  });
 }
 </script>
