@@ -5,7 +5,7 @@ use std::{
 };
 
 use http::StatusCode;
-use log::{info, warn};
+use log::{debug, info, warn};
 use serde::Deserialize;
 use url::{ParseError, Url};
 
