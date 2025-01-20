@@ -1,7 +1,8 @@
 use std::{
     collections::HashMap,
     fs::{self, create_dir_all},
-    path::PathBuf,
+    hash::Hash,
+    path::{Path, PathBuf},
     sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -91,10 +92,18 @@ impl Database {
         Self {
             applications: DatabaseApplications {
                 install_dirs: vec![games_base_dir.into()],
-                ..Default::default()
+                game_statuses: HashMap::new(),
+                game_versions: HashMap::new(),
+                installed_game_version: HashMap::new(),
+                transient_statuses: HashMap::new(),
             },
             prev_database,
-            ..Default::default()
+            base_url: "".to_owned(),
+            auth: None,
+            settings: Settings {
+                autostart: false,
+                max_download_threads: 4,
+            },
         }
     }
 }

@@ -242,7 +242,7 @@
         "
         :loading="installLoading"
         type="submit"
-        class="w-full sm:w-fit"
+        class="ml-2 w-full sm:w-fit"
       >
         Install
       </LoadingButton>

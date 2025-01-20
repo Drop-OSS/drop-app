@@ -46,6 +46,7 @@ use remote::auth::{self, generate_authorization_header, recieve_handshake};
 use remote::commands::{
     auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
 };
+use remote::requests::make_request;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -355,23 +356,16 @@ pub fn run() {
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
-            let base_url = DB.fetch_base_url();
-
             // Drop leading /
             let object_id = &request.uri().path()[1..];
 
-            let object_url = base_url
-                .join("/api/v1/client/object/")
-                .unwrap()
-                .join(object_id)
-                .unwrap();
-
             let header = generate_authorization_header();
             let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
-            let response = client
-                .get(object_url.to_string())
-                .header("Authorization", header)
-                .send();
+            let response = make_request(&client, &["/api/v1/client/object/", object_id], &[], |f| {
+                f.header("Authorization", header)
+            })
+            .unwrap()
+            .send();
             if response.is_err() {
                 warn!(
                     "failed to fetch object with error: {}",

@@ -48,9 +48,7 @@ export function initialNavigation(state: Ref<AppState>) {
 
   switch (state.value.status) {
     case AppStatus.NotConfigured:
-      router.push({ path: "/setup" }).then(() => {
-        console.log("Pushed Setup");
-      });
+      router.push({ path: "/setup" });
       break;
     case AppStatus.SignedOut:
       router.push("/auth");

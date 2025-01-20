@@ -23,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<256>,
+    rolling: RollingProgressWindow<250>,
 }
 
 pub struct ProgressHandle {
@@ -45,6 +45,15 @@ impl ProgressHandle {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
         calculate_update(&self.progress_object);
+    }
+    pub fn skip(&self, amount: usize) {
+        self.progress
+            .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
+        // Offset the bytes at last offset by this amount
+        self.progress_object
+            .bytes_last_update
+            .fetch_add(amount, Ordering::Relaxed);
+        // Dont' fire update
     }
 }
 
@@ -97,15 +106,15 @@ impl ProgressObject {
 }
 
 #[throttle(1, Duration::from_millis(20))]
-pub fn calculate_update(progress_object: &ProgressObject) {
-    let last_update_time = progress_object
+pub fn calculate_update(progress: &ProgressObject) {
+    let last_update_time = progress
         .last_update_time
         .swap(Instant::now(), Ordering::SeqCst);
     let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis();
 
-    let current_bytes_downloaded = progress_object.sum();
-    let max = progress_object.get_max();
-    let bytes_at_last_update = progress_object
+    let current_bytes_downloaded = progress.sum();
+    let max = progress.get_max();
+    let bytes_at_last_update = progress
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Relaxed);
 
@@ -115,8 +124,8 @@ pub fn calculate_update(progress_object: &ProgressObject) {
 
     let bytes_remaining = max - current_bytes_downloaded; // bytes
 
-    progress_object.update_window(kilobytes_per_second);
-    push_update(progress_object, bytes_remaining);
+    progress.update_window(kilobytes_per_second);
+    push_update(progress, bytes_remaining);
 }
 
 #[throttle(1, Duration::from_millis(500))]

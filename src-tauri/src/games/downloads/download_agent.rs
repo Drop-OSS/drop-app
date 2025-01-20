@@ -127,25 +127,17 @@ impl GameDownloadAgent {
     }
 
     fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
-        let base_url = DB.fetch_base_url();
-        let manifest_url = base_url
-            .join(
-                format!(
-                    "/api/v1/client/game/manifest?id={}&version={}",
-                    self.id,
-                    encode(&self.version)
-                )
-                .as_str(),
-            )
-            .unwrap();
-
         let header = generate_authorization_header();
         let client = reqwest::blocking::Client::new();
-        let response = client
-            .get(manifest_url.to_string())
-            .header("Authorization", header)
-            .send()
-            .unwrap();
+        let response = make_request(
+            &client,
+            &["/api/v1/client/game/manifest"],
+            &[("id", &self.id), ("version", &self.version)],
+            |f| f.header("Authorization", header),
+        )
+        .map_err(|e| ApplicationDownloadError::Communication(e))?
+        .send()
+        .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
         if response.status() != 200 {
             return Err(ApplicationDownloadError::Communication(
@@ -266,9 +258,10 @@ impl GameDownloadAgent {
 
                 let progress = self.progress.get(index);
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
+
                 // If we've done this one already, skip it
                 if self.completed_contexts.lock().unwrap().contains(&index) {
-                    progress_handle.add(context.length);
+                    progress_handle.skip(context.length);
                     continue;
                 }
 
@@ -319,8 +312,10 @@ impl GameDownloadAgent {
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != contexts.len() {
             info!(
-                "download agent for {} exited without completing",
-                self.id.clone()
+                "download agent for {} exited without completing ({}/{})",
+                self.id.clone(),
+                completed_lock_len,
+                contexts.len(),
             );
             self.stored_manifest
                 .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
@@ -385,6 +380,7 @@ impl Downloadable for GameDownloadAgent {
         .unwrap();
     }
 
+    // TODO: fix this function. It doesn't restart the download properly, nor does it reset the state properly
     fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
         let meta = self.metadata();
         *self.status.lock().unwrap() = DownloadStatus::Queued;

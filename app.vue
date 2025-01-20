@@ -20,10 +20,18 @@ import {
 const router = useRouter();
 
 const state = useAppState();
-state.value = JSON.parse(await invoke("fetch_state"));
+try {
+  state.value = JSON.parse(await invoke("fetch_state"));
+} catch (e) {
+  console.error("failed to parse state", e);
+}
 
 router.beforeEach(async () => {
-  state.value = JSON.parse(await invoke("fetch_state"));
+  try {
+    state.value = JSON.parse(await invoke("fetch_state"));
+  } catch (e) {
+    console.error("failed to parse state", e);
+  }
 });
 
 setupHooks();

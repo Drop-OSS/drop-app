@@ -15,6 +15,8 @@ use crate::{
     AppState, AppStatus, User, DB,
 };
 
+use super::requests::make_request;
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct InitiateRequestBody {
@@ -67,16 +69,15 @@ pub fn generate_authorization_header() -> String {
 pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let base_url = DB.fetch_base_url();
 
-    let endpoint = base_url.join("/api/v1/client/user")?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(endpoint.to_string())
-        .header("Authorization", header)
-        .send()?;
+    let response = make_request(&client, &["/api/v1/client/user"], &[], |f| {
+        f.header("Authorization", header)
+    })?
+    .send()?;
     if response.status() != 200 {
-        let err: DropServerError = response.json().unwrap();
+        let err: DropServerError = response.json()?;
         warn!("{:?}", err);
 
         if err.status_message == "Nonce expired" {

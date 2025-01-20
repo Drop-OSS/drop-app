@@ -350,6 +350,8 @@ impl DownloadManagerBuilder {
                     meta: DownloadableMetadata::clone(key),
                     status: val.status(),
                     progress: val.progress().get_progress(),
+                    current: val.progress().sum(),
+                    max: val.progress().get_max(),
                 }
             })
             .collect();

@@ -2,7 +2,13 @@ import { listen } from "@tauri-apps/api/event";
 import type { DownloadableMetadata } from "~/types";
 
 export type QueueState = {
-  queue: Array<{ meta: DownloadableMetadata; status: string; progress: number | null }>;
+  queue: Array<{
+    meta: DownloadableMetadata;
+    status: string;
+    progress: number | null;
+    current: number;
+    max: number;
+  }>;
   status: string;
 };
 

@@ -133,7 +133,6 @@ pub fn download_game_chunk(
 
     if response.status() != 200 {
         let err = response.json().unwrap();
-        warn!("{:?}", err);
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse(err),
         ));

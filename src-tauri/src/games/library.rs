@@ -53,6 +53,8 @@ pub struct QueueUpdateEventQueueData {
     pub meta: DownloadableMetadata,
     pub status: DownloadStatus,
     pub progress: f64,
+    pub current: usize,
+    pub max: usize,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -81,16 +83,13 @@ pub struct GameVersionOption {
 }
 
 pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
-    let base_url = DB.fetch_base_url();
-    let library_url = base_url.join("/api/v1/client/user/library")?;
-
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(library_url.to_string())
-        .header("Authorization", header)
-        .send()?;
+    let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
+        f.header("Authorization", header)
+    })?
+    .send()?;
 
     if response.status() != 200 {
         let err = response.json().unwrap();
@@ -290,26 +289,23 @@ pub fn on_game_complete(
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
-    let base_url = DB.fetch_base_url();
     if meta.version.is_none() {
         return Err(RemoteAccessError::GameNotFound);
     }
 
-    let endpoint = base_url.join(
-        format!(
-            "/api/v1/client/metadata/version?id={}&version={}",
-            meta.id,
-            encode(meta.version.as_ref().unwrap())
-        )
-        .as_str(),
-    )?;
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
-    let response = client
-        .get(endpoint.to_string())
-        .header("Authorization", header)
-        .send()?;
+    let response = make_request(
+        &client,
+        &["/api/v1/client/metadata/version"],
+        &[
+            ("id", &meta.id),
+            ("version", meta.version.as_ref().unwrap()),
+        ],
+        |f| f.header("Authorization", header),
+    )?
+    .send()?;
 
     let data: GameVersion = response.json()?;
 
