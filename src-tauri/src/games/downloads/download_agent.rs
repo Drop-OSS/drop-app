@@ -303,7 +303,7 @@ impl GameDownloadAgent {
         let completed_lock_len = {
             let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
             for (_, item) in newly_completed.iter() {
-                completed_contexts_lock.push_front(item);
+                completed_contexts_lock.push_front(*item);
             }
 
             completed_contexts_lock.len()
