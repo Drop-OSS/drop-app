@@ -6,18 +6,16 @@ use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use urlencoding::encode;
 
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, GameVersion};
-use crate::database::db::{ApplicationTransientStatus, DatabaseImpls, GameDownloadStatus};
+use crate::database::db::{ApplicationTransientStatus, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
-use crate::process::process_manager::Platform;
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::requests::make_request;
-use crate::{AppState, DB};
+use crate::AppState;
 
 #[derive(serde::Serialize)]
 pub struct FetchGameStruct {
@@ -66,30 +64,6 @@ pub struct QueueUpdateEvent {
 pub struct StatsUpdateEvent {
     pub speed: usize,
     pub time: usize,
-}
-
-// Game version with some fields missing and size information
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct GameVersionOption {
-    game_id: String,
-    version_name: String,
-
-    platform: Platform,
-
-    launch_command: String,
-    launch_args: Vec<String>,
-
-    setup_command: String,
-    setup_args: Vec<String>,
-
-    only_setup: bool,
-
-    version_index: usize,
-    delta: bool,
-
-    umu_id_override: Option<String>,
-    // total_size: usize,
 }
 
 pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
@@ -187,7 +161,7 @@ pub fn fetch_game_logic(
 pub fn fetch_game_verion_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersionOption>, RemoteAccessError> {
+) -> Result<Vec<GameVersion>, RemoteAccessError> {
     let client = reqwest::blocking::Client::new();
 
     let response = make_request(
@@ -204,11 +178,11 @@ pub fn fetch_game_verion_options_logic(
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let data: Vec<GameVersionOption> = response.json()?;
+    let data: Vec<GameVersion> = response.json()?;
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
-    let data: Vec<GameVersionOption> = data
+    let data: Vec<GameVersion> = data
         .into_iter()
         .filter(|v| process_manager_lock.valid_platform(&v.platform).unwrap())
         .collect();

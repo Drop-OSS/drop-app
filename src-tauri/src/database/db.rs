@@ -57,13 +57,23 @@ pub enum ApplicationTransientStatus {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GameVersion {
-    pub version_index: usize,
+    pub game_id: String,
     pub version_name: String,
+
+    pub platform: Platform,
+
     pub launch_command: String,
     pub launch_args: Vec<String>,
+
     pub setup_command: String,
     pub setup_args: Vec<String>,
-    pub platform: Platform,
+
+    pub only_setup: bool,
+
+    pub version_index: usize,
+    pub delta: bool,
+
+    pub umu_id_override: Option<String>,
 }
 
 #[serde_as]

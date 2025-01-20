@@ -16,7 +16,7 @@ use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
     database::db::{
-        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, DATA_ROOT_DIR,
+        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, GameVersion, DATA_ROOT_DIR
     },
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
@@ -66,10 +66,6 @@ impl ProcessManager<'_> {
         }
     }
 
-    // There's no easy way to distinguish between an executable name with
-    // spaces and it's arguments.
-    // I think if we just join the install_dir to whatever the user provides us, we'll be alright
-    // In future, we should have a separate field for executable name and it's arguments
     fn process_command(&self, install_dir: &String, command: Vec<String>) -> (PathBuf, Vec<String>) {
         let root = &command[0];
 
@@ -194,11 +190,7 @@ impl ProcessManager<'_> {
             GameDownloadStatus::Installed {
                 version_name,
                 install_dir,
-<<<<<<< Updated upstream
-            } => Some((version_name, install_dir)),
-=======
             } => (version_name, install_dir),
->>>>>>> Stashed changes
             GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,
@@ -222,18 +214,19 @@ impl ProcessManager<'_> {
                 version_name: _,
                 install_dir: _,
             } => {
-                command.extend_one(game_version.launch_command);
-                command.extend(game_version.launch_args);
+                command.extend([game_version.launch_command.clone()]);
+                command.extend(game_version.launch_args.clone());
             },
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
             } => {
-                command.extend_one(game_version.setup_command);
-                command.extend(game_version.setup_args);
+                command.extend([game_version.setup_command.clone()]);
+                command.extend(game_version.setup_args.clone());
             },
             _ => panic!("unreachable code"),
         };
+        info!("Command: {:?}", &command);
 
         let (command, args) = self.process_command(install_dir, command);
 
@@ -283,8 +276,7 @@ impl ProcessManager<'_> {
         let launch_process = game_launcher
             .launch_process(
                 &meta,
-                command.to_str().unwrap().to_owned(),
-                args,
+                game_version,
                 target_current_dir,
                 log_file,
                 error_file,
@@ -339,8 +331,7 @@ pub trait ProcessHandler: Send + 'static {
     fn launch_process(
         &self,
         meta: &DownloadableMetadata,
-        command: String,
-        args: Vec<String>,
+        game_version: &GameVersion,
         current_dir: &str,
         log_file: File,
         error_file: File,
@@ -352,17 +343,16 @@ impl ProcessHandler for NativeGameLauncher {
     fn launch_process(
         &self,
         _meta: &DownloadableMetadata,
-        command: String,
-        args: Vec<String>,
+        game_version: &GameVersion,
         current_dir: &str,
         log_file: File,
         error_file: File,
     ) -> Result<Child, Error> {
-        Command::new(command)
+        Command::new(game_version.launch_command.clone())
             .current_dir(current_dir)
             .stdout(log_file)
             .stderr(error_file)
-            .args(args)
+            .args(game_version.launch_args.clone())
             .spawn()
     }
 }
@@ -373,15 +363,14 @@ impl ProcessHandler for UMULauncher {
     fn launch_process(
         &self,
         _meta: &DownloadableMetadata,
-        command: String,
-        args: Vec<String>,
+        game_version: &GameVersion,
         _current_dir: &str,
         _log_file: File,
         _error_file: File,
     ) -> Result<Child, Error> {
-        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, command)
-            .game_id(String::from("0"))
-            .launch_args(args)
+        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, game_version.launch_command.clone())
+            .game_id(String::from(game_version.umu_id_override.clone().unwrap_or(game_version.game_id.clone())))
+            .launch_args(game_version.launch_args.clone())
             .build()
             .spawn()
     }
