@@ -60,7 +60,9 @@ pub struct GameVersion {
     pub version_index: usize,
     pub version_name: String,
     pub launch_command: String,
+    pub launch_args: Vec<String>,
     pub setup_command: String,
+    pub setup_args: Vec<String>,
     pub platform: Platform,
 }
 

@@ -70,8 +70,8 @@ impl ProcessManager<'_> {
     // spaces and it's arguments.
     // I think if we just join the install_dir to whatever the user provides us, we'll be alright
     // In future, we should have a separate field for executable name and it's arguments
-    fn process_command(&self, install_dir: &String, raw_command: String) -> (PathBuf, Vec<String>) {
-        let root = raw_command;
+    fn process_command(&self, install_dir: &String, command: Vec<String>) -> (PathBuf, Vec<String>) {
+        let root = &command[0];
 
         let install_dir = Path::new(install_dir);
         let absolute_exe = install_dir.join(root);
@@ -190,23 +190,22 @@ impl ProcessManager<'_> {
             .get(&game_id)
             .ok_or(ProcessError::NotInstalled)?;
 
-        let status_metadata: Option<(&String, &String)> = match game_status {
+        let (version_name, install_dir) = match game_status {
             GameDownloadStatus::Installed {
                 version_name,
                 install_dir,
+<<<<<<< Updated upstream
             } => Some((version_name, install_dir)),
+=======
+            } => (version_name, install_dir),
+>>>>>>> Stashed changes
             GameDownloadStatus::SetupRequired {
                 version_name,
                 install_dir,
-            } => Some((version_name, install_dir)),
-            _ => None,
+            } => (version_name, install_dir),
+            _ => return Err(ProcessError::NotDownloaded),
         };
 
-        if status_metadata.is_none() {
-            return Err(ProcessError::NotDownloaded);
-        }
-
-        let (version_name, install_dir) = status_metadata.unwrap();
 
         let game_version = db_lock
             .applications
@@ -216,19 +215,27 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
-        let raw_command: String = match game_status {
+        let mut command: Vec<String> = Vec::new();
+
+        match game_status {
             GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir: _,
-            } => game_version.launch_command.clone(),
+            } => {
+                command.extend_one(game_version.launch_command);
+                command.extend(game_version.launch_args);
+            },
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
-            } => game_version.setup_command.clone(),
+            } => {
+                command.extend_one(game_version.setup_command);
+                command.extend(game_version.setup_args);
+            },
             _ => panic!("unreachable code"),
         };
 
-        let (command, args) = self.process_command(install_dir, raw_command);
+        let (command, args) = self.process_command(install_dir, command);
 
         let target_current_dir = command.parent().unwrap().to_str().unwrap();
 

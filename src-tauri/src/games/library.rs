@@ -72,12 +72,22 @@ pub struct StatsUpdateEvent {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GameVersionOption {
-    version_index: usize,
+    game_id: String,
     version_name: String,
+
     platform: Platform,
-    setup_command: String,
+
     launch_command: String,
+    launch_args: Vec<String>,
+
+    setup_command: String,
+    setup_args: Vec<String>,
+
+    only_setup: bool,
+
+    version_index: usize,
     delta: bool,
+
     umu_id_override: Option<String>,
     // total_size: usize,
 }
