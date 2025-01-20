@@ -267,8 +267,7 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                // TODO: Error handling
-                let request = make_request(
+                let request = match make_request(
                     &client,
                     &["/api/v1/client/chunk"],
                     &[
@@ -278,8 +277,13 @@ impl GameDownloadAgent {
                         ("chunk", &context.index.to_string()),
                     ],
                     |r| r.header("Authorization", generate_authorization_header()),
-                )
-                .unwrap();
+                ) {
+                    Ok(request) => request,
+                    Err(e) => {
+                        sender.send(DownloadManagerSignal::Error(ApplicationDownloadError::Communication(e))).unwrap();
+                        continue;
+                    },
+                };
 
                 scope.spawn(move |_| {
                     match download_game_chunk(context, &self.control_flag, progress_handle, request)
