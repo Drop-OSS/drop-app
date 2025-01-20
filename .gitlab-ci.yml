@@ -16,7 +16,7 @@ build-linux:
     - cp src-tauri/target/release/bundle/appimage/*.AppImage .
   artifacts:
     paths:
-      - "*.{deb,rpm}"
+      - "*.{deb,rpm,AppImage}"
 
 build-windows:
   stage: build
