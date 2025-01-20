@@ -276,6 +276,7 @@ impl ProcessManager<'_> {
         let launch_process = game_launcher
             .launch_process(
                 &meta,
+                command.to_string_lossy().to_string(),
                 game_version,
                 target_current_dir,
                 log_file,
@@ -331,6 +332,7 @@ pub trait ProcessHandler: Send + 'static {
     fn launch_process(
         &self,
         meta: &DownloadableMetadata,
+        launch_command: String,
         game_version: &GameVersion,
         current_dir: &str,
         log_file: File,
@@ -343,12 +345,13 @@ impl ProcessHandler for NativeGameLauncher {
     fn launch_process(
         &self,
         _meta: &DownloadableMetadata,
+        launch_command: String,
         game_version: &GameVersion,
         current_dir: &str,
         log_file: File,
         error_file: File,
     ) -> Result<Child, Error> {
-        Command::new(game_version.launch_command.clone())
+        Command::new(PathBuf::from(launch_command))
             .current_dir(current_dir)
             .stdout(log_file)
             .stderr(error_file)
@@ -363,13 +366,20 @@ impl ProcessHandler for UMULauncher {
     fn launch_process(
         &self,
         _meta: &DownloadableMetadata,
+        launch_command: String,
         game_version: &GameVersion,
         _current_dir: &str,
         _log_file: File,
         _error_file: File,
     ) -> Result<Child, Error> {
-        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, game_version.launch_command.clone())
-            .game_id(String::from(game_version.umu_id_override.clone().unwrap_or(game_version.game_id.clone())))
+        println!("Game override: .{:?}.", &game_version.umu_id_override);
+        let game_id = match &game_version.umu_id_override {
+            Some(game_override) => game_override.is_empty().then_some(game_version.game_id.clone()).unwrap_or(game_override.clone()) ,
+            None => game_version.game_id.clone()
+        };
+        info!("Game ID: {}", game_id);
+        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, launch_command)
+            .game_id(game_id)
             .launch_args(game_version.launch_args.clone())
             .build()
             .spawn()
