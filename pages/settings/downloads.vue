@@ -79,6 +79,8 @@
             min="1"
             max="32"
             v-model="downloadThreads"
+            @keypress="validateNumberInput"
+            @paste="validatePaste"
             class="block w-full rounded-md border-0 py-1.5 text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 bg-zinc-800 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
           />
         </div>
@@ -92,9 +94,16 @@
         <button
           type="button"
           @click="saveDownloadThreads"
-          class="inline-flex items-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:bg-blue-600/50 disabled:cursor-not-allowed"
+          :disabled="saveState.loading"
+          :class="[
+            'inline-flex items-center rounded-md px-3 py-2 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 transition-colors duration-300',
+            saveState.success 
+              ? 'bg-green-600 hover:bg-green-500 focus-visible:outline-green-600'
+              : 'bg-blue-600 hover:bg-blue-500 focus-visible:outline-blue-600',
+            'disabled:bg-blue-600/50 disabled:cursor-not-allowed'
+          ]"
         >
-          Save Changes
+          {{ saveState.success ? 'Saved' : 'Save Changes' }}
         </button>
       </div>
     </div>
@@ -223,6 +232,11 @@ const dirs = ref<Array<string>>([]);
 const settings = await invoke<Settings>("fetch_settings");
 const downloadThreads = ref(settings?.maxDownloadThreads ?? 4);
 
+const saveState = reactive({
+  loading: false,
+  success: false
+});
+
 async function updateDirs() {
   const newDirs = await invoke<Array<string>>("fetch_download_dir_stats");
   dirs.value = newDirs;
@@ -280,9 +294,40 @@ async function deleteDirectory(index: number) {
 }
 
 async function saveDownloadThreads() {
-  //Would save download threads downloadThreads.value);
-  await invoke("update_settings", {
-    newSettings: { maxDownloadThreads: downloadThreads.value },
-  });
+  try {
+    saveState.loading = true;
+    await invoke("update_settings", {
+      newSettings: { maxDownloadThreads: downloadThreads.value },
+    });
+    
+    // Show success state
+    saveState.success = true;
+    
+    // Reset back to normal state after 2 seconds
+    setTimeout(() => {
+      saveState.success = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Failed to save settings:', error);
+  } finally {
+    saveState.loading = false;
+  }
+}
+
+function validateNumberInput(event: KeyboardEvent) {
+  // Allow only numbers and basic control keys
+  if (!/^\d$/.test(event.key) && 
+      !['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+    event.preventDefault();
+  }
+}
+
+function validatePaste(event: ClipboardEvent) {
+  // Prevent paste if content contains non-numeric characters
+  const pastedData = event.clipboardData?.getData('text');
+  if (pastedData && !/^\d+$/.test(pastedData)) {
+    event.preventDefault();
+  }
 }
 </script>
