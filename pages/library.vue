@@ -31,7 +31,7 @@
       </ul>
     </div>
     <div class="grow overflow-y-auto">
-      <NuxtPage />
+      <NuxtPage :libraryDownloadError = "libraryDownloadError" />
     </div>
   </div>
 </template>
@@ -40,7 +40,19 @@
 import { invoke } from "@tauri-apps/api/core";
 import { GameStatusEnum, type Game, type NavigationItem } from "~/types";
 
-const rawGames: Array<Game> = await invoke("fetch_library");
+let libraryDownloadError = false;
+
+async function calculateGames(): Promise<Game[]> {
+  try {
+    return await invoke("fetch_library");
+  }
+  catch(e) {
+    libraryDownloadError = true;
+    return new Array();
+  }
+}
+
+const rawGames: Array<Game> = await calculateGames();
 const games = await Promise.all(rawGames.map((e) => useGame(e.id)));
 const icons = await Promise.all(
   games.map(({ game, status }) => useObject(game.mIconId))
