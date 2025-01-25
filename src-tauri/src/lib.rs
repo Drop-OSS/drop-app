@@ -48,7 +48,9 @@ use remote::commands::{
 };
 use remote::requests::make_request;
 use serde::{Deserialize, Serialize};
+use std::env;
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::{
     collections::HashMap,
@@ -109,6 +111,8 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         )))
         .build();
 
+    let log_level = env::var("RUST_LOG").unwrap_or(String::from("Info"));
+
     let config = Config::builder()
         .appenders(vec![
             Appender::builder().build("logfile", Box::new(logfile)),
@@ -117,7 +121,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         .build(
             Root::builder()
                 .appenders(vec!["logfile", "console"])
-                .build(LevelFilter::Info),
+                .build(LevelFilter::from_str(&log_level).expect("Invalid log level")),
         )
         .unwrap();
 
