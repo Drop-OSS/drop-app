@@ -167,6 +167,10 @@ impl DownloadManager {
         self.command_sender
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
+        self.command_sender
+            .send(DownloadManagerSignal::Go)
+            .unwrap();
+
     }
     pub fn pause_downloads(&self) {
         self.command_sender

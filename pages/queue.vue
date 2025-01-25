@@ -167,7 +167,7 @@ function loadGamesForQueue(v: typeof queue.value) {
 loadGamesForQueue(queue.value);
 
 async function onEnd(event: { oldIndex: number; newIndex: number }) {
-  await invoke("move_game_in_queue", {
+  await invoke("move_download_in_queue", {
     oldIndex: event.oldIndex,
     newIndex: event.newIndex,
   });
