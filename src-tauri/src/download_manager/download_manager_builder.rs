@@ -209,11 +209,13 @@ impl DownloadManagerBuilder {
         }
 
         if self.current_download_agent.is_some() {
-            debug!(
-                "Current download agent: {:?}",
-                self.current_download_agent.as_ref().unwrap().metadata()
-            );
-            return;
+            if self.download_queue.read().front().unwrap() == &self.current_download_agent.as_ref().unwrap().metadata() {
+                debug!(
+                    "Current download agent: {:?}",
+                    self.current_download_agent.as_ref().unwrap().metadata()
+                );
+                return;
+            }
         }
 
         debug!("current download queue: {:?}", self.download_queue.read());
