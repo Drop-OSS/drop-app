@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { data } from "autoprefixer";
 import { AppStatus, type AppState } from "~/types";
 
 export function setupHooks() {
@@ -18,6 +19,20 @@ export function setupHooks() {
     router.push("/store");
   });
 
+  listen("download_error", (event) => {
+    createModal(
+      ModalType.Notification,
+      {
+        title: "Drop encountered an error while downloading",
+        description: `Drop encountered an error while downloading your game: "${(
+          event.payload as unknown as string
+        ).toString()}"`,
+        buttonText: "Close"
+      },
+      (e, c) => c()
+    );
+  });
+
   /*
 
   document.addEventListener("contextmenu", (event) => {
@@ -33,9 +48,7 @@ export function initialNavigation(state: Ref<AppState>) {
 
   switch (state.value.status) {
     case AppStatus.NotConfigured:
-      router.push({ path: "/setup" }).then(() => {
-        console.log("Pushed Setup");
-      });
+      router.push({ path: "/setup" });
       break;
     case AppStatus.SignedOut:
       router.push("/auth");

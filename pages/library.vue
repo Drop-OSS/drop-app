@@ -1,56 +1,75 @@
 <template>
   <div class="flex flex-row h-full">
-    <div class="flex-none max-h-full overflow-y-auto w-64 bg-zinc-950 px-2 py-1">
+    <div
+      class="flex-none max-h-full overflow-y-auto w-64 bg-zinc-950 px-2 py-1"
+    >
       <ul class="flex flex-col gap-y-1">
         <NuxtLink
           v-for="(nav, navIdx) in navigation"
           :key="nav.route"
           :class="[
-            'transition group rounded flex justify-between gap-x-6 py-2 px-3',
-            navIdx === currentNavigationIndex ? 'bg-zinc-900' : '',
+            'transition-all duration-200 rounded-lg flex items-center py-1.5 px-3',
+            navIdx === currentNavigationIndex
+              ? 'bg-zinc-800 text-zinc-100'
+              : nav.isInstalled.value
+              ? 'text-zinc-300 hover:bg-zinc-800/90 hover:text-zinc-200'
+              : 'text-zinc-500 hover:bg-zinc-800/70 hover:text-zinc-300',
           ]"
           :href="nav.route"
         >
-          <div class="flex items-center min-w-0 gap-x-2">
+          <div class="flex items-center w-full gap-x-3">
             <img
-              class="h-5 w-auto flex-none object-cover rounded-sm bg-zinc-900"
+              class="size-6 flex-none object-cover bg-zinc-900 rounded"
               :src="icons[navIdx]"
               alt=""
             />
-            <div class="min-w-0 flex-auto">
-              <p
-                :class="[
-                  navIdx === currentNavigationIndex
-                    ? 'text-zinc-100'
-                    : 'text-zinc-400 group-hover:text-zinc-300',
-                  'truncate transition text-sm font-display leading-6',
-                ]"
-              >
-                {{ nav.label }}
-              </p>
-            </div>
+            <p class="truncate text-sm font-display leading-6 flex-1">
+              {{ nav.label }}
+            </p>
           </div>
         </NuxtLink>
       </ul>
     </div>
     <div class="grow overflow-y-auto">
-      <NuxtPage />
+      <NuxtPage :libraryDownloadError = "libraryDownloadError" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-import type { Game, NavigationItem } from "~/types";
+import { GameStatusEnum, type Game, type NavigationItem } from "~/types";
 
-const games: Array<Game> = await invoke("fetch_library");
-const icons = await Promise.all(games.map((e) => useObject(e.mIconId)));
+let libraryDownloadError = false;
 
-const navigation = games.map((e) => {
-  const item: NavigationItem = {
-    label: e.mName,
-    route: `/library/${e.id}`,
-    prefix: `/library/${e.id}`,
+async function calculateGames(): Promise<Game[]> {
+  try {
+    return await invoke("fetch_library");
+  }
+  catch(e) {
+    libraryDownloadError = true;
+    return new Array();
+  }
+}
+
+const rawGames: Array<Game> = await calculateGames();
+const games = await Promise.all(rawGames.map((e) => useGame(e.id)));
+const icons = await Promise.all(
+  games.map(({ game, status }) => useObject(game.mIconId))
+);
+
+const navigation = games.map(({ game, status }) => {
+  const isInstalled = computed(
+    () =>
+      status.value.type == GameStatusEnum.Installed ||
+      status.value.type == GameStatusEnum.SetupRequired
+  );
+
+  const item = {
+    label: game.mName,
+    route: `/library/${game.id}`,
+    prefix: `/library/${game.id}`,
+    isInstalled,
   };
   return item;
 });

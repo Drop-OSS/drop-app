@@ -1,12 +1,12 @@
 <template>
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
+    <ModalStack />
   </NuxtLayout>
-  <ModalStack />
 </template>
 
 <script setup lang="ts">
-import "~/composables/queue";
+import "~/composables/downloads.js";
 
 import { invoke } from "@tauri-apps/api/core";
 import { AppStatus } from "~/types";
@@ -20,10 +20,18 @@ import {
 const router = useRouter();
 
 const state = useAppState();
-state.value = await invoke("fetch_state");
+try {
+  state.value = JSON.parse(await invoke("fetch_state"));
+} catch (e) {
+  console.error("failed to parse state", e);
+}
 
 router.beforeEach(async () => {
-  state.value = await invoke("fetch_state");
+  try {
+    state.value = JSON.parse(await invoke("fetch_state"));
+  } catch (e) {
+    console.error("failed to parse state", e);
+  }
 });
 
 setupHooks();

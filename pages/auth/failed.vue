@@ -26,7 +26,7 @@
 import { XCircleIcon } from "@heroicons/vue/16/solid";
 
 const route = useRoute();
-const message = route.query.error ?? "An unknown error occurred.";
+const message = route.query.error ?? "An unknown error occurred";
 
 definePageMeta({
   layout: "mini",

@@ -13,9 +13,10 @@ build-linux:
     - yarnpkg tauri build
     - cp src-tauri/target/release/bundle/deb/*.deb .
     - cp src-tauri/target/release/bundle/rpm/*.rpm .
+    - cp src-tauri/target/release/bundle/appimage/*.AppImage .
   artifacts:
     paths:
-      - "*.{deb,rpm}"
+      - "*.{deb,rpm,AppImage}"
 
 build-windows:
   stage: build
