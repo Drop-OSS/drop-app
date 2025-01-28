@@ -1,5 +1,3 @@
-#![feature(try_trait_v2)]
-
 mod database;
 mod games;
 
@@ -56,7 +54,6 @@ use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
-use tauri::ipc::IpcResponse;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
