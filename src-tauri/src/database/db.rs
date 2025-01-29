@@ -98,9 +98,10 @@ pub struct Database {
     pub base_url: String,
     pub applications: DatabaseApplications,
     pub prev_database: Option<PathBuf>,
+    pub cache_dir: PathBuf
 }
 impl Database {
-    fn new<T: Into<PathBuf>>(games_base_dir: T, prev_database: Option<PathBuf>) -> Self {
+    fn new<T: Into<PathBuf>>(games_base_dir: T, prev_database: Option<PathBuf>, cache_dir: PathBuf) -> Self {
         Self {
             applications: DatabaseApplications {
                 install_dirs: vec![games_base_dir.into()],
@@ -116,6 +117,7 @@ impl Database {
                 autostart: false,
                 max_download_threads: 4,
             },
+            cache_dir,
         }
     }
 }
@@ -150,21 +152,23 @@ impl DatabaseImpls for DatabaseInterface {
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
         let logs_root_dir = data_root_dir.join("logs");
+        let cache_dir = data_root_dir.join("cache/");
 
         debug!("creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
-        create_dir_all(games_base_dir.clone()).unwrap();
-        create_dir_all(logs_root_dir.clone()).unwrap();
+        create_dir_all(&games_base_dir).unwrap();
+        create_dir_all(&logs_root_dir).unwrap();
+        create_dir_all(&cache_dir).unwrap();
 
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
             true => match PathDatabase::load_from_path(db_path.clone()) {
                 Ok(db) => db,
-                Err(e) => handle_invalid_database(e, db_path, games_base_dir),
+                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
             },
             false => {
-                let default = Database::new(games_base_dir, None);
+                let default = Database::new(games_base_dir, None, cache_dir);
                 debug!(
                     "Creating database at path {}",
                     db_path.as_os_str().to_str().unwrap()
@@ -204,6 +208,7 @@ fn handle_invalid_database(
     _e: RustbreakError,
     db_path: PathBuf,
     games_base_dir: PathBuf,
+    cache_dir: PathBuf
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
     let new_path = {
         let time = Utc::now().timestamp();
@@ -220,6 +225,7 @@ fn handle_invalid_database(
     let db = Database::new(
         games_base_dir.into_os_string().into_string().unwrap(),
         Some(new_path),
+        cache_dir
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")

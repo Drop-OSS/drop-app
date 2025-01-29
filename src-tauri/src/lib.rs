@@ -1,3 +1,4 @@
+mod cache;
 mod database;
 mod games;
 
