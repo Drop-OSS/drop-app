@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
     pub autostart: bool,
     pub max_download_threads: usize,
+    pub force_offline: bool
     // ... other settings ...
 }
 impl Default for Settings {
@@ -12,6 +13,7 @@ impl Default for Settings {
         Self {
             autostart: false,
             max_download_threads: 4,
+            force_offline: false
         }
     }
 }

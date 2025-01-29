@@ -69,7 +69,7 @@ pub struct StatsUpdateEvent {
 pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
     let header = generate_authorization_header();
 
-    let client = reqwest::blocking::Client::builder().;
+    let client = reqwest::blocking::Client::new();
     let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
         f.header("Authorization", header)
     })?

@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 
-use tauri::AppHandle;
+use tauri::{AppHandle, Manager};
 
 use crate::{
-    database::db::GameVersion, error::{library_error::LibraryError, remote_access_error::RemoteAccessError}, games::library::{get_current_meta, uninstall_game_logic}, AppState
+    database::db::GameVersion, error::{library_error::LibraryError, remote_access_error::RemoteAccessError}, games::library::{get_current_meta, uninstall_game_logic}, offline, AppState
 };
 
 use super::{
@@ -16,7 +16,8 @@ use super::{
 
 #[tauri::command]
 pub fn fetch_library(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
-    fetch_library_logic(app)
+    let state = app.state::<Mutex<AppState>>();
+    offline!(state, fetch_library_logic, fetch_library_logic, app)
 }
 
 #[tauri::command]

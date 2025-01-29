@@ -113,10 +113,7 @@ impl Database {
             prev_database,
             base_url: "".to_owned(),
             auth: None,
-            settings: Settings {
-                autostart: false,
-                max_download_threads: 4,
-            },
+            settings: Settings::default(),
             cache_dir,
         }
     }
