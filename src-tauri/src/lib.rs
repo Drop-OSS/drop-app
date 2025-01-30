@@ -60,9 +60,10 @@ use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 
-#[derive(Clone, Copy, Serialize)]
+#[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
     NotConfigured,
+    Offline,
     ServerError,
     SignedOut,
     SignedIn,

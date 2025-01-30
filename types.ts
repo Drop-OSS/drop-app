@@ -38,6 +38,7 @@ export type Game = {
 
 export enum AppStatus {
   NotConfigured = "NotConfigured",
+  Offline = "Offline",
   SignedOut = "SignedOut",
   SignedIn = "SignedIn",
   SignedInNeedsReauth = "SignedInNeedsReauth",
