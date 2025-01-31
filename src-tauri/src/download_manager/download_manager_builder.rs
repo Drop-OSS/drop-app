@@ -255,7 +255,7 @@ impl DownloadManagerBuilder {
                 }
                 Err(e) => {
                     error!("download {:?} has error {}", download_agent.metadata(), &e);
-                    download_agent.on_error(&app_handle, e.clone());
+                    download_agent.on_error(&app_handle, &e);
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
                 }
             }
@@ -287,7 +287,7 @@ impl DownloadManagerBuilder {
     fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         debug!("got signal Error");
         if let Some(current_agent) = self.current_download_agent.clone() {
-            current_agent.on_error(&self.app_handle, error.clone());
+            current_agent.on_error(&self.app_handle, &error);
 
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());

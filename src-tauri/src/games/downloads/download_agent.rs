@@ -362,7 +362,7 @@ impl Downloadable for GameDownloadAgent {
         *self.status.lock().unwrap() = DownloadStatus::Queued;
     }
 
-    fn on_error(&self, app_handle: &tauri::AppHandle, error: ApplicationDownloadError) {
+    fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
         *self.status.lock().unwrap() = DownloadStatus::Error;
         app_handle
             .emit("download_error", error.to_string())

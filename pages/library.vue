@@ -47,6 +47,7 @@ async function calculateGames(): Promise<Game[]> {
     return await invoke("fetch_library");
   }
   catch(e) {
+    console.log(e)
     libraryDownloadError = true;
     return new Array();
   }

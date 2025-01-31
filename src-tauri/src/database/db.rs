@@ -46,7 +46,7 @@ pub enum GameDownloadStatus {
 }
 
 // Stuff that shouldn't be synced to disk
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum ApplicationTransientStatus {
     Downloading { version_name: String },
     Uninstalling {},
@@ -149,7 +149,7 @@ impl DatabaseImpls for DatabaseInterface {
         let db_path = data_root_dir.join("drop.db");
         let games_base_dir = data_root_dir.join("games");
         let logs_root_dir = data_root_dir.join("logs");
-        let cache_dir = data_root_dir.join("cache/");
+        let cache_dir = data_root_dir.join("cache");
 
         debug!("creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();

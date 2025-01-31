@@ -14,10 +14,11 @@ use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
+use crate::remote::cache::{cache_object, get_cached_object};
 use crate::remote::requests::make_request;
 use crate::AppState;
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct FetchGameStruct {
     game: Game,
     status: GameStatusWithTransient,
@@ -66,10 +67,11 @@ pub struct StatsUpdateEvent {
     pub time: usize,
 }
 
-pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessError> {
+pub fn fetch_library_logic(state: tauri::State<'_, Mutex<AppState>>) -> Result<Vec<Game>, RemoteAccessError> {
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
+    println!("Making library request");
     let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
         f.header("Authorization", header)
     })?
@@ -80,10 +82,10 @@ pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessErro
         warn!("{:?}", err);
         return Err(RemoteAccessError::InvalidResponse(err));
     }
+    println!("Getting Games");
 
     let games: Vec<Game> = response.json()?;
 
-    let state = app.state::<Mutex<AppState>>();
     let mut handle = state.lock().unwrap();
 
     let mut db_handle = borrow_db_mut_checked();
@@ -97,17 +99,30 @@ pub fn fetch_library_logic(app: AppHandle) -> Result<Vec<Game>, RemoteAccessErro
                 .insert(game.id.clone(), GameDownloadStatus::Remote {});
         }
     }
-
     drop(handle);
+    drop(db_handle);
+    println!("Caching");
+    cache_object("library", &games)?;
+
+    println!("Finished caching");
 
     Ok(games)
 }
+pub fn fetch_library_logic_offline(_state: tauri::State<'_, Mutex<AppState>>) -> Result<Vec<Game>, RemoteAccessError> {
+    let mut games: Vec<Game> = get_cached_object("library")?;
 
+    let db_handle = borrow_db_checked();
+
+    games.retain(|game| {
+        db_handle.applications.installed_game_version.contains_key(&game.id)
+    });
+
+    Ok(games)
+}
 pub fn fetch_game_logic(
     id: String,
-    app: tauri::AppHandle,
+    state: tauri::State<'_, Mutex<AppState>>
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    let state = app.state::<Mutex<AppState>>();
     let mut state_handle = state.lock().unwrap();
 
     let game = state_handle.games.get(&id);
@@ -155,7 +170,16 @@ pub fn fetch_game_logic(
         status,
     };
 
+    cache_object(id, &data)?;
+
     Ok(data)
+}
+
+pub fn fetch_game_logic_offline(
+    id: String,
+    _state: tauri::State<'_, Mutex<AppState>>
+) -> Result<FetchGameStruct, RemoteAccessError> {
+    get_cached_object(id)
 }
 
 pub fn fetch_game_verion_options_logic(

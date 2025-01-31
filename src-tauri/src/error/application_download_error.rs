@@ -8,7 +8,7 @@ use serde_with::SerializeDisplay;
 use super::{remote_access_error::RemoteAccessError, setup_error::SetupError};
 
 // TODO: Rename / separate from downloads
-#[derive(Debug, Clone, SerializeDisplay)]
+#[derive(Debug, SerializeDisplay)]
 pub enum ApplicationDownloadError {
     Communication(RemoteAccessError),
     Checksum,

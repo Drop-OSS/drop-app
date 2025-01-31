@@ -16,7 +16,7 @@ pub trait Downloadable: Send + Sync {
     fn status(&self) -> DownloadStatus;
     fn metadata(&self) -> DownloadableMetadata;
     fn on_initialised(&self, app_handle: &AppHandle);
-    fn on_error(&self, app_handle: &AppHandle, error: ApplicationDownloadError);
+    fn on_error(&self, app_handle: &AppHandle, error: &ApplicationDownloadError);
     fn on_complete(&self, app_handle: &AppHandle);
     fn on_incomplete(&self, app_handle: &AppHandle);
     fn on_cancelled(&self, app_handle: &AppHandle);

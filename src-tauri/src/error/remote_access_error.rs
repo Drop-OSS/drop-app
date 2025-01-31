@@ -10,7 +10,7 @@ use url::ParseError;
 
 use super::drop_server_error::DropServerError;
 
-#[derive(Debug, Clone, SerializeDisplay)]
+#[derive(Debug, SerializeDisplay)]
 pub enum RemoteAccessError {
     FetchError(Arc<reqwest::Error>),
     ParsingError(ParseError),
@@ -21,6 +21,7 @@ pub enum RemoteAccessError {
     InvalidRedirect,
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
+    Cache(cacache::Error),
     Generic(String),
 }
 
@@ -52,6 +53,7 @@ impl Display for RemoteAccessError {
             ),
             RemoteAccessError::OutOfSync => write!(f, "server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other"),
             RemoteAccessError::Generic(message) => write!(f, "{}", message),
+            RemoteAccessError::Cache(error) => write!(f, "Cache Error: {}", error),
         }
     }
 }

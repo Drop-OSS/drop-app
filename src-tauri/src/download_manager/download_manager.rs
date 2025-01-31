@@ -48,7 +48,7 @@ pub enum DownloadManagerSignal {
     Uninstall(DownloadableMetadata),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum DownloadManagerStatus {
     Downloading,
     Paused,
