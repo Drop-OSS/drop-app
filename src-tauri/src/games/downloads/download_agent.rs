@@ -135,7 +135,7 @@ impl GameDownloadAgent {
             &[("id", &self.id), ("version", &self.version)],
             |f| f.header("Authorization", header),
         )
-        .map_err(|e| ApplicationDownloadError::Communication(e))?
+        .map_err(ApplicationDownloadError::Communication)?
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
@@ -280,9 +280,13 @@ impl GameDownloadAgent {
                 ) {
                     Ok(request) => request,
                     Err(e) => {
-                        sender.send(DownloadManagerSignal::Error(ApplicationDownloadError::Communication(e))).unwrap();
+                        sender
+                            .send(DownloadManagerSignal::Error(
+                                ApplicationDownloadError::Communication(e),
+                            ))
+                            .unwrap();
                         continue;
-                    },
+                    }
                 };
 
                 scope.spawn(move |_| {

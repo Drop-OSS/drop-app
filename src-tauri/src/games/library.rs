@@ -67,7 +67,9 @@ pub struct StatsUpdateEvent {
     pub time: usize,
 }
 
-pub fn fetch_library_logic(state: tauri::State<'_, Mutex<AppState>>) -> Result<Vec<Game>, RemoteAccessError> {
+pub fn fetch_library_logic(
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<Vec<Game>, RemoteAccessError> {
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
@@ -108,20 +110,25 @@ pub fn fetch_library_logic(state: tauri::State<'_, Mutex<AppState>>) -> Result<V
 
     Ok(games)
 }
-pub fn fetch_library_logic_offline(_state: tauri::State<'_, Mutex<AppState>>) -> Result<Vec<Game>, RemoteAccessError> {
+pub fn fetch_library_logic_offline(
+    _state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
 
     let db_handle = borrow_db_checked();
 
     games.retain(|game| {
-        db_handle.applications.installed_game_version.contains_key(&game.id)
+        db_handle
+            .applications
+            .installed_game_version
+            .contains_key(&game.id)
     });
 
     Ok(games)
 }
 pub fn fetch_game_logic(
     id: String,
-    state: tauri::State<'_, Mutex<AppState>>
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let mut state_handle = state.lock().unwrap();
 
@@ -177,7 +184,7 @@ pub fn fetch_game_logic(
 
 pub fn fetch_game_logic_offline(
     id: String,
-    _state: tauri::State<'_, Mutex<AppState>>
+    _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     get_cached_object(id)
 }
