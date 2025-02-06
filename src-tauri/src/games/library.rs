@@ -24,7 +24,7 @@ pub struct FetchGameStruct {
     status: GameStatusWithTransient,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     id: String,
@@ -114,15 +114,18 @@ pub fn fetch_library_logic_offline(
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
+    println!("Old games: {:?}", games.len());
 
     let db_handle = borrow_db_checked();
 
     games.retain(|game| {
+        println!("Retaining game {}: {}", &game.id, db_handle.applications.installed_game_version.contains_key(&game.id));
         db_handle
             .applications
             .installed_game_version
             .contains_key(&game.id)
     });
+    println!("New games: {:?}", games.len());
 
     Ok(games)
 }
@@ -244,6 +247,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         return;
     }
     let previous_state = previous_state.unwrap();
+
     if let Some((_, install_dir)) = match previous_state {
         GameDownloadStatus::Installed {
             version_name,
@@ -260,6 +264,9 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
             .transient_statuses
             .entry(meta.clone())
             .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+
+        db_handle.applications.installed_game_version.remove(&meta.id);
+        
         drop(db_handle);
 
         let app_handle = app_handle.clone();
