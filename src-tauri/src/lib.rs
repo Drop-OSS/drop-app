@@ -42,7 +42,7 @@ use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{self, generate_authorization_header, recieve_handshake};
 use remote::commands::{
-    auth_initiate, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote,
+    auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote
 };
 use remote::requests::make_request;
 use serde::{Deserialize, Serialize};
@@ -237,6 +237,7 @@ pub fn run() {
             // Remote
             use_remote,
             gen_drop_url,
+            fetch_drop_object,
             // Library
             fetch_library,
             fetch_game,

@@ -1,17 +1,16 @@
 use std::sync::Mutex;
 
+use log::debug;
+use reqwest::blocking::Client;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db},
-    error::remote_access_error::RemoteAccessError,
-    AppState, AppStatus,
+    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db}, error::remote_access_error::RemoteAccessError, remote::{auth::generate_authorization_header, requests::make_request}, AppState, AppStatus
 };
 
 use super::{
-    auth::{auth_initiate_logic, recieve_handshake, setup},
-    remote::use_remote_logic,
+    auth::{auth_initiate_logic, recieve_handshake, setup}, cache::{cache_object, get_cached_object}, remote::use_remote_logic
 };
 
 #[tauri::command]
@@ -35,6 +34,28 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
     Ok(url.to_string())
 }
 
+#[tauri::command]
+pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
+    let drop_url = gen_drop_url(path.clone());
+    let req = make_request(
+        &Client::new(), 
+        &[&path],
+        &[], 
+        |r| { r.header("Authorization", generate_authorization_header()) }
+    )?.send();
+
+    match req {
+        Ok(data) => {
+            let data = data.bytes()?.to_vec();
+            cache_object(&path, &data)?;
+            Ok(data)
+        },
+        Err(e) => {
+            debug!("{}", e);
+            get_cached_object::<&str, Vec<u8>>(&path)
+        },
+    }
+}
 #[tauri::command]
 pub fn sign_out(app: AppHandle) {
     // Clear auth from database
