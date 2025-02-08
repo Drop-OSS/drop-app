@@ -74,7 +74,8 @@ pub fn update_settings(new_settings: Value) {
     }
     let new_settings: Settings = serde_json::from_value(current_settings).unwrap();
     db_lock.settings = new_settings;
-    println!("new Settings: {:?}", db_lock.settings);
+    drop(db_lock);
+    save_db();
 }
 #[tauri::command]
 pub fn fetch_settings() -> Settings {

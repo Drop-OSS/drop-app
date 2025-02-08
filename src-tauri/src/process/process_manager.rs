@@ -372,7 +372,7 @@ impl ProcessHandler for UMULauncher {
         _log_file: File,
         _error_file: File,
     ) -> Result<Child, Error> {
-        println!("Game override: .{:?}.", &game_version.umu_id_override);
+        debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
         let game_id = match &game_version.umu_id_override {
             Some(game_override) => game_override.is_empty().then_some(game_version.game_id.clone()).unwrap_or(game_override.clone()) ,
             None => game_version.game_id.clone()

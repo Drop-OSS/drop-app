@@ -73,7 +73,6 @@ pub fn fetch_library_logic(
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
-    println!("Making library request");
     let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
         f.header("Authorization", header)
     })?
@@ -84,7 +83,6 @@ pub fn fetch_library_logic(
         warn!("{:?}", err);
         return Err(RemoteAccessError::InvalidResponse(err));
     }
-    println!("Getting Games");
 
     let games: Vec<Game> = response.json()?;
 
@@ -103,10 +101,8 @@ pub fn fetch_library_logic(
     }
     drop(handle);
     drop(db_handle);
-    println!("Caching");
     cache_object("library", &games)?;
 
-    println!("Finished caching");
 
     Ok(games)
 }
@@ -114,18 +110,15 @@ pub fn fetch_library_logic_offline(
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
-    println!("Old games: {:?}", games.len());
 
     let db_handle = borrow_db_checked();
 
     games.retain(|game| {
-        println!("Retaining game {}: {}", &game.id, db_handle.applications.installed_game_version.contains_key(&game.id));
         db_handle
             .applications
             .installed_game_version
             .contains_key(&game.id)
     });
-    println!("New games: {:?}", games.len());
 
     Ok(games)
 }
@@ -143,6 +136,9 @@ pub fn fetch_game_logic(
             game: game.clone(),
             status,
         };
+
+
+        cache_object(id, &data)?;    
 
         return Ok(data);
     }
@@ -189,7 +185,7 @@ pub fn fetch_game_logic_offline(
     id: String,
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    get_cached_object(id)
+    get_cached_object::<String, FetchGameStruct>(id)
 }
 
 pub fn fetch_game_verion_options_logic(
@@ -227,7 +223,7 @@ pub fn fetch_game_verion_options_logic(
 }
 
 pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
-    println!("triggered uninstall for agent");
+    debug!("triggered uninstall for agent");
     let mut db_handle = borrow_db_mut_checked();
     db_handle
         .applications

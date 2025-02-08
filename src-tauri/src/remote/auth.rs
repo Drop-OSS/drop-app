@@ -191,7 +191,7 @@ pub fn setup() -> (AppStatus, Option<User>) {
     if auth.is_some() {
         let user_result = match fetch_user() {
             Ok(data) => data,
-            Err(RemoteAccessError::FetchError(_)) => return (AppStatus::ServerUnavailable, None),
+            Err(RemoteAccessError::FetchError(_)) => return (AppStatus::Offline, None),
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),
         };
         return (AppStatus::SignedIn, Some(user_result));

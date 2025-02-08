@@ -328,7 +328,7 @@ pub fn run() {
                     }
 
                     _ => {
-                        println!("menu event not handled: {:?}", event.id);
+                        warn!("menu event not handled: {:?}", event.id);
                     }
                 })
                 .build(app)
