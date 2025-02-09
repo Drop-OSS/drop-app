@@ -40,11 +40,11 @@ use log4rs::encode::pattern::PatternEncoder;
 use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
-use remote::auth::{self, generate_authorization_header, recieve_handshake};
-use remote::cache::{cache_object, fetch_object, fetch_object_offline, get_cached_object, ObjectCache};
+use remote::auth::{self, recieve_handshake};
 use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote
 };
+use remote::fetch_object::{fetch_object, fetch_object_offline};
 use remote::requests::make_request;
 use reqwest::blocking::Body;
 use serde::{Deserialize, Serialize};
