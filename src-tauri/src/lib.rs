@@ -41,10 +41,12 @@ use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{self, generate_authorization_header, recieve_handshake};
+use remote::cache::{cache_object, fetch_object, fetch_object_offline, get_cached_object, ObjectCache};
 use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote
 };
 use remote::requests::make_request;
+use reqwest::blocking::Body;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::Path;
@@ -358,35 +360,9 @@ pub fn run() {
 
             Ok(())
         })
-        .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
-            // Drop leading /
-            let object_id = &request.uri().path()[1..];
-
-            let header = generate_authorization_header();
-            let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
-            let response = make_request(&client, &["/api/v1/client/object/", object_id], &[], |f| {
-                f.header("Authorization", header)
-            })
-            .unwrap()
-            .send();
-            if response.is_err() {
-                warn!(
-                    "failed to fetch object with error: {}",
-                    response.err().unwrap()
-                );
-                responder.respond(Response::builder().status(500).body(Vec::new()).unwrap());
-                return;
-            }
-            let response = response.unwrap();
-
-            let resp_builder = ResponseBuilder::new().header(
-                CONTENT_TYPE,
-                response.headers().get("Content-Type").unwrap(),
-            );
-            let data = Vec::from(response.bytes().unwrap());
-            let resp = resp_builder.body(data).unwrap();
-
-            responder.respond(resp);
+        .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
+            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+            offline!(state, fetch_object, fetch_object_offline, request, responder);
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
