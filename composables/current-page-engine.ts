@@ -26,5 +26,7 @@ export const useCurrentNavigationIndex = (
     currentNavigation.value = calculateCurrentNavIndex(to);
   });
 
-  return currentNavigation;
+  return {currentNavigation, recalculateNavigation: () => {
+    currentNavigation.value = calculateCurrentNavIndex(route);
+  }};
 };

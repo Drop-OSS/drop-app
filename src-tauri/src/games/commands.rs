@@ -38,7 +38,6 @@ pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), Libr
         Some(data) => data,
         None => return Err(LibraryError::MetaNotFound(game_id)),
     };
-    println!("{:?}", meta);
     uninstall_game_logic(meta, &app_handle);
 
     Ok(())
