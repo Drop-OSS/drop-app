@@ -10,13 +10,13 @@
         <ul role="list" class="-mx-2 space-y-1">
           <li v-for="(item, itemIdx) in navigation" :key="item.prefix">
             <NuxtLink :href="item.route" :class="[
-              itemIdx === currentPageIndex
+              itemIdx === currentNavigation
                 ? 'bg-zinc-800/50 text-zinc-100'
                 : 'text-zinc-400 hover:bg-zinc-800/30 hover:text-zinc-200',
               'transition group flex gap-x-3 rounded-md p-2 pr-12 text-sm font-semibold leading-6',
             ]">
               <component :is="item.icon" :class="[
-                itemIdx === currentPageIndex
+                itemIdx === currentNavigation
                   ? 'text-zinc-100'
                   : 'text-zinc-400 group-hover:text-zinc-200',
                 'transition h-6 w-6 shrink-0',
@@ -112,10 +112,10 @@ const navigation = computed(() => [
 const currentPlatform = platform();
 
 // Use .value to unwrap the computed ref
-const currentPageIndex = useCurrentNavigationIndex(navigation.value);
+const {currentNavigation} = useCurrentNavigationIndex(navigation.value);
 
 // Watch for navigation changes and update currentPageIndex
 watch(navigation, (newNav) => {
-  currentPageIndex.value = useCurrentNavigationIndex(newNav).value;
+  currentNavigation.value = useCurrentNavigationIndex(newNav).currentNavigation.value;
 });
 </script>

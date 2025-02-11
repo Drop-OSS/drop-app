@@ -103,7 +103,6 @@ pub fn fetch_library_logic(
     drop(db_handle);
     cache_object("library", &games)?;
 
-
     Ok(games)
 }
 pub fn fetch_library_logic_offline(
@@ -137,8 +136,7 @@ pub fn fetch_game_logic(
             status,
         };
 
-
-        cache_object(id, &data)?;    
+        cache_object(id, &data)?;
 
         return Ok(data);
     }
@@ -261,8 +259,6 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
             .entry(meta.clone())
             .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
 
-        db_handle.applications.installed_game_version.remove(&meta.id);
-        
         drop(db_handle);
 
         let app_handle = app_handle.clone();
@@ -275,6 +271,10 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 db_handle.applications.transient_statuses.remove(&meta);
                 db_handle
                     .applications
+                    .installed_game_version
+                    .remove(&meta.id);
+                db_handle
+                    .applications
                     .game_statuses
                     .entry(meta.id.clone())
                     .and_modify(|e| *e = GameDownloadStatus::Remote {});
@@ -282,6 +282,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 save_db();
 
                 debug!("uninstalled game id {}", &meta.id);
+                app_handle.emit("update_library", {}).unwrap();
 
                 push_game_update(
                     &app_handle,

@@ -11,7 +11,7 @@
               v-for="(nav, navIdx) in navigation"
               :class="[
                 'transition  uppercase font-display font-semibold text-md',
-                navIdx === currentPageIndex
+                navIdx === currentNavigation
                   ? 'text-zinc-100'
                   : 'text-zinc-400 hover:text-zinc-200',
               ]"
@@ -78,7 +78,7 @@ const navigation: Array<NavigationItem> = [
   },
 ];
 
-const currentPageIndex = useCurrentNavigationIndex(navigation);
+const {currentNavigation} = useCurrentNavigationIndex(navigation);
 
 const quickActions: Array<QuickActionNav> = [
   {
