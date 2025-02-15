@@ -1,41 +1,169 @@
 <template>
   <div
-    class="mx-auto w-full relative flex flex-col justify-center pt-64 z-10 overflow-hidden"
+    class="mx-auto w-full relative flex flex-col justify-center pt-72 overflow-hidden"
   >
-    <!-- banner image -->
-    <div class="absolute flex top-0 h-fit inset-x-0 z-[-20]">
-      <img :src="bannerUrl" class="w-full h-auto object-cover" />
-      <h1
-        class="absolute inset-x-0 w-fit mx-auto text-center top-32 -translate-y-[50%] text-4xl text-zinc-100 font-bold font-display z-50 p-4 shadow-xl bg-zinc-900/80 rounded-xl"
-      >
-        {{ game.mName }}
-      </h1>
-      <div
-        class="absolute inset-0 bg-gradient-to-b from-transparent to-50% to-zinc-900"
+    <div class="absolute inset-0 z-0">
+      <img 
+        :src="bannerUrl" 
+        class="w-full h-[24rem] object-cover blur-sm scale-105" 
       />
+      <div class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/80 to-transparent opacity-90" />
+      <div class="absolute inset-0 bg-gradient-to-r from-zinc-900/95 via-zinc-900/80 to-transparent opacity-90" />
     </div>
-    <!-- main page -->
-    <div class="w-full min-h-screen mx-auto bg-zinc-900 px-5 py-6">
-      <!-- game toolbar -->
-      <div class="h-full flex flex-row gap-x-4 items-stretch">
-        <GameStatusButton
-          @install="() => installFlow()"
-          @launch="() => launch()"
-          @queue="() => queue()"
-          @uninstall="() => uninstall()"
-          @kill="() => kill()"
-          :status="status"
-        />
-        <a
-          :href="remoteUrl"
-          target="_blank"
-          type="button"
-          class="inline-flex items-center rounded-md bg-zinc-800/50 px-4 font-semibold text-white shadow-sm hover:bg-zinc-800/80 uppercase font-display"
-        >
-          <BuildingStorefrontIcon class="mr-2 size-5" aria-hidden="true" />
 
-          Store
-        </a>
+    <div class="relative z-10">
+      <div class="px-8 pb-4">
+        <h1 class="text-5xl text-zinc-100 font-bold font-display drop-shadow-lg mb-8">
+          {{ game.mName }}
+        </h1>
+        
+        <div class="flex flex-row gap-x-4 items-stretch mb-8">
+          <div class="transition-transform duration-300 hover:scale-105 active:scale-95 shadow-xl">
+            <GameStatusButton
+              @install="() => installFlow()"
+              @launch="() => launch()"
+              @queue="() => queue()"
+              @uninstall="() => uninstall()"
+              @kill="() => kill()"
+              :status="status"
+            />
+          </div>
+          <a
+            :href="remoteUrl"
+            target="_blank"
+            type="button"
+            class="transition-transform duration-300 hover:scale-105 active:scale-95 inline-flex items-center rounded-md bg-zinc-800/50 px-6 font-semibold text-white shadow-xl backdrop-blur-sm hover:bg-zinc-800/80 uppercase font-display"
+          >
+            <BuildingStorefrontIcon class="mr-2 size-5" aria-hidden="true" />
+            Store
+          </a>
+        </div>
+      </div>
+
+      <!-- Main content -->
+      <div class="w-full bg-zinc-900 px-8 py-6">
+        <div class="grid grid-cols-[2fr,1fr] gap-8">
+          <div class="space-y-6">
+            <div class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
+              <h2 class="text-xl font-display font-semibold text-zinc-100 mb-4">About</h2>
+              <div class="max-h-48 overflow-y-auto custom-scrollbar">
+                <p class="text-zinc-400">
+                  {{ game.mDescription || "No description available." }}
+                </p>
+              </div>
+            </div>
+
+            <div class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
+              <h2 class="text-xl font-display font-semibold text-zinc-100 mb-4">Installation</h2>
+              <dl class="grid grid-cols-1 gap-4 text-sm">
+                <div>
+                  <dt class="text-zinc-400">Status</dt>
+                  <dd class="text-zinc-200 font-medium flex items-center gap-x-2">
+                    <span 
+                      class="size-2 rounded-full"
+                      :class="{
+                        'bg-green-500': status.type === GameStatusEnum.Installed || status.type === GameStatusEnum.Running,
+                        'bg-yellow-500': status.type === GameStatusEnum.SetupRequired,
+                        'bg-blue-500 animate-pulse': status.type === GameStatusEnum.Downloading,
+                        'bg-zinc-500': status.type === GameStatusEnum.Remote
+                      }"
+                    />
+                    {{ 
+                      status.type === GameStatusEnum.Installed ? 'Installed' :
+                      status.type === GameStatusEnum.Running ? 'Running' :
+                      status.type === GameStatusEnum.SetupRequired ? 'Setup Required' :
+                      status.type === GameStatusEnum.Downloading ? 'Downloading' :
+                      'Not Installed'
+                    }}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          
+          <div class="space-y-6">
+            <div class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
+              <h2 class="text-xl font-display font-semibold text-zinc-100 mb-4">Game Images</h2>
+              <div class="relative pb-8">
+                <div v-if="mediaUrls.length > 0">
+                  <div 
+                    class="relative aspect-video rounded-lg overflow-hidden cursor-pointer group"
+                  >
+                    <div 
+                      class="absolute inset-0"
+                      @click="fullscreenImage = mediaUrls[currentImageIndex]"
+                    >
+                      <TransitionGroup 
+                        name="slide" 
+                        tag="div" 
+                        class="h-full"
+                      >
+                        <img 
+                          v-for="(url, index) in mediaUrls" 
+                          :key="url"
+                          :src="url" 
+                          class="absolute inset-0 w-full h-full object-cover"
+                          v-show="index === currentImageIndex"
+                        />
+                      </TransitionGroup>
+                    </div>
+
+                    <div class="absolute inset-0 flex items-center justify-between px-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <div class="pointer-events-auto">
+                        <button 
+                          v-if="mediaUrls.length > 1"
+                          @click.stop="previousImage()" 
+                          class="p-2 rounded-full bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900/80 transition-all duration-300 hover:scale-110"
+                        >
+                          <ChevronLeftIcon class="size-5" />
+                        </button>
+                      </div>
+                      <div class="pointer-events-auto">
+                        <button 
+                          v-if="mediaUrls.length > 1"
+                          @click.stop="nextImage()" 
+                          class="p-2 rounded-full bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900/80 transition-all duration-300 hover:scale-110"
+                        >
+                          <ChevronRightIcon class="size-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+                    <div class="absolute bottom-4 right-4 flex items-center gap-x-2 text-white opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                      <ArrowsPointingOutIcon class="size-5" />
+                      <span class="text-sm font-medium">View Fullscreen</span>
+                    </div>
+                  </div>
+
+                  <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-x-2">
+                    <button
+                      v-for="(_, index) in mediaUrls"
+                      :key="index"
+                      @click.stop="currentImageIndex = index"
+                      class="w-1.5 h-1.5 rounded-full transition-all"
+                      :class="[
+                        currentImageIndex === index
+                          ? 'bg-zinc-100 scale-125'
+                          : 'bg-zinc-600 hover:bg-zinc-500'
+                      ]"
+                    />
+                  </div>
+                </div>
+
+                <div 
+                  v-else 
+                  class="aspect-video rounded-lg overflow-hidden bg-zinc-900/50 flex flex-col items-center justify-center text-center px-4"
+                >
+                  <PhotoIcon class="size-12 text-zinc-700 mb-2" />
+                  <p class="text-zinc-600 font-medium">No images available</p>
+                  <p class="text-zinc-700 text-sm">Game screenshots will appear here when available</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -256,6 +384,70 @@
       </button>
     </template>
   </ModalTemplate>
+
+  <Transition 
+    enter="transition ease-out duration-300"
+    enter-from="opacity-0"
+    enter-to="opacity-100"
+    leave="transition ease-in duration-200"
+    leave-from="opacity-100"
+    leave-to="opacity-0"
+  >
+    <div 
+      v-if="fullscreenImage" 
+      class="fixed inset-0 z-50 bg-black/95 flex items-center justify-center" 
+      @click="fullscreenImage = null"
+    >
+      <div 
+        class="relative w-full h-full flex items-center justify-center"
+        @click.stop
+      >
+        <button 
+          class="absolute top-4 right-4 p-2 rounded-full bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900 transition-colors"
+          @click.stop="fullscreenImage = null"
+        >
+          <XMarkIcon class="size-6" />
+        </button>
+
+        <button 
+          v-if="mediaUrls.length > 1"
+          @click.stop="previousImage()" 
+          class="absolute left-4 p-3 rounded-full bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900 transition-colors"
+        >
+          <ChevronLeftIcon class="size-6" />
+        </button>
+        <button 
+          v-if="mediaUrls.length > 1"
+          @click.stop="nextImage()" 
+          class="absolute right-4 p-3 rounded-full bg-zinc-900/50 text-zinc-100 hover:bg-zinc-900 transition-colors"
+        >
+          <ChevronRightIcon class="size-6" />
+        </button>
+
+        <TransitionGroup 
+          name="slide" 
+          tag="div"
+          class="w-full h-full flex items-center justify-center"
+          @click.stop
+        >
+          <img 
+            v-for="(url, index) in mediaUrls"
+            v-show="currentImageIndex === index"
+            :key="url"
+            :src="url" 
+            class="max-h-[90vh] max-w-[90vw] object-contain"
+            :alt="`${game.mName} screenshot ${index + 1}`"
+          />
+        </TransitionGroup>
+
+        <div class="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-zinc-900/50 backdrop-blur-sm">
+          <p class="text-zinc-100 text-sm font-medium">
+            {{ currentImageIndex + 1 }} / {{ mediaUrls.length }}
+          </p>
+        </div>
+      </div>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
@@ -274,10 +466,16 @@ import {
   CheckIcon,
   ChevronUpDownIcon,
   WrenchIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  XMarkIcon,
+  ArrowsPointingOutIcon,
+  PhotoIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
+import { GameStatusEnum } from "~/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -292,11 +490,16 @@ const remoteUrl: string = await invoke("gen_drop_url", {
 
 const bannerUrl = await useObject(game.value.mBannerId);
 
+// Get all available images
+const mediaUrls = await Promise.all(game.value.mImageCarousel.map((id) => useObject(id)));
+
 const installFlowOpen = ref(false);
 const versionOptions = ref<
   undefined | Array<{ versionName: string; platform: string }>
 >();
 const installDirs = ref<undefined | Array<string>>();
+const currentImageIndex = ref(0);
+
 async function installFlow() {
   installFlowOpen.value = true;
   versionOptions.value = undefined;
@@ -376,4 +579,60 @@ async function kill() {
     console.error(e);
   }
 }
+
+function nextImage() {
+  currentImageIndex.value = (currentImageIndex.value + 1) % mediaUrls.length;
+}
+
+function previousImage() {
+  currentImageIndex.value = (currentImageIndex.value - 1 + mediaUrls.length) % mediaUrls.length;
+}
+
+const fullscreenImage = ref<string | null>(null);
 </script>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease;
+  position: absolute;
+}
+
+.slide-enter-from {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.slide-leave-to {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(82 82 91) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(82 82 91);
+  border-radius: 3px;
+}
+</style>

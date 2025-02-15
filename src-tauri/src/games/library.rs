@@ -36,6 +36,7 @@ pub struct Game {
     m_banner_id: String,
     m_cover_id: String,
     m_image_library: Vec<String>,
+    m_image_carousel: Vec<String>,
 }
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
