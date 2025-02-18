@@ -12,7 +12,8 @@
       <div class="h-full">
         <MenuButton :class="[
           styles[props.status.type],
-          'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm'
+          'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm group',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2'
         ]">
           <ChevronDownIcon class="size-5" aria-hidden="true" />
         </MenuButton>
@@ -25,10 +26,11 @@
           class="absolute right-0 z-50 mt-2 w-32 origin-top-right rounded-md bg-zinc-900 shadow-lg ring-1 ring-zinc-100/5 focus:outline-none">
           <div class="py-1">
             <MenuItem v-slot="{ active }">
-            <button @click="() => emit('uninstall')"
-              :class="[active ? 'bg-zinc-800 text-zinc-100 outline-none' : 'text-zinc-400', 'w-full block px-4 py-2 text-sm inline-flex justify-between']">Uninstall
-              <TrashIcon class="size-5" />
-            </button>
+              <button @click="() => emit('uninstall')"
+                :class="[active ? 'bg-zinc-800 text-zinc-100 outline-none' : 'text-zinc-400', 'w-full block px-4 py-2 text-sm inline-flex justify-between']">
+                Uninstall
+                <TrashIcon class="size-5" />
+              </button>
             </MenuItem>
           </div>
         </MenuItems>
@@ -63,14 +65,14 @@ const emit = defineEmits<{
 const showDropdown = computed(() => props.status.type === GameStatusEnum.Installed || props.status.type === GameStatusEnum.SetupRequired);
 
 const styles: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Remote]: "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600",
-  [GameStatusEnum.Queued]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.Downloading]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.SetupRequired]: "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600",
-  [GameStatusEnum.Installed]: "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600",
-  [GameStatusEnum.Updating]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.Uninstalling]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700",
-  [GameStatusEnum.Running]: "bg-zinc-800 text-white focus-visible:outline-zinc-700"
+  [GameStatusEnum.Remote]: "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600 hover:bg-blue-500",
+  [GameStatusEnum.Queued]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
+  [GameStatusEnum.Downloading]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
+  [GameStatusEnum.SetupRequired]: "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600 hover:bg-yellow-500",
+  [GameStatusEnum.Installed]: "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600 hover:bg-green-500",
+  [GameStatusEnum.Updating]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
+  [GameStatusEnum.Uninstalling]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
+  [GameStatusEnum.Running]: "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700"
 };
 
 const buttonNames: { [key in GameStatusEnum]: string } = {

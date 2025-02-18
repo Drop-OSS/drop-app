@@ -34,6 +34,7 @@ export type Game = {
   mBannerId: string;
   mCoverId: string;
   mImageLibrary: string[];
+  mImageCarousel: string[];
 };
 
 export enum AppStatus {
