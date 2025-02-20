@@ -1,7 +1,11 @@
 <template>
   <div>
-    <div class="relative mb-3 transition-transform duration-300 hover:scale-105 active:scale-95">
-      <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+    <div
+      class="relative mb-3 transition-transform duration-300 hover:scale-105 active:scale-95"
+    >
+      <div
+        class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"
+      >
         <MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" aria-hidden="true" />
       </div>
       <input
@@ -12,11 +16,7 @@
       />
     </div>
 
-    <TransitionGroup 
-      name="list" 
-      tag="ul" 
-      class="flex flex-col gap-y-1.5"
-    >
+    <TransitionGroup name="list" tag="ul" class="flex flex-col gap-y-1.5">
       <NuxtLink
         v-for="nav in filteredNavigation"
         :key="nav.id"
@@ -31,7 +31,9 @@
         :href="nav.route"
       >
         <div class="flex items-center w-full gap-x-3">
-          <div class="flex-none transition-transform duration-300 hover:-rotate-2">
+          <div
+            class="flex-none transition-transform duration-300 hover:-rotate-2"
+          >
             <img
               class="size-8 object-cover bg-zinc-900 rounded-lg transition-all duration-300 shadow-sm"
               :src="icons[nav.id]"
@@ -39,23 +41,16 @@
             />
           </div>
           <div class="flex flex-col flex-1">
-            <p class="truncate text-xs font-display leading-5 flex-1 font-semibold">
+            <p
+              class="truncate text-xs font-display leading-5 flex-1 font-semibold"
+            >
               {{ nav.label }}
             </p>
-            <p 
-              class="text-[11px] font-medium"
-              :class="[
-                games[nav.id].status.value.type === GameStatusEnum.Installed ? 'text-green-500' : 
-                games[nav.id].status.value.type === GameStatusEnum.Downloading ? 'text-blue-500' :
-                games[nav.id].status.value.type === GameStatusEnum.Running ? 'text-green-500' :
-                'text-zinc-500'
-              ]"
+            <p
+              class="text-xs font-medium"
+              :class="[gameStatusTextStyle[games[nav.id].status.value.type]]"
             >
-              {{ 
-                games[nav.id].status.value.type === GameStatusEnum.Downloading ? 'Downloading' :
-                games[nav.id].status.value.type === GameStatusEnum.Running ? 'Running' :
-                games[nav.id].status.value.type ? 'Installed' : 'Not Installed'
-              }}
+              {{ gameStatusText[games[nav.id].status.value.type] }}
             </p>
           </div>
         </div>
@@ -65,86 +60,102 @@
 </template>
 
 <script setup lang="ts">
-import { MagnifyingGlassIcon } from '@heroicons/vue/20/solid';
+import { MagnifyingGlassIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
-import { TransitionGroup } from 'vue';
-import { listen } from '@tauri-apps/api/event';
+import { TransitionGroup } from "vue";
+import { listen } from "@tauri-apps/api/event";
+
+// Style information
+const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
+  [GameStatusEnum.Installed]: "text-green-500",
+  [GameStatusEnum.Downloading]: "text-blue-500",
+  [GameStatusEnum.Running]: "text-green-500",
+  [GameStatusEnum.Remote]: "text-zinc-500",
+  [GameStatusEnum.Queued]: "text-blue-500",
+  [GameStatusEnum.Updating]: "text-blue-500",
+  [GameStatusEnum.Uninstalling]: "text-zinc-100",
+  [GameStatusEnum.SetupRequired]: "text-yellow-500",
+};
+const gameStatusText: { [key in GameStatusEnum]: string } = {
+  [GameStatusEnum.Remote]: "Not installed",
+  [GameStatusEnum.Queued]: "Queued",
+  [GameStatusEnum.Downloading]: "Downloading...",
+  [GameStatusEnum.Installed]: "Installed",
+  [GameStatusEnum.Updating]: "Updating...",
+  [GameStatusEnum.Uninstalling]: "Uninstalling...",
+  [GameStatusEnum.SetupRequired]: "Setup required",
+  [GameStatusEnum.Running]: "Running",
+};
 
 const router = useRouter();
 
-const searchQuery = ref('');
+const searchQuery = ref("");
 
-
-let libraryDownloadError = false;
-
-const games: { [key: string]: { game: Game, status: Ref<GameStatus, GameStatus> } } = {};
+const games: {
+  [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> };
+} = {};
 const icons: { [key: string]: string } = {};
 
-const rawGames: Ref<Game[], Game[]> = ref([])
+const rawGames: Ref<Game[], Game[]> = ref([]);
 
 async function calculateGames() {
-  try {
-    rawGames.value = await invoke("fetch_library");
-    for (const game of rawGames.value) {
-      if (games[game.id]) continue;
-      games[game.id] = await useGame(game.id);
-    }
-    for (const game of rawGames.value) {
-      if (icons[game.id]) continue;
-      icons[game.id] = await useObject(game.mIconId);
-    }
+  rawGames.value = await invoke("fetch_library");
+  for (const game of rawGames.value) {
+    if (games[game.id]) continue;
+    games[game.id] = await useGame(game.id);
   }
-  catch (e) {
-    console.log(e)
-    libraryDownloadError = true;
-    return new Array();
+  for (const game of rawGames.value) {
+    if (icons[game.id]) continue;
+    icons[game.id] = await useObject(game.mIconId);
   }
 }
 
 await calculateGames();
 
-const navigation = computed(() => rawGames.value.map((game) => {
-  const status = games[game.id].status;
+const navigation = computed(() =>
+  rawGames.value.map((game) => {
+    const status = games[game.id].status;
 
-  const isInstalled = computed(
-    () =>
-      status.value.type == GameStatusEnum.Installed ||
-      status.value.type == GameStatusEnum.SetupRequired
-  );
+    const isInstalled = computed(
+      () =>
+        status.value.type == GameStatusEnum.Installed ||
+        status.value.type == GameStatusEnum.SetupRequired
+    );
 
-  const item = {
-    label: game.mName,
-    route: `/library/${game.id}`,
-    prefix: `/library/${game.id}`,
-    isInstalled,
-    id: game.id,
-  };
-  return item;
-})
+    const item = {
+      label: game.mName,
+      route: `/library/${game.id}`,
+      prefix: `/library/${game.id}`,
+      isInstalled,
+      id: game.id,
+    };
+    return item;
+  })
 );
-const { currentNavigation, recalculateNavigation } = useCurrentNavigationIndex(navigation.value);
-
+const { currentNavigation, recalculateNavigation } = useCurrentNavigationIndex(
+  navigation.value
+);
 
 const filteredNavigation = computed(() => {
-  if (!searchQuery.value) return navigation.value.map((e, i) => ({...e, index: i}));
+  if (!searchQuery.value)
+    return navigation.value.map((e, i) => ({ ...e, index: i }));
   const query = searchQuery.value.toLowerCase();
-  return navigation.value.filter(nav => 
-    nav.label.toLowerCase().includes(query)
-  ).map((e, i) => ({...e, index: i}));
+  return navigation.value
+    .filter((nav) => nav.label.toLowerCase().includes(query))
+    .map((e, i) => ({ ...e, index: i }));
 });
 
 listen("update_library", async (event) => {
   console.log("Updating library");
   let oldNavigation = navigation.value[currentNavigation.value];
-  await calculateGames()
+  await calculateGames();
   recalculateNavigation();
   if (oldNavigation !== navigation.value[currentNavigation.value]) {
-    console.log("Triggered")
-    router.push("/library")
+    console.log("Triggered");
+    router.push("/library");
   }
-})
-
+});
 </script>
 
 <style scoped>
@@ -163,4 +174,4 @@ listen("update_library", async (event) => {
 .list-leave-active {
   position: absolute;
 }
-</style> 
+</style>
