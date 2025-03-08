@@ -29,18 +29,52 @@
                         />
                     </Switch>
                 </div>
+
+                <div class="flex flex-row items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-medium leading-6 text-zinc-100">Updates</h3>
+                        <p class="mt-1 text-sm leading-6 text-zinc-400">
+                            Check for new versions of Drop
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            @click="checkForUpdates"
+                            class="px-3 py-2 text-sm font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                        >
+                            Check for Updates
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+
+    <UpdateModal
+        :is-open="isModalOpen"
+        :title="modalTitle"
+        :description="modalDescription"
+        :button-text="modalButtonText"
+        :state="modalState"
+        @close="closeModal"
+    />
 </template>
 
 <script setup lang="ts">
 import { Switch } from '@headlessui/vue'
 import { invoke } from "@tauri-apps/api/core";
+import { ref } from 'vue'
+import { listen } from '@tauri-apps/api/event'
+import UpdateModal from '~/components/UpdateModal.vue'
 
 defineProps<{}>()
 
 const autostartEnabled = ref<boolean>(false)
+const isModalOpen = ref(false)
+const modalTitle = ref('')
+const modalDescription = ref('')
+const modalButtonText = ref('')
+const modalState = ref<'checking' | 'up-to-date' | 'update-available' | 'error'>('checking')
 
 // Load initial state
 invoke('get_autostart_enabled').then((enabled) => {
@@ -56,5 +90,50 @@ watch(autostartEnabled, async (newValue: boolean) => {
         // Revert the toggle if it failed
         autostartEnabled.value = !newValue
     }
+})
+
+// update checker
+const checkForUpdates = async () => {
+    try {
+        console.log('Initiating update check from settings page...')
+        modalState.value = 'checking'
+        modalTitle.value = 'Checking for Updates'
+        modalDescription.value = 'Please wait while we check for new versions...'
+        modalButtonText.value = 'Close'
+        isModalOpen.value = true
+
+        await invoke('check_for_updates')
+        
+        // The actual update state is handled by the create_modal event listener
+        console.log('Update check completed')
+    } catch (error) {
+        console.error('Failed to check for updates:', error)
+        modalState.value = 'error'
+        modalTitle.value = 'Update Check Failed'
+        modalDescription.value = `Failed to check for updates: ${error}`
+        modalButtonText.value = 'Close'
+    }
+}
+
+const closeModal = () => {
+    isModalOpen.value = false
+}
+
+// Listen for create_modal events from Rust
+onMounted(() => {
+    listen('create_modal', (event) => {
+        const payload = event.payload as any
+        if (payload.type === 'notification') {
+            if (payload.data.title === 'Update Available') {
+                modalState.value = 'update-available'
+            } else {
+                modalState.value = 'up-to-date'
+            }
+            modalTitle.value = payload.data.title
+            modalDescription.value = payload.data.description
+            modalButtonText.value = payload.data.buttonText
+            isModalOpen.value = true
+        }
+    })
 })
 </script>
