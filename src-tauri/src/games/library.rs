@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 
-use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, GameVersion};
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, GameVersion, GameVersionServer};
 use crate::database::db::{ApplicationTransientStatus, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
@@ -207,13 +207,14 @@ pub fn fetch_game_verion_options_logic(
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let data: Vec<GameVersion> = response.json()?;
+    let data: Vec<GameVersionServer> = response.json()?;
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
     let data: Vec<GameVersion> = data
         .into_iter()
         .filter(|v| process_manager_lock.valid_platform(&v.platform).unwrap())
+        .map(|v| v.into())
         .collect();
     drop(process_manager_lock);
     drop(state_lock);
@@ -327,7 +328,8 @@ pub fn on_game_complete(
     )?
     .send()?;
 
-    let data: GameVersion = response.json()?;
+    let data: GameVersionServer = response.json()?;
+    let data: GameVersion = data.into();
 
     let mut handle = borrow_db_mut_checked();
     handle

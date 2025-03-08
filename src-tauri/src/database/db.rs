@@ -19,7 +19,7 @@ use crate::{
     database::settings::Settings,
     download_manager::downloadable_metadata::DownloadableMetadata,
     games::{library::push_game_update, state::GameStatusManager},
-    process::process_manager::Platform,
+    process::{process_command::ProcessCommand, process_manager::Platform},
     DB,
 };
 
@@ -62,6 +62,42 @@ pub struct GameVersion {
 
     pub platform: Platform,
 
+    pub process_command: ProcessCommand,
+
+    pub setup_command: String,
+    pub setup_args: Vec<String>,
+
+    pub only_setup: bool,
+
+    pub version_index: usize,
+    pub delta: bool,
+
+    pub umu_id_override: Option<String>,
+}
+impl From<GameVersionServer> for GameVersion {
+    fn from(value: GameVersionServer) -> Self {
+        GameVersion {
+            game_id: value.game_id,
+            version_name: value.version_name,
+            platform: value.platform,
+            process_command: ProcessCommand::new(value.launch_command, value.launch_args),
+            setup_command: value.setup_command,
+            setup_args: value.setup_args,
+            only_setup: value.only_setup,
+            version_index: value.version_index,
+            delta: value.delta,
+            umu_id_override: value.umu_id_override
+        }
+    }
+}
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct GameVersionServer {
+    pub game_id: String,
+    pub version_name: String,
+
+    pub platform: Platform,
+
     pub launch_command: String,
     pub launch_args: Vec<String>,
 
@@ -98,10 +134,14 @@ pub struct Database {
     pub base_url: String,
     pub applications: DatabaseApplications,
     pub prev_database: Option<PathBuf>,
-    pub cache_dir: PathBuf
+    pub cache_dir: PathBuf,
 }
 impl Database {
-    fn new<T: Into<PathBuf>>(games_base_dir: T, prev_database: Option<PathBuf>, cache_dir: PathBuf) -> Self {
+    fn new<T: Into<PathBuf>>(
+        games_base_dir: T,
+        prev_database: Option<PathBuf>,
+        cache_dir: PathBuf,
+    ) -> Self {
         Self {
             applications: DatabaseApplications {
                 install_dirs: vec![games_base_dir.into()],
@@ -205,7 +245,7 @@ fn handle_invalid_database(
     _e: RustbreakError,
     db_path: PathBuf,
     games_base_dir: PathBuf,
-    cache_dir: PathBuf
+    cache_dir: PathBuf,
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
     let new_path = {
         let time = Utc::now().timestamp();
@@ -222,7 +262,7 @@ fn handle_invalid_database(
     let db = Database::new(
         games_base_dir.into_os_string().into_string().unwrap(),
         Some(new_path),
-        cache_dir
+        cache_dir,
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
