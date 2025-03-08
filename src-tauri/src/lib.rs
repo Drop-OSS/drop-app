@@ -8,6 +8,7 @@ mod download_manager;
 mod error;
 mod process;
 mod remote;
+mod update_checker;
 
 use crate::database::db::DatabaseImpls;
 use autostart::{get_autostart_enabled, toggle_autostart};
@@ -61,6 +62,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use update_checker::commands::check_for_updates;
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
@@ -260,6 +262,7 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
+            check_for_updates,
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
