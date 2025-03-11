@@ -28,26 +28,32 @@ pub fn fetch_collection(id: String) -> Result<Collection, RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn create_collection(name: String) -> Result<String, RemoteAccessError> {
+pub fn create_collection(name: String) -> Result<(), RemoteAccessError> {
     let client = Client::new();
     let base_url = DB.fetch_base_url();
 
-    let base_url = Url::parse(&format!("{}/api/v1/client/collection/", base_url))?;
+    let base_url = Url::parse(&format!("{}api/v1/client/collection/", base_url))?;
 
     let response = client
         .post(base_url)
         .header("Authorization", generate_authorization_header())
-        .json(&{name})
-        .send()?;
-    Ok(response.json()?)
+        .json(&{name});
+
+    println!("{:?}", response);
+    
+
+    println!("{}", response.send()?.text().unwrap());
+
+
+    Ok(())
 }
 
 #[tauri::command]
 pub fn add_game_to_collection(name: String) -> Result<(), RemoteAccessError> {
     let client = Client::new();
-    let url = Url::parse(&format!("{}/api/v1/client/collection/{}/entry/", DB.fetch_base_url(), name))?;
+    let url = Url::parse(&format!("{}api/v1/client/collection/{}/entry/", DB.fetch_base_url(), name))?;
 
-    client
+    let response = client
         .post(url)
         .header("Authorization", generate_authorization_header())
         .send()?;
@@ -57,7 +63,7 @@ pub fn add_game_to_collection(name: String) -> Result<(), RemoteAccessError> {
 #[tauri::command]
 pub fn delete_collection(id: String) -> Result<bool, RemoteAccessError> {
     let client = Client::new();
-    let base_url = Url::parse(&format!("{}/api/v1/client/collection/{}", DB.fetch_base_url(), id))?;
+    let base_url = Url::parse(&format!("{}api/v1/client/collection/{}", DB.fetch_base_url(), id))?;
 
     let response = client
         .delete(base_url)
@@ -69,7 +75,7 @@ pub fn delete_collection(id: String) -> Result<bool, RemoteAccessError> {
 #[tauri::command]
 pub fn delete_game_in_collection(id: String) -> Result<(), RemoteAccessError> {
     let client = Client::new();
-    let base_url = Url::parse(&format!("{}/api/v1/client/collection/{}/entry", DB.fetch_base_url(), id))?;
+    let base_url = Url::parse(&format!("{}api/v1/client/collection/{}/entry", DB.fetch_base_url(), id))?;
 
     client
         .delete(base_url)
