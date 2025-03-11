@@ -25,7 +25,7 @@ use download_manager::commands::{
 };
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use games::collections::commands::fetch_collections;
+use games::collections::commands::{add_game_to_collection, create_collection, delete_collection, delete_game_in_collection, fetch_collection, fetch_collections};
 use games::commands::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
@@ -251,6 +251,11 @@ pub fn run() {
             fetch_game_verion_options,
             // Collections
             fetch_collections,
+            fetch_collection,
+            create_collection,
+            add_game_to_collection,
+            delete_collection,
+            delete_game_in_collection,
             // Downloads
             download_game,
             move_download_in_queue,
