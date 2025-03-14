@@ -17,6 +17,16 @@
 
     <div class="relative z-10">
       <div class="px-8 pb-4">
+        <div class="flex items-center gap-x-3 mb-4">
+          <NuxtLink
+            to="/library"
+            class="transition text-sm/6 font-semibold text-zinc-400 hover:text-zinc-100 inline-flex gap-x-2 items-center duration-200 hover:scale-105"
+          >
+            <ArrowLeftIcon class="h-4 w-4" aria-hidden="true" />
+            Back to Collections
+          </NuxtLink>
+        </div>
+
         <h1
           class="text-5xl text-zinc-100 font-bold font-display drop-shadow-lg mb-8"
         >
@@ -35,6 +45,9 @@
               @kill="() => kill()"
               :status="status"
             />
+          </div>
+          <div class="relative z-20">
+            <GameLibraryControls :game-id="id" />
           </div>
           <a
             :href="remoteUrl"
@@ -459,12 +472,15 @@ import {
   XMarkIcon,
   ArrowsPointingOutIcon,
   PhotoIcon,
+  ArrowLeftIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStatusEnum } from "~/types";
 import { micromark } from "micromark";
+import { NuxtLink } from "#components";
+import GameLibraryControls from "~/components/GameLibraryControls.vue";
 
 const route = useRoute();
 const router = useRouter();
