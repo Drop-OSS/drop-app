@@ -126,6 +126,7 @@ import { invoke } from "@tauri-apps/api/core";
 const loading = ref(false);
 const error = ref<string | undefined>();
 
+let offerManualTimeout: NodeJS.Timeout | undefined;
 const offerManual = ref(false);
 const manualToken = ref("");
 const manualLoading = ref(false);
@@ -139,8 +140,9 @@ function authWrapper_wrapper() {
   auth().catch((e) => {
     loading.value = false;
     error.value = e;
+    if(offerManualTimeout) clearTimeout(offerManualTimeout);
   });
-  setTimeout(() => {
+  offerManualTimeout = setTimeout(() => {
     offerManual.value = true;
   }, 10000);
 }

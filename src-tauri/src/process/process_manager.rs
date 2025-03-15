@@ -16,7 +16,8 @@ use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
     database::db::{
-        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, GameVersion, DATA_ROOT_DIR
+        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, GameVersion,
+        DATA_ROOT_DIR,
     },
     download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
@@ -39,11 +40,14 @@ impl ProcessManager<'_> {
         drop(root_dir_lock);
 
         ProcessManager {
-            current_platform: if cfg!(windows) {
-                Platform::Windows
-            } else {
-                Platform::Linux
-            },
+            #[cfg(target_os = "windows")]
+            current_platform: Platform::Windows,
+
+            #[cfg(target_os = "macos")]
+            current_platform: Platform::macOS,
+
+            #[cfg(target_os = "linux")]
+            current_platform: Platform::Linux,
 
             app_handle,
             processes: HashMap::new(),
@@ -59,6 +63,10 @@ impl ProcessManager<'_> {
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
+                    (Platform::macOS, Platform::macOS),
+                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
+                (
                     (Platform::Linux, Platform::Windows),
                     &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
@@ -66,7 +74,11 @@ impl ProcessManager<'_> {
         }
     }
 
-    fn process_command(&self, install_dir: &String, command: Vec<String>) -> (PathBuf, Vec<String>) {
+    fn process_command(
+        &self,
+        install_dir: &String,
+        command: Vec<String>,
+    ) -> (PathBuf, Vec<String>) {
         let root = &command[0];
 
         let install_dir = Path::new(install_dir);
@@ -198,7 +210,6 @@ impl ProcessManager<'_> {
             _ => return Err(ProcessError::NotDownloaded),
         };
 
-
         let game_version = db_lock
             .applications
             .game_versions
@@ -216,14 +227,14 @@ impl ProcessManager<'_> {
             } => {
                 command.extend([game_version.launch_command.clone()]);
                 command.extend(game_version.launch_args.clone());
-            },
+            }
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
             } => {
                 command.extend([game_version.setup_command.clone()]);
                 command.extend(game_version.setup_args.clone());
-            },
+            }
             _ => panic!("unreachable code"),
         };
         info!("Command: {:?}", &command);
@@ -326,6 +337,7 @@ impl ProcessManager<'_> {
 pub enum Platform {
     Windows,
     Linux,
+    macOS,
 }
 
 pub trait ProcessHandler: Send + 'static {
@@ -374,8 +386,11 @@ impl ProcessHandler for UMULauncher {
     ) -> Result<Child, Error> {
         debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
         let game_id = match &game_version.umu_id_override {
-            Some(game_override) => game_override.is_empty().then_some(game_version.game_id.clone()).unwrap_or(game_override.clone()) ,
-            None => game_version.game_id.clone()
+            Some(game_override) => game_override
+                .is_empty()
+                .then_some(game_version.game_id.clone())
+                .unwrap_or(game_override.clone()),
+            None => game_version.game_id.clone(),
         };
         info!("Game ID: {}", game_id);
         UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, launch_command)

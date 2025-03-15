@@ -250,6 +250,7 @@ impl GameDownloadAgent {
         let completed_indexes_loop_arc = completed_indexes.clone();
 
         let contexts = self.contexts.lock().unwrap();
+        debug!("{:#?}", contexts);
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
             for (index, context) in contexts.iter().enumerate() {

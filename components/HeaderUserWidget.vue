@@ -49,17 +49,20 @@
                 Admin Dashboard
               </a>
             </MenuItem>
-            <MenuItem v-for="(nav, navIdx) in navigation" v-slot="{ active, close }">
+            <MenuItem
+              v-for="(nav, navIdx) in navigation"
+              v-slot="{ active, close }"
+            >
               <button
-              @click="() => navigate(close, nav)"
+                @click="() => navigate(close, nav)"
                 :href="nav.route"
                 :class="[
                   active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
                   'transition text-left block px-4 py-2 text-sm',
                 ]"
               >
-                {{ nav.label }}</button
-              >
+                {{ nav.label }}
+              </button>
             </MenuItem>
           </div>
         </PanelWidget>
@@ -80,17 +83,17 @@ const open = ref(false);
 const router = useRouter();
 router.afterEach(() => {
   open.value = false;
-})
+});
 
 const state = useAppState();
-const profilePictureUrl: string = await invoke("gen_drop_url", {
-  path: `/api/v1/object/${state.value.user?.profilePicture}`,
-});
+const profilePictureUrl: string = await useObject(
+  state.value.user?.profilePicture ?? ""
+);
 const adminUrl: string = await invoke("gen_drop_url", {
   path: "/admin",
 });
 
-function navigate(close: () => any, to: NavigationItem){
+function navigate(close: () => any, to: NavigationItem) {
   close();
   router.push(to.route);
 }
@@ -110,6 +113,6 @@ const navigation: NavigationItem[] = [
     label: "Quit Drop",
     route: "/quit",
     prefix: "",
-  }
-]
+  },
+];
 </script>
