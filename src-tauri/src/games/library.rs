@@ -24,7 +24,7 @@ pub struct FetchGameStruct {
     status: GameStatusWithTransient,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     id: String,
