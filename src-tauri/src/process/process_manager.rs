@@ -4,6 +4,7 @@ use std::{
     io::{self, Error},
     path::{Path, PathBuf},
     process::{Child, Command, ExitStatus},
+    str::FromStr,
     sync::{Arc, Mutex},
     thread::spawn,
 };
@@ -74,24 +75,6 @@ impl ProcessManager<'_> {
         }
     }
 
-    fn process_command(
-        &self,
-        install_dir: &String,
-        command: Vec<String>,
-    ) -> (PathBuf, Vec<String>) {
-        let root = &command[0];
-
-        let install_dir = Path::new(install_dir);
-        let absolute_exe = install_dir.join(root);
-
-        /*
-        let args = command_components[1..]
-            .iter()
-            .map(|v| v.to_string())
-            .collect();
-         */
-        (absolute_exe, Vec::new())
-    }
     pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
         match self.processes.get(&game_id) {
             Some(child) => {
@@ -218,37 +201,6 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
-        let mut command: Vec<String> = Vec::new();
-
-        match game_status {
-            GameDownloadStatus::Installed {
-                version_name: _,
-                install_dir: _,
-            } => {
-                command.extend([game_version.launch_command.clone()]);
-                command.extend(game_version.launch_args.clone());
-            }
-            GameDownloadStatus::SetupRequired {
-                version_name: _,
-                install_dir: _,
-            } => {
-                command.extend([game_version.setup_command.clone()]);
-                command.extend(game_version.setup_args.clone());
-            }
-            _ => panic!("unreachable code"),
-        };
-        info!("Command: {:?}", &command);
-
-        let (command, args) = self.process_command(install_dir, command);
-
-        let target_current_dir = command.parent().unwrap().to_str().unwrap();
-
-        info!(
-            "launching process {} in {}",
-            command.to_str().unwrap(),
-            target_current_dir
-        );
-
         let current_time = chrono::offset::Local::now();
         let log_file = OpenOptions::new()
             .write(true)
@@ -284,19 +236,50 @@ impl ProcessManager<'_> {
             .get(&(current_platform, target_platform))
             .ok_or(ProcessError::InvalidPlatform)?;
 
-        let launch_process = game_launcher
-            .launch_process(
-                &meta,
-                command.to_string_lossy().to_string(),
-                game_version,
-                target_current_dir,
-                log_file,
-                error_file,
-            )
-            .map_err(ProcessError::IOError)?;
+        let (launch, args) = match game_status {
+            GameDownloadStatus::Installed {
+                version_name: _,
+                install_dir: _,
+            } => (&game_version.launch_command, &game_version.launch_args),
+            GameDownloadStatus::SetupRequired {
+                version_name: _,
+                install_dir: _,
+            } => (&game_version.setup_command, &game_version.setup_args),
+            GameDownloadStatus::Remote {} => unreachable!("nuh uh"),
+        };
+
+        let launch = PathBuf::from_str(&install_dir).unwrap().join(launch);
+        let launch = launch.to_str().unwrap();
+
+        let launch_string = game_launcher.create_launch_process(
+            &meta,
+            launch.to_string(),
+            args.to_vec(),
+            game_version,
+            install_dir,
+        );
+
+        info!("launching process {} in {}", launch_string, install_dir);
+
+        #[cfg(target_os = "windows")]
+        let mut command = Command::new("cmd");
+        #[cfg(target_os = "windows")]
+        command.args(["/C", &launch_string]);
+
+        #[cfg(unix)]
+        let mut command: Command = Command::new("sh");
+        #[cfg(unix)]
+        command.arg("-c").arg(launch_string);
+
+        command
+            .stderr(error_file)
+            .stdout(log_file)
+            .current_dir(install_dir);
+
+        let child = command.spawn().map_err(ProcessError::IOError)?;
 
         let launch_process_handle =
-            Arc::new(SharedChild::new(launch_process).map_err(ProcessError::IOError)?);
+            Arc::new(SharedChild::new(child).map_err(ProcessError::IOError)?);
 
         db_lock
             .applications
@@ -341,49 +324,41 @@ pub enum Platform {
 }
 
 pub trait ProcessHandler: Send + 'static {
-    fn launch_process(
+    fn create_launch_process(
         &self,
         meta: &DownloadableMetadata,
         launch_command: String,
+        args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
-        log_file: File,
-        error_file: File,
-    ) -> Result<Child, Error>;
+    ) -> String;
 }
 
 struct NativeGameLauncher;
 impl ProcessHandler for NativeGameLauncher {
-    fn launch_process(
+    fn create_launch_process(
         &self,
         _meta: &DownloadableMetadata,
         launch_command: String,
+        args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
-        log_file: File,
-        error_file: File,
-    ) -> Result<Child, Error> {
-        Command::new(PathBuf::from(launch_command))
-            .current_dir(current_dir)
-            .stdout(log_file)
-            .stderr(error_file)
-            .args(game_version.launch_args.clone())
-            .spawn()
+    ) -> String {
+        format!("\"{}\" {}", launch_command, args.join(" "))
     }
 }
 
 const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
 struct UMULauncher;
 impl ProcessHandler for UMULauncher {
-    fn launch_process(
+    fn create_launch_process(
         &self,
         _meta: &DownloadableMetadata,
         launch_command: String,
+        args: Vec<String>,
         game_version: &GameVersion,
         _current_dir: &str,
-        _log_file: File,
-        _error_file: File,
-    ) -> Result<Child, Error> {
+    ) -> String {
         debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
         let game_id = match &game_version.umu_id_override {
             Some(game_override) => game_override
@@ -392,11 +367,11 @@ impl ProcessHandler for UMULauncher {
                 .unwrap_or(game_override.clone()),
             None => game_version.game_id.clone(),
         };
-        info!("Game ID: {}", game_id);
-        UmuCommandBuilder::new(UMU_LAUNCHER_EXECUTABLE, launch_command)
-            .game_id(game_id)
-            .launch_args(game_version.launch_args.clone())
-            .build()
-            .spawn()
+        format!(
+            "GAMEID={game_id} {umu} \"{launch}\" {args}",
+            umu = UMU_LAUNCHER_EXECUTABLE,
+            launch = launch_command,
+            args = args.join(" ")
+        )
     }
 }
