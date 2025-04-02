@@ -1,9 +1,10 @@
 use std::{env, sync::Mutex};
 
 use chrono::Utc;
+use droplet_rs::ssl::sign_nonce;
 use log::{debug, error, warn};
-use openssl::{ec::EcKey, hash::MessageDigest, pkey::PKey, sign::Signer};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
@@ -37,20 +38,6 @@ struct HandshakeResponse {
     private: String,
     certificate: String,
     id: String,
-}
-
-// TODO: Change return value on Err
-pub fn sign_nonce(private_key: String, nonce: String) -> Result<String, ()> {
-    let client_private_key = EcKey::private_key_from_pem(private_key.as_bytes()).unwrap();
-    let pkey_private_key = PKey::from_ec_key(client_private_key).unwrap();
-
-    let mut signer = Signer::new(MessageDigest::sha256(), &pkey_private_key).unwrap();
-    signer.update(nonce.as_bytes()).unwrap();
-    let signature = signer.sign_to_vec().unwrap();
-
-    let hex_signature = hex::encode(signature);
-
-    Ok(hex_signature)
 }
 
 pub fn generate_authorization_header() -> String {
@@ -133,6 +120,23 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
         let mut app_state_handle = app_state.lock().unwrap();
         app_state_handle.status = AppStatus::SignedIn;
         app_state_handle.user = Some(fetch_user()?);
+
+        // Setup capabilities
+        let endpoint = base_url.join("/api/v1/client/capability")?;
+        let header = generate_authorization_header();
+        let body = json!({
+            "capability": "cloudSaves",
+            "configuration": {}
+        });
+        let response = client
+            .post(endpoint)
+            .header("Authorization", header)
+            .json(&body)
+            .send()?;
+
+        if response.status().is_success() {
+            debug!("registered client for 'cloudSaves' capability")
+        }
     }
 
     Ok(())
