@@ -28,9 +28,7 @@
       />
       <div class="inline-flex items-center">
         <ol class="inline-flex gap-3">
-          <HeaderQueueWidget
-            :object="currentQueueObject"
-          />
+          <HeaderQueueWidget :object="currentQueueObject" />
           <li v-for="(item, itemIdx) in quickActions">
             <HeaderWidget
               @click="item.action"
@@ -39,6 +37,7 @@
               <component class="h-5" :is="item.icon" />
             </HeaderWidget>
           </li>
+          <OfflineHeaderWidget v-if="state.status === AppStatus.Offline" />
           <HeaderUserWidget />
         </ol>
       </div>
@@ -49,11 +48,12 @@
 
 <script setup lang="ts">
 import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
-import type { NavigationItem, QuickActionNav } from "../types";
+import { AppStatus, type NavigationItem, type QuickActionNav } from "../types";
 import HeaderWidget from "./HeaderWidget.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const window = getCurrentWindow();
+const state = useAppState();
 
 const navigation: Array<NavigationItem> = [
   {
@@ -78,7 +78,7 @@ const navigation: Array<NavigationItem> = [
   },
 ];
 
-const {currentNavigation} = useCurrentNavigationIndex(navigation);
+const { currentNavigation } = useCurrentNavigationIndex(navigation);
 
 const quickActions: Array<QuickActionNav> = [
   {

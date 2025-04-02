@@ -25,7 +25,10 @@ use download_manager::commands::{
 };
 use download_manager::download_manager::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
-use games::collections::commands::{add_game_to_collection, create_collection, delete_collection, delete_game_in_collection, fetch_collection, fetch_collections};
+use games::collections::commands::{
+    add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
+    fetch_collection, fetch_collections,
+};
 use games::commands::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
@@ -43,7 +46,8 @@ use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{self, recieve_handshake};
 use remote::commands::{
-    auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect, sign_out, use_remote
+    auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
+    sign_out, use_remote,
 };
 use remote::fetch_object::{fetch_object, fetch_object_offline};
 use remote::requests::make_request;
@@ -83,6 +87,7 @@ pub struct User {
     display_name: String,
     profile_picture: String,
 }
+
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -370,7 +375,13 @@ pub fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
             let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
-            offline!(state, fetch_object, fetch_object_offline, request, responder);
+            offline!(
+                state,
+                fetch_object,
+                fetch_object_offline,
+                request,
+                responder
+            );
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

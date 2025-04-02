@@ -36,11 +36,14 @@ impl ProcessManager<'_> {
         drop(root_dir_lock);
 
         ProcessManager {
-            current_platform: if cfg!(windows) {
-                Platform::Windows
-            } else {
-                Platform::Linux
-            },
+            #[cfg(target_os = "windows")]
+            current_platform: Platform::Windows,
+
+            #[cfg(target_os = "macos")]
+            current_platform: Platform::macOS,
+
+            #[cfg(target_os = "linux")]
+            current_platform: Platform::Linux,
 
             app_handle,
             processes: HashMap::new(),
@@ -53,6 +56,10 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Linux),
+                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
+                (
+                    (Platform::macOS, Platform::macOS),
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
@@ -304,6 +311,7 @@ impl ProcessManager<'_> {
 
         self.processes.insert(meta.id, wait_thread_handle);
         Ok(())
+        
     }
 }
 
@@ -311,6 +319,7 @@ impl ProcessManager<'_> {
 pub enum Platform {
     Windows,
     Linux,
+    macOS,
 }
 
 pub trait ProcessHandler: Send + 'static {
@@ -365,6 +374,11 @@ impl ProcessHandler for UMULauncher {
                 .then_some(game_version.game_id.clone())
                 .unwrap_or(game_override.clone()),
             None => game_version.game_id.clone(),
+            Some(game_override) => game_override
+                .is_empty()
+                .then_some(game_version.game_id.clone())
+                .unwrap_or(game_override.clone()),
+            None => game_version.game_id.clone(),
         };
         info!("Game ID: {}", game_id);
         let (command, args) = launch_command.into_readable_with_dir(&PathBuf::from_str(_current_dir).unwrap());
@@ -378,3 +392,4 @@ impl ProcessHandler for UMULauncher {
         .spawn()
     }
 }
+
