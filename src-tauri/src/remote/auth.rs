@@ -2,6 +2,7 @@ use std::{env, sync::Mutex};
 
 use chrono::Utc;
 use droplet_rs::ssl::sign_nonce;
+use gethostname::gethostname;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -162,9 +163,11 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
         Url::parse(&db_lock.base_url.clone())?
     };
 
+    let hostname = gethostname();
+
     let endpoint = base_url.join("/api/v1/client/auth/initiate")?;
     let body = InitiateRequestBody {
-        name: "Drop Desktop Client".to_string(),
+        name: format!("{} (Desktop)", hostname.into_string().unwrap()),
         platform: env::consts::OS.to_string(),
     };
 

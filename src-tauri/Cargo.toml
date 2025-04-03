@@ -57,6 +57,7 @@ reqwest-middleware = "0.4.0"
 reqwest-middleware-cache = "0.1.1"
 deranged = "=0.4.0"
 droplet-rs = "0.7.3"
+gethostname = "1.0.1"
 
 [dependencies.tauri]
 version = "2.1.1"
