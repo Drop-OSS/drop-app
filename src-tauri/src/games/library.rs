@@ -2,7 +2,7 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
@@ -137,7 +137,7 @@ pub fn fetch_game_logic(
             status,
         };
 
-        cache_object(id, &data)?;
+        cache_object(id, game)?;
 
         return Ok(data);
     }
@@ -175,7 +175,7 @@ pub fn fetch_game_logic(
         status,
     };
 
-    cache_object(id, &data)?;
+    cache_object(id, &game)?;
 
     Ok(data)
 }
@@ -184,7 +184,9 @@ pub fn fetch_game_logic_offline(
     id: String,
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    get_cached_object::<String, FetchGameStruct>(id)
+    let status = GameStatusManager::fetch_state(&id);
+    let game = get_cached_object::<String, Game>(id)?;
+    Ok(FetchGameStruct { game, status })
 }
 
 pub fn fetch_game_verion_options_logic(

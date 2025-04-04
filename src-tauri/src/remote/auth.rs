@@ -17,7 +17,10 @@ use crate::{
     AppState, AppStatus, User, DB,
 };
 
-use super::requests::make_request;
+use super::{
+    cache::{cache_object, get_cached_object},
+    requests::make_request,
+};
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -198,9 +201,13 @@ pub fn setup() -> (AppStatus, Option<User>) {
     if auth.is_some() {
         let user_result = match fetch_user() {
             Ok(data) => data,
-            Err(RemoteAccessError::FetchError(_)) => return (AppStatus::Offline, None),
+            Err(RemoteAccessError::FetchError(_)) => {
+                let user = get_cached_object::<String, User>("user".to_owned()).unwrap();
+                return (AppStatus::Offline, Some(user));
+            }
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),
         };
+        cache_object("user", &user_result).unwrap();
         return (AppStatus::SignedIn, Some(user_result));
     }
 

@@ -2,6 +2,7 @@ use crate::{database::db::borrow_db_checked, error::remote_access_error::RemoteA
 use cacache::Integrity;
 use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_binary::binary_stream::Endian;
 use tauri::{UriSchemeContext, UriSchemeResponder};
 
 use super::{auth::generate_authorization_header, requests::make_request};
@@ -22,7 +23,7 @@ pub fn cache_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
     data: &D,
 ) -> Result<Integrity, RemoteAccessError> {
-    let bytes = serde_json::to_vec(data).unwrap();
+    let bytes = serde_binary::to_vec(data, Endian::Little).unwrap();
     cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
         .map_err(|e| RemoteAccessError::Cache(e))
 }
@@ -31,7 +32,7 @@ pub fn get_cached_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
 ) -> Result<D, RemoteAccessError> {
     let bytes = cacache::read_sync(&borrow_db_checked().cache_dir, key)
         .map_err(|e| RemoteAccessError::Cache(e))?;
-    let data = serde_json::from_slice::<D>(&bytes).unwrap();
+    let data = serde_binary::from_slice::<D>(&bytes, Endian::Little).unwrap();
     Ok(data)
 }
 
