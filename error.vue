@@ -85,5 +85,6 @@ const message =
   props.error?.statusMessage ||
   props.error?.message ||
   "An unknown error occurred.";
-const showSignIn = statusCode ? statusCode == 403 || statusCode == 401 : false;
+
+console.error(props.error);
 </script>

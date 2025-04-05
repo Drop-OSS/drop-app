@@ -1,11 +1,14 @@
-use crate::{database::db::borrow_db_checked, error::remote_access_error::RemoteAccessError};
+use std::sync::RwLockReadGuard;
+
+use crate::{
+    database::db::{borrow_db_checked, Database},
+    error::remote_access_error::RemoteAccessError,
+};
 use cacache::Integrity;
 use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_binary::binary_stream::Endian;
-use tauri::{UriSchemeContext, UriSchemeResponder};
 
-use super::{auth::generate_authorization_header, requests::make_request};
 
 #[macro_export]
 macro_rules! offline {
@@ -30,12 +33,16 @@ pub fn cache_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
 pub fn get_cached_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
 ) -> Result<D, RemoteAccessError> {
-    let bytes = cacache::read_sync(&borrow_db_checked().cache_dir, key)
-        .map_err(|e| RemoteAccessError::Cache(e))?;
+    get_cached_object_db::<K, D>(key, &borrow_db_checked())
+}
+pub fn get_cached_object_db<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
+    key: K,
+    db: &Database,
+) -> Result<D, RemoteAccessError> {
+    let bytes = cacache::read_sync(&db.cache_dir, key).map_err(|e| RemoteAccessError::Cache(e))?;
     let data = serde_binary::from_slice::<D>(&bytes, Endian::Little).unwrap();
     Ok(data)
 }
-
 #[derive(Serialize, Deserialize)]
 pub struct ObjectCache {
     content_type: String,

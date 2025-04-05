@@ -14,7 +14,7 @@ use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
-use crate::remote::cache::{cache_object, get_cached_object};
+use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
 use crate::AppState;
 
@@ -85,7 +85,7 @@ pub fn fetch_library_logic(
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let games: Vec<Game> = response.json()?;
+    let mut games: Vec<Game> = response.json()?;
 
     let mut handle = state.lock().unwrap();
 
@@ -100,6 +100,18 @@ pub fn fetch_library_logic(
                 .insert(game.id.clone(), GameDownloadStatus::Remote {});
         }
     }
+
+    // Add games that are installed but no longer in library
+    for (_, meta) in &db_handle.applications.installed_game_version {
+        if games.iter().find(|e| e.id == meta.id).is_some() {
+            continue;
+        }
+        // We should always have a cache of the object
+        // Pass db_handle because otherwise we get a gridlock
+        let game = get_cached_object_db::<String, Game>(meta.id.clone(), &db_handle)?;
+        games.push(game);
+    }
+
     drop(handle);
     drop(db_handle);
     cache_object("library", &games)?;
@@ -142,13 +154,13 @@ pub fn fetch_game_logic(
         return Ok(data);
     }
     let client = reqwest::blocking::Client::new();
-    let response = make_request(&client, &["/api/v1/game/", &id], &[], |r| {
+    let response = make_request(&client, &["/api/v1/client/game/", &id], &[], |r| {
         r.header("Authorization", generate_authorization_header())
     })?
     .send()?;
 
     if response.status() == 404 {
-        return Err(RemoteAccessError::GameNotFound);
+        return Err(RemoteAccessError::GameNotFound(id));
     }
     if response.status() != 200 {
         let err = response.json().unwrap();
@@ -312,7 +324,7 @@ pub fn on_game_complete(
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
     if meta.version.is_none() {
-        return Err(RemoteAccessError::GameNotFound);
+        return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
     }
 
     let header = generate_authorization_header();
@@ -320,7 +332,7 @@ pub fn on_game_complete(
     let client = reqwest::blocking::Client::new();
     let response = make_request(
         &client,
-        &["/api/v1/client/metadata/version"],
+        &["/api/v1/client/game/version"],
         &[
             ("id", &meta.id),
             ("version", meta.version.as_ref().unwrap()),

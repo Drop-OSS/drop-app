@@ -29,6 +29,9 @@
                   Drop encountered an error that it couldn't handle. Please
                   restart the application and file a bug report.
                 </p>
+                <p class="mt-3 text-sm font-monospace text-zinc-500">
+                  Error: {{ error }}
+                </p>
               </div>
             </main>
             <footer
