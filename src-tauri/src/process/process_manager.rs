@@ -9,6 +9,8 @@ use std::{
     thread::spawn,
 };
 
+use dynfmt::Format;
+use dynfmt::SimpleCurlyFormat;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
@@ -258,6 +260,11 @@ impl ProcessManager<'_> {
             game_version,
             install_dir,
         );
+
+        let launch_string = SimpleCurlyFormat
+            .format(&game_version.launch_command_template, &[launch_string])
+            .map_err(|e| ProcessError::FormatError(e.to_string()))?
+            .to_string();
 
         info!("launching process {} in {}", launch_string, install_dir);
 

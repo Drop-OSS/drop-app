@@ -54,6 +54,10 @@ pub enum ApplicationTransientStatus {
     Running {},
 }
 
+fn default_template() -> String {
+    "{}".to_owned()
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct GameVersion {
@@ -64,9 +68,14 @@ pub struct GameVersion {
 
     pub launch_command: String,
     pub launch_args: Vec<String>,
+    #[serde(default = "default_template")]
+    pub launch_command_template: String,
 
     pub setup_command: String,
     pub setup_args: Vec<String>,
+    #[serde(default = "default_template")]
+    pub setup_command_template: String,
+
 
     pub only_setup: bool,
 

@@ -11,6 +11,7 @@ pub enum ProcessError {
     InvalidID,
     InvalidVersion,
     IOError(Error),
+    FormatError(String), // String errors supremacy
     InvalidPlatform,
 }
 
@@ -25,6 +26,7 @@ impl Display for ProcessError {
             ProcessError::InvalidVersion => "Invalid Game version",
             ProcessError::IOError(error) => &error.to_string(),
             ProcessError::InvalidPlatform => "This Game cannot be played on the current platform",
+            ProcessError::FormatError(e) => &format!("Failed to format template: {}", e),
         };
         write!(f, "{}", s)
     }

@@ -59,6 +59,10 @@ deranged = "=0.4.0"
 droplet-rs = "0.7.3"
 gethostname = "1.0.1"
 
+[dependencies.dynfmt]
+version = "0.1.5"
+features = ["curly"]
+
 [dependencies.tauri]
 version = "2.1.1"
 features = ["tray-icon"]
