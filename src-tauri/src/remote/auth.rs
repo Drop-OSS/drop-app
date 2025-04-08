@@ -114,10 +114,28 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
             private: response_struct.private,
             cert: response_struct.certificate,
             client_id: response_struct.id,
+            web_token: None, // gets created later
         });
         drop(handle);
         save_db();
     }
+
+    let web_token = {
+        let header = generate_authorization_header();
+        let token = client
+            .post(base_url.join("/api/v1/client/user/webtoken").unwrap())
+            .header("Authorization", header)
+            .send()
+            .unwrap();
+
+        token.text().unwrap()
+    };
+
+    let mut handle = borrow_db_mut_checked();
+    let mut_auth = handle.auth.as_mut().unwrap();
+    mut_auth.web_token = Some(web_token);
+    drop(handle);
+    save_db();
 
     {
         let app_state = app.state::<Mutex<AppState>>();

@@ -51,6 +51,7 @@ use remote::commands::{
 };
 use remote::fetch_object::{fetch_object, fetch_object_offline};
 use remote::requests::make_request;
+use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use reqwest::blocking::Body;
 use serde::{Deserialize, Serialize};
 use std::env;
@@ -382,6 +383,17 @@ pub fn run() {
                 request,
                 responder
             );
+        })
+        .register_asynchronous_uri_scheme_protocol("server", move |ctx, request, responder| {
+            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+            offline!(
+                state,
+                handle_server_proto,
+                handle_server_proto_offline,
+                request,
+                responder
+            );
+
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

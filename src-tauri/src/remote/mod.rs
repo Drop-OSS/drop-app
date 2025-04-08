@@ -5,3 +5,4 @@ pub mod commands;
 pub mod fetch_object;
 pub mod remote;
 pub mod requests;
+pub mod server_proto;

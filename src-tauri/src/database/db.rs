@@ -28,6 +28,7 @@ pub struct DatabaseAuth {
     pub private: String,
     pub cert: String,
     pub client_id: String,
+    pub web_token: Option<String>,
 }
 
 // Strings are version names for a particular game
@@ -76,7 +77,6 @@ pub struct GameVersion {
     #[serde(default = "default_template")]
     pub setup_command_template: String,
 
-
     pub only_setup: bool,
 
     pub version_index: usize,
@@ -107,10 +107,14 @@ pub struct Database {
     pub base_url: String,
     pub applications: DatabaseApplications,
     pub prev_database: Option<PathBuf>,
-    pub cache_dir: PathBuf
+    pub cache_dir: PathBuf,
 }
 impl Database {
-    fn new<T: Into<PathBuf>>(games_base_dir: T, prev_database: Option<PathBuf>, cache_dir: PathBuf) -> Self {
+    fn new<T: Into<PathBuf>>(
+        games_base_dir: T,
+        prev_database: Option<PathBuf>,
+        cache_dir: PathBuf,
+    ) -> Self {
         Self {
             applications: DatabaseApplications {
                 install_dirs: vec![games_base_dir.into()],
@@ -214,7 +218,7 @@ fn handle_invalid_database(
     _e: RustbreakError,
     db_path: PathBuf,
     games_base_dir: PathBuf,
-    cache_dir: PathBuf
+    cache_dir: PathBuf,
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
     let new_path = {
         let time = Utc::now().timestamp();
@@ -231,7 +235,7 @@ fn handle_invalid_database(
     let db = Database::new(
         games_base_dir.into_os_string().into_string().unwrap(),
         Some(new_path),
-        cache_dir
+        cache_dir,
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
