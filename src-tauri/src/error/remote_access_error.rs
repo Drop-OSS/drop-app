@@ -1,4 +1,5 @@
 use std::{
+    any::{Any, TypeId},
     error::Error,
     fmt::{Display, Formatter},
     sync::Arc,
@@ -28,16 +29,22 @@ pub enum RemoteAccessError {
 impl Display for RemoteAccessError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            RemoteAccessError::FetchError(error) => write!(
-                f,
-                "{}: {}",
-                error,
-                error
-                    .source()
-                    .map(|e| e.to_string())
-                    .or_else(|| Some("Unknown error".to_string()))
-                    .unwrap()
-            ),
+            RemoteAccessError::FetchError(error) => {
+                if error.is_connect() {
+                    return write!(f, "Failed to connect to Drop server. Check if you access Drop through a browser, and then try again.");
+                }
+
+                write!(
+                    f,
+                    "{}: {}",
+                    error,
+                    error
+                        .source()
+                        .map(|e| e.to_string())
+                        .or_else(|| Some("Unknown error".to_string()))
+                        .unwrap()
+                )
+            },
             RemoteAccessError::ParsingError(parse_error) => {
                 write!(f, "{}", parse_error)
             }
