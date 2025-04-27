@@ -13,5 +13,5 @@ export default defineNuxtConfig({
 
   ssr: false,
 
-  extends: [["github:drop-oss/drop-base"]],
+  extends: [["./drop-base"]],
 });

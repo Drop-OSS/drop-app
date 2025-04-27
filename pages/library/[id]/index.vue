@@ -24,18 +24,16 @@
         </h1>
 
         <div class="flex flex-row gap-x-4 items-stretch mb-8">
-          <div
-            class="transition-transform duration-300 hover:scale-105 active:scale-95 shadow-xl"
-          >
-            <GameStatusButton
-              @install="() => installFlow()"
-              @launch="() => launch()"
-              @queue="() => queue()"
-              @uninstall="() => uninstall()"
-              @kill="() => kill()"
-              :status="status"
-            />
-          </div>
+          <!-- Do not add scale animations to this: https://stackoverflow.com/a/35683068 -->
+          <GameStatusButton
+            @install="() => installFlow()"
+            @launch="() => launch()"
+            @queue="() => queue()"
+            @uninstall="() => uninstall()"
+            @kill="() => kill()"
+            @options="() => (configureModalOpen = true)"
+            :status="status"
+          />
           <a
             :href="remoteUrl"
             target="_blank"
@@ -371,6 +369,8 @@
     </template>
   </ModalTemplate>
 
+  <GameOptionsModal v-model="configureModalOpen" :game-id="game.id" />
+
   <Transition
     enter="transition ease-out duration-300"
     enter-from="opacity-0"
@@ -463,7 +463,6 @@ import {
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStatusEnum } from "~/types";
 import { micromark } from "micromark";
 
 const route = useRoute();
@@ -492,6 +491,8 @@ const versionOptions = ref<
 >();
 const installDirs = ref<undefined | Array<string>>();
 const currentImageIndex = ref(0);
+
+const configureModalOpen = ref(false);
 
 async function installFlow() {
   installFlowOpen.value = true;

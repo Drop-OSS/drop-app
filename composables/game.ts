@@ -1,8 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { Game, GameStatus, GameStatusEnum } from "~/types";
+import type { Game, GameStatus, GameStatusEnum, GameVersion } from "~/types";
 
-const gameRegistry: { [key: string]: Game } = {};
+const gameRegistry: { [key: string]: { game: Game; version?: GameVersion } } =
+  {};
 
 const gameStatusRegistry: { [key: string]: Ref<GameStatus> } = {};
 
@@ -31,13 +32,14 @@ export const parseStatus = (status: SerializedGameStatus): GameStatus => {
 
 export const useGame = async (gameId: string) => {
   if (!gameRegistry[gameId]) {
-    const data: { game: Game; status: SerializedGameStatus } = await invoke(
-      "fetch_game",
-      {
-        gameId,
-      }
-    );
-    gameRegistry[gameId] = data.game;
+    const data: {
+      game: Game;
+      status: SerializedGameStatus;
+      version?: GameVersion;
+    } = await invoke("fetch_game", {
+      gameId,
+    });
+    gameRegistry[gameId] = { game: data.game, version: data.version };
     if (!gameStatusRegistry[gameId]) {
       gameStatusRegistry[gameId] = ref(parseStatus(data.status));
 
@@ -53,5 +55,9 @@ export const useGame = async (gameId: string) => {
 
   const game = gameRegistry[gameId];
   const status = gameStatusRegistry[gameId];
-  return { game, status };
+  return { ...game, status };
+};
+
+export type FrontendGameConfiguration = {
+  launchString: string;
 };

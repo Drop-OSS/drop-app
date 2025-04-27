@@ -33,7 +33,7 @@ use games::commands::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
 use games::downloads::commands::download_game;
-use games::library::Game;
+use games::library::{update_game_configuration, Game};
 use http::Response;
 use http::{header::*, response::Builder as ResponseBuilder};
 use log::{debug, info, warn, LevelFilter};
@@ -255,6 +255,7 @@ pub fn run() {
             fetch_download_dir_stats,
             fetch_game_status,
             fetch_game_verion_options,
+            update_game_configuration,
             // Collections
             fetch_collections,
             fetch_collection,

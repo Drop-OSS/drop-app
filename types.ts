@@ -37,6 +37,10 @@ export type Game = {
   mImageCarousel: string[];
 };
 
+export type GameVersion = {
+  launchCommandTemplate: string;
+};
+
 export enum AppStatus {
   NotConfigured = "NotConfigured",
   Offline = "Offline",
@@ -54,7 +58,7 @@ export enum GameStatusEnum {
   Updating = "Updating",
   Uninstalling = "Uninstalling",
   SetupRequired = "SetupRequired",
-  Running = "Running"
+  Running = "Running",
 }
 
 export type GameStatus = {
@@ -66,17 +70,17 @@ export enum DownloadableType {
   Game = "Game",
   Tool = "Tool",
   DLC = "DLC",
-  Mod = "Mod"
+  Mod = "Mod",
 }
 
 export type DownloadableMetadata = {
-  id: string,
-  version: string,
-  downloadType: DownloadableType
-}
+  id: string;
+  version: string;
+  downloadType: DownloadableType;
+};
 
 export type Settings = {
-  autostart: boolean,
-  maxDownloadThreads: number,
-  forceOffline: boolean
-}
+  autostart: boolean;
+  maxDownloadThreads: number;
+  forceOffline: boolean;
+};

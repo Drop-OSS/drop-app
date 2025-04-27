@@ -16,12 +16,13 @@ use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
-use crate::AppState;
+use crate::{AppState, DB};
 
 #[derive(Serialize, Deserialize)]
 pub struct FetchGameStruct {
     game: Game,
     status: GameStatusWithTransient,
+    version: Option<GameVersion>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -140,6 +141,24 @@ pub fn fetch_game_logic(
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let mut state_handle = state.lock().unwrap();
 
+    let handle = DB.borrow_data().unwrap();
+
+    let metadata_option = handle.applications.installed_game_version.get(&id);
+    let version = match metadata_option {
+        None => None,
+        Some(metadata) => Some(
+            handle
+                .applications
+                .game_versions
+                .get(&metadata.id)
+                .unwrap()
+                .get(metadata.version.as_ref().unwrap())
+                .unwrap()
+                .clone(),
+        ),
+    };
+    drop(handle);
+
     let game = state_handle.games.get(&id);
     if let Some(game) = game {
         let status = GameStatusManager::fetch_state(&id);
@@ -147,6 +166,7 @@ pub fn fetch_game_logic(
         let data = FetchGameStruct {
             game: game.clone(),
             status,
+            version,
         };
 
         cache_object(id, game)?;
@@ -185,6 +205,7 @@ pub fn fetch_game_logic(
     let data = FetchGameStruct {
         game: game.clone(),
         status,
+        version,
     };
 
     cache_object(id, &game)?;
@@ -196,9 +217,31 @@ pub fn fetch_game_logic_offline(
     id: String,
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
+    let handle = DB.borrow_data().unwrap();
+    let metadata_option = handle.applications.installed_game_version.get(&id);
+    let version = match metadata_option {
+        None => None,
+        Some(metadata) => Some(
+            handle
+                .applications
+                .game_versions
+                .get(&metadata.id)
+                .unwrap()
+                .get(metadata.version.as_ref().unwrap())
+                .unwrap()
+                .clone(),
+        ),
+    };
+    drop(handle);
+
     let status = GameStatusManager::fetch_state(&id);
     let game = get_cached_object::<String, Game>(id)?;
-    Ok(FetchGameStruct { game, status })
+
+    Ok(FetchGameStruct {
+        game,
+        status,
+        version,
+    })
 }
 
 pub fn fetch_game_verion_options_logic(
@@ -400,4 +443,55 @@ pub fn push_game_update(app_handle: &AppHandle, game_id: &String, status: GameSt
             },
         )
         .unwrap();
+}
+
+// TODO @quexeky fix error types (I used String lmao)
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendGameOptions {
+    launch_string: String,
+}
+
+#[tauri::command]
+pub fn update_game_configuration(
+    game_id: String,
+    options: FrontendGameOptions,
+) -> Result<(), String> {
+    let mut handle = DB.borrow_data_mut().unwrap();
+    let installed_version = handle
+        .applications
+        .installed_game_version
+        .get(&game_id)
+        .ok_or("Game not installed")?;
+
+
+    let id = installed_version.id.clone();
+    let version = installed_version.version.clone().unwrap();
+
+    let mut existing_configuration = handle
+        .applications
+        .game_versions
+        .get(&id)
+        .unwrap()
+        .get(&version)
+        .unwrap()
+        .clone();
+
+    // Add more options in here
+    existing_configuration.launch_command_template = options.launch_string;
+
+    // Add no more options past here
+
+    handle
+        .applications
+        .game_versions
+        .get_mut(&id)
+        .unwrap()
+        .insert(version.to_string(), existing_configuration);
+
+    drop(handle);
+    DB.save().map_err(|e| e.to_string())?;
+
+    Ok(())
 }

@@ -266,12 +266,12 @@ impl ProcessManager<'_> {
             .map_err(|e| ProcessError::FormatError(e.to_string()))?
             .to_string();
 
-        info!("launching process {} in {}", launch_string, install_dir);
-
         #[cfg(target_os = "windows")]
         let mut command = Command::new("cmd");
         #[cfg(target_os = "windows")]
         command.args(["/C", &launch_string]);
+
+        info!("launching (in {}): {}", install_dir, launch_string,);
 
         #[cfg(unix)]
         let mut command: Command = Command::new("sh");
