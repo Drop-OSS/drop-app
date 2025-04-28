@@ -11,6 +11,7 @@ use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, Gam
 use crate::database::db::{ApplicationTransientStatus, GameDownloadStatus};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::download_manager::downloadable_metadata::DownloadableMetadata;
+use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
@@ -445,8 +446,6 @@ pub fn push_game_update(app_handle: &AppHandle, game_id: &String, status: GameSt
         .unwrap();
 }
 
-// TODO @quexeky fix error types (I used String lmao)
-
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendGameOptions {
@@ -457,13 +456,13 @@ pub struct FrontendGameOptions {
 pub fn update_game_configuration(
     game_id: String,
     options: FrontendGameOptions,
-) -> Result<(), String> {
+) -> Result<(), LibraryError> {
     let mut handle = DB.borrow_data_mut().unwrap();
     let installed_version = handle
         .applications
         .installed_game_version
         .get(&game_id)
-        .ok_or("Game not installed")?;
+        .ok_or(LibraryError::MetaNotFound(game_id))?;
 
 
     let id = installed_version.id.clone();
@@ -491,7 +490,7 @@ pub fn update_game_configuration(
         .insert(version.to_string(), existing_configuration);
 
     drop(handle);
-    DB.save().map_err(|e| e.to_string())?;
+    save_db();
 
     Ok(())
 }
