@@ -1,6 +1,6 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::{
-    borrow_db_checked, set_game_status, ApplicationTransientStatus, DatabaseImpls,
+    borrow_db_checked, ApplicationTransientStatus, DatabaseImpls,
     GameDownloadStatus,
 };
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
@@ -99,6 +99,7 @@ impl GameDownloadAgent {
         push_game_update(
             app_handle,
             &self.metadata().id,
+            None,
             (
                 None,
                 Some(ApplicationTransientStatus::Downloading {
@@ -375,9 +376,8 @@ impl Downloadable for GameDownloadAgent {
 
         error!("error while managing download: {}", error);
 
-        set_game_status(app_handle, self.metadata(), |db_handle, meta| {
-            db_handle.applications.transient_statuses.remove(meta);
-        });
+        let mut handle = DB.borrow_data_mut().unwrap();
+        handle.applications.transient_statuses.remove(&self.metadata());
     }
 
     fn on_complete(&self, app_handle: &tauri::AppHandle) {
@@ -399,6 +399,7 @@ impl Downloadable for GameDownloadAgent {
                 GameUpdateEvent {
                     game_id: meta.id.clone(),
                     status: (Some(GameDownloadStatus::Remote {}), None),
+                    version: None,
                 },
             )
             .unwrap();

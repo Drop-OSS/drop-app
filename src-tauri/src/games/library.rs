@@ -48,6 +48,7 @@ pub struct GameUpdateEvent {
         Option<GameDownloadStatus>,
         Option<ApplicationTransientStatus>,
     ),
+    pub version: Option<GameVersion>,
 }
 
 #[derive(Serialize, Clone)]
@@ -291,6 +292,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
     push_game_update(
         app_handle,
         &meta.id,
+        None,
         (None, Some(ApplicationTransientStatus::Uninstalling {})),
     );
 
@@ -346,6 +348,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 push_game_update(
                     &app_handle,
                     &meta.id,
+                    None,
                     (Some(GameDownloadStatus::Remote {}), None),
                 );
             }
@@ -385,7 +388,7 @@ pub fn on_game_complete(
     )?
     .send()?;
 
-    let data: GameVersion = response.json()?;
+    let game_version: GameVersion = response.json()?;
 
     let mut handle = borrow_db_mut_checked();
     handle
@@ -393,7 +396,7 @@ pub fn on_game_complete(
         .game_versions
         .entry(meta.id.clone())
         .or_default()
-        .insert(meta.version.clone().unwrap(), data.clone());
+        .insert(meta.version.clone().unwrap(), game_version.clone());
     handle
         .applications
         .installed_game_version
@@ -402,7 +405,7 @@ pub fn on_game_complete(
     drop(handle);
     save_db();
 
-    let status = if data.setup_command.is_empty() {
+    let status = if game_version.setup_command.is_empty() {
         GameDownloadStatus::Installed {
             version_name: meta.version.clone().unwrap(),
             install_dir,
@@ -427,6 +430,7 @@ pub fn on_game_complete(
             GameUpdateEvent {
                 game_id: meta.id.clone(),
                 status: (Some(status), None),
+                version: Some(game_version),
             },
         )
         .unwrap();
@@ -434,13 +438,14 @@ pub fn on_game_complete(
     Ok(())
 }
 
-pub fn push_game_update(app_handle: &AppHandle, game_id: &String, status: GameStatusWithTransient) {
+pub fn push_game_update(app_handle: &AppHandle, game_id: &String, version: Option<GameVersion>, status: GameStatusWithTransient) {
     app_handle
         .emit(
             &format!("update_game/{}", game_id),
             GameUpdateEvent {
                 game_id: game_id.clone(),
                 status,
+                version,
             },
         )
         .unwrap();
@@ -463,7 +468,6 @@ pub fn update_game_configuration(
         .installed_game_version
         .get(&game_id)
         .ok_or(LibraryError::MetaNotFound(game_id))?;
-
 
     let id = installed_version.id.clone();
     let version = installed_version.version.clone().unwrap();

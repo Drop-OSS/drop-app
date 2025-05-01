@@ -369,7 +369,7 @@
     </template>
   </ModalTemplate>
 
-  <GameOptionsModal v-model="configureModalOpen" :game-id="game.id" />
+  <GameOptionsModal v-if="status.type === GameStatusEnum.Installed" v-model="configureModalOpen" :game-id="game.id" />
 
   <Transition
     enter="transition ease-out duration-300"
@@ -464,6 +464,7 @@ import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { micromark } from "micromark";
+import { GameStatusEnum } from "~/types";
 
 const route = useRoute();
 const router = useRouter();

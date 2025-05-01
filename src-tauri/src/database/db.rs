@@ -199,20 +199,6 @@ impl DatabaseImpls for DatabaseInterface {
     }
 }
 
-pub fn set_game_status<F: FnOnce(&mut RwLockWriteGuard<'_, Database>, &DownloadableMetadata)>(
-    app_handle: &AppHandle,
-    meta: DownloadableMetadata,
-    setter: F,
-) {
-    let mut db_handle = borrow_db_mut_checked();
-    setter(&mut db_handle, &meta);
-    drop(db_handle);
-    save_db();
-
-    let status = GameStatusManager::fetch_state(&meta.id);
-
-    push_game_update(app_handle, &meta.id, status);
-}
 // TODO: Make the error relelvant rather than just assume that it's a Deserialize error
 fn handle_invalid_database(
     _e: RustbreakError,

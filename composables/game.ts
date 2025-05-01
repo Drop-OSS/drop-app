@@ -46,9 +46,21 @@ export const useGame = async (gameId: string) => {
       listen(`update_game/${gameId}`, (event) => {
         const payload: {
           status: SerializedGameStatus;
+          version?: GameVersion;
         } = event.payload as any;
         console.log(payload.status);
         gameStatusRegistry[gameId].value = parseStatus(payload.status);
+        
+        /**
+         * I am not super happy about this.
+         * 
+         * This will mean that we will still have a version assigned if we have a game installed then uninstall it.
+         * It is necessary because a flag to check if we should overwrite seems excessive, and this function gets called
+         * on transient state updates. 
+         */
+        if (payload.version) {
+          gameRegistry[gameId].version = payload.version;
+        }
       });
     }
   }

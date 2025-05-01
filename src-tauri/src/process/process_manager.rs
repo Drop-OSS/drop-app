@@ -134,7 +134,7 @@ impl ProcessManager<'_> {
 
         let status = GameStatusManager::fetch_state(&game_id);
 
-        push_game_update(&self.app_handle, &game_id, status);
+        push_game_update(&self.app_handle, &game_id, None, status);
 
         // TODO better management
     }
@@ -296,6 +296,7 @@ impl ProcessManager<'_> {
         push_game_update(
             &self.app_handle,
             &meta.id,
+            None,
             (None, Some(ApplicationTransientStatus::Running {})),
         );
 
