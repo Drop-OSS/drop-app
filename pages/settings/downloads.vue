@@ -1,8 +1,15 @@
 <template>
-  <div>
-    <div class="border-b border-zinc-600 py-2 px-1">
+  <div class="border-b border-zinc-700 py-5">
+    <h3 class="text-base font-semibold font-display leading-6 text-zinc-100">
+      Downloads
+    </h3>
+  </div>
+
+
+  <div class="mt-5">
+    <div class="border-b border-zinc-600">
       <div class="-ml-4 -mt-2 flex flex-wrap items-center justify-between sm:flex-nowrap">
-        <div class="ml-4 mt-2">
+        <div class="ml-4 mt-2 pb-4">
           <h3 class="text-base font-display font-semibold text-zinc-100">
             Install directories
           </h3>

@@ -45,6 +45,7 @@ import type { Component } from "vue";
 import type { NavigationItem } from "~/types";
 import { platform } from '@tauri-apps/plugin-os';
 import { invoke } from "@tauri-apps/api/core";
+import { UserIcon } from "@heroicons/vue/20/solid";
 
 const systemData = await invoke<{
   clientId: string;
@@ -100,6 +101,12 @@ const navigation = computed(() => [
     route: "/settings/downloads",
     prefix: "/settings/downloads",
     icon: ArrowDownTrayIcon,
+  },
+  {
+    label: "Account",
+    route: "/settings/account",
+    prefix: "/settings/account",
+    icon: UserIcon
   },
   ...(isDebugMode.value ? [{
     label: "Debug Info",

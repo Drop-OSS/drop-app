@@ -100,11 +100,6 @@ function navigate(close: () => any, to: NavigationItem) {
 
 const navigation: NavigationItem[] = [
   {
-    label: "Account settings",
-    route: "/account",
-    prefix: "",
-  },
-  {
     label: "App settings",
     route: "/settings",
     prefix: "",
