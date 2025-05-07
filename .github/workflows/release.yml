@@ -5,8 +5,8 @@ on:
   release:
     types: [published]
   # This can be used to automatically publish nightlies at UTC nighttime
-  schedule:
-    - cron: "0 2 * * *" # run at 2 AM UTC
+#  schedule:
+#    - cron: "0 2 * * *" # run at 2 AM UTC
 
 # This workflow will trigger on each push to the `release` branch to create or update a GitHub release, build your app, and upload the artifacts to the release.
 
