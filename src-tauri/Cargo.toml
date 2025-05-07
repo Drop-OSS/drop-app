@@ -1,6 +1,6 @@
 [package]
 name = "drop-app"
-version = "0.2.0-beta-prerelease-1"
+version = "0.3.0-rc-1"
 description = "The client application for the open-source, self-hosted game distribution platform Drop"
 authors = ["Drop OSS"]
 edition = "2021"
@@ -58,6 +58,8 @@ reqwest-middleware-cache = "0.1.1"
 deranged = "=0.4.0"
 droplet-rs = "0.7.3"
 gethostname = "1.0.1"
+native_db = "0.8.1"
+native_model = "0.6.1"
 
 [dependencies.dynfmt]
 version = "0.1.5"
