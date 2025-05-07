@@ -30,6 +30,9 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: setup node
         uses: actions/setup-node@v4
@@ -57,9 +60,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: app-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: 'App v__VERSION__'
-          releaseBody: 'See the assets to download this version and install.'
-          releaseDraft: true
-          prerelease: false
+          tagName: dev-v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          releaseName: 'Auto-release v__VERSION__'
+          releaseBody: 'See the assets to download this version and install. This release was created automatically.'
+          releaseDraft: false
+          prerelease: true
           args: ${{ matrix.args }}

@@ -156,9 +156,9 @@
     <template #default>
       <div class="sm:flex sm:items-start">
         <div class="mt-3 text-center sm:mt-0 sm:text-left">
-          <DialogTitle as="h3" class="text-base font-semibold text-zinc-100"
+          <h3 class="text-base font-semibold text-zinc-100"
             >Install {{ game.mName }}?
-          </DialogTitle>
+          </h3>
           <div class="mt-2">
             <p class="text-sm text-zinc-400">
               Drop will add {{ game.mName }} to the queue to be downloaded.
