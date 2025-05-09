@@ -350,7 +350,7 @@
       <LoadingButton
         @click="() => install()"
         :disabled="
-          !(versionOptions && versionOptions.length > 0 && !installDir)
+          !(versionOptions && versionOptions.length > 0)
         "
         :loading="installLoading"
         type="submit"
