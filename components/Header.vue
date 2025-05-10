@@ -42,7 +42,7 @@
         </ol>
       </div>
     </div>
-    <WindowControl class="h-16 w-16 p-4" />
+    <WindowControl  />
   </div>
 </template>
 

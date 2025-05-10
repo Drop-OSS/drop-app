@@ -1,4 +1,7 @@
 <template>
+  <HeaderButton v-if="showMinimise" @click="() => minimise()">
+    <MinusIcon />
+  </HeaderButton>
   <HeaderButton @click="() => close()">
     <XMarkIcon />
   </HeaderButton>
@@ -8,11 +11,14 @@
 import { MinusIcon, XMarkIcon } from "@heroicons/vue/16/solid";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-async function close(){
-  console.log(window);
-  const result = await window.close();
-  console.log(`closed window: ${result}`);
+const window = getCurrentWindow();
+const showMinimise = await window.isMinimizable();
+
+async function close() {
+  await window.close();
 }
 
-const window = getCurrentWindow();
+async function minimise() {
+  await window.minimize();
+}
 </script>
