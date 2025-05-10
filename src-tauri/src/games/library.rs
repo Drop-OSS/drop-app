@@ -35,11 +35,11 @@ pub struct Game {
     m_description: String,
     // mDevelopers
     // mPublishers
-    m_icon_id: String,
-    m_banner_id: String,
-    m_cover_id: String,
-    m_image_library: Vec<String>,
-    m_image_carousel: Vec<String>,
+    m_icon_object_id: String,
+    m_banner_object_id: String,
+    m_cover_object_id: String,
+    m_image_library_object_ids: Vec<String>,
+    m_image_carousel_object_ids: Vec<String>,
 }
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {

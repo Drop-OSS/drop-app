@@ -477,11 +477,11 @@ const remoteUrl: string = await invoke("gen_drop_url", {
   path: `/store/${game.value.id}`,
 });
 
-const bannerUrl = await useObject(game.value.mBannerId);
+const bannerUrl = await useObject(game.value.mBannerObjectId);
 
 // Get all available images
 const mediaUrls = await Promise.all(
-  game.value.mImageCarousel.map((id) => useObject(id))
+  game.value.mImageCarouselObjectIds.map((id) => useObject(id))
 );
 
 const htmlDescription = micromark(game.value.mDescription);

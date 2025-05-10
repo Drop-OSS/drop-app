@@ -107,7 +107,7 @@ async function calculateGames() {
   }
   for (const game of rawGames.value) {
     if (icons[game.id]) continue;
-    icons[game.id] = await useObject(game.mIconId);
+    icons[game.id] = await useObject(game.mIconObjectId);
   }
 }
 

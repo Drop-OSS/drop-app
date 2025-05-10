@@ -30,11 +30,11 @@ export type Game = {
   mName: string;
   mShortDescription: string;
   mDescription: string;
-  mIconId: string;
-  mBannerId: string;
-  mCoverId: string;
-  mImageLibrary: string[];
-  mImageCarousel: string[];
+  mIconObjectId: string;
+  mBannerObjectId: string;
+  mCoverObjectId: string;
+  mImageLibraryObjectIds: string[];
+  mImageCarouselObjectIds: string[];
 };
 
 export type GameVersion = {

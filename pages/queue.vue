@@ -158,7 +158,7 @@ function loadGamesForQueue(v: typeof queue.value) {
     if (games.value[id]) return;
     (async () => {
       const gameData = await useGame(id);
-      const cover = await useObject(gameData.game.mCoverId);
+      const cover = await useObject(gameData.game.mCoverObjectId);
       games.value[id] = { ...gameData, cover };
     })();
   }

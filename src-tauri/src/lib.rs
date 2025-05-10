@@ -86,7 +86,7 @@ pub struct User {
     username: String,
     admin: bool,
     display_name: String,
-    profile_picture: String,
+    profile_picture_object_id: String,
 }
 
 
