@@ -267,6 +267,9 @@ impl ProcessManager<'_> {
             .to_string();
 
         #[cfg(target_os = "windows")]
+        use std::os::windows::process::CommandExt;
+
+        #[cfg(target_os = "windows")]
         let mut command = Command::new("cmd");
         #[cfg(target_os = "windows")]
         command.raw_arg(format!("/C \"{}\"", &launch_string));
