@@ -7,7 +7,6 @@ use std::{
 };
 
 use chrono::Utc;
-use directories::BaseDirs;
 use log::{debug, error, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -59,7 +58,7 @@ fn default_template() -> String {
     "{}".to_owned()
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct GameVersion {
     pub game_id: String,
@@ -132,7 +131,8 @@ impl Database {
     }
 }
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
-    LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
+    LazyLock::new(|| Mutex::new(dirs::data_dir().unwrap().join("drop")));
+
 
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]

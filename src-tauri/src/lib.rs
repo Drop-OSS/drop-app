@@ -3,6 +3,7 @@ mod games;
 
 mod autostart;
 mod cleanup;
+mod cloud_saves;
 mod commands;
 mod download_manager;
 mod error;
