@@ -5,7 +5,6 @@ use std::{
 };
 
 use chrono::Utc;
-use directories::BaseDirs;
 use log::{debug, error, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Serialize};
@@ -16,7 +15,8 @@ use crate::DB;
 use super::models::data::Database;
 
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
-    LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
+    LazyLock::new(|| Mutex::new(dirs::data_dir().unwrap().join("drop")));
+
 
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]

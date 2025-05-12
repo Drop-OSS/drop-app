@@ -27,7 +27,6 @@ tauri-plugin-shell = "2.2.1"
 serde_json = "1"
 serde-binary = "0.5.0"
 rayon = "1.10.0"
-directories = "5.0.1"
 webbrowser = "1.0.2"
 url = "2.5.2"
 tauri-plugin-deep-link = "2"
@@ -55,6 +54,18 @@ reqwest-middleware-cache = "0.1.1"
 deranged = "=0.4.0"
 droplet-rs = "0.7.3"
 gethostname = "1.0.1"
+zstd = "0.13.3"
+tar = "0.4.44"
+rand = "0.9.1"
+regex = "1.11.1"
+tempfile = "3.19.1"
+schemars = "0.8.22"
+sha1 = "0.10.6"
+dirs = "6.0.0"
+whoami = "1.6.0"
+filetime = "0.2.25"
+walkdir = "2.5.0"
+known-folders = "1.2.0"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
 # tailscale = { path = "./tailscale" }
 
@@ -80,11 +91,7 @@ features = ["fs"]
 
 [dependencies.uuid]
 version = "1.10.0"
-features = [
-    "v4",                # Lets you generate random UUIDs
-    "fast-rng",          # Use a faster (but still sufficiently random) RNG
-    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
-]
+features = ["v4", "fast-rng", "macro-diagnostics"]
 
 [dependencies.rustbreak]
 version = "2"
