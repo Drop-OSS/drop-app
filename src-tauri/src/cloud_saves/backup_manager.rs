@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 use log::warn;
 
-use crate::{database::db::GameVersion, error::backup_error::BackupError, process::process_manager::Platform};
+use crate::{database::db::{GameVersion, DATA_ROOT_DIR}, error::backup_error::BackupError, process::process_manager::Platform};
 
 use super::path::CommonPath;
 
@@ -45,11 +45,11 @@ impl BackupManager<'_> {
 }
 
 pub trait BackupHandler: Send + Sync {
-    fn root_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError>;
+    fn root_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> { Ok(DATA_ROOT_DIR.lock().unwrap().join("games")) }
     fn game_translate(&self, _path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> { Ok(PathBuf::from_str(&game.game_id).unwrap()) }
     fn base_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> { Ok(self.root_translate(path, game)?.join(self.game_translate(path, game)?)) }
     fn home_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> { let c = CommonPath::Home.get().ok_or(BackupError::NotFound); println!("{:?}", c); c }
-    fn store_user_id_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError>;
+    fn store_user_id_translate(&self, _path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> { PathBuf::from_str(&game.game_id).map_err(|_| BackupError::ParseError) }
     fn os_user_name_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> { Ok(PathBuf::from_str(&whoami::username()).unwrap()) }
     fn win_app_data_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> { warn!("Unexpected Windows Reference in Backup <winAppData>"); Err(BackupError::InvalidSystem) }
     fn win_local_app_data_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> { warn!("Unexpected Windows Reference in Backup <winLocalAppData>"); Err(BackupError::InvalidSystem) }
@@ -65,33 +65,38 @@ pub trait BackupHandler: Send + Sync {
 
 pub struct LinuxBackupManager {}
 impl BackupHandler for LinuxBackupManager {
-    fn root_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        println!("Root translate");
-        PathBuf::from_str("~").map_err(|_| BackupError::ParseError)
+    fn xdg_config_translate(&self, _path: &PathBuf,_game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::Data.get().ok_or(BackupError::NotFound)?)
     }
-
-    fn store_user_id_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        println!("Store user id translate");
-        PathBuf::from_str("ID").map_err(|_| BackupError::ParseError)
+    fn xdg_data_translate(&self, _path: &PathBuf,_game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::Config.get().ok_or(BackupError::NotFound)?)
     }
 }
 pub struct WindowsBackupManager {}
 impl BackupHandler for WindowsBackupManager {
-    fn root_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        todo!()
+    fn win_app_data_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::Config.get().ok_or(BackupError::NotFound)?)
     }
+    fn win_local_app_data_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::DataLocal.get().ok_or(BackupError::NotFound)?)
+    }
+    fn win_local_app_data_low_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::DataLocalLow.get().ok_or(BackupError::NotFound)?)
+    }
+    fn win_dir_translate(&self, _path: &PathBuf,_game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(PathBuf::from_str("C:/Windows").unwrap())
+    }
+    fn win_documents_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::Document.get().ok_or(BackupError::NotFound)?)
 
-    fn store_user_id_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        todo!()
+    }
+    fn win_program_data_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(PathBuf::from_str("C:/ProgramData").unwrap())
+    }
+    fn win_public_translate(&self, _path: &PathBuf, _game: &GameVersion) -> Result<PathBuf, BackupError> {
+        Ok(CommonPath::Public.get().ok_or(BackupError::NotFound)?)
+
     }
 }
 pub struct MacBackupManager {}
-impl BackupHandler for MacBackupManager {
-    fn root_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        todo!()
-    }
-
-    fn store_user_id_translate(&self, path: &PathBuf, game: &GameVersion) -> Result<PathBuf, BackupError> {
-        todo!()
-    }
-}
+impl BackupHandler for MacBackupManager {}

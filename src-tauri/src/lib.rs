@@ -13,6 +13,7 @@ mod remote;
 use crate::database::db::DatabaseImpls;
 use autostart::{get_autostart_enabled, toggle_autostart};
 use cleanup::{cleanup_and_exit, quit};
+use cloud_saves::resolver::test;
 use commands::fetch_state;
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
@@ -105,6 +106,7 @@ pub struct AppState<'a> {
 }
 
 fn setup(handle: AppHandle) -> AppState<'static> {
+    test();
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d} | {l} | {f}:{L} - {m}{n}",
