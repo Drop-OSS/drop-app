@@ -1,13 +1,13 @@
 use std::{
-    fs::{create_dir_all, File},
-    io::{Read, Write},
-    path::PathBuf, thread::{sleep}, time::Duration,
+    fs::{self, create_dir_all, File},
+    io::{self, ErrorKind, Read, Write},
+    path::{Path, PathBuf}, thread::sleep, time::Duration,
 };
 
 use super::{
     backup_manager::BackupHandler, conditions::Condition, metadata::GameFile, placeholder::*,
 };
-use log::warn;
+use log::{debug, warn};
 use rustix::path::Arg;
 use tempfile::tempfile;
 
@@ -51,7 +51,7 @@ pub fn resolve(meta: &mut CloudSaveMetadata) -> File {
         let path = parse_path(t_path, handler, &meta.game_version).unwrap();
         let f = std::fs::metadata(&path).unwrap(); // TODO: Fix unwrap here
         if f.is_dir() {
-            tarball.append_dir(&id, path).unwrap();
+            tarball.append_dir_all(&id, path).unwrap();
         } else if f.is_file() {
             tarball
                 .append_file(&id, &mut File::open(path).unwrap())
@@ -120,7 +120,60 @@ pub fn extract(file: PathBuf) -> Result<(), BackupError> {
         println!("Current path {:?} copying to {:?}", &current_path, &new_path);
 
 
-        std::fs::copy(current_path, new_path).unwrap();
+        copy_item(current_path, new_path).unwrap();
+    }
+
+    Ok(())
+}
+
+pub fn copy_item<P: AsRef<Path>>(src: P, dest: P) -> io::Result<()> {
+    let src_path = src.as_ref();
+    let dest_path = dest.as_ref();
+
+    let metadata = fs::metadata(&src_path)?;
+
+    if metadata.is_file() {
+        // Ensure the parent directory of the destination exists for a file copy
+        if let Some(parent) = dest_path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::copy(&src_path, &dest_path)?;
+    } else if metadata.is_dir() {
+        // For directories, we call the recursive helper function.
+        // The destination for the recursive copy is the `dest_path` itself.
+        copy_dir_recursive(&src_path, &dest_path)?;
+    } else {
+        // Handle other file types like symlinks if necessary,
+        // for now, return an error or skip.
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!("Source {:?} is neither a file nor a directory", src_path),
+        ));
+    }
+
+    Ok(())
+}
+
+fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
+    fs::create_dir_all(&dest)?;
+
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let entry_path = entry.path();
+        let entry_file_name = match entry_path.file_name() {
+            Some(name) => name,
+            None => continue, // Skip if somehow there's no file name
+        };
+        let dest_entry_path = dest.join(entry_file_name);
+        let metadata = entry.metadata()?;
+
+        if metadata.is_file() {
+            debug!("Writing file {} to {}", entry_path.display(), dest_entry_path.display());
+            fs::copy(&entry_path, &dest_entry_path)?;
+        } else if metadata.is_dir() {
+            copy_dir_recursive(&entry_path, &dest_entry_path)?;
+        }
+        // Ignore other types like symlinks for this basic implementation
     }
 
     Ok(())
@@ -172,7 +225,7 @@ pub fn test() {
                 conditions: vec![Condition::Os(Platform::Linux)],
             },
             GameFile {
-                path: String::from("<home>/quexeky.jpg"),
+                path: String::from("<home>/Documents/Pixel Art"),
                 id: None,
                 data_type: super::metadata::DataType::File,
                 tags: Vec::new(),
