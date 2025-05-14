@@ -1,3 +1,6 @@
 [submodule "drop-base"]
 	path = drop-base
 	url = https://github.com/drop-oss/drop-base
+[submodule "src-tauri/tailscale/libtailscale"]
+	path = src-tauri/tailscale/libtailscale
+	url = https://github.com/tailscale/libtailscale.git

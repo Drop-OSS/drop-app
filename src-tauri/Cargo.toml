@@ -60,6 +60,7 @@ droplet-rs = "0.7.3"
 gethostname = "1.0.1"
 native_db = "0.8.1"
 native_model = "0.6.1"
+tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]
 version = "0.1.5"
