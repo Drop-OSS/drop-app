@@ -136,15 +136,16 @@ async function auth() {
 }
 
 function authWrapper_wrapper() {
+  error.value = undefined;
   loading.value = true;
   auth().catch((e) => {
     loading.value = false;
     error.value = e;
-    if(offerManualTimeout) clearTimeout(offerManualTimeout);
+    if (offerManualTimeout) clearTimeout(offerManualTimeout);
   });
   offerManualTimeout = setTimeout(() => {
     offerManual.value = true;
-  }, 10000);
+  }, 2000);
 }
 
 async function continueManual() {

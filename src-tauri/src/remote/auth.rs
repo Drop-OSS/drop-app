@@ -1,4 +1,4 @@
-use std::{env, sync::Mutex};
+use std::{collections::HashMap, env, sync::Mutex};
 
 use chrono::Utc;
 use droplet_rs::ssl::sign_nonce;
@@ -10,7 +10,10 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::{db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseImpls}, models::data::DatabaseAuth},
+    database::{
+        db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseImpls},
+        models::data::DatabaseAuth,
+    },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };
@@ -22,9 +25,14 @@ use super::{
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
+struct CapabilityConfiguration {}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 struct InitiateRequestBody {
     name: String,
     platform: String,
+    capabilities: HashMap<String, CapabilityConfiguration>,
 }
 
 #[derive(Serialize)]
@@ -56,8 +64,6 @@ pub fn generate_authorization_header() -> String {
 }
 
 pub fn fetch_user() -> Result<User, RemoteAccessError> {
-    let base_url = DB.fetch_base_url();
-
     let header = generate_authorization_header();
 
     let client = reqwest::blocking::Client::new();
@@ -104,6 +110,9 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let client = reqwest::blocking::Client::new();
     let response = client.post(endpoint).json(&body).send()?;
     debug!("handshake responsded with {}", response.status().as_u16());
+    if !response.status().is_success() {
+        return Err(RemoteAccessError::InvalidResponse(response.json()?));
+    }
     let response_struct: HandshakeResponse = response.json()?;
 
     {
@@ -135,30 +144,6 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     drop(handle);
     save_db();
 
-    {
-        let app_state = app.state::<Mutex<AppState>>();
-        let mut app_state_handle = app_state.lock().unwrap();
-        app_state_handle.status = AppStatus::SignedIn;
-        app_state_handle.user = Some(fetch_user()?);
-
-        // Setup capabilities
-        let endpoint = base_url.join("/api/v1/client/capability")?;
-        let header = generate_authorization_header();
-        let body = json!({
-            "capability": "cloudSaves",
-            "configuration": {}
-        });
-        let response = client
-            .post(endpoint)
-            .header("Authorization", header)
-            .json(&body)
-            .send()?;
-
-        if response.status().is_success() {
-            debug!("registered client for 'cloudSaves' capability")
-        }
-    }
-
     Ok(())
 }
 
@@ -188,6 +173,10 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     let body = InitiateRequestBody {
         name: format!("{} (Desktop)", hostname.into_string().unwrap()),
         platform: env::consts::OS.to_string(),
+        capabilities: HashMap::from([
+            ("peerAPI".to_owned(), CapabilityConfiguration {}),
+            ("cloudSaves".to_owned(), CapabilityConfiguration {}),
+        ]),
     };
 
     let client = reqwest::blocking::Client::new();
