@@ -1,14 +1,11 @@
 use crate::auth::generate_authorization_header;
-use crate::database::db::{
-    borrow_db_checked, ApplicationTransientStatus, DatabaseImpls,
-    GameDownloadStatus,
-};
+use crate::database::db::borrow_db_checked;
+use crate::database::models::data::{ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus};
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
 use crate::download_manager::downloadable::Downloadable;
-use crate::download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata};
 use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
@@ -25,7 +22,6 @@ use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
-use urlencoding::encode;
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};
@@ -377,7 +373,10 @@ impl Downloadable for GameDownloadAgent {
         error!("error while managing download: {}", error);
 
         let mut handle = DB.borrow_data_mut().unwrap();
-        handle.applications.transient_statuses.remove(&self.metadata());
+        handle
+            .applications
+            .transient_statuses
+            .remove(&self.metadata());
     }
 
     fn on_complete(&self, app_handle: &tauri::AppHandle) {

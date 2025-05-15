@@ -11,15 +11,13 @@ use log::{debug, error, info, warn};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    error::application_download_error::ApplicationDownloadError,
-    games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
+    database::models::data::DownloadableMetadata, error::application_download_error::ApplicationDownloadError, games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent}
 };
 
 use super::{
     download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
     download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
     downloadable::Downloadable,
-    downloadable_metadata::DownloadableMetadata,
     progress_object::ProgressObject,
     queue::Queue,
 };
@@ -209,7 +207,9 @@ impl DownloadManagerBuilder {
         }
 
         if self.current_download_agent.is_some() {
-            if self.download_queue.read().front().unwrap() == &self.current_download_agent.as_ref().unwrap().metadata() {
+            if self.download_queue.read().front().unwrap()
+                == &self.current_download_agent.as_ref().unwrap().metadata()
+            {
                 debug!(
                     "Current download agent: {:?}",
                     self.current_download_agent.as_ref().unwrap().metadata()

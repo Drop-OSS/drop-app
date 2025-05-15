@@ -1,14 +1,10 @@
 use std::sync::RwLockReadGuard;
 
-use crate::{
-    database::db::{borrow_db_checked, Database},
-    error::remote_access_error::RemoteAccessError,
-};
+use crate::{database::{db::borrow_db_checked, models::data::Database}, error::remote_access_error::RemoteAccessError};
 use cacache::Integrity;
 use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Response};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_binary::binary_stream::Endian;
-
 
 #[macro_export]
 macro_rules! offline {

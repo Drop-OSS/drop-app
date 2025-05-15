@@ -12,11 +12,10 @@ use std::{
 use log::{debug, info};
 use serde::Serialize;
 
-use crate::error::application_download_error::ApplicationDownloadError;
+use crate::{database::models::data::DownloadableMetadata, error::application_download_error::ApplicationDownloadError};
 
 use super::{
     download_manager_builder::{CurrentProgressObject, DownloadAgent},
-    downloadable_metadata::DownloadableMetadata,
     queue::Queue,
 };
 
@@ -167,10 +166,7 @@ impl DownloadManager {
         self.command_sender
             .send(DownloadManagerSignal::UpdateUIQueue)
             .unwrap();
-        self.command_sender
-            .send(DownloadManagerSignal::Go)
-            .unwrap();
-
+        self.command_sender.send(DownloadManagerSignal::Go).unwrap();
     }
     pub fn pause_downloads(&self) {
         self.command_sender

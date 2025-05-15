@@ -10,9 +10,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{
-        borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseAuth, DatabaseImpls,
-    },
+    database::{db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseImpls}, models::data::DatabaseAuth},
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
     AppState, AppStatus, User, DB,
 };

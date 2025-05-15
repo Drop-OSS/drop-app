@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use super::downloadable_metadata::DownloadableMetadata;
+use crate::database::models::data::DownloadableMetadata;
 
 #[derive(Clone)]
 pub struct Queue {

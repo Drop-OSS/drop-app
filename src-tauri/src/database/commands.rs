@@ -7,13 +7,13 @@ use std::{
 use serde_json::Value;
 
 use crate::{
-    database::{db::borrow_db_mut_checked, settings::Settings},
+    database::{db::borrow_db_mut_checked},
     download_manager::internal_error::InternalError,
 };
 
 use super::{
     db::{borrow_db_checked, save_db, DATA_ROOT_DIR},
-    debug::SystemData,
+    debug::SystemData, models::data::Settings,
 };
 
 // Will, in future, return disk/remaining size

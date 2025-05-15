@@ -87,7 +87,7 @@ router.afterEach(() => {
 
 const state = useAppState();
 const profilePictureUrl: string = await useObject(
-  state.value.user?.profilePicture ?? ""
+  state.value.user?.profilePictureObjectId ?? ""
 );
 const adminUrl: string = await invoke("gen_drop_url", {
   path: "/admin",

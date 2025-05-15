@@ -15,122 +15,10 @@ use serde_with::serde_as;
 use tauri::AppHandle;
 use url::Url;
 
-use crate::{
-    database::settings::Settings,
-    download_manager::downloadable_metadata::DownloadableMetadata,
-    games::{library::push_game_update, state::GameStatusManager},
-    process::process_manager::Platform,
-    DB,
-};
+use crate::DB;
 
-#[derive(serde::Serialize, Clone, Deserialize)]
-pub struct DatabaseAuth {
-    pub private: String,
-    pub cert: String,
-    pub client_id: String,
-    pub web_token: Option<String>,
-}
+use super::models::data::{Database, GameVersion};
 
-// Strings are version names for a particular game
-#[derive(Serialize, Clone, Deserialize)]
-#[serde(tag = "type")]
-pub enum GameDownloadStatus {
-    Remote {},
-    SetupRequired {
-        version_name: String,
-        install_dir: String,
-    },
-    Installed {
-        version_name: String,
-        install_dir: String,
-    },
-}
-
-// Stuff that shouldn't be synced to disk
-#[derive(Clone, Serialize, Deserialize)]
-pub enum ApplicationTransientStatus {
-    Downloading { version_name: String },
-    Uninstalling {},
-    Updating { version_name: String },
-    Running {},
-}
-
-fn default_template() -> String {
-    "{}".to_owned()
-}
-
-#[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct GameVersion {
-    pub game_id: String,
-    pub version_name: String,
-
-    pub platform: Platform,
-
-    pub launch_command: String,
-    pub launch_args: Vec<String>,
-    #[serde(default = "default_template")]
-    pub launch_command_template: String,
-
-    pub setup_command: String,
-    pub setup_args: Vec<String>,
-    #[serde(default = "default_template")]
-    pub setup_command_template: String,
-
-    pub only_setup: bool,
-
-    pub version_index: usize,
-    pub delta: bool,
-
-    pub umu_id_override: Option<String>,
-}
-
-#[serde_as]
-#[derive(Serialize, Clone, Deserialize, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct DatabaseApplications {
-    pub install_dirs: Vec<PathBuf>,
-    // Guaranteed to exist if the game also exists in the app state map
-    pub game_statuses: HashMap<String, GameDownloadStatus>,
-    pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
-    pub installed_game_version: HashMap<String, DownloadableMetadata>,
-
-    #[serde(skip)]
-    pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
-}
-
-#[derive(Serialize, Deserialize, Clone, Default)]
-pub struct Database {
-    #[serde(default)]
-    pub settings: Settings,
-    pub auth: Option<DatabaseAuth>,
-    pub base_url: String,
-    pub applications: DatabaseApplications,
-    pub prev_database: Option<PathBuf>,
-    pub cache_dir: PathBuf,
-}
-impl Database {
-    fn new<T: Into<PathBuf>>(
-        games_base_dir: T,
-        prev_database: Option<PathBuf>,
-        cache_dir: PathBuf,
-    ) -> Self {
-        Self {
-            applications: DatabaseApplications {
-                install_dirs: vec![games_base_dir.into()],
-                game_statuses: HashMap::new(),
-                game_versions: HashMap::new(),
-                installed_game_version: HashMap::new(),
-                transient_statuses: HashMap::new(),
-            },
-            prev_database,
-            base_url: "".to_owned(),
-            auth: None,
-            settings: Settings::default(),
-            cache_dir,
-        }
-    }
-}
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
 
@@ -138,13 +26,20 @@ pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
 #[derive(Debug, Default, Clone)]
 pub struct DropDatabaseSerializer;
 
-impl<T: Serialize + DeserializeOwned> DeSerializer<T> for DropDatabaseSerializer {
+impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
+    for DropDatabaseSerializer
+{
     fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
-        serde_json::to_vec(val).map_err(|e| DeSerError::Internal(e.to_string()))
+        native_model::encode(val).map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
-    fn deserialize<R: std::io::Read>(&self, s: R) -> rustbreak::error::DeSerResult<T> {
-        serde_json::from_reader(s).map_err(|e| DeSerError::Internal(e.to_string()))
+    fn deserialize<R: std::io::Read>(&self, mut s: R) -> rustbreak::error::DeSerResult<T> {
+        let mut buf = Vec::new();
+        s.read_to_end(&mut buf)
+            .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
+        let (val, _version) =
+            native_model::decode::<T>(buf).map_err(|e| DeSerError::Internal(e.to_string()))?;
+        Ok(val)
     }
 }
 

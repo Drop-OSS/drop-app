@@ -17,9 +17,8 @@ use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
 };
-use database::db::{
-    borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, GameDownloadStatus, DATA_ROOT_DIR,
-};
+use database::db::{borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, DATA_ROOT_DIR};
+use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
@@ -35,7 +34,6 @@ use games::commands::{
 use games::downloads::commands::download_game;
 use games::library::{update_game_configuration, Game};
 use http::Response;
-use http::{header::*, response::Builder as ResponseBuilder};
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -88,7 +86,6 @@ pub struct User {
     display_name: String,
     profile_picture_object_id: String,
 }
-
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -161,8 +158,8 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     drop(db_handle);
     for (game_id, status) in statuses.into_iter() {
         match status {
-            database::db::GameDownloadStatus::Remote {} => {}
-            database::db::GameDownloadStatus::SetupRequired {
+            GameDownloadStatus::Remote {} => {}
+            GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir,
             } => {
@@ -171,7 +168,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                     missing_games.push(game_id);
                 }
             }
-            database::db::GameDownloadStatus::Installed {
+            GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir,
             } => {
@@ -290,7 +287,7 @@ pub fn run() {
 
             {
                 use tauri_plugin_deep_link::DeepLinkExt;
-                app.deep_link().register_all()?;
+                let _ = app.deep_link().register_all();
                 debug!("registered all pre-defined deep links");
             }
 
@@ -393,7 +390,6 @@ pub fn run() {
                 request,
                 responder
             );
-
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

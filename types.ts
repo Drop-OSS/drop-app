@@ -17,7 +17,7 @@ export type User = {
   username: string;
   admin: boolean;
   displayName: string;
-  profilePicture: string;
+  profilePictureObjectId: string;
 };
 
 export type AppState = {

@@ -7,10 +7,9 @@ use serde::{Deserialize, Serialize};
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
 
-use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db, GameVersion};
-use crate::database::db::{ApplicationTransientStatus, GameDownloadStatus};
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db};
+use crate::database::models::data::{ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion};
 use crate::download_manager::download_manager::DownloadStatus;
-use crate::download_manager::downloadable_metadata::DownloadableMetadata;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
@@ -438,7 +437,12 @@ pub fn on_game_complete(
     Ok(())
 }
 
-pub fn push_game_update(app_handle: &AppHandle, game_id: &String, version: Option<GameVersion>, status: GameStatusWithTransient) {
+pub fn push_game_update(
+    app_handle: &AppHandle,
+    game_id: &String,
+    version: Option<GameVersion>,
+    status: GameStatusWithTransient,
+) {
     app_handle
         .emit(
             &format!("update_game/{}", game_id),

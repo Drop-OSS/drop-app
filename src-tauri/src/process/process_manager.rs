@@ -18,11 +18,10 @@ use tauri::{AppHandle, Manager};
 use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
-    database::db::{
-        borrow_db_mut_checked, ApplicationTransientStatus, GameDownloadStatus, GameVersion,
-        DATA_ROOT_DIR,
+    database::{
+        db::{borrow_db_mut_checked, DATA_ROOT_DIR},
+        models::data::{ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus, GameVersion},
     },
-    download_manager::downloadable_metadata::{DownloadType, DownloadableMetadata},
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
     AppState, DB,
