@@ -92,7 +92,7 @@ features = ["other_errors"] # You can also use "yaml_enc" or "bin_enc"
 
 [dependencies.reqwest]
 version = "0.12"
-features = ["json", "blocking"]
+features = ["json", "blocking", "rustls-tls"]
 
 [dependencies.serde]
 version = "1"
