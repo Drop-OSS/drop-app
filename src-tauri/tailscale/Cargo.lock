@@ -220,6 +220,7 @@ version = "0.1.0"
 dependencies = [
  "abs-file-macro",
  "bindgen",
+ "libc",
 ]
 
 [[package]]

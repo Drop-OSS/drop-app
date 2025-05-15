@@ -3,8 +3,9 @@ name = "tailscale"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-
 [build-dependencies]
 bindgen = "*"
 abs-file-macro = "0.1.2"
+
+[dependencies]
+libc = "0.2.172"
