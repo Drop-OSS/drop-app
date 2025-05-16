@@ -10,6 +10,8 @@ use std::os::fd::{AsRawFd, RawFd};
 use std::os::windows::io::{AsRawHandle, RawHandle};
 use std::os::raw::{c_char, c_int};
 mod bindings;
+#[cfg(test)]
+mod test;
 
 type GoInt = i64;
 
