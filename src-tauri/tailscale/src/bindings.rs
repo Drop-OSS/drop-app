@@ -25,8 +25,7 @@ pub const __USE_XOPEN2K: u32 = 1;
 pub const __USE_XOPEN2K8: u32 = 1;
 pub const _ATFILE_SOURCE: u32 = 1;
 pub const __WORDSIZE: u32 = 64;
-pub const __WORDSIZE_TIME64_COMPAT32: u32 = 1;
-pub const __SYSCALL_WORDSIZE: u32 = 64;
+pub const __WORDSIZE_TIME64_COMPAT32: u32 = 0;
 pub const __TIMESIZE: u32 = 64;
 pub const __USE_TIME_BITS64: u32 = 1;
 pub const __USE_MISC: u32 = 1;
@@ -183,7 +182,7 @@ pub const ENOTRECOVERABLE: u32 = 131;
 pub const ERFKILL: u32 = 132;
 pub const EHWPOISON: u32 = 133;
 pub const ENOTSUP: u32 = 95;
-pub type wchar_t = ::std::os::raw::c_int;
+pub type wchar_t = ::std::os::raw::c_uint;
 #[repr(C)]
 #[repr(align(16))]
 #[derive(Debug, Copy, Clone)]
