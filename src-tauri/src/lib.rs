@@ -330,7 +330,7 @@ pub fn run() {
                 ],
             )?;
 
-            TrayIconBuilder::new()
+            let trayicon_result = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
@@ -345,8 +345,11 @@ pub fn run() {
                         warn!("menu event not handled: {:?}", event.id);
                     }
                 })
-                .build(app)
-                .expect("error while setting up tray menu");
+                .build(app);
+
+            if let Err(trayicon_error) = trayicon_result {
+                warn!("failed to set up tray icon: {}", trayicon_error.to_string())
+            }
 
             {
                 let mut db_handle = borrow_db_mut_checked();

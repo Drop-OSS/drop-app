@@ -358,7 +358,7 @@ impl ProcessHandler for NativeGameLauncher {
     }
 }
 
-const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
+pub const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
 struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn create_launch_process(

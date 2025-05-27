@@ -4,3 +4,6 @@
 [submodule "src-tauri/tailscale/libtailscale"]
 	path = src-tauri/tailscale/libtailscale
 	url = https://github.com/tailscale/libtailscale.git
+[submodule "src-tauri/umu/umu-launcher"]
+	path = src-tauri/umu/umu-launcher
+	url = https://github.com/Open-Wine-Components/umu-launcher.git
