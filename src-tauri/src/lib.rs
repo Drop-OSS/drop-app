@@ -330,23 +330,25 @@ pub fn run() {
                 ],
             )?;
 
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => {
-                        app.webview_windows().get("main").unwrap().show().unwrap();
-                    }
-                    "quit" => {
-                        cleanup_and_exit(app, &app.state());
-                    }
+            run_on_tray(|| {
+                TrayIconBuilder::new()
+                    .icon(app.default_window_icon().unwrap().clone())
+                    .menu(&menu)
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "open" => {
+                            app.webview_windows().get("main").unwrap().show().unwrap();
+                        }
+                        "quit" => {
+                            cleanup_and_exit(app, &app.state());
+                        }
 
-                    _ => {
-                        warn!("menu event not handled: {:?}", event.id);
-                    }
-                })
-                .build(app)
-                .expect("error while setting up tray menu");
+                        _ => {
+                            warn!("menu event not handled: {:?}", event.id);
+                        }
+                    })
+                    .build(app)
+                    .expect("error while setting up tray menu");
+            });
 
             {
                 let mut db_handle = borrow_db_mut_checked();
@@ -393,8 +395,10 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
-                window.hide().unwrap();
-                api.prevent_close();
+                run_on_tray(|| {
+                    window.hide().unwrap();
+                    api.prevent_close();
+                });
             }
         })
         .build(tauri::generate_context!())
@@ -402,9 +406,20 @@ pub fn run() {
 
     app.run(|_app_handle, event| {
         if let RunEvent::ExitRequested { code, api, .. } = event {
-            if code.is_none() {
-                api.prevent_exit();
-            }
+            run_on_tray(|| {
+                if code.is_none() {
+                    api.prevent_exit();
+                }
+            });
         }
     });
+}
+
+fn run_on_tray<T: FnOnce() -> ()>(f: T) {
+    if match std::env::var("NO_TRAY_ICON") {
+        Ok(s) => s.to_lowercase() != "true",
+        Err(_) => true,
+    } {
+        (f)();
+    }
 }
