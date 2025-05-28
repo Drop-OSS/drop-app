@@ -1,6 +1,6 @@
 [package]
 name = "drop-app"
-version = "0.3.0-rc-1"
+version = "0.3.0-rc-2"
 description = "The client application for the open-source, self-hosted game distribution platform Drop"
 authors = ["Drop OSS"]
 edition = "2021"
@@ -56,7 +56,7 @@ deranged = "=0.4.0"
 droplet-rs = "0.7.3"
 gethostname = "1.0.1"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
-tailscale = { path = "./tailscale" }
+# tailscale = { path = "./tailscale" }
 memfd-exec = "0.2.1"
 
 [dependencies.dynfmt]
