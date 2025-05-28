@@ -2,12 +2,13 @@ use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::warn;
 use tauri::UriSchemeResponder;
 
-use super::{auth::generate_authorization_header, cache::{cache_object, get_cached_object, ObjectCache}, requests::make_request};
+use super::{
+    auth::generate_authorization_header,
+    cache::{cache_object, get_cached_object, ObjectCache},
+    requests::make_request,
+};
 
-pub fn fetch_object(
-    request: http::Request<Vec<u8>>,
-    responder: UriSchemeResponder,
-) {
+pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeResponder) {
     // Drop leading /
     let object_id = &request.uri().path()[1..];
 
@@ -25,7 +26,7 @@ pub fn fetch_object(
             Ok(data) => responder.respond(data.into()),
             Err(e) => {
                 warn!("{}", e)
-            },
+            }
         }
         return;
     }
@@ -41,10 +42,7 @@ pub fn fetch_object(
 
     responder.respond(resp);
 }
-pub fn fetch_object_offline(
-    request: http::Request<Vec<u8>>,
-    responder: UriSchemeResponder,
-) {
+pub fn fetch_object_offline(request: http::Request<Vec<u8>>, responder: UriSchemeResponder) {
     let object_id = &request.uri().path()[1..];
     let data = get_cached_object::<&str, ObjectCache>(object_id);
 

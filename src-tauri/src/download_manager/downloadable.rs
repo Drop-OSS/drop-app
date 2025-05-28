@@ -2,11 +2,13 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
-use crate::{database::models::data::DownloadableMetadata, error::application_download_error::ApplicationDownloadError};
+use crate::{
+    database::models::data::DownloadableMetadata,
+    error::application_download_error::ApplicationDownloadError,
+};
 
 use super::{
-    download_manager::DownloadStatus, download_thread_control_flag::DownloadThreadControl,
-    progress_object::ProgressObject,
+    download_manager::DownloadStatus, util::{download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject},
 };
 
 pub trait Downloadable: Send + Sync {

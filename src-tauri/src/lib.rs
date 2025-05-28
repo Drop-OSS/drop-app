@@ -1,18 +1,18 @@
 mod database;
 mod games;
 
-mod autostart;
-mod cleanup;
-mod commands;
+mod client;
 mod download_manager;
 mod error;
 mod process;
 mod remote;
 
 use crate::database::db::DatabaseImpls;
-use autostart::{get_autostart_enabled, toggle_autostart};
-use cleanup::{cleanup_and_exit, quit};
-use commands::fetch_state;
+use client::{
+    autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
+    cleanup::{cleanup_and_exit, quit},
+};
+use client::commands::fetch_state;
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
@@ -33,7 +33,6 @@ use games::commands::{
 };
 use games::downloads::commands::download_game;
 use games::library::{update_game_configuration, Game};
-use http::Response;
 use log::{debug, info, warn, LevelFilter};
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -48,9 +47,7 @@ use remote::commands::{
     sign_out, use_remote,
 };
 use remote::fetch_object::{fetch_object, fetch_object_offline};
-use remote::requests::make_request;
 use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
-use reqwest::blocking::Body;
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::path::Path;
@@ -196,7 +193,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     debug!("finished setup!");
 
     // Sync autostart state
-    if let Err(e) = autostart::sync_autostart_on_startup(&handle) {
+    if let Err(e) = sync_autostart_on_startup(&handle) {
         warn!("failed to sync autostart state: {}", e);
     }
 

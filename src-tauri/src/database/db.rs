@@ -1,8 +1,6 @@
 use std::{
-    collections::HashMap,
     fs::{self, create_dir_all},
-    hash::Hash,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -10,14 +8,12 @@ use chrono::Utc;
 use directories::BaseDirs;
 use log::{debug, error, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_with::serde_as;
-use tauri::AppHandle;
+use serde::{de::DeserializeOwned, Serialize};
 use url::Url;
 
 use crate::DB;
 
-use super::models::data::{Database, GameVersion};
+use super::models::data::Database;
 
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));

@@ -12,11 +12,13 @@ use std::{
 use log::{debug, info};
 use serde::Serialize;
 
-use crate::{database::models::data::DownloadableMetadata, error::application_download_error::ApplicationDownloadError};
+use crate::{
+    database::models::data::DownloadableMetadata,
+    error::application_download_error::ApplicationDownloadError,
+};
 
 use super::{
-    download_manager_builder::{CurrentProgressObject, DownloadAgent},
-    queue::Queue,
+    download_manager_builder::{CurrentProgressObject, DownloadAgent}, util::queue::Queue,
 };
 
 pub enum DownloadManagerSignal {

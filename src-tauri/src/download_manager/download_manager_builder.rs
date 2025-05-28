@@ -11,15 +11,14 @@ use log::{debug, error, info, warn};
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    database::models::data::DownloadableMetadata, error::application_download_error::ApplicationDownloadError, games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent}
+    database::models::data::DownloadableMetadata,
+    error::application_download_error::ApplicationDownloadError,
+    games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
 };
 
 use super::{
     download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
-    download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
-    downloadable::Downloadable,
-    progress_object::ProgressObject,
-    queue::Queue,
+    downloadable::Downloadable, util::{download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, progress_object::ProgressObject, queue::Queue},
 };
 
 pub type DownloadAgent = Arc<Box<dyn Downloadable + Send + Sync>>;

@@ -11,7 +11,7 @@ pub struct Collection {
     name: String,
     is_default: bool,
     user_id: String,
-    entries: Vec<CollectionObject>
+    entries: Vec<CollectionObject>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
@@ -21,4 +21,3 @@ pub struct CollectionObject {
     game_id: String,
     game: Game,
 }
-

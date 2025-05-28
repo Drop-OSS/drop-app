@@ -2,7 +2,12 @@ use reqwest::blocking::Client;
 use serde_json::json;
 use url::Url;
 
-use crate::{database::db::DatabaseImpls, error::remote_access_error::RemoteAccessError, remote::{auth::generate_authorization_header, requests::make_request}, DB};
+use crate::{
+    database::db::DatabaseImpls,
+    error::remote_access_error::RemoteAccessError,
+    remote::{auth::generate_authorization_header, requests::make_request},
+    DB,
+};
 
 use super::collection::{Collection, Collections};
 
@@ -20,9 +25,12 @@ pub fn fetch_collections() -> Result<Collections, RemoteAccessError> {
 #[tauri::command]
 pub fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAccessError> {
     let client = Client::new();
-    let response = make_request(&client, &["/api/v1/client/collection/", &collection_id], &[], |r| {
-        r.header("Authorization", generate_authorization_header())
-    })?
+    let response = make_request(
+        &client,
+        &["/api/v1/client/collection/", &collection_id],
+        &[],
+        |r| r.header("Authorization", generate_authorization_header()),
+    )?
     .send()?;
 
     Ok(response.json()?)
@@ -35,20 +43,26 @@ pub fn create_collection(name: String) -> Result<Collection, RemoteAccessError> 
 
     let base_url = Url::parse(&format!("{}api/v1/client/collection/", base_url))?;
 
-
     let response = client
         .post(base_url)
         .header("Authorization", generate_authorization_header())
         .json(&json!({"name": name}))
         .send()?;
-    
+
     Ok(response.json()?)
 }
 
 #[tauri::command]
-pub fn add_game_to_collection(collection_id: String, game_id: String) -> Result<(), RemoteAccessError> {
+pub fn add_game_to_collection(
+    collection_id: String,
+    game_id: String,
+) -> Result<(), RemoteAccessError> {
     let client = Client::new();
-    let url = Url::parse(&format!("{}api/v1/client/collection/{}/entry/", DB.fetch_base_url(), collection_id))?;
+    let url = Url::parse(&format!(
+        "{}api/v1/client/collection/{}/entry/",
+        DB.fetch_base_url(),
+        collection_id
+    ))?;
 
     client
         .post(url)
@@ -61,7 +75,11 @@ pub fn add_game_to_collection(collection_id: String, game_id: String) -> Result<
 #[tauri::command]
 pub fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessError> {
     let client = Client::new();
-    let base_url = Url::parse(&format!("{}api/v1/client/collection/{}", DB.fetch_base_url(), collection_id))?;
+    let base_url = Url::parse(&format!(
+        "{}api/v1/client/collection/{}",
+        DB.fetch_base_url(),
+        collection_id
+    ))?;
 
     let response = client
         .delete(base_url)
@@ -71,9 +89,16 @@ pub fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessErro
     Ok(response.json()?)
 }
 #[tauri::command]
-pub fn delete_game_in_collection(collection_id: String, game_id: String) -> Result<(), RemoteAccessError> {
+pub fn delete_game_in_collection(
+    collection_id: String,
+    game_id: String,
+) -> Result<(), RemoteAccessError> {
     let client = Client::new();
-    let base_url = Url::parse(&format!("{}api/v1/client/collection/{}/entry", DB.fetch_base_url(), collection_id))?;
+    let base_url = Url::parse(&format!(
+        "{}api/v1/client/collection/{}/entry",
+        DB.fetch_base_url(),
+        collection_id
+    ))?;
 
     client
         .delete(base_url)

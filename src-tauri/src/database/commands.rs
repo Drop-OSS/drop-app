@@ -6,14 +6,12 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{
-    database::{db::borrow_db_mut_checked},
-    download_manager::internal_error::InternalError,
-};
+use crate::{database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError};
 
 use super::{
     db::{borrow_db_checked, save_db, DATA_ROOT_DIR},
-    debug::SystemData, models::data::Settings,
+    debug::SystemData,
+    models::data::Settings,
 };
 
 // Will, in future, return disk/remaining size
@@ -33,7 +31,7 @@ pub fn delete_download_dir(index: usize) {
 }
 
 #[tauri::command]
-pub fn add_download_dir(new_dir: PathBuf) -> Result<(), InternalError<()>> {
+pub fn add_download_dir(new_dir: PathBuf) -> Result<(), DownloadManagerError<()>> {
     // Check the new directory is all good
     let new_dir_path = Path::new(&new_dir);
     if new_dir_path.exists() {

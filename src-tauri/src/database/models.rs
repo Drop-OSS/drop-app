@@ -162,7 +162,7 @@ pub mod data {
     }
 
     pub mod v2 {
-        use std::{collections::HashMap, io::ErrorKind, path::PathBuf, process::Command};
+        use std::{collections::HashMap, path::PathBuf, process::Command};
 
         use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
 

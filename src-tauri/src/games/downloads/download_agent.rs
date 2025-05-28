@@ -1,12 +1,12 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::borrow_db_checked;
-use crate::database::models::data::{ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus};
-use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
-use crate::download_manager::download_thread_control_flag::{
-    DownloadThreadControl, DownloadThreadControlFlag,
+use crate::database::models::data::{
+    ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
 };
+use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::downloadable::Downloadable;
-use crate::download_manager::progress_object::{ProgressHandle, ProgressObject};
+use crate::download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::util::progress_object::{ProgressHandle, ProgressObject};
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};

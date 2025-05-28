@@ -1,5 +1,4 @@
 use std::{
-    any::{Any, TypeId},
     error::Error,
     fmt::{Display, Formatter},
     sync::Arc,
@@ -23,7 +22,6 @@ pub enum RemoteAccessError {
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
     Cache(cacache::Error),
-    Generic(String),
 }
 
 impl Display for RemoteAccessError {
@@ -59,7 +57,6 @@ impl Display for RemoteAccessError {
                 status, response
             ),
             RemoteAccessError::OutOfSync => write!(f, "server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other"),
-            RemoteAccessError::Generic(message) => write!(f, "{}", message),
             RemoteAccessError::Cache(error) => write!(f, "Cache Error: {}", error),
         }
     }
