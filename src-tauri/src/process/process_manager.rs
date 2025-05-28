@@ -1,9 +1,9 @@
 use std::{
     collections::HashMap,
-    fs::{File, OpenOptions},
-    io::{self, Error},
-    path::{Path, PathBuf},
-    process::{Child, Command, ExitStatus},
+    fs::OpenOptions,
+    io::{self},
+    path::PathBuf,
+    process::{Command, ExitStatus},
     str::FromStr,
     sync::{Arc, Mutex},
     thread::spawn,
@@ -15,12 +15,14 @@ use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
 use tauri::{AppHandle, Manager};
-use umu_wrapper_lib::command_builder::UmuCommandBuilder;
 
 use crate::{
     database::{
         db::{borrow_db_mut_checked, DATA_ROOT_DIR},
-        models::data::{ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus, GameVersion},
+        models::data::{
+            ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
+            GameVersion,
+        },
     },
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
@@ -46,7 +48,7 @@ impl ProcessManager<'_> {
             current_platform: Platform::Windows,
 
             #[cfg(target_os = "macos")]
-            current_platform: Platform::macOS,
+            current_platform: Platform::MacOs,
 
             #[cfg(target_os = "linux")]
             current_platform: Platform::Linux,
@@ -65,7 +67,7 @@ impl ProcessManager<'_> {
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
-                    (Platform::macOS, Platform::macOS),
+                    (Platform::MacOs, Platform::MacOs),
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
@@ -330,7 +332,7 @@ impl ProcessManager<'_> {
 pub enum Platform {
     Windows,
     Linux,
-    macOS,
+    MacOs,
 }
 
 pub trait ProcessHandler: Send + 'static {
@@ -351,14 +353,14 @@ impl ProcessHandler for NativeGameLauncher {
         _meta: &DownloadableMetadata,
         launch_command: String,
         args: Vec<String>,
-        game_version: &GameVersion,
-        current_dir: &str,
+        _game_version: &GameVersion,
+        _current_dir: &str,
     ) -> String {
         format!("\"{}\" {}", launch_command, args.join(" "))
     }
 }
 
-const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
+pub const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
 struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn create_launch_process(

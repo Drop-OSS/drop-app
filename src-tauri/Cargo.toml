@@ -57,6 +57,7 @@ droplet-rs = "0.7.3"
 gethostname = "1.0.1"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
 tailscale = { path = "./tailscale" }
+memfd-exec = "0.2.1"
 
 [dependencies.dynfmt]
 version = "0.1.5"

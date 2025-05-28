@@ -1,7 +1,5 @@
-use crate::download_manager::download_thread_control_flag::{
-    DownloadThreadControl, DownloadThreadControlFlag,
-};
-use crate::download_manager::progress_object::ProgressHandle;
+use crate::download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;

@@ -1,10 +1,9 @@
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 use http::{
-    uri::{Authority, PathAndQuery},
+    uri::PathAndQuery,
     Request, Response, StatusCode, Uri,
 };
-use log::info;
 use reqwest::blocking::Client;
 use tauri::UriSchemeResponder;
 

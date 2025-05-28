@@ -2,13 +2,15 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::{debug, error, info, warn};
+use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::Emitter;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db};
-use crate::database::models::data::{ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion};
+use crate::database::models::data::{
+    ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
+};
 use crate::download_manager::download_manager::DownloadStatus;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;

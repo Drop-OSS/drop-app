@@ -1,8 +1,6 @@
 use std::{
-    collections::HashMap,
     fs::{self, create_dir_all},
-    hash::Hash,
-    path::{Path, PathBuf},
+    path::PathBuf,
     sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -10,14 +8,12 @@ use chrono::Utc;
 use directories::BaseDirs;
 use log::{debug, error, info};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_with::serde_as;
-use tauri::AppHandle;
+use serde::{de::DeserializeOwned, Serialize};
 use url::Url;
 
 use crate::DB;
 
-use super::models::data::{Database, GameVersion};
+use super::models::data::Database;
 
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(BaseDirs::new().unwrap().data_dir().join("drop")));
@@ -58,12 +54,14 @@ impl DatabaseImpls for DatabaseInterface {
         let games_base_dir = data_root_dir.join("games");
         let logs_root_dir = data_root_dir.join("logs");
         let cache_dir = data_root_dir.join("cache");
+        let pfx_dir = data_root_dir.join("pfx");
 
         debug!("creating data directory at {:?}", data_root_dir);
         create_dir_all(data_root_dir.clone()).unwrap();
         create_dir_all(&games_base_dir).unwrap();
         create_dir_all(&logs_root_dir).unwrap();
         create_dir_all(&cache_dir).unwrap();
+        create_dir_all(&pfx_dir).unwrap();
 
         let exists = fs::exists(db_path.clone()).unwrap();
 

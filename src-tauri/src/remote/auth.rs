@@ -1,21 +1,20 @@
-use std::{collections::HashMap, env, sync::Mutex};
+use std::{collections::HashMap, env};
 
 use chrono::Utc;
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use url::Url;
 
 use crate::{
     database::{
-        db::{borrow_db_checked, borrow_db_mut_checked, save_db, DatabaseImpls},
+        db::{borrow_db_checked, borrow_db_mut_checked, save_db},
         models::data::DatabaseAuth,
     },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    AppState, AppStatus, User, DB,
+    AppStatus, User,
 };
 
 use super::{

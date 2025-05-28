@@ -3,7 +3,7 @@ pub mod data {
     use serde::{Deserialize, Serialize};
 
     pub type GameVersion = v1::GameVersion;
-    pub type Database = v1::Database;
+    pub type Database = v2::Database;
     pub type Settings = v1::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
@@ -11,6 +11,8 @@ pub mod data {
     pub type ApplicationTransientStatus = v1::ApplicationTransientStatus;
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
+    pub type DatabaseApplications = v1::DatabaseApplications;
+    pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
     pub mod v1 {
         use crate::process::process_manager::Platform;
@@ -157,8 +159,46 @@ pub mod data {
             pub prev_database: Option<PathBuf>,
             pub cache_dir: PathBuf,
         }
+    }
+
+    pub mod v2 {
+        use std::{collections::HashMap, path::PathBuf, process::Command};
+
+        use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
+
+        use super::*;
+
+        #[native_model(id = 1, version = 2)]
+        #[derive(Serialize, Deserialize, Clone, Default)]
+        pub struct Database {
+            #[serde(default)]
+            pub settings: Settings,
+            pub auth: Option<DatabaseAuth>,
+            pub base_url: String,
+            pub applications: DatabaseApplications,
+            pub prev_database: Option<PathBuf>,
+            pub cache_dir: PathBuf,
+            pub compat_info: Option<DatabaseCompatInfo>,
+        }
+
+        #[native_model(id = 8, version = 2)]
+        #[derive(Serialize, Deserialize, Clone, Default)]
+
+        pub struct DatabaseCompatInfo {
+            umu_installed: bool,
+        }
 
         impl Database {
+            fn create_new_compat_info() -> Option<DatabaseCompatInfo> {
+                #[cfg(target_os = "windows")]
+                return None;
+
+                let has_umu_installed = Command::new(UMU_LAUNCHER_EXECUTABLE).spawn().is_ok();
+                Some(DatabaseCompatInfo {
+                    umu_installed: has_umu_installed,
+                })
+            }
+
             pub fn new<T: Into<PathBuf>>(
                 games_base_dir: T,
                 prev_database: Option<PathBuf>,
@@ -177,6 +217,21 @@ pub mod data {
                     auth: None,
                     settings: Settings::default(),
                     cache_dir,
+                    compat_info: Database::create_new_compat_info(),
+                }
+            }
+        }
+
+        impl From<v1::Database> for Database {
+            fn from(value: v1::Database) -> Self {
+                Self {
+                    settings: value.settings,
+                    auth: value.auth,
+                    base_url: value.base_url,
+                    applications: value.applications,
+                    prev_database: value.prev_database,
+                    cache_dir: value.cache_dir,
+                    compat_info: Database::create_new_compat_info(),
                 }
             }
         }

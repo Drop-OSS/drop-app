@@ -10,8 +10,10 @@ use std::{
 use atomic_instant_full::AtomicInstant;
 use throttle_my_fn::throttle;
 
+use crate::download_manager::download_manager::DownloadManagerSignal;
+
 use super::{
-    download_manager::DownloadManagerSignal, rolling_progress_updates::RollingProgressWindow,
+    rolling_progress_updates::RollingProgressWindow,
 };
 
 #[derive(Clone)]
