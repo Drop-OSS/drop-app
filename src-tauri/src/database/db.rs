@@ -5,7 +5,7 @@ use std::{
 };
 
 use chrono::Utc;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{de::DeserializeOwned, Serialize};
 use url::Url;
@@ -99,6 +99,7 @@ fn handle_invalid_database(
     games_base_dir: PathBuf,
     cache_dir: PathBuf,
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
+    warn!("{}", _e);
     let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone();
