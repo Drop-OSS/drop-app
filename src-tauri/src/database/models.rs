@@ -176,6 +176,7 @@ pub mod data {
             pub auth: Option<DatabaseAuth>,
             pub base_url: String,
             pub applications: DatabaseApplications,
+            #[serde(skip)]
             pub prev_database: Option<PathBuf>,
             pub cache_dir: PathBuf,
             pub compat_info: Option<DatabaseCompatInfo>,

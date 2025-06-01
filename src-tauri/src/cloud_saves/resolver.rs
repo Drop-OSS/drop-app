@@ -1,7 +1,9 @@
 use std::{
     fs::{self, create_dir_all, File},
     io::{self, ErrorKind, Read, Write},
-    path::{Path, PathBuf}, thread::sleep, time::Duration,
+    path::{Path, PathBuf},
+    thread::sleep,
+    time::Duration,
 };
 
 use super::{
@@ -60,7 +62,6 @@ pub fn resolve(meta: &mut CloudSaveMetadata) -> File {
         file.id = Some(id);
     }
     let binding = serde_json::to_string(meta).unwrap();
-    println!("Binding: {}", &binding);
     let serialized = binding.as_bytes();
     let mut file = tempfile().unwrap();
     file.write(serialized).unwrap();
@@ -117,8 +118,10 @@ pub fn extract(file: PathBuf) -> Result<(), BackupError> {
         let new_path = parse_path(file.path.into(), handler, &manifest.game_version)?;
         create_dir_all(&new_path.parent().unwrap()).unwrap();
 
-        println!("Current path {:?} copying to {:?}", &current_path, &new_path);
-
+        println!(
+            "Current path {:?} copying to {:?}",
+            &current_path, &new_path
+        );
 
         copy_item(current_path, new_path).unwrap();
     }
@@ -168,7 +171,11 @@ fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
         let metadata = entry.metadata()?;
 
         if metadata.is_file() {
-            debug!("Writing file {} to {}", entry_path.display(), dest_entry_path.display());
+            debug!(
+                "Writing file {} to {}",
+                entry_path.display(),
+                dest_entry_path.display()
+            );
             fs::copy(&entry_path, &dest_entry_path)?;
         } else if metadata.is_dir() {
             copy_dir_recursive(&entry_path, &dest_entry_path)?;
