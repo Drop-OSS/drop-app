@@ -68,7 +68,7 @@
             Open Data Directory
           </button>
           <button
-            @click="() => openLogFile()"
+            @click="() => queue_url_download()"
             type="button"
             class="inline-flex items-center gap-x-2 rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
           >
@@ -114,6 +114,15 @@ dataDir.value = systemData.dataDir;
 
 const currentPlatform = await platform();
 platformInfo.value = currentPlatform;
+
+async function queue_url_download() {
+  try {
+    await invoke("queue_url_download", { url: "https://codeload.github.com/Drop-OSS/drop-app/zip/refs/heads/develop"});
+  }
+  catch (e) {
+    console.error(e);
+  }
+}
 
 async function openDataDir() {
   if (!dataDir.value) return;

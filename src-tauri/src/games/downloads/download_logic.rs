@@ -11,6 +11,7 @@ use std::fs::{set_permissions, Permissions};
 use std::io::{ErrorKind, Read};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::Path;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -22,14 +23,14 @@ pub struct DropWriter<W: Write> {
     destination: W,
 }
 impl DropWriter<File> {
-    fn new(path: PathBuf) -> Self {
+    pub fn new<P: AsRef<Path>>(path: P) -> Self {
         Self {
-            destination: OpenOptions::new().write(true).open(path).unwrap(),
+            destination: OpenOptions::new().create(true).write(true).open(path).unwrap(),
             hasher: Context::new(),
         }
     }
 
-    fn finish(mut self) -> io::Result<Digest> {
+    pub fn finish(mut self) -> io::Result<Digest> {
         self.flush().unwrap();
         Ok(self.hasher.compute())
     }
@@ -66,7 +67,7 @@ pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
     pub size: usize,
 }
 impl<'a> DropDownloadPipeline<'a, Response, File> {
-    fn new(
+    pub fn new(
         source: Response,
         destination: DropWriter<File>,
         control_flag: &'a DownloadThreadControl,
@@ -82,7 +83,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         }
     }
 
-    fn copy(&mut self) -> Result<bool, io::Error> {
+    pub fn copy(&mut self) -> Result<bool, io::Error> {
         let copy_buf_size = 512;
         let mut copy_buf = vec![0; copy_buf_size];
         let mut buf_writer = BufWriter::with_capacity(1024 * 1024, &mut self.destination);
@@ -100,6 +101,10 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             self.progress.add(bytes_read);
 
             if current_size == self.size {
+                break;
+            }
+            if bytes_read == 0 {
+                println!("Terminated stream");
                 break;
             }
         }
