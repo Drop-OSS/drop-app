@@ -1,46 +1,32 @@
 <template>
   <div class="bg-zinc-950 p-4 min-h-full space-y-4">
-    <div
-      class="h-16 overflow-hidden relative rounded-xl flex flex-row border border-zinc-900"
-    >
+    <div class="h-16 overflow-hidden relative rounded-xl flex flex-row border border-zinc-900">
       <div
-        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2"
-      >
+        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2">
         <span class="font-semibold">{{ formatKilobytes(stats.speed) }}/s</span>
-        <span v-if="stats.time > 0" class="text-sm"
-          >{{ formatTime(stats.time) }} left</span
-        >
+        <span v-if="stats.time > 0" class="text-sm">{{ formatTime(stats.time) }} left</span>
       </div>
       <div class="absolute inset-0 h-full flex flex-row items-end justify-end">
-        <div
-          v-for="bar in speedHistory"
-          :style="{ height: `${(bar / speedMax) * 100}%` }"
-          class="w-[8px] bg-blue-600/40"
-        />
+        <div v-for="bar in speedHistory" :style="{ height: `${(bar / speedMax) * 100}%` }"
+          class="w-[8px] bg-blue-600/40" />
       </div>
     </div>
     <draggable v-model="queue.queue" @end="onEnd">
       <template #item="{ element }: { element: (typeof queue.value.queue)[0] }">
-        <li
-          v-if="games[element.meta.id]"
-          :key="element.meta.id"
-          class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4"
-        >
+        <li v-if="downloads.has(element.meta)" :key="element.meta.id"
+          class="mb-4 bg-zinc-900 rounded-lg flex flex-row justify-between gap-x-6 py-5 px-4">
           <div class="w-full flex items-center max-w-md gap-x-4 relative">
-            <img
-              class="size-24 flex-none bg-zinc-800 object-cover rounded"
-              :src="games[element.meta.id].cover"
-              alt=""
-            />
+            <img class="size-24 flex-none bg-zinc-800 object-cover rounded" :src="downloads.get(element.meta)!.queueMeta.cover"
+              alt="" />
             <div class="min-w-0 flex-auto">
               <p class="text-xl font-semibold text-zinc-100">
                 <NuxtLink :href="`/library/${element.meta.id}`" class="">
                   <span class="absolute inset-x-0 -top-px bottom-0" />
-                  {{ games[element.meta.id].game.mName }}
+                  {{ downloads.get(element.meta)!.queueMeta.mName }}
                 </NuxtLink>
               </p>
               <p class="mt-1 flex text-xs/5 text-gray-500">
-                {{ games[element.meta.id].game.mShortDescription }}
+                {{ downloads.get(element.meta)!.queueMeta.mShortDescription }}
               </p>
             </div>
           </div>
@@ -49,40 +35,28 @@
               <p class="text-md text-zinc-500 uppercase font-display font-bold">
                 {{ element.status }}
               </p>
-              <div
-                v-if="element.progress"
-                class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
-              >
-                <div
-                  class="h-2 bg-blue-600"
-                  :style="{ width: `${element.progress * 100}%` }"
-                />
+              <div v-if="element.progress" class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden">
+                <div class="h-2 bg-blue-600" :style="{ width: `${element.progress * 100}%` }" />
               </div>
-              <span
-                class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"
-                ><span class="text-zinc-300">{{
-                  formatKilobytes(element.current / 1000)
-                }}</span>
+              <span class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"><span
+                  class="text-zinc-300">{{
+                    formatKilobytes(element.current / 1000)
+                  }}</span>
                 /
-                <span class="">{{ formatKilobytes(element.max / 1000) }}</span
-                ><ServerIcon class="size-5"
-              /></span>
+                <span class="">{{ formatKilobytes(element.max / 1000) }}</span>
+                <ServerIcon class="size-5" />
+              </span>
             </div>
             <button @click="() => cancelGame(element.meta)" class="group">
-              <XMarkIcon
-                class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
-                aria-hidden="true"
-              />
+              <XMarkIcon class="transition size-8 flex-none text-zinc-600 group-hover:text-zinc-300"
+                aria-hidden="true" />
             </button>
           </div>
         </li>
         <p v-else>Loading...</p>
       </template>
     </draggable>
-    <div
-      class="text-zinc-600 uppercase font-semibold font-display w-full text-center"
-      v-if="queue.queue.length == 0"
-    >
+    <div class="text-zinc-600 uppercase font-semibold font-display w-full text-center" v-if="queue.queue.length == 0">
       No items in the queue
     </div>
   </div>
@@ -91,7 +65,8 @@
 <script setup lang="ts">
 import { ServerIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
-import type { DownloadableMetadata, Game, GameStatus } from "~/types";
+import { useStatus } from "~/composables/game";
+import type { DownloadableMetadata, Game, GameStatus, QueueMetadata } from "~/types";
 
 const windowWidth = ref(window.innerWidth);
 window.addEventListener("resize", (event) => {
@@ -107,9 +82,7 @@ const speedMax = computed(
 );
 const previousGameId = ref<string | undefined>();
 
-const games: Ref<{
-  [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
-}> = ref({});
+const downloads: Ref<Map<DownloadableMetadata, { queueMeta: QueueMetadata, status: Ref<GameStatus> }>> = ref(new Map());
 
 function resetHistoryGraph() {
   speedHistory.value = [];
@@ -153,13 +126,14 @@ watch(stats, (v) => {
 
 function loadGamesForQueue(v: typeof queue.value) {
   for (const {
-    meta: { id },
+    meta,
   } of v.queue) {
-    if (games.value[id]) return;
+    if (downloads.value.get(meta)) return;
     (async () => {
-      const gameData = await useGame(id);
-      const cover = await useObject(gameData.game.mCoverObjectId);
-      games.value[id] = { ...gameData, cover };
+      const queueMeta: QueueMetadata = await invoke("get_queue_metadata", {meta});
+      const status = useStatus(meta)!;
+      const cover = await useObject(queueMeta.cover);
+      downloads.value.set(meta, { queueMeta: { ...queueMeta, cover }, status });
     })();
   }
 }

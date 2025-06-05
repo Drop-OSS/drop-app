@@ -38,6 +38,7 @@ export type Game = {
 };
 
 export type GameVersion = {
+  versionName: string;
   launchCommandTemplate: string;
 };
 
@@ -75,7 +76,7 @@ export enum DownloadableType {
 
 export type DownloadableMetadata = {
   id: string;
-  version: string;
+  version?: string;
   downloadType: DownloadableType;
 };
 
@@ -84,3 +85,10 @@ export type Settings = {
   maxDownloadThreads: number;
   forceOffline: boolean;
 };
+
+
+export type QueueMetadata = {
+  mName: string;
+  cover: string;
+  mShortDescription: string;
+}

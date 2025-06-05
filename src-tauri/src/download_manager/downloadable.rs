@@ -4,7 +4,7 @@ use tauri::AppHandle;
 
 use crate::{
     database::models::data::DownloadableMetadata,
-    error::application_download_error::ApplicationDownloadError,
+    error::{application_download_error::ApplicationDownloadError, remote_access_error::RemoteAccessError},
 };
 
 use super::{
@@ -23,3 +23,4 @@ pub trait Downloadable: Send + Sync {
     fn on_incomplete(&self, app_handle: &AppHandle);
     fn on_cancelled(&self, app_handle: &AppHandle);
 }
+

@@ -7,7 +7,7 @@ mod error;
 mod process;
 mod remote;
 
-use crate::{client::commands::queue_url_download, database::db::DatabaseImpls};
+use crate::{client::commands::queue_url_download, database::db::DatabaseImpls, download_manager::commands::get_queue_metadata};
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
@@ -265,6 +265,7 @@ pub fn run() {
             cancel_game,
             uninstall_game,
             queue_url_download,
+            get_queue_metadata,
             // Processes
             launch_game,
             kill_game,

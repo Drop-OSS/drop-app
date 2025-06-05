@@ -31,14 +31,14 @@ pub struct FetchGameStruct {
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     id: String,
-    m_name: String,
-    m_short_description: String,
+    pub m_name: String,
+    pub m_short_description: String,
     m_description: String,
     // mDevelopers
     // mPublishers
     m_icon_object_id: String,
     m_banner_object_id: String,
-    m_cover_object_id: String,
+    pub m_cover_object_id: String,
     m_image_library_object_ids: Vec<String>,
     m_image_carousel_object_ids: Vec<String>,
 }

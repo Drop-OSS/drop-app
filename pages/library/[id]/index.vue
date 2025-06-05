@@ -471,6 +471,7 @@ const router = useRouter();
 const id = route.params.id.toString();
 
 const { game: rawGame, status } = await useGame(id);
+console.log("status: ", status);
 const game = ref(rawGame);
 
 const remoteUrl: string = await invoke("gen_drop_url", {

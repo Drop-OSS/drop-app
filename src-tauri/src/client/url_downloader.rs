@@ -1,9 +1,7 @@
 use std::{
-    fs::{self, create_dir_all},
-    io::{self, copy},
     path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc, Mutex},
-    u64, usize,
+    usize,
 };
 
 use log::{debug, error, warn};
@@ -65,7 +63,7 @@ impl URLDownloader {
         }
     }
 
-    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+    fn download(&self, _app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
         // TODO: Fix these unwraps and implement From<io::Error> for ApplicationDownloadError
         let client = reqwest::blocking::Client::builder()
             .redirect(Policy::default())
@@ -79,8 +77,6 @@ impl URLDownloader {
             .map(|x| x.to_str().unwrap().parse().unwrap())
             .unwrap_or(usize::MAX);
         let response = client.get(&self.url).send().unwrap();
-
-        println!("{:?}, content length: {}", response, content_length);
 
         self.set_progress_object_params(content_length);
 
@@ -159,7 +155,7 @@ impl Downloadable for URLDownloader {
             .remove(&self.metadata());
     }
 
-    fn on_complete(&self, app_handle: &tauri::AppHandle) {
+    fn on_complete(&self, _app_handle: &tauri::AppHandle) {
         println!("Completed url download");
     }
 

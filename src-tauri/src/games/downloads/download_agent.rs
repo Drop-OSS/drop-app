@@ -10,7 +10,8 @@ use crate::download_manager::util::progress_object::{ProgressHandle, ProgressObj
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::games::library::{on_game_complete, push_game_update, GameUpdateEvent};
+use crate::games::library::{on_game_complete, push_game_update, Game, GameUpdateEvent};
+use crate::remote::cache::get_cached_object;
 use crate::remote::requests::make_request;
 use crate::DB;
 use log::{debug, error, info};

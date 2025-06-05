@@ -74,6 +74,14 @@ pub enum DownloadStatus {
     Error,
 }
 
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueMetadata {
+    pub cover: String,
+    pub m_short_description: String,
+    pub name: String
+}
+
 /// Accessible front-end for the DownloadManager
 ///
 /// The system works entirely through signals, both internally and externally,
