@@ -79,7 +79,7 @@ pub enum DownloadStatus {
 pub struct QueueMetadata {
     pub cover: String,
     pub m_short_description: String,
-    pub name: String
+    pub m_name: String
 }
 
 /// Accessible front-end for the DownloadManager

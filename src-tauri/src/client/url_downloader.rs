@@ -4,15 +4,14 @@ use std::{
     usize,
 };
 
-use log::{debug, error, warn};
+use log::{debug, error};
 use reqwest::redirect::Policy;
 use tauri::{AppHandle, Emitter};
 
 use crate::{
-    database::{
-        db::borrow_db_checked,
-        models::data::{DownloadType, DownloadableMetadata},
-    },
+    database::
+        models::data::{DownloadType, DownloadableMetadata}
+    ,
     download_manager::{
         download_manager::{DownloadManagerSignal, DownloadStatus},
         downloadable::Downloadable,
@@ -156,16 +155,16 @@ impl Downloadable for URLDownloader {
     }
 
     fn on_complete(&self, _app_handle: &tauri::AppHandle) {
-        println!("Completed url download");
+        debug!("Completed url download");
     }
 
     // TODO: fix this function. It doesn't restart the download properly, nor does it reset the state properly
-    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
-        println!("Incomplete url download");
+    fn on_incomplete(&self, _app_handle: &tauri::AppHandle) {
+        debug!("Incomplete url download");
     }
 
     fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {
-        println!("Cancelled url download");
+        debug!("Cancelled url download");
     }
 
     fn status(&self) -> DownloadStatus {
