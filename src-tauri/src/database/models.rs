@@ -27,7 +27,7 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 2, version = 1)]
+        #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct GameVersion {
             pub game_id: String,
             pub version_name: String,
@@ -69,7 +69,7 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 4, version = 1)]
+        #[native_model(id = 4, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
@@ -88,7 +88,7 @@ pub mod data {
         // Strings are version names for a particular game
         #[derive(Serialize, Clone, Deserialize)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 1)]
+        #[native_model(id = 5, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -111,7 +111,7 @@ pub mod data {
         }
 
         #[derive(serde::Serialize, Clone, Deserialize)]
-        #[native_model(id = 6, version = 1)]
+        #[native_model(id = 6, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseAuth {
             pub private: String,
             pub cert: String,
@@ -130,7 +130,7 @@ pub mod data {
             Mod,
         }
 
-        #[native_model(id = 7, version = 1)]
+        #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone)]
         #[serde(rename_all = "camelCase")]
         pub struct DownloadableMetadata {
@@ -168,7 +168,7 @@ pub mod data {
 
         use super::*;
 
-        #[native_model(id = 1, version = 2)]
+        #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
@@ -182,7 +182,7 @@ pub mod data {
             pub compat_info: Option<DatabaseCompatInfo>,
         }
 
-        #[native_model(id = 8, version = 2)]
+        #[native_model(id = 8, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
 
         pub struct DatabaseCompatInfo {
