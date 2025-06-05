@@ -132,7 +132,7 @@ impl Downloadable for URLDownloader {
         DownloadableMetadata {
             id: self.id.clone(),
             version: Some(self.version.clone()),
-            download_type: DownloadType::Game,
+            download_type: DownloadType::Tool,
         }
     }
 
