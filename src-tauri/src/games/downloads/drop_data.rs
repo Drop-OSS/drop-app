@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_binary::binary_stream::Endian;
 
 #[derive(Serialize, Deserialize, Debug)]
-pub struct StoredManifest {
+pub struct DropData {
     game_id: String,
     game_version: String,
     pub completed_contexts: Mutex<Vec<usize>>,
@@ -19,7 +19,7 @@ pub struct StoredManifest {
 
 static DROP_DATA_PATH: &str = ".dropdata";
 
-impl StoredManifest {
+impl DropData {
     pub fn new(game_id: String, game_version: String, base_path: PathBuf) -> Self {
         Self {
             base_path,
@@ -31,7 +31,7 @@ impl StoredManifest {
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
         let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
-            Err(_) => return StoredManifest::new(game_id, game_version, base_path),
+            Err(_) => return DropData::new(game_id, game_version, base_path),
         };
 
         let mut s = Vec::new();
@@ -39,15 +39,15 @@ impl StoredManifest {
             Ok(_) => {}
             Err(e) => {
                 error!("{}", e);
-                return StoredManifest::new(game_id, game_version, base_path);
+                return DropData::new(game_id, game_version, base_path);
             }
         };
 
-        match serde_binary::from_vec::<StoredManifest>(s, Endian::Little) {
+        match serde_binary::from_vec::<DropData>(s, Endian::Little) {
             Ok(manifest) => manifest,
             Err(e) => {
                 warn!("{}", e);
-                StoredManifest::new(game_id, game_version, base_path)
+                DropData::new(game_id, game_version, base_path)
             }
         }
     }

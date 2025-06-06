@@ -27,7 +27,7 @@ use tauri::{AppHandle, Emitter};
 use rustix::fs::{fallocate, FallocateFlags};
 
 use super::download_logic::download_game_chunk;
-use super::stored_manifest::StoredManifest;
+use super::drop_data::DropData;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -38,7 +38,7 @@ pub struct GameDownloadAgent {
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
-    pub stored_manifest: StoredManifest,
+    pub stored_manifest: DropData,
     status: Mutex<DownloadStatus>,
 }
 
@@ -60,7 +60,7 @@ impl GameDownloadAgent {
         let data_base_dir_path = base_dir_path.join(id.clone());
 
         let stored_manifest =
-            StoredManifest::generate(id.clone(), version.clone(), data_base_dir_path.clone());
+            DropData::generate(id.clone(), version.clone(), data_base_dir_path.clone());
 
         Self {
             id,
