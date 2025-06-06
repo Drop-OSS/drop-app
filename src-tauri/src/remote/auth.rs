@@ -1,11 +1,11 @@
-use std::{collections::HashMap, env};
+use std::{collections::HashMap, env, sync::Mutex};
 
 use chrono::Utc;
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
         models::data::DatabaseAuth,
     },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    AppStatus, User,
+    AppState, AppStatus, User,
 };
 
 use super::{
@@ -156,6 +156,16 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
         app.emit("auth/failed", e.to_string()).unwrap();
         return;
     }
+
+    let app_state = app.state::<Mutex<AppState>>();
+    let mut state_lock = app_state.lock().unwrap();
+
+    let (app_status, user) = setup();
+
+    state_lock.status = app_status;
+    state_lock.user = user;
+
+    drop(state_lock);
 
     app.emit("auth/finished", ()).unwrap();
 }

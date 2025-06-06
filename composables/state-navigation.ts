@@ -1,9 +1,11 @@
+import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { data } from "autoprefixer";
 import { AppStatus, type AppState } from "~/types";
 
 export function setupHooks() {
   const router = useRouter();
+  const state = useAppState();
 
   listen("auth/processing", (event) => {
     router.push("/auth/processing");
@@ -15,8 +17,9 @@ export function setupHooks() {
     );
   });
 
-  listen("auth/finished", (event) => {
+  listen("auth/finished", async (event) => {
     router.push("/store");
+    state.value = JSON.parse(await invoke("fetch_state"));
   });
 
   listen("download_error", (event) => {

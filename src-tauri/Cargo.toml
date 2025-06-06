@@ -75,7 +75,7 @@ features = ["curly"]
 
 [dependencies.tauri]
 version = "2.1.1"
-features = ["tray-icon"]
+features = ["protocol-asset", "tray-icon"]
 
 [dependencies.tokio]
 version = "1.40.0"
