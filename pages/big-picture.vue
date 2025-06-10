@@ -53,27 +53,19 @@
                   :alt="game.mName"
                   class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
-                <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300">
-                  <div class="absolute bottom-0 left-0 right-0 p-6">
-                    <h3 class="text-xl font-display font-semibold text-zinc-100 mb-2 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
-                      {{ game.mName }}
-                    </h3>
-                    <div class="flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-75">
-                      <span
-                        class="px-2 py-1 rounded-full text-xs font-medium"
-                        :class="[gameStatusTextStyle[games[game.id].status.value.type]]"
-                      >
-                        {{ gameStatusText[games[game.id].status.value.type] }}
-                      </span>
-                      <button
-                        v-if="games[game.id].status.value.type === GameStatusEnum.Installed"
-                        class="px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition-colors duration-300"
-                        @click.stop="launchGame(game)"
-                      >
-                        Play
-                      </button>
-                    </div>
-                  </div>
+                <!-- Title and status overlay -->
+                <div class="absolute bottom-0 left-0 w-full p-4 flex flex-col items-start bg-gradient-to-t from-zinc-950/80 via-zinc-950/40 to-transparent">
+                  <span
+                    class="transition-all duration-200 font-display text-lg font-semibold text-zinc-100 drop-shadow group-hover:text-2xl group-hover:mb-1"
+                  >
+                    {{ game.mName }}
+                  </span>
+                  <span
+                    v-if="games[game.id].status.value.type"
+                    class="transition-all duration-200 text-xs font-medium text-zinc-300 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 -translate-y-2"
+                  >
+                    {{ gameStatusText[games[game.id].status.value.type] }}
+                  </span>
                 </div>
               </button>
             </TransitionGroup>
@@ -142,7 +134,7 @@ const gameStatusText: { [key in GameStatusEnum]: string } = {
 
 const sideMenuOpen = ref(false);
 const currentRoute = ref('/big-picture');
-function navigate(route) {
+function navigate(route: string) {
   currentRoute.value = route;
   sideMenuOpen.value = false;
   // TODO: implement real navigation for other pages
