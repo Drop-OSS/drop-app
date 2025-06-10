@@ -82,8 +82,8 @@
       />
     </Transition>
     <!-- Menu Button -->
-    <button @click="sideMenuOpen = true" class="fixed bottom-6 left-6 z-50 bg-zinc-900/90 hover:bg-zinc-800 text-blue-400 p-4 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-      <Squares2X2Icon class="w-7 h-7" />
+    <button @click="toggleSideMenu" class="fixed bottom-6 left-6 z-50 bg-zinc-900/90 hover:bg-zinc-800 text-blue-400 p-4 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <Squares2X2Icon :class="['w-7 h-7 transition-transform duration-500', { 'animate-roll': rollMenuIcon }]" />
     </button>
   </div>
 </template>
@@ -134,6 +134,8 @@ const gameStatusText: { [key in GameStatusEnum]: string } = {
 
 const sideMenuOpen = ref(false);
 const currentRoute = ref('/big-picture');
+const rollMenuIcon = ref(false);
+
 function navigate(route: string) {
   currentRoute.value = route;
   sideMenuOpen.value = false;
@@ -173,6 +175,17 @@ const selectGame = (game: Game) => {
 const launchGame = async (game: Game) => {
   await invoke("launch_game", { gameId: game.id });
 };
+
+function toggleSideMenu() {
+  rollMenuIcon.value = false;
+  void nextTick(() => {
+    rollMenuIcon.value = true;
+    setTimeout(() => {
+      rollMenuIcon.value = false;
+    }, 500);
+  });
+  sideMenuOpen.value = !sideMenuOpen.value;
+}
 </script>
 
 <style scoped>
@@ -200,5 +213,14 @@ const launchGame = async (game: Game) => {
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+@keyframes roll {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-roll {
+  animation: roll 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 </style> 
