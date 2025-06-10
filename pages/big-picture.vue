@@ -3,45 +3,49 @@
     <Transition name="fade" mode="out-in">
       <div v-if="!selectedGame" class="h-full w-full">
         <!-- Background gradient -->
-        <div class="absolute inset-0 bg-gradient-to-b from-blue-950/20 via-zinc-950 to-zinc-950"></div>
+        <div class="absolute inset-0">
+          <div class="absolute inset-0 bg-gradient-to-b from-blue-950/40 via-blue-950/20 to-zinc-950"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent"></div>
+          <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,_var(--tw-gradient-stops))] from-blue-600/20 via-transparent to-transparent"></div>
+        </div>
         
         <div class="relative h-full flex flex-col">
           <!-- Header -->
-          <div class="p-8">
+          <div class="p-8 pb-4">
             <h1 class="text-4xl font-display font-bold text-zinc-100 mb-2">Your Library</h1>
             <p class="text-lg text-zinc-400">Browse and launch your games</p>
           </div>
 
           <!-- Search -->
-          <div class="px-8 mb-8">
-            <div class="relative max-w-2xl">
-              <div class="absolute inset-y-0 left-0 flex items-center pl-4">
+          <div class="px-8 max-w-4xl w-full mx-auto mb-8">
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-4 z-10">
                 <MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" />
-              </div>
+              </span>
               <input
                 type="text"
                 v-model="searchQuery"
-                class="w-full rounded-xl border-0 bg-zinc-800/50 py-4 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg backdrop-blur-sm"
+                class="w-full rounded-xl border-0 bg-zinc-800/50 py-4 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg backdrop-blur-sm relative z-20"
                 placeholder="Search your games..."
               />
             </div>
           </div>
 
           <!-- Game Grid -->
-          <div class="flex-1 px-8 pb-8 overflow-y-auto">
+          <div class="flex-1 px-4 pb-8 overflow-y-auto">
             <TransitionGroup
               name="grid"
               tag="div"
-              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-7xl mx-auto place-items-center"
             >
               <button
                 v-for="game in filteredGames"
                 :key="game.id"
                 @click="selectGame(game)"
-                class="group relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
+                class="group relative w-[400px] h-[225px] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
               >
                 <img
-                  :src="icons[game.id]"
+                  :src="banners[game.id]"
                   :alt="game.mName"
                   class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -100,6 +104,7 @@ const games: {
   [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> };
 } = {};
 const icons: { [key: string]: string } = {};
+const banners: { [key: string]: string } = {};
 
 const rawGames: Ref<Game[], Game[]> = ref([]);
 
@@ -135,6 +140,10 @@ async function calculateGames() {
   for (const game of rawGames.value) {
     if (icons[game.id]) continue;
     icons[game.id] = await useObject(game.mIconObjectId);
+  }
+  for (const game of rawGames.value) {
+    if (banners[game.id]) continue;
+    banners[game.id] = await useObject(game.mBannerObjectId);
   }
 }
 

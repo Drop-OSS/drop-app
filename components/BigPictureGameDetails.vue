@@ -3,67 +3,43 @@
     <!-- Backdrop -->
     <div class="absolute inset-0">
       <img
-        :src="icons[game.id]"
+        :src="bannerUrl"
         class="w-full h-full object-cover opacity-20 blur-xl scale-110"
         :alt="game.mName"
       />
-      <div class="absolute inset-0 bg-gradient-to-b from-zinc-950/80 via-zinc-950/90 to-zinc-950"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-zinc-900/80 via-zinc-950/90 to-zinc-950"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_30%,_var(--tw-gradient-stops))] from-zinc-800/10 via-transparent to-transparent"></div>
+      <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_20%_80%,_var(--tw-gradient-stops))] from-zinc-700/5 via-transparent to-transparent"></div>
     </div>
 
     <!-- Content -->
     <div class="relative h-full flex flex-col">
       <!-- Header -->
-      <div class="p-8 flex items-center justify-between">
+      <div class="p-8 flex items-center">
         <button
           @click="$emit('back')"
           class="group p-3 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition-all duration-300"
         >
           <ArrowLeftIcon class="h-6 w-6 transform group-hover:-translate-x-1 transition-transform duration-300" />
         </button>
-        <div class="flex items-center gap-4">
-          <button
-            v-if="games[game.id].status.value.type === GameStatusEnum.Installed"
-            @click="launchGame"
-            class="group px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all duration-300 flex items-center gap-2"
-          >
-            <PlayIcon class="h-5 w-5 transform group-hover:scale-110 transition-transform duration-300" />
-            Play Now
-          </button>
-          <button
-            v-else-if="games[game.id].status.value.type === GameStatusEnum.Remote"
-            @click="installGame"
-            class="group px-8 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold transition-all duration-300 flex items-center gap-2"
-          >
-            <ArrowDownTrayIcon class="h-5 w-5 transform group-hover:scale-110 transition-transform duration-300" />
-            Install
-          </button>
-          <button
-            v-else
-            disabled
-            class="px-8 py-4 rounded-xl bg-zinc-700 text-zinc-400 font-semibold flex items-center gap-2"
-          >
-            <ClockIcon class="h-5 w-5" />
-            {{ gameStatusText[games[game.id].status.value.type] }}
-          </button>
-        </div>
       </div>
 
       <!-- Game Info -->
       <div class="flex-1 p-8 flex gap-12">
         <!-- Left Column -->
-        <div class="w-1/3">
+        <div class="w-[400px]">
           <div class="relative group">
             <div class="absolute inset-0 bg-blue-500/20 rounded-xl blur-xl transform group-hover:scale-105 transition-transform duration-500"></div>
             <img
-              :src="icons[game.id]"
+              :src="bannerUrl"
               :alt="game.mName"
-              class="relative w-full aspect-[4/3] rounded-xl object-cover shadow-2xl transform group-hover:scale-105 transition-transform duration-500"
+              class="relative w-[400px] h-[225px] rounded-xl object-cover shadow-2xl transform group-hover:scale-105 transition-transform duration-500"
             />
           </div>
         </div>
 
         <!-- Right Column -->
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 flex flex-col justify-center">
           <h1 class="text-5xl font-display font-bold text-zinc-100 mb-4">
             {{ game.mName }}
           </h1>
@@ -75,6 +51,34 @@
             >
               {{ gameStatusText[games[game.id].status.value.type] }}
             </span>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-4 mb-8">
+            <button
+              v-if="games[game.id].status.value.type === GameStatusEnum.Installed"
+              @click="launchGame"
+              class="group px-8 py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all duration-300 flex items-center gap-2 text-lg shadow-lg"
+            >
+              <PlayIcon class="h-5 w-5 transform group-hover:scale-110 transition-transform duration-300" />
+              Play Now
+            </button>
+            <button
+              v-else-if="games[game.id].status.value.type === GameStatusEnum.Remote"
+              @click="installGame"
+              class="group px-8 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-semibold transition-all duration-300 flex items-center gap-2 text-lg shadow-lg"
+            >
+              <ArrowDownTrayIcon class="h-5 w-5 transform group-hover:scale-110 transition-transform duration-300" />
+              Install
+            </button>
+            <button
+              v-else
+              disabled
+              class="px-8 py-4 rounded-xl bg-zinc-700 text-zinc-400 font-semibold flex items-center gap-2 text-lg shadow-lg"
+            >
+              <ClockIcon class="h-5 w-5" />
+              {{ gameStatusText[games[game.id].status.value.type] }}
+            </button>
           </div>
 
           <div class="prose prose-invert max-w-none mb-8">
@@ -115,6 +119,8 @@ const props = defineProps<{
   games: { [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> } };
   icons: { [key: string]: string };
 }>();
+
+const bannerUrl = await useObject(props.game.mBannerObjectId);
 
 defineEmits<{
   (e: 'back'): void;
