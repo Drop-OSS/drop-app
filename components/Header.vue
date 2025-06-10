@@ -47,7 +47,7 @@
 </template>
 
 <script setup lang="ts">
-import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
+import { BellIcon, UserGroupIcon, ArrowsPointingOutIcon } from "@heroicons/vue/16/solid";
 import { AppStatus, type NavigationItem, type QuickActionNav } from "../types";
 import HeaderWidget from "./HeaderWidget.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -88,6 +88,13 @@ const quickActions: Array<QuickActionNav> = [
   {
     icon: BellIcon,
     action: async () => {},
+  },
+  {
+    icon: ArrowsPointingOutIcon,
+    action: async () => {
+      const router = useRouter();
+      router.push('/big-picture');
+    },
   },
 ];
 
