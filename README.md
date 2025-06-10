@@ -4,7 +4,7 @@ Drop app is the companion app for [Drop](https://github.com/Drop-OSS/drop). It u
 
 ## Running
 Before setting up the drop app, be sure that you have a server set up. 
-The instructions for this can be found on the [Drop Wiki](https://wiki.droposs.org/guides/quickstart.html)
+The instructions for this can be found on the [Drop Docs](https://docs.droposs.org/docs/guides/quickstart)
 
 ## Current features
 Currently supported are the following features:
