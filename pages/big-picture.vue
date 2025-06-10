@@ -1,5 +1,6 @@
 <template>
   <div class="h-full w-full">
+    <BigPictureSideMenu :open="sideMenuOpen" :current="currentRoute" @close="sideMenuOpen = false" @navigate="navigate" />
     <Transition name="fade" mode="out-in">
       <div v-if="!selectedGame" class="h-full w-full">
         <!-- Background gradient -->
@@ -88,6 +89,10 @@
         @back="selectedGame = null"
       />
     </Transition>
+    <!-- Menu Button -->
+    <button @click="sideMenuOpen = true" class="fixed bottom-6 left-6 z-50 bg-zinc-900/90 hover:bg-zinc-800 text-blue-400 p-4 rounded-full shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <Squares2X2Icon class="w-7 h-7" />
+    </button>
   </div>
 </template>
 
@@ -95,6 +100,7 @@
 import { MagnifyingGlassIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
 import { invoke } from "@tauri-apps/api/core";
+import BigPictureSideMenu from '~/components/BigPictureSideMenu.vue';
 
 definePageMeta({
   layout: 'big-picture'
@@ -133,6 +139,14 @@ const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.SetupRequired]: "Setup required",
   [GameStatusEnum.Running]: "Running",
 };
+
+const sideMenuOpen = ref(false);
+const currentRoute = ref('/big-picture');
+function navigate(route) {
+  currentRoute.value = route;
+  sideMenuOpen.value = false;
+  // TODO: implement real navigation for other pages
+}
 
 async function calculateGames() {
   rawGames.value = await invoke("fetch_library");
