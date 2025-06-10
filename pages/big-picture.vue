@@ -45,7 +45,7 @@
                 v-for="game in filteredGames"
                 :key="game.id"
                 @click="selectGame(game)"
-                class="group relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
+                class="group relative w-full min-w-[200px] max-w-md h-[225px] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
               >
                 <img
                   :src="banners[game.id]"
