@@ -18,14 +18,14 @@
 
           <!-- Search -->
           <div class="px-8 max-w-4xl w-full mx-auto mb-8">
-            <div class="relative">
-              <span class="absolute inset-y-0 left-0 flex items-center pl-4 z-10">
-                <MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" />
+            <div class="relative flex items-center">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-4 z-20">
+                <span class="bg-zinc-800 rounded-full p-1"><MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" /></span>
               </span>
               <input
                 type="text"
                 v-model="searchQuery"
-                class="w-full rounded-xl border-0 bg-zinc-800/50 py-4 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg backdrop-blur-sm relative z-20"
+                class="w-full rounded-xl border-0 bg-zinc-800/50 py-4 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg backdrop-blur-sm relative z-10"
                 placeholder="Search your games..."
               />
             </div>
