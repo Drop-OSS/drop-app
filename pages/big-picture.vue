@@ -1,51 +1,91 @@
 <template>
-  <div class="h-full w-full p-8">
-    <div class="max-w-7xl mx-auto">
-      <div class="mb-8">
-        <input
-          type="text"
-          v-model="searchQuery"
-          class="w-full rounded-lg border-0 bg-zinc-800/50 py-4 px-6 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg"
-          placeholder="Search games..."
-        />
-      </div>
+  <div class="h-full w-full">
+    <Transition name="fade" mode="out-in">
+      <div v-if="!selectedGame" class="h-full w-full">
+        <!-- Background gradient -->
+        <div class="absolute inset-0 bg-gradient-to-b from-blue-950/20 via-zinc-950 to-zinc-950"></div>
+        
+        <div class="relative h-full flex flex-col">
+          <!-- Header -->
+          <div class="p-8">
+            <h1 class="text-4xl font-display font-bold text-zinc-100 mb-2">Your Library</h1>
+            <p class="text-lg text-zinc-400">Browse and launch your games</p>
+          </div>
 
-      <TransitionGroup
-        name="grid"
-        tag="div"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
-      >
-        <NuxtLink
-          v-for="game in filteredGames"
-          :key="game.id"
-          :to="`/library/${game.id}`"
-          class="group relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50"
-        >
-          <img
-            :src="icons[game.id]"
-            :alt="game.mName"
-            class="w-full h-full object-cover"
-          />
-          <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <div class="absolute bottom-0 left-0 right-0 p-6">
-              <h3 class="text-xl font-display font-semibold text-zinc-100 mb-2">
-                {{ game.mName }}
-              </h3>
-              <p
-                class="text-sm font-medium"
-                :class="[gameStatusTextStyle[games[game.id].status.value.type]]"
-              >
-                {{ gameStatusText[games[game.id].status.value.type] }}
-              </p>
+          <!-- Search -->
+          <div class="px-8 mb-8">
+            <div class="relative max-w-2xl">
+              <div class="absolute inset-y-0 left-0 flex items-center pl-4">
+                <MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" />
+              </div>
+              <input
+                type="text"
+                v-model="searchQuery"
+                class="w-full rounded-xl border-0 bg-zinc-800/50 py-4 pl-12 pr-4 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 text-lg backdrop-blur-sm"
+                placeholder="Search your games..."
+              />
             </div>
           </div>
-        </NuxtLink>
-      </TransitionGroup>
-    </div>
+
+          <!-- Game Grid -->
+          <div class="flex-1 px-8 pb-8 overflow-y-auto">
+            <TransitionGroup
+              name="grid"
+              tag="div"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto"
+            >
+              <button
+                v-for="game in filteredGames"
+                :key="game.id"
+                @click="selectGame(game)"
+                class="group relative aspect-[4/3] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
+              >
+                <img
+                  :src="icons[game.id]"
+                  :alt="game.mName"
+                  class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div class="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/50 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300">
+                  <div class="absolute bottom-0 left-0 right-0 p-6">
+                    <h3 class="text-xl font-display font-semibold text-zinc-100 mb-2 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300">
+                      {{ game.mName }}
+                    </h3>
+                    <div class="flex items-center gap-2 transform translate-y-2 group-hover:translate-y-0 transition-transform duration-300 delay-75">
+                      <span
+                        class="px-2 py-1 rounded-full text-xs font-medium"
+                        :class="[gameStatusTextStyle[games[game.id].status.value.type]]"
+                      >
+                        {{ gameStatusText[games[game.id].status.value.type] }}
+                      </span>
+                      <button
+                        v-if="games[game.id].status.value.type === GameStatusEnum.Installed"
+                        class="px-3 py-1 rounded-full text-xs font-medium bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition-colors duration-300"
+                        @click.stop="launchGame(game)"
+                      >
+                        Play
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </button>
+            </TransitionGroup>
+          </div>
+        </div>
+      </div>
+
+      <BigPictureGameDetails
+        v-else
+        :game="selectedGame"
+        :games="games"
+        :icons="icons"
+        @back="selectedGame = null"
+      />
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
+import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline';
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
 import { invoke } from "@tauri-apps/api/core";
 
@@ -54,6 +94,7 @@ definePageMeta({
 });
 
 const searchQuery = ref("");
+const selectedGame = ref<Game | null>(null);
 
 const games: {
   [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> };
@@ -64,14 +105,14 @@ const rawGames: Ref<Game[], Game[]> = ref([]);
 
 // Style information
 const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Installed]: "text-green-500",
-  [GameStatusEnum.Downloading]: "text-blue-500",
-  [GameStatusEnum.Running]: "text-green-500",
-  [GameStatusEnum.Remote]: "text-zinc-500",
-  [GameStatusEnum.Queued]: "text-blue-500",
-  [GameStatusEnum.Updating]: "text-blue-500",
-  [GameStatusEnum.Uninstalling]: "text-zinc-100",
-  [GameStatusEnum.SetupRequired]: "text-yellow-500",
+  [GameStatusEnum.Installed]: "bg-green-500/20 text-green-400",
+  [GameStatusEnum.Downloading]: "bg-blue-500/20 text-blue-400",
+  [GameStatusEnum.Running]: "bg-green-500/20 text-green-400",
+  [GameStatusEnum.Remote]: "bg-zinc-500/20 text-zinc-400",
+  [GameStatusEnum.Queued]: "bg-blue-500/20 text-blue-400",
+  [GameStatusEnum.Updating]: "bg-blue-500/20 text-blue-400",
+  [GameStatusEnum.Uninstalling]: "bg-zinc-500/20 text-zinc-400",
+  [GameStatusEnum.SetupRequired]: "bg-yellow-500/20 text-yellow-400",
 };
 
 const gameStatusText: { [key in GameStatusEnum]: string } = {
@@ -106,22 +147,40 @@ const filteredGames = computed(() => {
     game.mName.toLowerCase().includes(query)
   );
 });
+
+const selectGame = (game: Game) => {
+  selectedGame.value = game;
+};
+
+const launchGame = async (game: Game) => {
+  await invoke("launch_game", { gameId: game.id });
+};
 </script>
 
 <style scoped>
 .grid-move,
 .grid-enter-active,
 .grid-leave-active {
-  transition: all 0.5s ease;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .grid-enter-from,
 .grid-leave-to {
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(0.8) translateY(20px);
 }
 
 .grid-leave-active {
   position: absolute;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style> 
