@@ -82,9 +82,11 @@
           </div>
 
           <div class="prose prose-invert max-w-none mb-8">
-            <p class="text-xl text-zinc-300 leading-relaxed">
-              {{ game.mDescription || 'No description available.' }}
-            </p>
+            <div class="max-h-56 overflow-y-auto custom-scrollbar pr-2">
+              <p class="text-xl text-zinc-300 leading-relaxed">
+                {{ game.mDescription || 'No description available.' }}
+              </p>
+            </div>
           </div>
 
           <!-- Additional Info -->
@@ -156,4 +158,18 @@ const launchGame = async () => {
 const installGame = async () => {
   await invoke("install_game", { gameId: props.game.id });
 };
-</script> 
+</script>
+
+<style scoped>
+/* Custom scrollbar for description */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+</style> 
