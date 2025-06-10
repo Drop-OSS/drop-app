@@ -12,7 +12,10 @@
         <div class="relative h-full flex flex-col">
           <!-- Header -->
           <div class="p-8 pb-4">
-            <h1 class="text-4xl font-display font-bold text-zinc-100 mb-2">Your Library</h1>
+            <div class="flex items-center gap-4 mb-2">
+              <Squares2X2Icon class="h-8 w-8 text-blue-400 drop-shadow" />
+              <h1 class="text-4xl font-display font-bold text-zinc-100">Your Library</h1>
+            </div>
             <p class="text-lg text-zinc-400">Browse and launch your games</p>
           </div>
 
@@ -36,13 +39,13 @@
             <TransitionGroup
               name="grid"
               tag="div"
-              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 max-w-7xl mx-auto place-items-center"
+              class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8"
             >
               <button
                 v-for="game in filteredGames"
                 :key="game.id"
                 @click="selectGame(game)"
-                class="group relative w-[400px] h-[225px] rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
+                class="group relative aspect-[16/9] w-full rounded-xl overflow-hidden bg-zinc-800/50 hover:bg-zinc-800 transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-zinc-950/50 focus:outline-none focus:ring-2 focus:ring-blue-500 backdrop-blur-sm"
               >
                 <img
                   :src="banners[game.id]"
@@ -89,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { MagnifyingGlassIcon } from '@heroicons/vue/24/outline';
+import { MagnifyingGlassIcon, Squares2X2Icon } from '@heroicons/vue/24/outline';
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
 import { invoke } from "@tauri-apps/api/core";
 
