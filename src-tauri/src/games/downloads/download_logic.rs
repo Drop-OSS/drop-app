@@ -3,7 +3,7 @@ use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
-use log::warn;
+use log::{debug, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
