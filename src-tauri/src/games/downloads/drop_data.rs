@@ -1,33 +1,41 @@
-use std::{
-    fs::File,
-    io::{Read, Write},
-    path::PathBuf,
-    sync::Mutex,
-};
+use std::{fs::File, io::{Read, Write}, path::PathBuf};
 
 use log::{error, warn};
-use serde::{Deserialize, Serialize};
+use native_model::{Decode, Encode};
 use serde_binary::binary_stream::Endian;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct DropData {
-    game_id: String,
-    game_version: String,
-    pub completed_contexts: Mutex<Vec<usize>>,
-    pub base_path: PathBuf,
-}
+pub type DropData = v1::DropData;
 
 static DROP_DATA_PATH: &str = ".dropdata";
 
-impl DropData {
-    pub fn new(game_id: String, game_version: String, base_path: PathBuf) -> Self {
-        Self {
-            base_path,
-            game_id,
-            game_version,
-            completed_contexts: Mutex::new(Vec::new()),
+pub mod v1 {
+    use std::{path::PathBuf, sync::Mutex};
+
+    use native_model::native_model;
+    use serde::{Deserialize, Serialize};
+
+    #[derive(Serialize, Deserialize, Debug)]
+    #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+    pub struct DropData {
+        game_id: String,
+        game_version: String,
+        pub completed_contexts: Mutex<Vec<usize>>,
+        pub base_path: PathBuf,
+    }
+
+    impl DropData {
+        pub fn new(game_id: String, game_version: String, base_path: PathBuf) -> Self {
+            Self {
+                base_path,
+                game_id,
+                game_version,
+                completed_contexts: Mutex::new(Vec::new()),
+            }
         }
     }
+}
+
+impl DropData {
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
         let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
@@ -43,7 +51,7 @@ impl DropData {
             }
         };
 
-        match serde_binary::from_vec::<DropData>(s, Endian::Little) {
+        match native_model::rmp_serde_1_3::RmpSerde::decode(s) {
             Ok(manifest) => manifest,
             Err(e) => {
                 warn!("{}", e);
@@ -52,8 +60,8 @@ impl DropData {
         }
     }
     pub fn write(&self) {
-        let manifest_raw = match serde_binary::to_vec(&self, Endian::Little) {
-            Ok(json) => json,
+        let manifest_raw = match native_model::rmp_serde_1_3::RmpSerde::encode(&self) {
+            Ok(data) => data,
             Err(_) => return,
         };
 

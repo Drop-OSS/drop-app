@@ -5,7 +5,9 @@ use crate::database::models::data::{
 };
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::downloadable::Downloadable;
-use crate::download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::util::download_thread_control_flag::{
+    DownloadThreadControl, DownloadThreadControlFlag,
+};
 use crate::download_manager::util::progress_object::{ProgressHandle, ProgressObject};
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
@@ -16,7 +18,7 @@ use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use slice_deque::SliceDeque;
-use std::fs::{create_dir_all, File};
+use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::Path;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -202,7 +204,7 @@ impl GameDownloadAgent {
             let container = path.parent().unwrap();
             create_dir_all(container).unwrap();
 
-            let file = File::create(path.clone()).unwrap();
+            let file = OpenOptions::new().read(true).write(true).create(true).open(path.clone()).unwrap();
             let mut running_offset = 0;
 
             for (index, length) in chunk.lengths.iter().enumerate() {
@@ -263,6 +265,8 @@ impl GameDownloadAgent {
                     continue;
                 }
 
+                debug!("Continuing download chunk {}", index);
+
                 let sender = self.sender.clone();
 
                 let request = match make_request(
@@ -290,10 +294,18 @@ impl GameDownloadAgent {
                 scope.spawn(move |_| {
                     match download_game_chunk(context, &self.control_flag, progress_handle, request)
                     {
-                        Ok(res) => {
-                            if res {
-                                completed_indexes.push(index);
-                            }
+                        Ok(true) => {
+                            debug!(
+                                "Finished context #{} with checksum {}",
+                                index, context.checksum
+                            );
+                            completed_indexes.push(index);
+                        }
+                        Ok(false) => {
+                            debug!(
+                                "Didn't finish context #{} with checksum {}",
+                                index, context.checksum
+                            );
                         }
                         Err(e) => {
                             error!("{}", e);
@@ -315,6 +327,10 @@ impl GameDownloadAgent {
             completed_contexts_lock.len()
         };
 
+        self.stored_manifest
+            .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
+        self.stored_manifest.write();
+
         // If we're not out of contexts, we're not done, so we don't fire completed
         if completed_lock_len != contexts.len() {
             info!(
@@ -323,12 +339,8 @@ impl GameDownloadAgent {
                 completed_lock_len,
                 contexts.len(),
             );
-            self.stored_manifest
-                .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
-            self.stored_manifest.write();
             return Ok(false);
         }
-
         // We've completed
         self.sender
             .send(DownloadManagerSignal::Completed(self.metadata()))

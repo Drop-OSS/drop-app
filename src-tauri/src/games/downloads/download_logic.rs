@@ -90,6 +90,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         let mut current_size = 0;
         loop {
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
+                buf_writer.flush()?;
                 return Ok(false);
             }
 
@@ -103,6 +104,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 break;
             }
         }
+        buf_writer.flush()?;
 
         Ok(true)
     }
@@ -119,6 +121,7 @@ pub fn download_game_chunk(
     progress: ProgressHandle,
     request: RequestBuilder,
 ) -> Result<bool, ApplicationDownloadError> {
+    debug!("Starting download chunk {}, {}, {} #{}", ctx.file_name, ctx.index, ctx.offset, ctx.checksum);
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
         progress.set(0);
@@ -152,12 +155,18 @@ pub fn download_game_chunk(
         ));
     }
 
+    let length = content_length.unwrap().try_into().unwrap();
+
+    if length != ctx.length {
+        return Err(ApplicationDownloadError::DownloadError);
+    }
+
     let mut pipeline = DropDownloadPipeline::new(
         response,
         destination,
         control_flag,
         progress,
-        content_length.unwrap().try_into().unwrap(),
+        length,
     );
 
     let completed = pipeline
@@ -182,6 +191,8 @@ pub fn download_game_chunk(
     if res != ctx.checksum {
         return Err(ApplicationDownloadError::Checksum);
     }
+
+    debug!("Successfully finished download #{}, copied {} bytes", ctx.checksum, length);
 
     Ok(true)
 }
