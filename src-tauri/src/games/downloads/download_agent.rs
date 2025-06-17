@@ -36,7 +36,7 @@ pub struct GameDownloadAgent {
     pub version: String,
     pub control_flag: DownloadThreadControl,
     contexts: Mutex<Vec<DropDownloadContext>>,
-    completed_contexts: Mutex<SliceDeque<usize>>,
+    completed_contexts: Mutex<SliceDeque<String>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -260,7 +260,7 @@ impl GameDownloadAgent {
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
 
                 // If we've done this one already, skip it
-                if self.completed_contexts.lock().unwrap().contains(&index) {
+                if self.completed_contexts.lock().unwrap().contains(&context.checksum) {
                     progress_handle.skip(context.length);
                     continue;
                 }
@@ -299,7 +299,7 @@ impl GameDownloadAgent {
                                 "Finished context #{} with checksum {}",
                                 index, context.checksum
                             );
-                            completed_indexes.push(index);
+                            completed_indexes.push(context.checksum.clone());
                         }
                         Ok(false) => {
                             debug!(
@@ -321,7 +321,7 @@ impl GameDownloadAgent {
         let completed_lock_len = {
             let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
             for (_, item) in newly_completed.iter() {
-                completed_contexts_lock.push_front(*item);
+                completed_contexts_lock.push_front(item.clone());
             }
 
             completed_contexts_lock.len()

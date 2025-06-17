@@ -2,11 +2,11 @@ use std::{fs::File, io::{Read, Write}, path::PathBuf};
 
 use log::{error, warn};
 use native_model::{Decode, Encode};
-use serde_binary::binary_stream::Endian;
 
 pub type DropData = v1::DropData;
 
 static DROP_DATA_PATH: &str = ".dropdata";
+
 
 pub mod v1 {
     use std::{path::PathBuf, sync::Mutex};
@@ -19,7 +19,7 @@ pub mod v1 {
     pub struct DropData {
         game_id: String,
         game_version: String,
-        pub completed_contexts: Mutex<Vec<usize>>,
+        pub completed_contexts: Mutex<Vec<String>>,
         pub base_path: PathBuf,
     }
 
@@ -78,10 +78,10 @@ impl DropData {
             Err(e) => error!("{}", e),
         };
     }
-    pub fn set_completed_contexts(&self, completed_contexts: &[usize]) {
+    pub fn set_completed_contexts(&self, completed_contexts: &[String]) {
         *self.completed_contexts.lock().unwrap() = completed_contexts.to_owned();
     }
-    pub fn get_completed_contexts(&self) -> Vec<usize> {
+    pub fn get_completed_contexts(&self) -> Vec<String> {
         self.completed_contexts.lock().unwrap().clone()
     }
 }
