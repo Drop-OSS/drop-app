@@ -1,4 +1,4 @@
-use crate::database::db::{borrow_db_checked, borrow_db_mut_checked, save_db};
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
@@ -17,7 +17,6 @@ pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), Strin
     let mut db_handle = borrow_db_mut_checked();
     db_handle.settings.autostart = enabled;
     drop(db_handle);
-    save_db();
 
     Ok(())
 }

@@ -32,6 +32,7 @@
             @uninstall="() => uninstall()"
             @kill="() => kill()"
             @options="() => (configureModalOpen = true)"
+            @resume="() => console.log('resume')"
             :status="status"
           />
           <a
@@ -495,6 +496,7 @@ const currentImageIndex = ref(0);
 
 const configureModalOpen = ref(false);
 
+
 async function installFlow() {
   installFlowOpen.value = true;
   versionOptions.value = undefined;
@@ -530,6 +532,15 @@ async function install() {
   }
 
   installLoading.value = false;
+}
+
+async function resumeDownload() {
+    try {
+      await invoke("resume_download", { game_id: game.value.id, version: status.value.version_name!, install_dir: status.value.install_dir! })
+    }
+    catch(e) {
+      console.error(e)
+    }
 }
 
 async function launch() {

@@ -7,7 +7,7 @@ mod error;
 mod process;
 mod remote;
 
-use crate::database::db::DatabaseImpls;
+use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
@@ -156,6 +156,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     for (game_id, status) in statuses.into_iter() {
         match status {
             GameDownloadStatus::Remote {} => {}
+            GameDownloadStatus::PartiallyInstalled { .. } => {},
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir,
@@ -173,7 +174,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                 if !install_dir_path.exists() {
                     missing_games.push(game_id);
                 }
-            }
+            },
         }
     }
 
@@ -259,6 +260,7 @@ pub fn run() {
             delete_game_in_collection,
             // Downloads
             download_game,
+            resume_download,
             move_download_in_queue,
             pause_downloads,
             resume_downloads,

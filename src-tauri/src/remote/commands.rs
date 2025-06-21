@@ -6,7 +6,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked, save_db},
+    database::db::{borrow_db_checked, borrow_db_mut_checked},
     error::remote_access_error::RemoteAccessError,
     remote::{auth::generate_authorization_header, requests::make_request},
     AppState, AppStatus,
@@ -65,8 +65,6 @@ pub fn sign_out(app: AppHandle) {
     {
         let mut handle = borrow_db_mut_checked();
         handle.auth = None;
-        drop(handle);
-        save_db();
     }
 
     // Update app state

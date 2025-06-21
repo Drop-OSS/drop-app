@@ -1,5 +1,5 @@
 use crate::auth::generate_authorization_header;
-use crate::database::db::borrow_db_checked;
+use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
 };
@@ -19,11 +19,11 @@ use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use slice_deque::SliceDeque;
 use std::fs::{create_dir_all, File, OpenOptions};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};
@@ -45,18 +45,26 @@ pub struct GameDownloadAgent {
 }
 
 impl GameDownloadAgent {
-    pub fn new(
+    pub fn new_from_index(
         id: String,
         version: String,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
     ) -> Self {
-        // Don't run by default
-        let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
-
         let db_lock = borrow_db_checked();
         let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
+
+        Self::new(id, version, base_dir, sender)
+    }
+    pub fn new(
+        id: String,
+        version: String,
+        base_dir: PathBuf,
+        sender: Sender<DownloadManagerSignal>,
+    ) -> Self {
+        // Don't run by default
+        let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
         let base_dir_path = Path::new(&base_dir);
         let data_base_dir_path = base_dir_path.join(id.clone());
@@ -204,7 +212,12 @@ impl GameDownloadAgent {
             let container = path.parent().unwrap();
             create_dir_all(container).unwrap();
 
-            let file = OpenOptions::new().read(true).write(true).create(true).open(path.clone()).unwrap();
+            let file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .open(path.clone())
+                .unwrap();
             let mut running_offset = 0;
 
             for (index, length) in chunk.lengths.iter().enumerate() {
@@ -260,7 +273,12 @@ impl GameDownloadAgent {
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
 
                 // If we've done this one already, skip it
-                if self.completed_contexts.lock().unwrap().contains(&context.checksum) {
+                if self
+                    .completed_contexts
+                    .lock()
+                    .unwrap()
+                    .contains(&context.checksum)
+                {
                     progress_handle.skip(context.length);
                     continue;
                 }
@@ -384,7 +402,7 @@ impl Downloadable for GameDownloadAgent {
 
         error!("error while managing download: {}", error);
 
-        let mut handle = DB.borrow_data_mut().unwrap();
+        let mut handle = borrow_db_mut_checked();
         handle
             .applications
             .transient_statuses
@@ -404,12 +422,41 @@ impl Downloadable for GameDownloadAgent {
     fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
         let meta = self.metadata();
         *self.status.lock().unwrap() = DownloadStatus::Queued;
+        borrow_db_mut_checked().applications.game_statuses.insert(
+            self.id.clone(),
+            GameDownloadStatus::PartiallyInstalled {
+                version_name: self.version.clone(),
+                install_dir: self.stored_manifest.base_path.to_string_lossy().to_string(),
+            },
+        );
+        borrow_db_mut_checked()
+            .applications
+            .installed_game_version
+            .insert(self.id.clone(), self.metadata());
+        borrow_db_mut_checked().applications.game_statuses.insert(
+            self.id.clone(),
+            GameDownloadStatus::PartiallyInstalled {
+                version_name: self.version.clone(),
+                install_dir: self.stored_manifest.base_path.to_string_lossy().to_string(),
+            },
+        );
+
         app_handle
             .emit(
                 &format!("update_game/{}", meta.id),
                 GameUpdateEvent {
                     game_id: meta.id.clone(),
-                    status: (Some(GameDownloadStatus::Remote {}), None),
+                    status: (
+                        Some(GameDownloadStatus::PartiallyInstalled {
+                            version_name: self.version.clone(),
+                            install_dir: self
+                                .stored_manifest
+                                .base_path
+                                .to_string_lossy()
+                                .to_string(),
+                        }),
+                        None,
+                    ),
                     version: None,
                 },
             )
