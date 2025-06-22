@@ -32,7 +32,7 @@
             @uninstall="() => uninstall()"
             @kill="() => kill()"
             @options="() => (configureModalOpen = true)"
-            @resume="() => console.log('resume')"
+            @resume="() => resumeDownload()"
             :status="status"
           />
           <a
@@ -536,7 +536,7 @@ async function install() {
 
 async function resumeDownload() {
     try {
-      await invoke("resume_download", { game_id: game.value.id, version: status.value.version_name!, install_dir: status.value.install_dir! })
+      await invoke("resume_download", { gameId: game.value.id })
     }
     catch(e) {
       console.error(e)
