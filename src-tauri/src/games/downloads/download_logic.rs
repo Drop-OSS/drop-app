@@ -127,7 +127,7 @@ pub fn download_game_chunk(
         progress.set(0);
         return Ok(false);
     }
-    request.header("Authorization", generate_authorization_header());
+    let request = request.header("Authorization", generate_authorization_header());
 
     let response = request
         .send()
