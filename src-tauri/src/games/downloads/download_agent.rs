@@ -274,7 +274,7 @@ impl GameDownloadAgent {
                         ("name", &context.file_name),
                         ("chunk", &context.index.to_string()),
                     ],
-                    |r| r.header("Authorization", generate_authorization_header()),
+                    |r| { r },
                 ) {
                     Ok(request) => request,
                     Err(e) => {

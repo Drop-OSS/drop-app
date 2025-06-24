@@ -1,8 +1,11 @@
-use crate::download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use crate::download_manager::util::download_thread_control_flag::{
+    DownloadThreadControl, DownloadThreadControlFlag,
+};
 use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
+use crate::remote::auth::generate_authorization_header;
 use log::warn;
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
@@ -124,6 +127,7 @@ pub fn download_game_chunk(
         progress.set(0);
         return Ok(false);
     }
+    request.header("Authorization", generate_authorization_header());
 
     let response = request
         .send()
