@@ -12,12 +12,15 @@ use crate::download_manager::util::progress_object::{ProgressHandle, ProgressObj
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::games::library::{on_game_complete, push_game_update, GameUpdateEvent};
+use crate::games::library::{
+    on_game_complete, on_game_incomplete, push_game_update, GameUpdateEvent,
+};
 use crate::remote::requests::make_request;
 use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use slice_deque::SliceDeque;
+use std::collections::HashMap;
 use std::fs::{create_dir_all, File, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
@@ -36,7 +39,7 @@ pub struct GameDownloadAgent {
     pub version: String,
     pub control_flag: DownloadThreadControl,
     contexts: Mutex<Vec<DropDownloadContext>>,
-    completed_contexts: Mutex<SliceDeque<String>>,
+    context_map: Mutex<HashMap<String, bool>>,
     pub manifest: Mutex<Option<DropManifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
@@ -78,7 +81,7 @@ impl GameDownloadAgent {
             control_flag,
             manifest: Mutex::new(None),
             contexts: Mutex::new(Vec::new()),
-            completed_contexts: Mutex::new(SliceDeque::new()),
+            context_map: Mutex::new(HashMap::new()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             stored_manifest,
@@ -183,11 +186,15 @@ impl GameDownloadAgent {
     }
 
     pub fn ensure_contexts(&self) -> Result<(), ApplicationDownloadError> {
-        if !self.contexts.lock().unwrap().is_empty() {
-            return Ok(());
+        if self.contexts.lock().unwrap().is_empty() {
+            self.generate_contexts()?;
         }
 
-        self.generate_contexts()?;
+        self.context_map
+            .lock()
+            .unwrap()
+            .extend(self.stored_manifest.get_contexts());
+
         Ok(())
     }
 
@@ -198,13 +205,6 @@ impl GameDownloadAgent {
         let mut contexts = Vec::new();
         let base_path = Path::new(&self.stored_manifest.base_path);
         create_dir_all(base_path).unwrap();
-
-        {
-            let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
-            completed_contexts_lock.clear();
-            completed_contexts_lock
-                .extend_from_slice(&self.stored_manifest.get_completed_contexts());
-        }
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -240,6 +240,14 @@ impl GameDownloadAgent {
                 let _ = fallocate(file, FallocateFlags::empty(), 0, running_offset);
             }
         }
+        let existing_contexts = self.stored_manifest.get_completed_contexts();
+        self.stored_manifest.set_contexts(
+            &contexts
+                .iter()
+                .map(|x| (x.checksum.clone(), existing_contexts.contains(&x.checksum)))
+                .collect::<Vec<(String, bool)>>(),
+        );
+
         *self.contexts.lock().unwrap() = contexts;
 
         Ok(())
@@ -258,13 +266,14 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
-        let completed_indexes = Arc::new(boxcar::Vec::new());
-        let completed_indexes_loop_arc = completed_indexes.clone();
+        let completed_contexts = Arc::new(boxcar::Vec::new());
+        let completed_indexes_loop_arc = completed_contexts.clone();
 
         let contexts = self.contexts.lock().unwrap();
         debug!("{:#?}", contexts);
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
+            let context_map = self.context_map.lock().unwrap();
             for (index, context) in contexts.iter().enumerate() {
                 let client = client.clone();
                 let completed_indexes = completed_indexes_loop_arc.clone();
@@ -273,12 +282,7 @@ impl GameDownloadAgent {
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
 
                 // If we've done this one already, skip it
-                if self
-                    .completed_contexts
-                    .lock()
-                    .unwrap()
-                    .contains(&context.checksum)
-                {
+                if Some(&true) == context_map.get(&context.checksum) {
                     progress_handle.skip(context.length);
                     continue;
                 }
@@ -334,23 +338,33 @@ impl GameDownloadAgent {
             }
         });
 
-        let newly_completed = completed_indexes.to_owned();
+        let newly_completed = completed_contexts.to_owned();
 
         let completed_lock_len = {
-            let mut completed_contexts_lock = self.completed_contexts.lock().unwrap();
+            let mut context_map_lock = self.context_map.lock().unwrap();
             for (_, item) in newly_completed.iter() {
-                completed_contexts_lock.push_front(item.clone());
+                context_map_lock.insert(item.clone(), true);
             }
 
-            completed_contexts_lock.len()
+            context_map_lock.values().filter(|x| **x).count()
         };
+        let context_map_lock = self.context_map.lock().unwrap();
+        let contexts = contexts
+            .iter()
+            .map(|x| {
+                (
+                    x.checksum.clone(),
+                    context_map_lock.get(&x.checksum).cloned().or(Some(false)).unwrap(),
+                )
+            })
+            .collect::<Vec<(String, bool)>>();
+        drop(context_map_lock);
 
-        self.stored_manifest
-            .set_completed_contexts(self.completed_contexts.lock().unwrap().as_slice());
+        self.stored_manifest.set_contexts(&contexts);
         self.stored_manifest.write();
 
-        // If we're not out of contexts, we're not done, so we don't fire completed
-        if completed_lock_len != contexts.len() {
+        // If there are any contexts left which are false
+        if !contexts.iter().all(|x| x.1) {
             info!(
                 "download agent for {} exited without completing ({}/{})",
                 self.id.clone(),
@@ -359,10 +373,6 @@ impl GameDownloadAgent {
             );
             return Ok(false);
         }
-        // We've completed
-        self.sender
-            .send(DownloadManagerSignal::Completed(self.metadata()))
-            .unwrap();
 
         Ok(true)
     }
@@ -420,47 +430,11 @@ impl Downloadable for GameDownloadAgent {
 
     // TODO: fix this function. It doesn't restart the download properly, nor does it reset the state properly
     fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
-        let meta = self.metadata();
-        *self.status.lock().unwrap() = DownloadStatus::Queued;
-        borrow_db_mut_checked().applications.game_statuses.insert(
-            self.id.clone(),
-            GameDownloadStatus::PartiallyInstalled {
-                version_name: self.version.clone(),
-                install_dir: self.stored_manifest.base_path.to_string_lossy().to_string(),
-            },
+        on_game_incomplete(
+            &self.metadata(),
+            self.stored_manifest.base_path.to_string_lossy().to_string(),
+            app_handle,
         );
-        borrow_db_mut_checked()
-            .applications
-            .installed_game_version
-            .insert(self.id.clone(), self.metadata());
-        borrow_db_mut_checked().applications.game_statuses.insert(
-            self.id.clone(),
-            GameDownloadStatus::PartiallyInstalled {
-                version_name: self.version.clone(),
-                install_dir: self.stored_manifest.base_path.to_string_lossy().to_string(),
-            },
-        );
-
-        app_handle
-            .emit(
-                &format!("update_game/{}", meta.id),
-                GameUpdateEvent {
-                    game_id: meta.id.clone(),
-                    status: (
-                        Some(GameDownloadStatus::PartiallyInstalled {
-                            version_name: self.version.clone(),
-                            install_dir: self
-                                .stored_manifest
-                                .base_path
-                                .to_string_lossy()
-                                .to_string(),
-                        }),
-                        None,
-                    ),
-                    version: None,
-                },
-            )
-            .unwrap();
     }
 
     fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}

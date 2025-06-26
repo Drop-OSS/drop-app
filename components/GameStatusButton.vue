@@ -1,78 +1,52 @@
 <template>
   <!-- Do not add scale animations to this: https://stackoverflow.com/a/35683068 -->
   <div class="inline-flex divide-x divide-zinc-900">
-    <button
-      type="button"
-      @click="() => buttonActions[props.status.type]()"
-      :class="[
-        styles[props.status.type],
-        showDropdown ? 'rounded-l-md' : 'rounded-md',
-        'inline-flex uppercase font-display items-center gap-x-2 px-4 py-3 text-md font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-      ]"
-    >
-      <component
-        :is="buttonIcons[props.status.type]"
-        class="-mr-0.5 size-5"
-        aria-hidden="true"
-      />
+    <button type="button" @click="() => buttonActions[props.status.type]()" :class="[
+      styles[props.status.type],
+      showDropdown ? 'rounded-l-md' : 'rounded-md',
+      'inline-flex uppercase font-display items-center gap-x-2 px-4 py-3 text-md font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+    ]">
+      <component :is="buttonIcons[props.status.type]" class="-mr-0.5 size-5" aria-hidden="true" />
       {{ buttonNames[props.status.type] }}
     </button>
-    <Menu
-      v-if="showDropdown"
-      as="div"
-      class="relative inline-block text-left grow"
-    >
+    <Menu v-if="showDropdown" as="div" class="relative inline-block text-left grow">
       <div class="h-full">
-        <MenuButton
-          :class="[
-            styles[props.status.type],
-            'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm group',
-            'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-          ]"
-        >
+        <MenuButton :class="[
+          styles[props.status.type],
+          'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm group',
+          'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+        ]">
           <ChevronDownIcon class="size-5" aria-hidden="true" />
         </MenuButton>
       </div>
 
-      <transition
-        enter-active-class="transition ease-out duration-100"
-        enter-from-class="transform opacity-0 scale-95"
-        enter-to-class="transform opacity-100 scale-100"
-        leave-active-class="transition ease-in duration-75"
-        leave-from-class="transform opacity-100 scale-100"
-        leave-to-class="transform opacity-0 scale-95"
-      >
+      <transition enter-active-class="transition ease-out duration-100" enter-from-class="transform opacity-0 scale-95"
+        enter-to-class="transform opacity-100 scale-100" leave-active-class="transition ease-in duration-75"
+        leave-from-class="transform opacity-100 scale-100" leave-to-class="transform opacity-0 scale-95">
         <MenuItems
-          class="absolute right-0 z-[500] mt-2 w-32 origin-top-right rounded-md bg-zinc-900 shadow-lg ring-1 ring-zinc-100/5 focus:outline-none"
-        >
+          class="absolute right-0 z-[500] mt-2 w-32 origin-top-right rounded-md bg-zinc-900 shadow-lg ring-1 ring-zinc-100/5 focus:outline-none">
           <div class="py-1">
             <MenuItem v-slot="{ active }">
-              <button
-                @click="() => emit('options')"
-                :class="[
-                  active
-                    ? 'bg-zinc-800 text-zinc-100 outline-none'
-                    : 'text-zinc-400',
-                  'w-full block px-4 py-2 text-sm inline-flex justify-between',
-                ]"
-              >
-                Options
-                <Cog6ToothIcon class="size-5" />
-              </button>
+            <button @click="() => emit('options')" :class="[
+              active
+                ? 'bg-zinc-800 text-zinc-100 outline-none'
+                : 'text-zinc-400',
+              'w-full block px-4 py-2 text-sm inline-flex justify-between',
+            ]">
+              Options
+              <Cog6ToothIcon class="size-5" />
+            </button>
             </MenuItem>
             <MenuItem v-slot="{ active }">
-              <button
-                @click="() => emit('uninstall')"
-                :class="[
-                  active
-                    ? 'bg-zinc-800 text-zinc-100 outline-none'
-                    : 'text-zinc-400',
-                  'w-full block px-4 py-2 text-sm inline-flex justify-between',
-                ]"
-              >
-                Uninstall
-                <TrashIcon class="size-5" />
-              </button>
+            <button @click="() => emit('uninstall')" :class="[
+              active
+                ? 'bg-zinc-800 text-zinc-100 outline-none'
+                : 'text-zinc-400',
+              'w-full block px-4 py-2 text-sm inline-flex justify-between',
+            ]">
+              Uninstall
+              <TrashIcon class="size-5" />
+            </button>
             </MenuItem>
           </div>
         </MenuItems>
@@ -164,7 +138,7 @@ const buttonActions: { [key in GameStatusEnum]: () => void } = {
   [GameStatusEnum.SetupRequired]: () => emit("launch"),
   [GameStatusEnum.Installed]: () => emit("launch"),
   [GameStatusEnum.Updating]: () => emit("queue"),
-  [GameStatusEnum.Uninstalling]: () => {},
+  [GameStatusEnum.Uninstalling]: () => { },
   [GameStatusEnum.Running]: () => emit("kill"),
   [GameStatusEnum.PartiallyInstalled]: () => emit("resume")
 };

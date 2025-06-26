@@ -1,6 +1,6 @@
 use std::{fs::File, io::{Read, Write}, path::PathBuf};
 
-use log::{error, warn};
+use log::{debug, error, info, warn};
 use native_model::{Decode, Encode};
 
 pub type DropData = v1::DropData;
@@ -19,7 +19,7 @@ pub mod v1 {
     pub struct DropData {
         game_id: String,
         game_version: String,
-        pub completed_contexts: Mutex<Vec<String>>,
+        pub contexts: Mutex<Vec<(String, bool)>>,
         pub base_path: PathBuf,
     }
 
@@ -29,7 +29,7 @@ pub mod v1 {
                 base_path,
                 game_id,
                 game_version,
-                completed_contexts: Mutex::new(Vec::new()),
+                contexts: Mutex::new(Vec::new()),
             }
         }
     }
@@ -39,7 +39,10 @@ impl DropData {
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
         let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
-            Err(_) => return DropData::new(game_id, game_version, base_path),
+            Err(_) => {
+                debug!("Generating new dropdata for game {}", game_id);
+                return DropData::new(game_id, game_version, base_path)
+            },
         };
 
         let mut s = Vec::new();
@@ -78,10 +81,14 @@ impl DropData {
             Err(e) => error!("{}", e),
         };
     }
-    pub fn set_completed_contexts(&self, completed_contexts: &[String]) {
-        *self.completed_contexts.lock().unwrap() = completed_contexts.to_owned();
+    pub fn set_contexts(&self, completed_contexts: &[(String, bool)]) {
+        *self.contexts.lock().unwrap() = completed_contexts.to_owned();
     }
     pub fn get_completed_contexts(&self) -> Vec<String> {
-        self.completed_contexts.lock().unwrap().clone()
+        self.contexts.lock().unwrap().iter().filter_map(|x| { if x.1 { Some(x.0.clone()) } else { None } }).collect()
+    }
+    pub fn get_contexts(&self) -> Vec<(String, bool)> {
+        info!("Any contexts which are complete? {}", self.contexts.lock().unwrap().iter().any(|x| x.1));
+        self.contexts.lock().unwrap().clone()
     }
 }

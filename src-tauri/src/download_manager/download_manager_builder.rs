@@ -250,7 +250,9 @@ impl DownloadManagerBuilder {
                 }
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
+                    debug!("Donwload agent finished incomplete");
                     download_agent.on_incomplete(&app_handle);
+                    
                 }
                 Err(e) => {
                     error!("download {:?} has error {}", download_agent.metadata(), &e);

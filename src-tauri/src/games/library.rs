@@ -4,8 +4,8 @@ use std::thread::spawn;
 
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
-use tauri::Emitter;
 use tauri::AppHandle;
+use tauri::Emitter;
 
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
@@ -364,6 +364,66 @@ pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
         .cloned()
 }
 
+pub fn on_game_incomplete(
+    meta: &DownloadableMetadata,
+    install_dir: String,
+    app_handle: &AppHandle,
+) -> Result<(), RemoteAccessError> {
+    // Fetch game version information from remote
+    if meta.version.is_none() {
+        return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
+    }
+
+    let client = reqwest::blocking::Client::new();
+    let response = make_request(
+        &client,
+        &["/api/v1/client/game/version"],
+        &[
+            ("id", &meta.id),
+            ("version", meta.version.as_ref().unwrap()),
+        ],
+        |f| f.header("Authorization", generate_authorization_header()),
+    )?
+    .send()?;
+
+    let game_version: GameVersion = response.json()?;
+
+    let mut handle = borrow_db_mut_checked();
+    handle
+        .applications
+        .game_versions
+        .entry(meta.id.clone())
+        .or_default()
+        .insert(meta.version.clone().unwrap(), game_version.clone());
+    handle
+        .applications
+        .installed_game_version
+        .insert(meta.id.clone(), meta.clone());
+
+    let status = GameDownloadStatus::PartiallyInstalled {
+        version_name: meta.version.clone().unwrap(),
+        install_dir,
+    };
+
+    handle
+        .applications
+        .game_statuses
+        .insert(meta.id.clone(), status.clone());
+    drop(handle);
+    app_handle
+        .emit(
+            &format!("update_game/{}", meta.id),
+            GameUpdateEvent {
+                game_id: meta.id.clone(),
+                status: (Some(status), None),
+                version: Some(game_version),
+            },
+        )
+        .unwrap();
+
+    Ok(())
+}
+
 pub fn on_game_complete(
     meta: &DownloadableMetadata,
     install_dir: String,
@@ -400,7 +460,7 @@ pub fn on_game_complete(
     handle
         .applications
         .installed_game_version
-        .insert(meta.id.clone(), meta.clone()); 
+        .insert(meta.id.clone(), meta.clone());
 
     drop(handle);
 
@@ -495,7 +555,6 @@ pub fn update_game_configuration(
         .get_mut(&id)
         .unwrap()
         .insert(version.to_string(), existing_configuration);
-
 
     Ok(())
 }

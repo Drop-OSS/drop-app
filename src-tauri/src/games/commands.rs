@@ -44,7 +44,6 @@ pub fn fetch_game(
         game_id,
         state
     );
-    println!("Res: {:?}", &res);
     res
 }
 
