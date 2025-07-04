@@ -6,7 +6,7 @@ use serde_with::SerializeDisplay;
 pub enum BackupError {
     InvalidSystem,
     NotFound,
-    ParseError
+    ParseError,
 }
 
 impl Display for BackupError {

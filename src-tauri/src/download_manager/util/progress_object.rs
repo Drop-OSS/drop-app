@@ -12,9 +12,7 @@ use throttle_my_fn::throttle;
 
 use crate::download_manager::download_manager::DownloadManagerSignal;
 
-use super::{
-    rolling_progress_updates::RollingProgressWindow,
-};
+use super::rolling_progress_updates::RollingProgressWindow;
 
 #[derive(Clone)]
 pub struct ProgressObject {
@@ -91,7 +89,11 @@ impl ProgressObject {
         self.set_size(size);
         self.bytes_last_update.store(0, Ordering::Release);
         self.rolling.reset();
-        self.progress_instances.lock().unwrap().iter().for_each(|x| x.store(0, Ordering::Release));
+        self.progress_instances
+            .lock()
+            .unwrap()
+            .iter()
+            .for_each(|x| x.store(0, Ordering::Release));
     }
     pub fn get_max(&self) -> usize {
         *self.max.lock().unwrap()

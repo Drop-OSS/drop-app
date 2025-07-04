@@ -1,33 +1,24 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read, Seek, SeekFrom, Write},
-    path::{Path, PathBuf},
     sync::{mpsc::Sender, Arc},
 };
 
 use log::{debug, error, info};
 use md5::Context;
-use native_model::Decode;
 use rayon::ThreadPoolBuilder;
 
 use crate::{
     database::db::borrow_db_checked,
     download_manager::{
         download_manager::DownloadManagerSignal,
-        downloadable::Downloadable,
         util::{
             download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
             progress_object::{ProgressHandle, ProgressObject},
         },
     },
-    error::{
-        application_download_error::ApplicationDownloadError,
-        remote_access_error::RemoteAccessError,
-    },
-    games::downloads::{
-        drop_data::DropData,
-        manifest::{DropDownloadContext, DropManifest},
-    },
+    error::application_download_error::ApplicationDownloadError,
+    games::downloads::{drop_data::DropData, manifest::DropDownloadContext},
     remote::{auth::generate_authorization_header, requests::make_request},
 };
 

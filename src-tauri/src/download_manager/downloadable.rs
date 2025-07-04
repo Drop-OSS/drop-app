@@ -8,7 +8,8 @@ use crate::{
 };
 
 use super::{
-    download_manager::DownloadStatus, util::{download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject},
+    download_manager::DownloadStatus,
+    util::{download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject},
 };
 
 pub trait Downloadable: Send + Sync {

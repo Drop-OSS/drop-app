@@ -4,23 +4,16 @@ use crate::download_manager::util::download_thread_control_flag::{
 use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
-use crate::games::downloads::drop_data::DropData;
-use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
-use crate::remote::auth::generate_authorization_header;
-use crate::remote::requests::make_request;
+use crate::games::downloads::manifest::DropDownloadContext;
 use log::{debug, warn};
 use md5::{Context, Digest};
-use native_model::Decode;
 use reqwest::blocking::{RequestBuilder, Response};
-use reqwest::Client;
 
 use std::fs::{set_permissions, Permissions};
-use std::io::{copy, ErrorKind, Read};
+use std::io::{ErrorKind, Read};
 use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::thread::sleep;
-use std::time::Duration;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},

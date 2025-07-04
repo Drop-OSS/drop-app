@@ -1,7 +1,7 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
-    ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
+    ApplicationTransientStatus, DownloadType, DownloadableMetadata,
 };
 use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::downloadable::Downloadable;
@@ -13,21 +13,17 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::game_validate_logic;
-use crate::games::library::{
-    on_game_complete, on_game_incomplete, push_game_update, GameUpdateEvent,
-};
+use crate::games::library::{on_game_complete, on_game_incomplete, push_game_update};
 use crate::remote::requests::make_request;
-use crate::DB;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
-use slice_deque::SliceDeque;
 use std::collections::HashMap;
-use std::fs::{create_dir_all, File, OpenOptions};
+use std::fs::{create_dir_all, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{fallocate, FallocateFlags};

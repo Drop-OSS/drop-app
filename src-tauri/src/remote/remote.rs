@@ -5,9 +5,8 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_mut_checked},
-    error::remote_access_error::RemoteAccessError,
-    AppState, AppStatus,
+    database::db::borrow_db_mut_checked, error::remote_access_error::RemoteAccessError, AppState,
+    AppStatus,
 };
 
 #[derive(Deserialize)]

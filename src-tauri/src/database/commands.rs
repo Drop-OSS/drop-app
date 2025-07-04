@@ -6,7 +6,9 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError};
+use crate::{
+    database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError,
+};
 
 use super::{
     db::{borrow_db_checked, DATA_ROOT_DIR},

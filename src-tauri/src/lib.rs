@@ -8,11 +8,11 @@ mod process;
 mod remote;
 
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
+use client::commands::fetch_state;
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
 };
-use client::commands::fetch_state;
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
@@ -156,7 +156,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     for (game_id, status) in statuses.into_iter() {
         match status {
             GameDownloadStatus::Remote {} => {}
-            GameDownloadStatus::PartiallyInstalled { .. } => {},
+            GameDownloadStatus::PartiallyInstalled { .. } => {}
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir,
@@ -174,7 +174,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
                 if !install_dir_path.exists() {
                     missing_games.push(game_id);
                 }
-            },
+            }
         }
     }
 

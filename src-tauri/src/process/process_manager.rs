@@ -193,8 +193,9 @@ impl ProcessManager<'_> {
                 version_name,
                 install_dir,
             } => (version_name, install_dir),
-            GameDownloadStatus::PartiallyInstalled { 
-                version_name, install_dir
+            GameDownloadStatus::PartiallyInstalled {
+                version_name,
+                install_dir,
             } => (version_name, install_dir),
             _ => return Err(ProcessError::NotDownloaded),
         };
@@ -251,9 +252,9 @@ impl ProcessManager<'_> {
                 version_name: _,
                 install_dir: _,
             } => (&game_version.setup_command, &game_version.setup_args),
-            GameDownloadStatus::PartiallyInstalled { 
-                version_name, 
-                install_dir 
+            GameDownloadStatus::PartiallyInstalled {
+                version_name,
+                install_dir,
             } => unreachable!("Game registered as 'Partially Installed'"),
             GameDownloadStatus::Remote {} => unreachable!("Game registered as 'Remote'"),
         };
@@ -353,8 +354,6 @@ impl Platform {
     #[cfg(target_os = "linux")]
     pub const HOST: Platform = Self::Linux;
 
-
-
     pub fn is_case_sensitive(&self) -> bool {
         match self {
             Self::Windows | Self::MacOs => false,
@@ -380,7 +379,7 @@ impl From<whoami::Platform> for Platform {
             whoami::Platform::Windows => Platform::Windows,
             whoami::Platform::Linux => Platform::Linux,
             whoami::Platform::MacOS => Platform::MacOs,
-            _ => unimplemented!()
+            _ => unimplemented!(),
         }
     }
 }

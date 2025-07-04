@@ -1,5 +1,9 @@
 use std::{
-    fs::{self, create_dir_all}, mem::{replace, ManuallyDrop}, ops::{Deref, DerefMut}, path::PathBuf, sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard}
+    fs::{self, create_dir_all},
+    mem::ManuallyDrop,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+    sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use chrono::Utc;
@@ -143,12 +147,11 @@ impl<'a> DerefMut for DBWrite<'a> {
     }
 }
 impl<'a> Drop for DBWrite<'a> {
-    fn drop(&mut self) {   
-
+    fn drop(&mut self) {
         unsafe {
             ManuallyDrop::drop(&mut self.0);
         }
-          
+
         match DB.save() {
             Ok(_) => {}
             Err(e) => {
@@ -159,7 +162,6 @@ impl<'a> Drop for DBWrite<'a> {
     }
 }
 pub fn borrow_db_checked<'a>() -> DBRead<'a> {
-    
     match DB.borrow_data() {
         Ok(data) => DBRead(data),
         Err(e) => {

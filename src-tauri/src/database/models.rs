@@ -1,4 +1,4 @@
-use crate::database::models::data::{Database, DatabaseCompatInfo};
+use crate::database::models::data::Database;
 
 pub mod data {
     use std::path::PathBuf;
@@ -19,8 +19,6 @@ pub mod data {
     pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
     use std::{collections::HashMap, process::Command};
-
-    use serde_with::serde_as;
 
     use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
 
@@ -172,11 +170,9 @@ pub mod data {
     }
 
     pub mod v2 {
-        use std::{collections::HashMap, path::PathBuf, process::Command};
+        use std::{collections::HashMap, path::PathBuf};
 
         use serde_with::serde_as;
-
-        use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
 
         use super::*;
 
@@ -285,11 +281,7 @@ pub mod data {
         }
     }
     mod v3 {
-        use std::{collections::HashMap, path::PathBuf, process::Command};
-
-        use serde_with::serde_as;
-
-        use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
+        use std::path::PathBuf;
 
         use super::*;
         #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde)]
