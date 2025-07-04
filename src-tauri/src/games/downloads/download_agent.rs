@@ -12,6 +12,7 @@ use crate::download_manager::util::progress_object::{ProgressHandle, ProgressObj
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
+use crate::games::downloads::validate::game_validate_logic;
 use crate::games::library::{
     on_game_complete, on_game_incomplete, push_game_update, GameUpdateEvent,
 };
@@ -354,7 +355,11 @@ impl GameDownloadAgent {
             .map(|x| {
                 (
                     x.checksum.clone(),
-                    context_map_lock.get(&x.checksum).cloned().or(Some(false)).unwrap(),
+                    context_map_lock
+                        .get(&x.checksum)
+                        .cloned()
+                        .or(Some(false))
+                        .unwrap(),
                 )
             })
             .collect::<Vec<(String, bool)>>();
@@ -441,5 +446,15 @@ impl Downloadable for GameDownloadAgent {
 
     fn status(&self) -> DownloadStatus {
         self.status.lock().unwrap().clone()
+    }
+
+    fn validate(&self) -> Result<bool, ApplicationDownloadError> {
+        game_validate_logic(
+            &self.stored_manifest,
+            self.contexts.lock().unwrap().clone(),
+            self.progress.clone(),
+            self.sender.clone(),
+            &self.control_flag,
+        )
     }
 }

@@ -313,6 +313,10 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
             version_name,
             install_dir,
         } => Some((version_name, install_dir)),
+        GameDownloadStatus::PartiallyInstalled {
+            version_name,
+            install_dir,
+        } => Some((version_name, install_dir)),
         _ => None,
     } {
         db_handle
@@ -353,6 +357,8 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 );
             }
         });
+    } else {
+        warn!("invalid previous state for uninstall, failing silently.")
     }
 }
 

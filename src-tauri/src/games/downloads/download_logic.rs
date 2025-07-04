@@ -5,11 +5,14 @@ use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::drop_data::DropData;
-use crate::games::downloads::manifest::DropDownloadContext;
+use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
+use crate::remote::auth::generate_authorization_header;
+use crate::remote::requests::make_request;
 use log::{debug, warn};
 use md5::{Context, Digest};
 use native_model::Decode;
 use reqwest::blocking::{RequestBuilder, Response};
+use reqwest::Client;
 
 use std::fs::{set_permissions, Permissions};
 use std::io::{copy, ErrorKind, Read};
@@ -202,86 +205,5 @@ pub fn download_game_chunk(
         ctx.checksum, length
     );
 
-    Ok(true)
-}
-
-pub fn validate(path: PathBuf) -> Result<Vec<String>, ApplicationDownloadError> {
-    let mut dropdata = File::open(path.join(".dropdata")).unwrap();
-    let mut buf = Vec::new();
-    dropdata.read_to_end(&mut buf);
-    let manifest: DropData = native_model::rmp_serde_1_3::RmpSerde::decode(buf).unwrap();
-    let completed_contexts = manifest.get_completed_contexts();
-    todo!()
-}
-
-pub fn validate_game_chunk(
-    ctx: &DropDownloadContext,
-    control_flag: &DownloadThreadControl,
-    progress: ProgressHandle,
-) -> Result<bool, ApplicationDownloadError> {
-    debug!(
-        "Starting chunk validation {}, {}, {} #{}",
-        ctx.file_name, ctx.index, ctx.offset, ctx.checksum
-    );
-    // If we're paused
-    if control_flag.get() == DownloadThreadControlFlag::Stop {
-        progress.set(0);
-        return Ok(false);
-    }
-
-    let mut source = File::open(&ctx.path).unwrap();
-
-    if ctx.offset != 0 {
-        source
-            .seek(SeekFrom::Start(ctx.offset))
-            .expect("Failed to seek to file offset");
-    }
-
-    let mut hasher = md5::Context::new();
-
-    let completed = validate_copy(&mut source, &mut hasher, control_flag, progress).unwrap();
-    if !completed {
-        return Ok(false);
-    };
-
-    let res = hex::encode(hasher.compute().0);
-    if res != ctx.checksum {
-        return Err(ApplicationDownloadError::Checksum);
-    }
-
-    debug!(
-        "Successfully finished verification #{}, copied {} bytes",
-        ctx.checksum, ctx.length
-    );
-
-    Ok(true)
-}
-
-fn validate_copy(
-    source: &mut File,
-    dest: &mut Context,
-    control_flag: &DownloadThreadControl,
-    progress: ProgressHandle,
-) -> Result<bool, io::Error> {
-    let copy_buf_size = 512;
-    let mut copy_buf = vec![0; copy_buf_size];
-    let mut buf_writer = BufWriter::with_capacity(1024 * 1024, dest);
-
-    loop {
-        if control_flag.get() == DownloadThreadControlFlag::Stop {
-            buf_writer.flush()?;
-            return Ok(false);
-        }
-
-        let bytes_read = source.read(&mut copy_buf)?;
-
-        buf_writer.write_all(&copy_buf[0..bytes_read])?;
-        progress.add(bytes_read);
-
-        if bytes_read == 0 {
-            break;
-        }
-    }
-    buf_writer.flush()?;
     Ok(true)
 }

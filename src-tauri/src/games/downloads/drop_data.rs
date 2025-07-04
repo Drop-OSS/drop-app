@@ -17,8 +17,8 @@ pub mod v1 {
     #[derive(Serialize, Deserialize, Debug)]
     #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
     pub struct DropData {
-        game_id: String,
-        game_version: String,
+        pub game_id: String,
+        pub game_version: String,
         pub contexts: Mutex<Vec<(String, bool)>>,
         pub base_path: PathBuf,
     }

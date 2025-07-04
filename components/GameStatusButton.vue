@@ -83,7 +83,8 @@ const emit = defineEmits<{
 const showDropdown = computed(
   () =>
     props.status.type === GameStatusEnum.Installed ||
-    props.status.type === GameStatusEnum.SetupRequired
+    props.status.type === GameStatusEnum.SetupRequired ||
+    props.status.type === GameStatusEnum.PartiallyInstalled
 );
 
 const styles: { [key in GameStatusEnum]: string } = {

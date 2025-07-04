@@ -18,7 +18,12 @@ use crate::{
 
 use super::{
     download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
-    downloadable::Downloadable, util::{download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, progress_object::ProgressObject, queue::Queue},
+    downloadable::Downloadable,
+    util::{
+        download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
+        progress_object::ProgressObject,
+        queue::Queue,
+    },
 };
 
 pub type DownloadAgent = Arc<Box<dyn Downloadable + Send + Sync>>;
@@ -243,16 +248,29 @@ impl DownloadManagerBuilder {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
                     debug!("download {:?} has completed", download_agent.metadata());
-                    download_agent.on_complete(&app_handle);
-                    sender
-                        .send(DownloadManagerSignal::Completed(download_agent.metadata()))
-                        .unwrap();
+                    match download_agent.validate() {
+                        Ok(true) => {
+                            download_agent.on_complete(&app_handle);
+                            sender
+                                .send(DownloadManagerSignal::Completed(download_agent.metadata()))
+                                .unwrap();
+                        }
+                        Ok(false) => {
+                            download_agent.on_incomplete(&app_handle);
+                        }
+                        Err(e) => {
+                            error!(
+                                "download {:?} has validation error {}",
+                                download_agent.metadata(),
+                                &e
+                            );
+                        }
+                    }
                 }
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
                     debug!("Donwload agent finished incomplete");
                     download_agent.on_incomplete(&app_handle);
-                    
                 }
                 Err(e) => {
                     error!("download {:?} has error {}", download_agent.metadata(), &e);

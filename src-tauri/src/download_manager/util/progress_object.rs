@@ -86,6 +86,13 @@ impl ProgressObject {
             .map(|instance| instance.load(Ordering::Relaxed))
             .sum()
     }
+    pub fn reset(&self, size: usize) {
+        self.set_time_now();
+        self.set_size(size);
+        self.bytes_last_update.store(0, Ordering::Release);
+        self.rolling.reset();
+        self.progress_instances.lock().unwrap().iter().for_each(|x| x.store(0, Ordering::Release));
+    }
     pub fn get_max(&self) -> usize {
         *self.max.lock().unwrap()
     }
