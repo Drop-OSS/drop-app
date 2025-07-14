@@ -264,6 +264,8 @@ impl DownloadManagerBuilder {
                                 download_agent.metadata(),
                                 &e
                             );
+                            download_agent.on_error(&app_handle, &e);
+                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
                 }

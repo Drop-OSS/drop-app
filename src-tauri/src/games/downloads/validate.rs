@@ -137,7 +137,8 @@ pub fn validate_game_chunk(
 
     let mut hasher = md5::Context::new();
 
-    let completed = validate_copy(&mut source, &mut hasher, control_flag, progress).unwrap();
+    let completed =
+        validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress).unwrap();
     if !completed {
         return Ok(false);
     };
@@ -162,12 +163,14 @@ pub fn validate_game_chunk(
 fn validate_copy(
     source: &mut File,
     dest: &mut Context,
+    size: usize,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
 ) -> Result<bool, io::Error> {
     let copy_buf_size = 512;
     let mut copy_buf = vec![0; copy_buf_size];
     let mut buf_writer = BufWriter::with_capacity(1024 * 1024, dest);
+    let mut total_bytes = 0;
 
     loop {
         if control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -175,12 +178,21 @@ fn validate_copy(
             return Ok(false);
         }
 
-        let bytes_read = source.read(&mut copy_buf)?;
+        let mut bytes_read = source.read(&mut copy_buf)?;
+        total_bytes += bytes_read;
+
+        // If we read over (likely), truncate our read to
+        // the right size
+        if total_bytes > size {
+            let over = total_bytes - size;
+            bytes_read -= over;
+            total_bytes = size;
+        }
 
         buf_writer.write_all(&copy_buf[0..bytes_read])?;
         progress.add(bytes_read);
 
-        if bytes_read == 0 {
+        if total_bytes >= size {
             break;
         }
     }

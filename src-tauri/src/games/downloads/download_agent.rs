@@ -284,8 +284,6 @@ impl GameDownloadAgent {
                     continue;
                 }
 
-                debug!("Continuing download chunk {}", index);
-
                 let sender = self.sender.clone();
 
                 let request = match make_request(
@@ -297,7 +295,7 @@ impl GameDownloadAgent {
                         ("name", &context.file_name),
                         ("chunk", &context.index.to_string()),
                     ],
-                    |r| r.header("Authorization", generate_authorization_header()),
+                    |r| r,
                 ) {
                     Ok(request) => request,
                     Err(e) => {
@@ -435,7 +433,8 @@ impl Downloadable for GameDownloadAgent {
             &self.metadata(),
             self.stored_manifest.base_path.to_string_lossy().to_string(),
             app_handle,
-        );
+        )
+        .unwrap();
     }
 
     fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}
@@ -445,6 +444,7 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn validate(&self) -> Result<bool, ApplicationDownloadError> {
+        *self.status.lock().unwrap() = DownloadStatus::Validating;
         game_validate_logic(
             &self.stored_manifest,
             self.contexts.lock().unwrap().clone(),

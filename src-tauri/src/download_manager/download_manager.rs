@@ -72,6 +72,7 @@ impl Serialize for DownloadManagerStatus {
 pub enum DownloadStatus {
     Queued,
     Downloading,
+    Validating,
     Error,
 }
 

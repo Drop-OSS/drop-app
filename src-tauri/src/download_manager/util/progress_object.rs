@@ -133,7 +133,11 @@ pub fn calculate_update(progress: &ProgressObject) {
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 
-    let bytes_remaining = max - current_bytes_downloaded; // bytes
+    let bytes_remaining = if (max < current_bytes_downloaded) {
+        0
+    } else {
+        max - current_bytes_downloaded
+    }; // bytes
 
     progress.update_window(kilobytes_per_second);
     push_update(progress, bytes_remaining);

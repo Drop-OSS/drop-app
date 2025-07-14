@@ -5,7 +5,8 @@ use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
-use log::{debug, warn};
+use crate::remote::auth::generate_authorization_header;
+use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
@@ -97,13 +98,24 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 return Ok(false);
             }
 
-            let bytes_read = self.source.read(&mut copy_buf)?;
+            let mut bytes_read = self.source.read(&mut copy_buf)?;
             current_size += bytes_read;
+
+            if current_size > self.size {
+                let over = current_size - self.size;
+                warn!("server sent too many bytes... {} over", over);
+                bytes_read -= over;
+                current_size = self.size;
+            }
 
             buf_writer.write_all(&copy_buf[0..bytes_read])?;
             self.progress.add(bytes_read);
 
-            if current_size == self.size {
+            if current_size >= self.size {
+                debug!(
+                    "finished with final size of {} vs {}",
+                    current_size, self.size
+                );
                 break;
             }
         }
@@ -135,10 +147,12 @@ pub fn download_game_chunk(
     }
 
     let response = request
+        .header("Authorization", generate_authorization_header())
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
+        debug!("chunk request got status code: {}", response.status());
         let err = response.json().unwrap();
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse(err),
