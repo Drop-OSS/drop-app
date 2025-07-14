@@ -12,7 +12,6 @@ use reqwest::blocking::{RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
 use std::io::{ErrorKind, Read};
-use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
