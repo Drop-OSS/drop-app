@@ -1,9 +1,6 @@
 use std::str::FromStr;
 
-use http::{
-    uri::PathAndQuery,
-    Request, Response, StatusCode, Uri,
-};
+use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
 use reqwest::blocking::Client;
 use tauri::UriSchemeResponder;
 

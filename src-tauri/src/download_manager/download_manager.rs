@@ -18,7 +18,8 @@ use crate::{
 };
 
 use super::{
-    download_manager_builder::{CurrentProgressObject, DownloadAgent}, util::queue::Queue,
+    download_manager_builder::{CurrentProgressObject, DownloadAgent},
+    util::queue::Queue,
 };
 
 pub enum DownloadManagerSignal {
@@ -71,6 +72,7 @@ impl Serialize for DownloadManagerStatus {
 pub enum DownloadStatus {
     Queued,
     Downloading,
+    Validating,
     Error,
 }
 

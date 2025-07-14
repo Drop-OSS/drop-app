@@ -6,10 +6,12 @@ use std::{
 
 use serde_json::Value;
 
-use crate::{database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError};
+use crate::{
+    database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError,
+};
 
 use super::{
-    db::{borrow_db_checked, save_db, DATA_ROOT_DIR},
+    db::{borrow_db_checked, DATA_ROOT_DIR},
     debug::SystemData,
     models::data::Settings,
 };
@@ -26,8 +28,6 @@ pub fn fetch_download_dir_stats() -> Vec<PathBuf> {
 pub fn delete_download_dir(index: usize) {
     let mut lock = borrow_db_mut_checked();
     lock.applications.install_dirs.remove(index);
-    drop(lock);
-    save_db();
 }
 
 #[tauri::command]
@@ -58,7 +58,6 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), DownloadManagerError<()>
     }
     lock.applications.install_dirs.push(new_dir);
     drop(lock);
-    save_db();
 
     Ok(())
 }
@@ -72,8 +71,6 @@ pub fn update_settings(new_settings: Value) {
     }
     let new_settings: Settings = serde_json::from_value(current_settings).unwrap();
     db_lock.settings = new_settings;
-    drop(db_lock);
-    save_db();
 }
 #[tauri::command]
 pub fn fetch_settings() -> Settings {

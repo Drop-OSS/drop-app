@@ -12,9 +12,7 @@ use throttle_my_fn::throttle;
 
 use crate::download_manager::download_manager::DownloadManagerSignal;
 
-use super::{
-    rolling_progress_updates::RollingProgressWindow,
-};
+use super::rolling_progress_updates::RollingProgressWindow;
 
 #[derive(Clone)]
 pub struct ProgressObject {
@@ -86,6 +84,17 @@ impl ProgressObject {
             .map(|instance| instance.load(Ordering::Relaxed))
             .sum()
     }
+    pub fn reset(&self, size: usize) {
+        self.set_time_now();
+        self.set_size(size);
+        self.bytes_last_update.store(0, Ordering::Release);
+        self.rolling.reset();
+        self.progress_instances
+            .lock()
+            .unwrap()
+            .iter()
+            .for_each(|x| x.store(0, Ordering::Release));
+    }
     pub fn get_max(&self) -> usize {
         *self.max.lock().unwrap()
     }
@@ -124,7 +133,11 @@ pub fn calculate_update(progress: &ProgressObject) {
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 
-    let bytes_remaining = max - current_bytes_downloaded; // bytes
+    let bytes_remaining = if (max < current_bytes_downloaded) {
+        0
+    } else {
+        max - current_bytes_downloaded
+    }; // bytes
 
     progress.update_window(kilobytes_per_second);
     push_update(progress, bytes_remaining);

@@ -37,13 +37,14 @@ pub fn fetch_game(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    offline!(
+    let res = offline!(
         state,
         fetch_game_logic,
         fetch_game_logic_offline,
         game_id,
         state
-    )
+    );
+    res
 }
 
 #[tauri::command]

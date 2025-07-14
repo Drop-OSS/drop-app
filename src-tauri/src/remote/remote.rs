@@ -5,9 +5,8 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_mut_checked, save_db},
-    error::remote_access_error::RemoteAccessError,
-    AppState, AppStatus,
+    database::db::borrow_db_mut_checked, error::remote_access_error::RemoteAccessError, AppState,
+    AppStatus,
 };
 
 #[derive(Deserialize)]
@@ -40,9 +39,6 @@ pub fn use_remote_logic(
 
     let mut db_state = borrow_db_mut_checked();
     db_state.base_url = base_url.to_string();
-    drop(db_state);
-
-    save_db();
 
     Ok(())
 }

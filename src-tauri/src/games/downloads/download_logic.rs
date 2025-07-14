@@ -6,12 +6,13 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::auth::generate_authorization_header;
-use log::warn;
+use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
 use std::io::{ErrorKind, Read};
+use std::os::unix::fs::MetadataExt;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -93,19 +94,32 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         let mut current_size = 0;
         loop {
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
+                buf_writer.flush()?;
                 return Ok(false);
             }
 
-            let bytes_read = self.source.read(&mut copy_buf)?;
+            let mut bytes_read = self.source.read(&mut copy_buf)?;
             current_size += bytes_read;
+
+            if current_size > self.size {
+                let over = current_size - self.size;
+                warn!("server sent too many bytes... {} over", over);
+                bytes_read -= over;
+                current_size = self.size;
+            }
 
             buf_writer.write_all(&copy_buf[0..bytes_read])?;
             self.progress.add(bytes_read);
 
-            if current_size == self.size {
+            if current_size >= self.size {
+                debug!(
+                    "finished with final size of {} vs {}",
+                    current_size, self.size
+                );
                 break;
             }
         }
+        buf_writer.flush()?;
 
         Ok(true)
     }
@@ -122,6 +136,10 @@ pub fn download_game_chunk(
     progress: ProgressHandle,
     request: RequestBuilder,
 ) -> Result<bool, ApplicationDownloadError> {
+    debug!(
+        "Starting download chunk {}, {}, {} #{}",
+        ctx.file_name, ctx.index, ctx.offset, ctx.checksum
+    );
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
         progress.set(0);
@@ -130,10 +148,12 @@ pub fn download_game_chunk(
     let request = request.header("Authorization", generate_authorization_header());
 
     let response = request
+        .header("Authorization", generate_authorization_header())
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
+        debug!("chunk request got status code: {}", response.status());
         let err = response.json().unwrap();
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::InvalidResponse(err),
@@ -156,13 +176,14 @@ pub fn download_game_chunk(
         ));
     }
 
-    let mut pipeline = DropDownloadPipeline::new(
-        response,
-        destination,
-        control_flag,
-        progress,
-        content_length.unwrap().try_into().unwrap(),
-    );
+    let length = content_length.unwrap().try_into().unwrap();
+
+    if length != ctx.length {
+        return Err(ApplicationDownloadError::DownloadError);
+    }
+
+    let mut pipeline =
+        DropDownloadPipeline::new(response, destination, control_flag, progress, length);
 
     let completed = pipeline
         .copy()
@@ -186,6 +207,11 @@ pub fn download_game_chunk(
     if res != ctx.checksum {
         return Err(ApplicationDownloadError::Checksum);
     }
+
+    debug!(
+        "Successfully finished download #{}, copied {} bytes",
+        ctx.checksum, length
+    );
 
     Ok(true)
 }

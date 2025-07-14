@@ -30,4 +30,9 @@ impl<const S: usize> RollingProgressWindow<S> {
             .sum::<usize>()
             / S
     }
+    pub fn reset(&self) {
+        self.window
+            .iter()
+            .for_each(|x| x.store(0, Ordering::Release));
+    }
 }

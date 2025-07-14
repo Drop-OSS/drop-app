@@ -1,5 +1,7 @@
 use std::{
     fs::{self, create_dir_all},
+    mem::ManuallyDrop,
+    ops::{Deref, DerefMut},
     path::PathBuf,
     sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -18,7 +20,6 @@ use super::models::data::Database;
 pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
     LazyLock::new(|| Mutex::new(dirs::data_dir().unwrap().join("drop")));
 
-
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]
 pub struct DropDatabaseSerializer;
@@ -27,15 +28,16 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     for DropDatabaseSerializer
 {
     fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
-        native_model::rmp_serde_1_3::RmpSerde::encode(val).map_err(|e| DeSerError::Internal(e.to_string()))
+        native_model::rmp_serde_1_3::RmpSerde::encode(val)
+            .map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
     fn deserialize<R: std::io::Read>(&self, mut s: R) -> rustbreak::error::DeSerResult<T> {
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
             .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
-        let val =
-            native_model::rmp_serde_1_3::RmpSerde::decode(buf).map_err(|e| DeSerError::Internal(e.to_string()))?;
+        let val = native_model::rmp_serde_1_3::RmpSerde::decode(buf)
+            .map_err(|e| DeSerError::Internal(e.to_string()))?;
         Ok(val)
     }
 }
@@ -122,9 +124,46 @@ fn handle_invalid_database(
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
 }
 
-pub fn borrow_db_checked<'a>() -> RwLockReadGuard<'a, Database> {
+// To automatically save the database upon drop
+pub struct DBRead<'a>(RwLockReadGuard<'a, Database>);
+pub struct DBWrite<'a>(ManuallyDrop<RwLockWriteGuard<'a, Database>>);
+impl<'a> Deref for DBWrite<'a> {
+    type Target = RwLockWriteGuard<'a, Database>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<'a> Deref for DBRead<'a> {
+    type Target = RwLockReadGuard<'a, Database>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl<'a> DerefMut for DBWrite<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+impl<'a> Drop for DBWrite<'a> {
+    fn drop(&mut self) {
+        unsafe {
+            ManuallyDrop::drop(&mut self.0);
+        }
+
+        match DB.save() {
+            Ok(_) => {}
+            Err(e) => {
+                error!("database failed to save with error {}", e);
+                panic!("database failed to save with error {}", e)
+            }
+        }
+    }
+}
+pub fn borrow_db_checked<'a>() -> DBRead<'a> {
     match DB.borrow_data() {
-        Ok(data) => data,
+        Ok(data) => DBRead(data),
         Err(e) => {
             error!("database borrow failed with error {}", e);
             panic!("database borrow failed with error {}", e);
@@ -132,22 +171,12 @@ pub fn borrow_db_checked<'a>() -> RwLockReadGuard<'a, Database> {
     }
 }
 
-pub fn borrow_db_mut_checked<'a>() -> RwLockWriteGuard<'a, Database> {
+pub fn borrow_db_mut_checked<'a>() -> DBWrite<'a> {
     match DB.borrow_data_mut() {
-        Ok(data) => data,
+        Ok(data) => DBWrite(ManuallyDrop::new(data)),
         Err(e) => {
             error!("database borrow mut failed with error {}", e);
             panic!("database borrow mut failed with error {}", e);
-        }
-    }
-}
-
-pub fn save_db() {
-    match DB.save() {
-        Ok(_) => {}
-        Err(e) => {
-            error!("database failed to save with error {}", e);
-            panic!("database failed to save with error {}", e)
         }
     }
 }

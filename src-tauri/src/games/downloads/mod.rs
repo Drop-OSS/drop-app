@@ -1,5 +1,6 @@
 pub mod commands;
 pub mod download_agent;
 mod download_logic;
+mod drop_data;
 mod manifest;
-mod stored_manifest;
+pub mod validate;

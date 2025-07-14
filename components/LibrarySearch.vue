@@ -76,6 +76,7 @@ const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Updating]: "text-blue-500",
   [GameStatusEnum.Uninstalling]: "text-zinc-100",
   [GameStatusEnum.SetupRequired]: "text-yellow-500",
+  [GameStatusEnum.PartiallyInstalled]: "text-gray-600"
 };
 const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Remote]: "Not installed",
@@ -86,6 +87,7 @@ const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Uninstalling]: "Uninstalling...",
   [GameStatusEnum.SetupRequired]: "Setup required",
   [GameStatusEnum.Running]: "Running",
+  [GameStatusEnum.PartiallyInstalled]: "Partially installed"
 };
 
 const router = useRouter();

@@ -59,11 +59,13 @@ export enum GameStatusEnum {
   Uninstalling = "Uninstalling",
   SetupRequired = "SetupRequired",
   Running = "Running",
+  PartiallyInstalled = "PartiallyInstalled"
 }
 
 export type GameStatus = {
   type: GameStatusEnum;
   version_name?: string;
+  install_dir?: string;
 };
 
 export enum DownloadableType {
