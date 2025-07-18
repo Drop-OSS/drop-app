@@ -1247,7 +1247,7 @@ dependencies = [
 
 [[package]]
 name = "drop-app"
-version = "0.3.0-rc-6"
+version = "0.3.0-rc-7"
 dependencies = [
  "atomic-instant-full",
  "boxcar",
