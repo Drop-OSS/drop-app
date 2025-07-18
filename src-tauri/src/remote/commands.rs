@@ -15,7 +15,7 @@ use crate::{
 use super::{
     auth::{auth_initiate_logic, recieve_handshake, setup},
     cache::{cache_object, get_cached_object},
-    remote::use_remote_logic,
+    utils::use_remote_logic,
 };
 
 #[tauri::command]

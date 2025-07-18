@@ -3,7 +3,7 @@ use crate::database::models::data::Database;
 pub mod data {
     use std::path::PathBuf;
 
-    use native_model::{native_model, Model};
+    use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
     pub type GameVersion = v1::GameVersion;
@@ -134,7 +134,7 @@ pub mod data {
         pub enum DownloadType {
             Game,
             Tool,
-            DLC,
+            Dlc,
             Mod,
         }
 

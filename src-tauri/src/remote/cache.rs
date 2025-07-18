@@ -19,7 +19,7 @@ macro_rules! offline {
     }
 }
 
-pub fn cache_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
+pub fn cache_object<K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
     data: &D,
 ) -> Result<Integrity, RemoteAccessError> {
@@ -27,12 +27,12 @@ pub fn cache_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
     cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
         .map_err(RemoteAccessError::Cache)
 }
-pub fn get_cached_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
+pub fn get_cached_object<K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
 ) -> Result<D, RemoteAccessError> {
     get_cached_object_db::<K, D>(key, &borrow_db_checked())
 }
-pub fn get_cached_object_db<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
+pub fn get_cached_object_db<K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {

@@ -112,22 +112,20 @@ impl ProcessManager<'_> {
         db_handle.applications.transient_statuses.remove(&meta);
 
         let current_state = db_handle.applications.game_statuses.get(&game_id).cloned();
-        if let Some(saved_state) = current_state {
-            if let GameDownloadStatus::SetupRequired {
-                version_name,
-                install_dir,
-            } = saved_state
-            {
-                if let Ok(exit_code) = result {
-                    if exit_code.success() {
-                        db_handle.applications.game_statuses.insert(
-                            game_id.clone(),
-                            GameDownloadStatus::Installed {
-                                version_name: version_name.to_string(),
-                                install_dir: install_dir.to_string(),
-                            },
-                        );
-                    }
+        if let Some(GameDownloadStatus::SetupRequired {
+            version_name,
+            install_dir,
+        }) = current_state
+        {
+            if let Ok(exit_code) = result {
+                if exit_code.success() {
+                    db_handle.applications.game_statuses.insert(
+                        game_id.clone(),
+                        GameDownloadStatus::Installed {
+                            version_name: version_name.to_string(),
+                            install_dir: install_dir.to_string(),
+                        },
+                    );
                 }
             }
         }
@@ -142,9 +140,7 @@ impl ProcessManager<'_> {
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
         let current = &self.current_platform;
-        Ok(self
-            .game_launchers
-            .contains_key(&(*current, *platform)))
+        Ok(self.game_launchers.contains_key(&(*current, *platform)))
     }
 
     pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
@@ -253,8 +249,8 @@ impl ProcessManager<'_> {
                 install_dir: _,
             } => (&game_version.setup_command, &game_version.setup_args),
             GameDownloadStatus::PartiallyInstalled {
-                version_name,
-                install_dir,
+                version_name: _,
+                install_dir: _,
             } => unreachable!("Game registered as 'Partially Installed'"),
             GameDownloadStatus::Remote {} => unreachable!("Game registered as 'Remote'"),
         };
@@ -344,9 +340,6 @@ pub enum Platform {
 }
 
 impl Platform {
-    const WINDOWS: bool = cfg!(target_os = "windows");
-    const MAC: bool = cfg!(target_os = "macos");
-    const LINUX: bool = cfg!(target_os = "linux");
     #[cfg(target_os = "windows")]
     pub const HOST: Platform = Self::Windows;
     #[cfg(target_os = "macos")]
@@ -422,10 +415,13 @@ impl ProcessHandler for UMULauncher {
     ) -> String {
         debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
         let game_id = match &game_version.umu_id_override {
-            Some(game_override) => game_override
-                .is_empty()
-                .then_some(game_version.game_id.clone())
-                .unwrap_or(game_override.clone()),
+            Some(game_override) => {
+                if game_override.is_empty() {
+                    game_version.game_id.clone()
+                } else {
+                    game_override.clone()
+                }
+            }
             None => game_version.game_id.clone(),
         };
         format!(

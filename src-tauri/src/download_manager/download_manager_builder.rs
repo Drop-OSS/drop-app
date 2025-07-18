@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
+    download_manager_frontend::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
     downloadable::Downloadable,
     util::{
         download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
@@ -176,7 +176,6 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel(meta) => {
                     self.manage_cancel_signal(&meta);
                 }
-                _ => {}
             };
         }
     }
@@ -312,7 +311,7 @@ impl DownloadManagerBuilder {
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
         }
-        self.set_status(DownloadManagerStatus::Error(error));
+        self.set_status(DownloadManagerStatus::Error);
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");

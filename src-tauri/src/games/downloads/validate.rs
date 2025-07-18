@@ -11,7 +11,7 @@ use rayon::ThreadPoolBuilder;
 use crate::{
     database::db::borrow_db_checked,
     download_manager::{
-        download_manager::DownloadManagerSignal,
+        download_manager_frontend::DownloadManagerSignal,
         util::{
             download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
             progress_object::{ProgressHandle, ProgressObject},
@@ -19,7 +19,6 @@ use crate::{
     },
     error::application_download_error::ApplicationDownloadError,
     games::downloads::{drop_data::DropData, manifest::DropDownloadContext},
-    remote::{auth::generate_authorization_header, requests::make_request},
 };
 
 pub fn game_validate_logic(
@@ -44,36 +43,11 @@ pub fn game_validate_logic(
     debug!("{contexts:#?}");
     let invalid_chunks = Arc::new(boxcar::Vec::new());
     pool.scope(|scope| {
-        let client = &reqwest::blocking::Client::new();
         for (index, context) in contexts.iter().enumerate() {
-            let client = client.clone();
-
             let current_progress = progress.get(index);
             let progress_handle = ProgressHandle::new(current_progress, progress.clone());
             let invalid_chunks_scoped = invalid_chunks.clone();
             let sender = sender.clone();
-
-            let request = match make_request(
-                &client,
-                &["/api/v1/client/chunk"],
-                &[
-                    ("id", &context.game_id),
-                    ("version", &context.version),
-                    ("name", &context.file_name),
-                    ("chunk", &context.index.to_string()),
-                ],
-                |r| r.header("Authorization", generate_authorization_header()),
-            ) {
-                Ok(request) => request,
-                Err(e) => {
-                    sender
-                        .send(DownloadManagerSignal::Error(
-                            ApplicationDownloadError::Communication(e),
-                        ))
-                        .unwrap();
-                    continue;
-                }
-            };
 
             scope.spawn(move |_| {
                 match validate_game_chunk(context, control_flag, progress_handle) {

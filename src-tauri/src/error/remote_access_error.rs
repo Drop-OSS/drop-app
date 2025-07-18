@@ -18,7 +18,6 @@ pub enum RemoteAccessError {
     HandshakeFailed(String),
     GameNotFound(String),
     InvalidResponse(DropServerError),
-    InvalidRedirect,
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
     Cache(cacache::Error),
@@ -50,7 +49,6 @@ impl Display for RemoteAccessError {
             RemoteAccessError::HandshakeFailed(message) => write!(f, "failed to complete handshake: {message}"),
             RemoteAccessError::GameNotFound(id) => write!(f, "could not find game on server: {id}"),
             RemoteAccessError::InvalidResponse(error) => write!(f, "server returned an invalid response: {} {}", error.status_code, error.status_message),
-            RemoteAccessError::InvalidRedirect => write!(f, "server redirect was invalid"),
             RemoteAccessError::ManifestDownloadFailed(status, response) => write!(
                 f,
                 "failed to download game manifest: {status} {response}"

@@ -3,7 +3,7 @@ use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadType, DownloadableMetadata,
 };
-use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
+use crate::download_manager::download_manager_frontend::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
@@ -212,6 +212,7 @@ impl GameDownloadAgent {
             let file = OpenOptions::new()
                 .read(true)
                 .write(true)
+                .truncate(true)
                 .create(true)
                 .open(path.clone())
                 .unwrap();

@@ -22,7 +22,7 @@ use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
-use download_manager::download_manager::DownloadManager;
+use download_manager::download_manager_frontend::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
 use games::collections::commands::{
     add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,

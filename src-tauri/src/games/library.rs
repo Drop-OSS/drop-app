@@ -11,7 +11,7 @@ use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
-use crate::download_manager::download_manager::DownloadStatus;
+use crate::download_manager::download_manager_frontend::DownloadStatus;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
