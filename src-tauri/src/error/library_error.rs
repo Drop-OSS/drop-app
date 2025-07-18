@@ -11,8 +11,7 @@ impl Display for LibraryError {
         match self {
             LibraryError::MetaNotFound(id) => write!(
                 f,
-                "Could not locate any installed version of game ID {} in the database",
-                id
+                "Could not locate any installed version of game ID {id} in the database"
             ),
         }
     }

@@ -15,7 +15,7 @@ use crate::{
 use super::{
     auth::{auth_initiate_logic, recieve_handshake, setup},
     cache::{cache_object, get_cached_object},
-    remote::use_remote_logic,
+    utils::use_remote_logic,
 };
 
 #[tauri::command]
@@ -54,7 +54,7 @@ pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
             Ok(data)
         }
         Err(e) => {
-            debug!("{}", e);
+            debug!("{e}");
             get_cached_object::<&str, Vec<u8>>(&path)
         }
     }
@@ -96,5 +96,5 @@ pub fn auth_initiate() -> Result<(), RemoteAccessError> {
 
 #[tauri::command]
 pub fn manual_recieve_handshake(app: AppHandle, token: String) {
-    recieve_handshake(app, format!("handshake/{}", token));
+    recieve_handshake(app, format!("handshake/{token}"));
 }

@@ -17,7 +17,7 @@ use crate::{
 };
 
 use super::{
-    download_manager::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
+    download_manager_frontend::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
     downloadable::Downloadable,
     util::{
         download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
@@ -176,7 +176,6 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel(meta) => {
                     self.manage_cancel_signal(&meta);
                 }
-                _ => {}
             };
         }
     }
@@ -184,7 +183,7 @@ impl DownloadManagerBuilder {
         debug!("got signal Queue");
         let meta = download_agent.metadata();
 
-        debug!("queue metadata: {:?}", meta);
+        debug!("queue metadata: {meta:?}");
 
         if self.download_queue.exists(meta.clone()) {
             warn!("download with same ID already exists");
@@ -210,8 +209,8 @@ impl DownloadManagerBuilder {
             return;
         }
 
-        if self.current_download_agent.is_some() {
-            if self.download_queue.read().front().unwrap()
+        if self.current_download_agent.is_some()
+            && self.download_queue.read().front().unwrap()
                 == &self.current_download_agent.as_ref().unwrap().metadata()
             {
                 debug!(
@@ -220,14 +219,13 @@ impl DownloadManagerBuilder {
                 );
                 return;
             }
-        }
 
         debug!("current download queue: {:?}", self.download_queue.read());
 
         // Should always be Some if the above two statements keep going
         let agent_data = self.download_queue.read().front().unwrap().clone();
 
-        info!("starting download for {:?}", agent_data);
+        info!("starting download for {agent_data:?}");
 
         let download_agent = self
             .download_agent_registry
@@ -313,7 +311,7 @@ impl DownloadManagerBuilder {
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
         }
-        self.set_status(DownloadManagerStatus::Error(error));
+        self.set_status(DownloadManagerStatus::Error);
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");

@@ -8,7 +8,7 @@ use crate::{
 };
 
 use super::{
-    download_manager::DownloadStatus,
+    download_manager_frontend::DownloadStatus,
     util::{download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject},
 };
 

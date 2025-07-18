@@ -3,7 +3,7 @@ use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadType, DownloadableMetadata,
 };
-use crate::download_manager::download_manager::{DownloadManagerSignal, DownloadStatus};
+use crate::download_manager::download_manager_frontend::{DownloadManagerSignal, DownloadStatus};
 use crate::download_manager::downloadable::Downloadable;
 use crate::download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
@@ -212,6 +212,7 @@ impl GameDownloadAgent {
             let file = OpenOptions::new()
                 .read(true)
                 .write(true)
+                .truncate(true)
                 .create(true)
                 .open(path.clone())
                 .unwrap();
@@ -267,7 +268,7 @@ impl GameDownloadAgent {
         let completed_indexes_loop_arc = completed_contexts.clone();
 
         let contexts = self.contexts.lock().unwrap();
-        debug!("{:#?}", contexts);
+        debug!("{contexts:#?}");
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
             let context_map = self.context_map.lock().unwrap();
@@ -325,7 +326,7 @@ impl GameDownloadAgent {
                             );
                         }
                         Err(e) => {
-                            error!("{}", e);
+                            error!("{e}");
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
@@ -352,8 +353,7 @@ impl GameDownloadAgent {
                     context_map_lock
                         .get(&x.checksum)
                         .cloned()
-                        .or(Some(false))
-                        .unwrap(),
+                        .unwrap_or(false),
                 )
             })
             .collect::<Vec<(String, bool)>>();
@@ -409,7 +409,7 @@ impl Downloadable for GameDownloadAgent {
             .emit("download_error", error.to_string())
             .unwrap();
 
-        error!("error while managing download: {}", error);
+        error!("error while managing download: {error}");
 
         let mut handle = borrow_db_mut_checked();
         handle

@@ -10,8 +10,8 @@ pub enum DownloadManagerError<T> {
 impl<T> Display for DownloadManagerError<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DownloadManagerError::IOError(error) => write!(f, "{}", error),
-            DownloadManagerError::SignalError(send_error) => write!(f, "{}", send_error),
+            DownloadManagerError::IOError(error) => write!(f, "{error}"),
+            DownloadManagerError::SignalError(send_error) => write!(f, "{send_error}"),
         }
     }
 }

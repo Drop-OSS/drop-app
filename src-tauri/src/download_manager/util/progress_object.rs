@@ -10,7 +10,7 @@ use std::{
 use atomic_instant_full::AtomicInstant;
 use throttle_my_fn::throttle;
 
-use crate::download_manager::download_manager::DownloadManagerSignal;
+use crate::download_manager::download_manager_frontend::DownloadManagerSignal;
 
 use super::rolling_progress_updates::RollingProgressWindow;
 
@@ -133,11 +133,7 @@ pub fn calculate_update(progress: &ProgressObject) {
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 
-    let bytes_remaining = if (max < current_bytes_downloaded) {
-        0
-    } else {
-        max - current_bytes_downloaded
-    }; // bytes
+    let bytes_remaining = max.saturating_sub(current_bytes_downloaded); // bytes
 
     progress.update_window(kilobytes_per_second);
     push_update(progress, bytes_remaining);

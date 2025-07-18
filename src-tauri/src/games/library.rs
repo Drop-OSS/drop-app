@@ -11,7 +11,7 @@ use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
-use crate::download_manager::download_manager::DownloadStatus;
+use crate::download_manager::download_manager_frontend::DownloadStatus;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
@@ -85,7 +85,7 @@ pub fn fetch_library_logic(
 
     if response.status() != 200 {
         let err = response.json().unwrap();
-        warn!("{:?}", err);
+        warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
@@ -106,8 +106,8 @@ pub fn fetch_library_logic(
     }
 
     // Add games that are installed but no longer in library
-    for (_, meta) in &db_handle.applications.installed_game_version {
-        if games.iter().find(|e| e.id == meta.id).is_some() {
+    for meta in db_handle.applications.installed_game_version.values() {
+        if games.iter().any(|e| e.id == meta.id) {
             continue;
         }
         // We should always have a cache of the object
@@ -187,7 +187,7 @@ pub fn fetch_game_logic(
     }
     if response.status() != 200 {
         let err = response.json().unwrap();
-        warn!("{:?}", err);
+        warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
@@ -263,7 +263,7 @@ pub fn fetch_game_verion_options_logic(
 
     if response.status() != 200 {
         let err = response.json().unwrap();
-        warn!("{:?}", err);
+        warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
@@ -330,7 +330,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         let app_handle = app_handle.clone();
         spawn(move || match remove_dir_all(install_dir) {
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
             }
             Ok(_) => {
                 let mut db_handle = borrow_db_mut_checked();
@@ -347,7 +347,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 drop(db_handle);
 
                 debug!("uninstalled game id {}", &meta.id);
-                app_handle.emit("update_library", {}).unwrap();
+                app_handle.emit("update_library", ()).unwrap();
 
                 push_game_update(
                     &app_handle,
@@ -510,7 +510,7 @@ pub fn push_game_update(
 ) {
     app_handle
         .emit(
-            &format!("update_game/{}", game_id),
+            &format!("update_game/{game_id}"),
             GameUpdateEvent {
                 game_id: game_id.clone(),
                 status,

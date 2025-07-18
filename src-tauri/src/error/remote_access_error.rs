@@ -18,7 +18,6 @@ pub enum RemoteAccessError {
     HandshakeFailed(String),
     GameNotFound(String),
     InvalidResponse(DropServerError),
-    InvalidRedirect,
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
     Cache(cacache::Error),
@@ -44,20 +43,18 @@ impl Display for RemoteAccessError {
                 )
             },
             RemoteAccessError::ParsingError(parse_error) => {
-                write!(f, "{}", parse_error)
+                write!(f, "{parse_error}")
             }
             RemoteAccessError::InvalidEndpoint => write!(f, "invalid drop endpoint"),
-            RemoteAccessError::HandshakeFailed(message) => write!(f, "failed to complete handshake: {}", message),
-            RemoteAccessError::GameNotFound(id) => write!(f, "could not find game on server: {}", id),
+            RemoteAccessError::HandshakeFailed(message) => write!(f, "failed to complete handshake: {message}"),
+            RemoteAccessError::GameNotFound(id) => write!(f, "could not find game on server: {id}"),
             RemoteAccessError::InvalidResponse(error) => write!(f, "server returned an invalid response: {} {}", error.status_code, error.status_message),
-            RemoteAccessError::InvalidRedirect => write!(f, "server redirect was invalid"),
             RemoteAccessError::ManifestDownloadFailed(status, response) => write!(
                 f,
-                "failed to download game manifest: {} {}",
-                status, response
+                "failed to download game manifest: {status} {response}"
             ),
             RemoteAccessError::OutOfSync => write!(f, "server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other"),
-            RemoteAccessError::Cache(error) => write!(f, "Cache Error: {}", error),
+            RemoteAccessError::Cache(error) => write!(f, "Cache Error: {error}"),
         }
     }
 }

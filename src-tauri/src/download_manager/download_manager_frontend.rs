@@ -38,16 +38,11 @@ pub enum DownloadManagerSignal {
     Finish,
     /// Stops, removes, and tells a download to cleanup
     Cancel(DownloadableMetadata),
-    /// Removes a given application
-    Remove(DownloadableMetadata),
     /// Any error which occurs in the agent
     Error(ApplicationDownloadError),
     /// Pushes UI update
     UpdateUIQueue,
     UpdateUIStats(usize, usize), //kb/s and seconds
-    /// Uninstall download
-    /// Takes download ID
-    Uninstall(DownloadableMetadata),
 }
 
 #[derive(Debug)]
@@ -55,8 +50,7 @@ pub enum DownloadManagerStatus {
     Downloading,
     Paused,
     Empty,
-    Error(ApplicationDownloadError),
-    Finished,
+    Error,
 }
 
 impl Serialize for DownloadManagerStatus {
@@ -64,7 +58,7 @@ impl Serialize for DownloadManagerStatus {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&format!["{:?}", self])
+        serializer.serialize_str(&format!["{self:?}"])
     }
 }
 
@@ -155,8 +149,7 @@ impl DownloadManager {
         }
 
         debug!(
-            "moving download at index {} to index {}",
-            current_index, new_index
+            "moving download at index {current_index} to index {new_index}"
         );
 
         let mut queue = self.edit();
@@ -186,11 +179,6 @@ impl DownloadManager {
             .unwrap();
         let terminator = self.terminator.lock().unwrap().take();
         terminator.unwrap().join()
-    }
-    pub fn uninstall_application(&self, meta: DownloadableMetadata) {
-        self.command_sender
-            .send(DownloadManagerSignal::Uninstall(meta))
-            .unwrap();
     }
     pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {
         self.command_sender.clone()
