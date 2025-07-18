@@ -313,18 +313,9 @@ impl GameDownloadAgent {
                     match download_game_chunk(context, &self.control_flag, progress_handle, request)
                     {
                         Ok(true) => {
-                            debug!(
-                                "Finished context #{} with checksum {}",
-                                index, context.checksum
-                            );
                             completed_indexes.push(context.checksum.clone());
                         }
-                        Ok(false) => {
-                            debug!(
-                                "Didn't finish context #{} with checksum {}",
-                                index, context.checksum
-                            );
-                        }
+                        Ok(false) => {}
                         Err(e) => {
                             error!("{e}");
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
@@ -350,10 +341,7 @@ impl GameDownloadAgent {
             .map(|x| {
                 (
                     x.checksum.clone(),
-                    context_map_lock
-                        .get(&x.checksum)
-                        .cloned()
-                        .unwrap_or(false),
+                    context_map_lock.get(&x.checksum).cloned().unwrap_or(false),
                 )
             })
             .collect::<Vec<(String, bool)>>();
