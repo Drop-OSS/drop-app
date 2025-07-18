@@ -3,6 +3,8 @@ name: Clippy check
 jobs:
   clippy_check:
     runs-on: ubuntu-24.04
+    permissions:
+      checks: write
     steps:
       - uses: actions/checkout@v1
       - name: install dependencies (ubuntu only)
