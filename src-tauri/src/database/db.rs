@@ -1,9 +1,5 @@
 use std::{
-    fs::{self, create_dir_all},
-    mem::ManuallyDrop,
-    ops::{Deref, DerefMut},
-    path::PathBuf,
-    sync::{LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard},
+    fs::{self, create_dir_all}, mem::ManuallyDrop, ops::{Deref, DerefMut}, path::PathBuf, rc::Rc, sync::{Arc, LazyLock, Mutex, RwLockReadGuard, RwLockWriteGuard}
 };
 
 use chrono::Utc;
@@ -17,8 +13,8 @@ use crate::DB;
 
 use super::models::data::Database;
 
-pub static DATA_ROOT_DIR: LazyLock<Mutex<PathBuf>> =
-    LazyLock::new(|| Mutex::new(dirs::data_dir().unwrap().join("drop")));
+pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> =
+    LazyLock::new(|| Arc::new(dirs::data_dir().unwrap().join("drop")));
 
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]
@@ -52,15 +48,14 @@ pub trait DatabaseImpls {
 }
 impl DatabaseImpls for DatabaseInterface {
     fn set_up_database() -> DatabaseInterface {
-        let data_root_dir = DATA_ROOT_DIR.lock().unwrap();
-        let db_path = data_root_dir.join("drop.db");
-        let games_base_dir = data_root_dir.join("games");
-        let logs_root_dir = data_root_dir.join("logs");
-        let cache_dir = data_root_dir.join("cache");
-        let pfx_dir = data_root_dir.join("pfx");
+        let db_path = DATA_ROOT_DIR.join("drop.db");
+        let games_base_dir = DATA_ROOT_DIR.join("games");
+        let logs_root_dir = DATA_ROOT_DIR.join("logs");
+        let cache_dir = DATA_ROOT_DIR.join("cache");
+        let pfx_dir = DATA_ROOT_DIR.join("pfx");
 
-        debug!("creating data directory at {:?}", data_root_dir);
-        create_dir_all(data_root_dir.clone()).unwrap();
+        debug!("creating data directory at {:?}", DATA_ROOT_DIR);
+        create_dir_all(DATA_ROOT_DIR.as_path()).unwrap();
         create_dir_all(&games_base_dir).unwrap();
         create_dir_all(&logs_root_dir).unwrap();
         create_dir_all(&cache_dir).unwrap();
