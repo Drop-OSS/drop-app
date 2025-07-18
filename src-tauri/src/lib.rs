@@ -1,3 +1,5 @@
+#![feature(fn_traits)]
+
 mod database;
 mod games;
 
@@ -49,14 +51,18 @@ use remote::commands::{
 use remote::fetch_object::{fetch_object, fetch_object_offline};
 use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use serde::{Deserialize, Serialize};
-use std::env;
+use std::fs::File;
+use std::io::Write;
+use std::panic::PanicHookInfo;
 use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
+use std::time::SystemTime;
 use std::{
     collections::HashMap,
     sync::{LazyLock, Mutex},
 };
+use std::{env, panic};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
@@ -103,7 +109,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             "{d} | {l} | {f}:{L} - {m}{n}",
         )))
         .append(false)
-        .build(DATA_ROOT_DIR.lock().unwrap().join("./drop.log"))
+        .build(DATA_ROOT_DIR.join("./drop.log"))
         .unwrap();
 
     let console = ConsoleAppender::builder()
@@ -209,8 +215,29 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
+pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
+    let crash_file = DATA_ROOT_DIR.join(format!(
+        "crash-{}.log",
+        SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .ok()?
+            .as_secs()
+    ));
+    let mut file = File::create_new(crash_file).ok()?;
+    file.write_all(format!("Drop crashed with the following panic:\n{}", e).as_bytes()).ok()?;
+    drop(file);
+
+    Some(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    panic::set_hook(Box::new(|e| {
+        let _ = custom_panic_handler(e);
+        let dft = panic::take_hook();
+        dft.call((e,));
+    }));
+
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init());
@@ -302,7 +329,7 @@ pub fn run() {
             .inner_size(1536.0, 864.0)
             .decorations(false)
             .shadow(false)
-            .data_directory(DATA_ROOT_DIR.lock().unwrap().join(".webview"))
+            .data_directory(DATA_ROOT_DIR.join(".webview"))
             .build()
             .unwrap();
 

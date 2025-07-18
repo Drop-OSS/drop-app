@@ -82,7 +82,7 @@ pub fn fetch_system_data() -> SystemData {
     SystemData::new(
         db_handle.auth.as_ref().unwrap().client_id.clone(),
         db_handle.base_url.clone(),
-        DATA_ROOT_DIR.lock().unwrap().to_string_lossy().to_string(),
+        DATA_ROOT_DIR.to_string_lossy().to_string(),
         std::env::var("RUST_LOG").unwrap_or_else(|_| "info".to_string()),
     )
 }
