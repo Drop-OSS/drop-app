@@ -3,6 +3,7 @@ use crate::download_manager::util::download_thread_control_flag::{
 };
 use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
+use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::auth::generate_authorization_header;
@@ -40,11 +41,9 @@ impl DropWriter<File> {
 // Write automatically pushes to file and hasher
 impl Write for DropWriter<File> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.hasher.write_all(buf).map_err(|e| {
-            io::Error::other(
-                format!("Unable to write to hasher: {e}"),
-            )
-        })?;
+        self.hasher
+            .write_all(buf)
+            .map_err(|e| io::Error::other(format!("Unable to write to hasher: {e}")))?;
         self.destination.write(buf)
     }
 
@@ -134,17 +133,11 @@ pub fn download_game_chunk(
     progress: ProgressHandle,
     request: RequestBuilder,
 ) -> Result<bool, ApplicationDownloadError> {
-    debug!(
-        "Starting download chunk {}, {}, {} #{}",
-        ctx.file_name, ctx.index, ctx.offset, ctx.checksum
-    );
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
         progress.set(0);
         return Ok(false);
     }
-    let request = request.header("Authorization", generate_authorization_header());
-
     let response = request
         .header("Authorization", generate_authorization_header())
         .send()
@@ -152,9 +145,14 @@ pub fn download_game_chunk(
 
     if response.status() != 200 {
         debug!("chunk request got status code: {}", response.status());
-        let err = response.json().unwrap();
+        let raw_res = response.text().unwrap();
+        if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
+            return Err(ApplicationDownloadError::Communication(
+                RemoteAccessError::InvalidResponse(err),
+            ));
+        };
         return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidResponse(err),
+            RemoteAccessError::UnparseableResponse(raw_res),
         ));
     }
 
