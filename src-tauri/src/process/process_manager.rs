@@ -39,9 +39,7 @@ pub struct ProcessManager<'a> {
 
 impl ProcessManager<'_> {
     pub fn new(app_handle: AppHandle) -> Self {
-        let root_dir_lock = DATA_ROOT_DIR.lock().unwrap();
-        let log_output_dir = root_dir_lock.join("logs");
-        drop(root_dir_lock);
+        let log_output_dir = DATA_ROOT_DIR.join("logs");
 
         ProcessManager {
             #[cfg(target_os = "windows")]
