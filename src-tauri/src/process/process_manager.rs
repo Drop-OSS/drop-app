@@ -282,7 +282,7 @@ impl ProcessManager<'_> {
         #[cfg(unix)]
         let mut command: Command = Command::new("sh");
         #[cfg(unix)]
-        command.arg("-c").arg(launch_string);
+        command.args(vec!["-c", &launch_string]);
 
         command
             .stderr(error_file)

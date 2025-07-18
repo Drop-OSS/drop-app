@@ -59,6 +59,7 @@
 import {
   ArrowDownTrayIcon,
   ChevronDownIcon,
+  PauseIcon,
   PlayIcon,
   QueueListIcon,
   WrenchIcon,
@@ -128,7 +129,7 @@ const buttonIcons: { [key in GameStatusEnum]: Component } = {
   [GameStatusEnum.Installed]: PlayIcon,
   [GameStatusEnum.Updating]: ArrowDownTrayIcon,
   [GameStatusEnum.Uninstalling]: TrashIcon,
-  [GameStatusEnum.Running]: PlayIcon,
+  [GameStatusEnum.Running]: PauseIcon,
   [GameStatusEnum.PartiallyInstalled]: ArrowDownTrayIcon
 };
 
