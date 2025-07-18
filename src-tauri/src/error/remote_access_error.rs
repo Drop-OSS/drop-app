@@ -50,7 +50,7 @@ impl Display for RemoteAccessError {
             RemoteAccessError::HandshakeFailed(message) => write!(f, "failed to complete handshake: {message}"),
             RemoteAccessError::GameNotFound(id) => write!(f, "could not find game on server: {id}"),
             RemoteAccessError::InvalidResponse(error) => write!(f, "server returned an invalid response: {}, {}", error.status_code, error.status_message),
-            RemoteAccessError::UnparseableResponse(error) => write!(f, "server returned an invalid response: {}", error),
+            RemoteAccessError::UnparseableResponse(error) => write!(f, "server returned an invalid response: {error}"),
             RemoteAccessError::ManifestDownloadFailed(status, response) => write!(
                 f,
                 "failed to download game manifest: {status} {response}"

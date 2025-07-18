@@ -1,4 +1,3 @@
-use crate::client;
 use crate::download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
@@ -8,7 +7,7 @@ use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::auth::generate_authorization_header;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
@@ -147,7 +146,7 @@ pub fn download_game_chunk(
     if response.status() != 200 {
         debug!("chunk request got status code: {}", response.status());
         let raw_res = response.text().unwrap();
-        if let Some(err) = serde_json::from_str::<DropServerError>(&raw_res).ok() {
+        if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
             ));
