@@ -184,7 +184,7 @@ impl DownloadManagerBuilder {
         debug!("got signal Queue");
         let meta = download_agent.metadata();
 
-        debug!("queue metadata: {:?}", meta);
+        debug!("queue metadata: {meta:?}");
 
         if self.download_queue.exists(meta.clone()) {
             warn!("download with same ID already exists");
@@ -210,8 +210,8 @@ impl DownloadManagerBuilder {
             return;
         }
 
-        if self.current_download_agent.is_some() {
-            if self.download_queue.read().front().unwrap()
+        if self.current_download_agent.is_some()
+            && self.download_queue.read().front().unwrap()
                 == &self.current_download_agent.as_ref().unwrap().metadata()
             {
                 debug!(
@@ -220,14 +220,13 @@ impl DownloadManagerBuilder {
                 );
                 return;
             }
-        }
 
         debug!("current download queue: {:?}", self.download_queue.read());
 
         // Should always be Some if the above two statements keep going
         let agent_data = self.download_queue.read().front().unwrap().clone();
 
-        info!("starting download for {:?}", agent_data);
+        info!("starting download for {agent_data:?}");
 
         let download_agent = self
             .download_agent_registry

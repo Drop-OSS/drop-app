@@ -19,7 +19,7 @@ pub fn use_remote_logic(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
-    debug!("connecting to url {}", url);
+    debug!("connecting to url {url}");
     let base_url = Url::parse(&url)?;
 
     // Test Drop url

@@ -94,7 +94,7 @@ impl ProcessManager<'_> {
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
         if !self.processes.contains_key(&game_id) {
-            warn!("process on_finish was called, but game_id is no longer valid. finished with result: {:?}", result);
+            warn!("process on_finish was called, but game_id is no longer valid. finished with result: {result:?}");
             return;
         }
 
@@ -144,7 +144,7 @@ impl ProcessManager<'_> {
         let current = &self.current_platform;
         Ok(self
             .game_launchers
-            .contains_key(&(current.clone(), platform.clone())))
+            .contains_key(&(*current, *platform)))
     }
 
     pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
@@ -235,8 +235,8 @@ impl ProcessManager<'_> {
             )))
             .map_err(ProcessError::IOError)?;
 
-        let current_platform = self.current_platform.clone();
-        let target_platform = game_version.platform.clone();
+        let current_platform = self.current_platform;
+        let target_platform = game_version.platform;
 
         let game_launcher = self
             .game_launchers
@@ -259,7 +259,7 @@ impl ProcessManager<'_> {
             GameDownloadStatus::Remote {} => unreachable!("Game registered as 'Remote'"),
         };
 
-        let launch = PathBuf::from_str(&install_dir).unwrap().join(launch);
+        let launch = PathBuf::from_str(install_dir).unwrap().join(launch);
         let launch = launch.to_str().unwrap();
 
         let launch_string = game_launcher.create_launch_process(
@@ -283,7 +283,7 @@ impl ProcessManager<'_> {
         #[cfg(target_os = "windows")]
         command.raw_arg(format!("/C \"{}\"", &launch_string));
 
-        info!("launching (in {}): {}", install_dir, launch_string,);
+        info!("launching (in {install_dir}): {launch_string}",);
 
         #[cfg(unix)]
         let mut command: Command = Command::new("sh");

@@ -11,7 +11,7 @@ use serde_binary::binary_stream::Endian;
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        if crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == crate::AppStatus::Offline {
+        if $crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == $crate::AppStatus::Offline {
             $func2( $( $arg ), *)
         } else {
             $func1( $( $arg ), *)
@@ -25,7 +25,7 @@ pub fn cache_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
 ) -> Result<Integrity, RemoteAccessError> {
     let bytes = serde_binary::to_vec(data, Endian::Little).unwrap();
     cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
-        .map_err(|e| RemoteAccessError::Cache(e))
+        .map_err(RemoteAccessError::Cache)
 }
 pub fn get_cached_object<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
@@ -36,7 +36,7 @@ pub fn get_cached_object_db<'a, K: AsRef<str>, D: Serialize + DeserializeOwned>(
     key: K,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let bytes = cacache::read_sync(&db.cache_dir, key).map_err(|e| RemoteAccessError::Cache(e))?;
+    let bytes = cacache::read_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
     let data = serde_binary::from_slice::<D>(&bytes, Endian::Little).unwrap();
     Ok(data)
 }

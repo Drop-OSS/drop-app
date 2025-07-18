@@ -41,7 +41,7 @@ pub fn game_validate_logic(
         .build()
         .unwrap();
 
-    debug!("{:#?}", contexts);
+    debug!("{contexts:#?}");
     let invalid_chunks = Arc::new(boxcar::Vec::new());
     pool.scope(|scope| {
         let client = &reqwest::blocking::Client::new();
@@ -91,7 +91,7 @@ pub fn game_validate_logic(
                         invalid_chunks_scoped.push(context.checksum.clone());
                     }
                     Err(e) => {
-                        error!("{}", e);
+                        error!("{e}");
                         sender.send(DownloadManagerSignal::Error(e)).unwrap();
                     }
                 }

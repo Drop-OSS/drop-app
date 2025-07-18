@@ -267,7 +267,7 @@ impl GameDownloadAgent {
         let completed_indexes_loop_arc = completed_contexts.clone();
 
         let contexts = self.contexts.lock().unwrap();
-        debug!("{:#?}", contexts);
+        debug!("{contexts:#?}");
         pool.scope(|scope| {
             let client = &reqwest::blocking::Client::new();
             let context_map = self.context_map.lock().unwrap();
@@ -325,7 +325,7 @@ impl GameDownloadAgent {
                             );
                         }
                         Err(e) => {
-                            error!("{}", e);
+                            error!("{e}");
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
@@ -352,8 +352,7 @@ impl GameDownloadAgent {
                     context_map_lock
                         .get(&x.checksum)
                         .cloned()
-                        .or(Some(false))
-                        .unwrap(),
+                        .unwrap_or(false),
                 )
             })
             .collect::<Vec<(String, bool)>>();
@@ -409,7 +408,7 @@ impl Downloadable for GameDownloadAgent {
             .emit("download_error", error.to_string())
             .unwrap();
 
-        error!("error while managing download: {}", error);
+        error!("error while managing download: {error}");
 
         let mut handle = borrow_db_mut_checked();
         handle

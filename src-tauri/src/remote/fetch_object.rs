@@ -25,7 +25,7 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
         match data {
             Ok(data) => responder.respond(data.into()),
             Err(e) => {
-                warn!("{}", e)
+                warn!("{e}")
             }
         }
         return;
@@ -48,6 +48,6 @@ pub fn fetch_object_offline(request: http::Request<Vec<u8>>, responder: UriSchem
 
     match data {
         Ok(data) => responder.respond(data.into()),
-        Err(e) => warn!("{}", e),
+        Err(e) => warn!("{e}"),
     }
 }

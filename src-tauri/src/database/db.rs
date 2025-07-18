@@ -59,7 +59,7 @@ impl DatabaseImpls for DatabaseInterface {
         let cache_dir = data_root_dir.join("cache");
         let pfx_dir = data_root_dir.join("pfx");
 
-        debug!("creating data directory at {:?}", data_root_dir);
+        debug!("creating data directory at {data_root_dir:?}");
         create_dir_all(data_root_dir.clone()).unwrap();
         create_dir_all(&games_base_dir).unwrap();
         create_dir_all(&logs_root_dir).unwrap();
@@ -102,16 +102,16 @@ fn handle_invalid_database(
     games_base_dir: PathBuf,
     cache_dir: PathBuf,
 ) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
-    warn!("{}", _e);
+    warn!("{_e}");
     let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone();
-        base.set_file_name(format!("drop.db.backup-{}", time));
+        base.set_file_name(format!("drop.db.backup-{time}"));
         base
     };
     info!(
         "old database stored at: {}",
-        new_path.to_string_lossy().to_string()
+        new_path.to_string_lossy()
     );
     fs::rename(&db_path, &new_path).unwrap();
 
@@ -155,8 +155,8 @@ impl<'a> Drop for DBWrite<'a> {
         match DB.save() {
             Ok(_) => {}
             Err(e) => {
-                error!("database failed to save with error {}", e);
-                panic!("database failed to save with error {}", e)
+                error!("database failed to save with error {e}");
+                panic!("database failed to save with error {e}")
             }
         }
     }
@@ -165,8 +165,8 @@ pub fn borrow_db_checked<'a>() -> DBRead<'a> {
     match DB.borrow_data() {
         Ok(data) => DBRead(data),
         Err(e) => {
-            error!("database borrow failed with error {}", e);
-            panic!("database borrow failed with error {}", e);
+            error!("database borrow failed with error {e}");
+            panic!("database borrow failed with error {e}");
         }
     }
 }
@@ -175,8 +175,8 @@ pub fn borrow_db_mut_checked<'a>() -> DBWrite<'a> {
     match DB.borrow_data_mut() {
         Ok(data) => DBWrite(ManuallyDrop::new(data)),
         Err(e) => {
-            error!("database borrow mut failed with error {}", e);
-            panic!("database borrow mut failed with error {}", e);
+            error!("database borrow mut failed with error {e}");
+            panic!("database borrow mut failed with error {e}");
         }
     }
 }

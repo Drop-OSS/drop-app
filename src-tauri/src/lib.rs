@@ -178,7 +178,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         }
     }
 
-    info!("detected games missing: {:?}", missing_games);
+    info!("detected games missing: {missing_games:?}");
 
     let mut db_handle = borrow_db_mut_checked();
     for game_id in missing_games {
@@ -195,7 +195,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     // Sync autostart state
     if let Err(e) = sync_autostart_on_startup(&handle) {
-        warn!("failed to sync autostart state: {}", e);
+        warn!("failed to sync autostart state: {e}");
     }
 
     AppState {
@@ -354,11 +354,7 @@ pub fn run() {
                 if let Some(original) = db_handle.prev_database.take() {
                     warn!(
                         "Database corrupted. Original file at {}",
-                        original
-                            .canonicalize()
-                            .unwrap()
-                            .to_string_lossy()
-                            .to_string()
+                        original.canonicalize().unwrap().to_string_lossy()
                     );
                     app.dialog()
                         .message(
@@ -414,7 +410,7 @@ pub fn run() {
     });
 }
 
-fn run_on_tray<T: FnOnce() -> ()>(f: T) {
+fn run_on_tray<T: FnOnce()>(f: T) {
     if match std::env::var("NO_TRAY_ICON") {
         Ok(s) => s.to_lowercase() != "true",
         Err(_) => true,

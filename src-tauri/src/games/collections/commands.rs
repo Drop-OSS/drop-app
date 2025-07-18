@@ -41,7 +41,7 @@ pub fn create_collection(name: String) -> Result<Collection, RemoteAccessError> 
     let client = Client::new();
     let base_url = DB.fetch_base_url();
 
-    let base_url = Url::parse(&format!("{}api/v1/client/collection/", base_url))?;
+    let base_url = Url::parse(&format!("{base_url}api/v1/client/collection/"))?;
 
     let response = client
         .post(base_url)

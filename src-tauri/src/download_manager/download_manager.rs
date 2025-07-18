@@ -64,7 +64,7 @@ impl Serialize for DownloadManagerStatus {
     where
         S: serde::Serializer,
     {
-        serializer.serialize_str(&format!["{:?}", self])
+        serializer.serialize_str(&format!["{self:?}"])
     }
 }
 
@@ -155,8 +155,7 @@ impl DownloadManager {
         }
 
         debug!(
-            "moving download at index {} to index {}",
-            current_index, new_index
+            "moving download at index {current_index} to index {new_index}"
         );
 
         let mut queue = self.edit();

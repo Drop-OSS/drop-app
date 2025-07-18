@@ -72,7 +72,7 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
     .send()?;
     if response.status() != 200 {
         let err: DropServerError = response.json()?;
-        warn!("{:?}", err);
+        warn!("{err:?}");
 
         if err.status_message == "Nonce expired" {
             return Err(RemoteAccessError::OutOfSync);
@@ -148,7 +148,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
 
     let handshake_result = recieve_handshake_logic(&app, path);
     if let Err(e) = handshake_result {
-        warn!("error with authentication: {}", e);
+        warn!("error with authentication: {e}");
         app.emit("auth/failed", e.to_string()).unwrap();
         return;
     }
@@ -212,7 +212,7 @@ pub fn setup() -> (AppStatus, Option<User>) {
         let user_result = match fetch_user() {
             Ok(data) => data,
             Err(RemoteAccessError::FetchError(_)) => {
-                let user = get_cached_object::<String, User>("user".to_owned()).unwrap();
+                let user = get_cached_object::<_, User>("user").unwrap();
                 return (AppStatus::Offline, Some(user));
             }
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),

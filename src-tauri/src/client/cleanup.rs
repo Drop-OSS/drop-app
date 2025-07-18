@@ -16,7 +16,7 @@ pub fn cleanup_and_exit(app: &AppHandle, state: &tauri::State<'_, std::sync::Mut
             Ok(_) => debug!("download manager terminated correctly"),
             Err(_) => error!("download manager failed to terminate correctly"),
         },
-        Err(e) => panic!("{:?}", e),
+        Err(e) => panic!("{e:?}"),
     }
 
     app.exit(0);

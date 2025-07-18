@@ -43,7 +43,7 @@ impl DropData {
         let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
             Err(_) => {
-                debug!("Generating new dropdata for game {}", game_id);
+                debug!("Generating new dropdata for game {game_id}");
                 return DropData::new(game_id, game_version, base_path);
             }
         };
@@ -52,7 +52,7 @@ impl DropData {
         match file.read_to_end(&mut s) {
             Ok(_) => {}
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 return DropData::new(game_id, game_version, base_path);
             }
         };
@@ -60,7 +60,7 @@ impl DropData {
         match native_model::rmp_serde_1_3::RmpSerde::decode(s) {
             Ok(manifest) => manifest,
             Err(e) => {
-                warn!("{}", e);
+                warn!("{e}");
                 DropData::new(game_id, game_version, base_path)
             }
         }
@@ -74,14 +74,14 @@ impl DropData {
         let mut file = match File::create(self.base_path.join(DROP_DATA_PATH)) {
             Ok(file) => file,
             Err(e) => {
-                error!("{}", e);
+                error!("{e}");
                 return;
             }
         };
 
         match file.write_all(&manifest_raw) {
             Ok(_) => {}
-            Err(e) => error!("{}", e),
+            Err(e) => error!("{e}"),
         };
     }
     pub fn set_contexts(&self, completed_contexts: &[(String, bool)]) {

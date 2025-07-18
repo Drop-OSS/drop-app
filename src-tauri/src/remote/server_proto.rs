@@ -26,17 +26,16 @@ pub fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeRespon
 
     let mut new_uri = request.uri().clone().into_parts();
     new_uri.path_and_query =
-        Some(PathAndQuery::from_str(&format!("{}?noWrapper=true", path)).unwrap());
+        Some(PathAndQuery::from_str(&format!("{path}?noWrapper=true")).unwrap());
     new_uri.authority = remote_uri.authority().cloned();
     new_uri.scheme = remote_uri.scheme().cloned();
     let new_uri = Uri::from_parts(new_uri).unwrap();
 
-    let whitelist_prefix = vec!["/store", "/api", "/_", "/fonts"];
+    let whitelist_prefix = ["/store", "/api", "/_", "/fonts"];
 
     if whitelist_prefix
         .iter()
-        .map(|f| !path.starts_with(f))
-        .all(|f| f)
+        .all(|f| !path.starts_with(f))
     {
         webbrowser::open(&new_uri.to_string()).unwrap();
         return;
@@ -45,7 +44,7 @@ pub fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeRespon
     let client = Client::new();
     let response = client
         .request(request.method().clone(), new_uri.to_string())
-        .header("Authorization", format!("Bearer {}", web_token))
+        .header("Authorization", format!("Bearer {web_token}"))
         .headers(request.headers().clone())
         .send()
         .unwrap();

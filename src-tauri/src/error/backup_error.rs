@@ -16,6 +16,6 @@ impl Display for BackupError {
             BackupError::NotFound => "Could not generate or find path",
             BackupError::ParseError => "Failed to parse path",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }

@@ -6,12 +6,12 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::auth::generate_authorization_header;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
 
 use std::fs::{set_permissions, Permissions};
-use std::io::{ErrorKind, Read};
+use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
@@ -41,9 +41,8 @@ impl DropWriter<File> {
 impl Write for DropWriter<File> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
         self.hasher.write_all(buf).map_err(|e| {
-            io::Error::new(
-                ErrorKind::Other,
-                format!("Unable to write to hasher: {}", e),
+            io::Error::other(
+                format!("Unable to write to hasher: {e}"),
             )
         })?;
         self.destination.write(buf)
@@ -102,7 +101,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
 
             if current_size > self.size {
                 let over = current_size - self.size;
-                warn!("server sent too many bytes... {} over", over);
+                warn!("server sent too many bytes... {over} over");
                 bytes_read -= over;
                 current_size = self.size;
             }
