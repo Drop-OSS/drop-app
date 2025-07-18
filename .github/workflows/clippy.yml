@@ -20,4 +20,4 @@ jobs:
       - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all --manifest-path ./src-tauri/Cargo.toml -- -D warnings
+          args: --manifest-path ./src-tauri/Cargo.toml

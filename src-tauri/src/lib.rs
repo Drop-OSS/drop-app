@@ -1,4 +1,5 @@
 #![feature(fn_traits)]
+#![deny(clippy::all)]
 
 mod database;
 mod games;
