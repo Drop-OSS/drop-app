@@ -1,12 +1,13 @@
 use std::{
     collections::HashMap,
-    fs::OpenOptions,
+    fs::{create_dir_all, OpenOptions},
     io::{self},
     path::PathBuf,
     process::{Command, ExitStatus},
     str::FromStr,
     sync::{Arc, Mutex},
     thread::spawn,
+    time::{Duration, SystemTime},
 };
 
 use dynfmt::Format;
@@ -14,7 +15,8 @@ use dynfmt::SimpleCurlyFormat;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::{
     database::{
@@ -29,10 +31,15 @@ use crate::{
     AppState, DB,
 };
 
+pub struct RunningProcess {
+    handle: Arc<SharedChild>,
+    start: SystemTime,
+}
+
 pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
-    processes: HashMap<String, Arc<SharedChild>>,
+    processes: HashMap<String, RunningProcess>,
     app_handle: AppHandle,
     game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
@@ -78,9 +85,9 @@ impl ProcessManager<'_> {
 
     pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
         match self.processes.get(&game_id) {
-            Some(child) => {
-                child.kill()?;
-                child.wait()?;
+            Some(process) => {
+                process.handle.kill()?;
+                process.handle.wait()?;
                 Ok(())
             }
             None => Err(io::Error::new(
@@ -88,6 +95,15 @@ impl ProcessManager<'_> {
                 "Game ID not running",
             )),
         }
+    }
+
+    pub fn open_process_logs(&mut self, game_id: String) -> Result<(), ProcessError> {
+        let dir = self.log_output_dir.join(game_id);
+        self.app_handle
+            .opener()
+            .open_path(dir.to_str().unwrap(), None::<&str>)
+            .map_err(|e| ProcessError::OpenerError(e))?;
+        Ok(())
     }
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
@@ -98,7 +114,7 @@ impl ProcessManager<'_> {
 
         debug!("process for {:?} exited with {:?}", &game_id, result);
 
-        self.processes.remove(&game_id);
+        let process = self.processes.remove(&game_id).unwrap();
 
         let mut db_handle = borrow_db_mut_checked();
         let meta = db_handle
@@ -129,11 +145,17 @@ impl ProcessManager<'_> {
         }
         drop(db_handle);
 
+        let elapsed = process.start.elapsed().unwrap_or(Duration::ZERO);
+        // If we started and ended really quickly, something might've gone wrong
+        // Or if the status isn't 0
+        // Or if it's an error
+        if elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success() {
+            warn!("drop detected that the game {game_id} may have failed to launch properly");
+            let _ = self.app_handle.emit("launch_external_error", &game_id);
+        }
+
         let status = GameStatusManager::fetch_state(&game_id);
-
         push_game_update(&self.app_handle, &game_id, None, status);
-
-        // TODO better management
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
@@ -202,18 +224,17 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
+        // TODO: refactor this path with open_process_logs
+        let game_log_folder = &self.log_output_dir.join(game_id);
+        create_dir_all(game_log_folder).map_err(|e| ProcessError::IOError(e))?;
+
         let current_time = chrono::offset::Local::now();
         let log_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .read(true)
             .create(true)
-            .open(self.log_output_dir.join(format!(
-                "{}-{}-{}.log",
-                &game_id,
-                &version,
-                current_time.timestamp()
-            )))
+            .open(game_log_folder.join(format!("{}-{}.log", &version, current_time.timestamp())))
             .map_err(ProcessError::IOError)?;
 
         let error_file = OpenOptions::new()
@@ -221,9 +242,8 @@ impl ProcessManager<'_> {
             .truncate(true)
             .read(true)
             .create(true)
-            .open(self.log_output_dir.join(format!(
-                "{}-{}-{}-error.log",
-                &game_id,
+            .open(game_log_folder.join(format!(
+                "{}-{}-error.log",
                 &version,
                 current_time.timestamp()
             )))
@@ -325,7 +345,13 @@ impl ProcessManager<'_> {
             drop(app_state_handle);
         });
 
-        self.processes.insert(meta.id, wait_thread_handle);
+        self.processes.insert(
+            meta.id,
+            RunningProcess {
+                handle: wait_thread_handle,
+                start: SystemTime::now(),
+            },
+        );
         Ok(())
     }
 }

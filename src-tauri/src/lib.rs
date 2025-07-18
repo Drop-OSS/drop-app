@@ -10,6 +10,7 @@ mod error;
 mod process;
 mod remote;
 
+use crate::process::commands::open_process_logs;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use client::commands::fetch_state;
 use client::{
@@ -25,8 +26,8 @@ use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
-use download_manager::download_manager_frontend::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
+use download_manager::download_manager_frontend::DownloadManager;
 use games::collections::commands::{
     add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
     fetch_collection, fetch_collections,
@@ -225,7 +226,8 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
             .as_secs()
     ));
     let mut file = File::create_new(crash_file).ok()?;
-    file.write_all(format!("Drop crashed with the following panic:\n{e}").as_bytes()).ok()?;
+    file.write_all(format!("Drop crashed with the following panic:\n{e}").as_bytes())
+        .ok()?;
     drop(file);
 
     Some(())
@@ -240,6 +242,7 @@ pub fn run() {
     }));
 
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init());
 
@@ -299,6 +302,7 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
+            open_process_logs
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

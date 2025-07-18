@@ -33,10 +33,7 @@ pub fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeRespon
 
     let whitelist_prefix = ["/store", "/api", "/_", "/fonts"];
 
-    if whitelist_prefix
-        .iter()
-        .all(|f| !path.starts_with(f))
-    {
+    if whitelist_prefix.iter().all(|f| !path.starts_with(f)) {
         webbrowser::open(&new_uri.to_string()).unwrap();
         return;
     }

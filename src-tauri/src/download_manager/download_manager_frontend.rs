@@ -148,9 +148,7 @@ impl DownloadManager {
                 .unwrap();
         }
 
-        debug!(
-            "moving download at index {current_index} to index {new_index}"
-        );
+        debug!("moving download at index {current_index} to index {new_index}");
 
         let mut queue = self.edit();
         let to_move = queue.remove(current_index).unwrap();

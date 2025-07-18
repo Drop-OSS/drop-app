@@ -5,7 +5,9 @@ use std::{
 
 use crate::{
     database::{db::borrow_db_checked, models::data::GameDownloadStatus},
-    download_manager::{download_manager_frontend::DownloadManagerSignal, downloadable::Downloadable},
+    download_manager::{
+        download_manager_frontend::DownloadManagerSignal, downloadable::Downloadable,
+    },
     error::download_manager_error::DownloadManagerError,
     AppState,
 };
