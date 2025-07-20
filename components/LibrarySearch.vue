@@ -20,7 +20,7 @@
         />
       </div>
       <button
-        @click="() => calculateGames()"
+        @click="() => calculateGames(true)"
         class="p-1 flex items-center justify-center transition-transform duration-300 size-10 hover:scale-110 active:scale-90 rounded-lg bg-zinc-800/50 text-zinc-100"
       >
         <ArrowPathIcon class="size-4" />
@@ -112,8 +112,8 @@ const icons: { [key: string]: string } = {};
 
 const rawGames: Ref<Game[], Game[]> = ref([]);
 
-async function calculateGames() {
-  rawGames.value = [];
+async function calculateGames(clearAll = false) {
+  if (clearAll) rawGames.value = [];
   // If we update immediately, the navigation gets re-rendered before we
   // add all the necessary state, and it freaks tf out
   const newGames = await invoke<typeof rawGames.value>("fetch_library");

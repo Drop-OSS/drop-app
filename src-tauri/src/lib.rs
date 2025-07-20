@@ -1,4 +1,6 @@
 #![feature(fn_traits)]
+#![feature(duration_constructors)]
+#![feature(let_chains)]
 #![deny(clippy::all)]
 
 mod database;
@@ -237,8 +239,7 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 pub fn run() {
     panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
-        let dft = panic::take_hook();
-        dft.call((e,));
+        println!("{}", e);
     }));
 
     let mut builder = tauri::Builder::default()
