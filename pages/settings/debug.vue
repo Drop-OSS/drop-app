@@ -106,8 +106,6 @@ const systemData = await invoke<{
   dataDir: string;
 }>("fetch_system_data");
 
-console.log(systemData);
-
 clientId.value = systemData.clientId;
 baseUrl.value = systemData.baseUrl;
 dataDir.value = systemData.dataDir;
