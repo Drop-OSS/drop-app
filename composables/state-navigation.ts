@@ -18,7 +18,7 @@ export function setupHooks() {
   });
 
   listen("auth/finished", async (event) => {
-    router.push("/store");
+    router.push("/library");
     state.value = JSON.parse(await invoke("fetch_state"));
   });
 
@@ -82,6 +82,6 @@ export function initialNavigation(state: Ref<AppState>) {
       router.push("/error/serverunavailable");
       break;
     default:
-      router.push("/store");
+      router.push("/library");
   }
 }
