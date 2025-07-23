@@ -34,6 +34,7 @@ use crate::{
 pub struct RunningProcess {
     handle: Arc<SharedChild>,
     start: SystemTime,
+    manually_killed: bool
 }
 
 pub struct ProcessManager<'a> {
@@ -84,8 +85,9 @@ impl ProcessManager<'_> {
     }
 
     pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
-        match self.processes.get(&game_id) {
+        match self.processes.get_mut(&game_id) {
             Some(process) => {
+                process.manually_killed = true;
                 process.handle.kill()?;
                 process.handle.wait()?;
                 Ok(())
@@ -149,7 +151,7 @@ impl ProcessManager<'_> {
         // If we started and ended really quickly, something might've gone wrong
         // Or if the status isn't 0
         // Or if it's an error
-        if elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success() {
+        if !process.manually_killed && (elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success()) {
             warn!("drop detected that the game {game_id} may have failed to launch properly");
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
@@ -350,6 +352,7 @@ impl ProcessManager<'_> {
             RunningProcess {
                 handle: wait_thread_handle,
                 start: SystemTime::now(),
+                manually_killed: false
             },
         );
         Ok(())
