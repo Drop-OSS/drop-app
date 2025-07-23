@@ -1,6 +1,5 @@
 #![feature(fn_traits)]
 #![feature(duration_constructors)]
-#![feature(let_chains)]
 #![deny(clippy::all)]
 
 mod database;
