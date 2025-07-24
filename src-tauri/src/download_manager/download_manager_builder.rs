@@ -1,10 +1,10 @@
 use std::{
     collections::HashMap,
     sync::{
-        mpsc::{channel, Receiver, Sender},
         Arc, Mutex,
+        mpsc::{Receiver, Sender, channel},
     },
-    thread::{spawn, JoinHandle},
+    thread::{JoinHandle, spawn},
 };
 
 use log::{debug, error, info, warn};
@@ -295,11 +295,12 @@ impl DownloadManagerBuilder {
     }
     fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
         debug!("got signal Completed");
-        if let Some(interface) = &self.current_download_agent {
-            if interface.metadata() == meta {
-                self.remove_and_cleanup_front_download(&meta);
-            }
+        if let Some(interface) = &self.current_download_agent
+            && interface.metadata() == meta
+        {
+            self.remove_and_cleanup_front_download(&meta);
         }
+
         self.push_ui_queue_update();
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }

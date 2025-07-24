@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    fs::{create_dir_all, OpenOptions},
+    fs::{OpenOptions, create_dir_all},
     io::{self},
     path::PathBuf,
     process::{Command, ExitStatus},
@@ -19,8 +19,9 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{
+    AppState, DB,
     database::{
-        db::{borrow_db_mut_checked, DATA_ROOT_DIR},
+        db::{DATA_ROOT_DIR, borrow_db_mut_checked},
         models::data::{
             ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
             GameVersion,
@@ -28,13 +29,12 @@ use crate::{
     },
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
-    AppState, DB,
 };
 
 pub struct RunningProcess {
     handle: Arc<SharedChild>,
     start: SystemTime,
-    manually_killed: bool
+    manually_killed: bool,
 }
 
 pub struct ProcessManager<'a> {
@@ -110,7 +110,9 @@ impl ProcessManager<'_> {
 
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
         if !self.processes.contains_key(&game_id) {
-            warn!("process on_finish was called, but game_id is no longer valid. finished with result: {result:?}");
+            warn!(
+                "process on_finish was called, but game_id is no longer valid. finished with result: {result:?}"
+            );
             return;
         }
 
@@ -132,18 +134,16 @@ impl ProcessManager<'_> {
             version_name,
             install_dir,
         }) = current_state
+            && let Ok(exit_code) = result
+            && exit_code.success()
         {
-            if let Ok(exit_code) = result {
-                if exit_code.success() {
-                    db_handle.applications.game_statuses.insert(
-                        game_id.clone(),
-                        GameDownloadStatus::Installed {
-                            version_name: version_name.to_string(),
-                            install_dir: install_dir.to_string(),
-                        },
-                    );
-                }
-            }
+            db_handle.applications.game_statuses.insert(
+                game_id.clone(),
+                GameDownloadStatus::Installed {
+                    version_name: version_name.to_string(),
+                    install_dir: install_dir.to_string(),
+                },
+            );
         }
         drop(db_handle);
 
@@ -151,7 +151,9 @@ impl ProcessManager<'_> {
         // If we started and ended really quickly, something might've gone wrong
         // Or if the status isn't 0
         // Or if it's an error
-        if !process.manually_killed && (elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success()) {
+        if !process.manually_killed
+            && (elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success())
+        {
             warn!("drop detected that the game {game_id} may have failed to launch properly");
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
@@ -180,7 +182,7 @@ impl ProcessManager<'_> {
         {
             Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
             Some(GameDownloadStatus::SetupRequired { .. }) => {
-                return Err(ProcessError::SetupRequired)
+                return Err(ProcessError::SetupRequired);
             }
             _ => return Err(ProcessError::NotInstalled),
         };
@@ -352,7 +354,7 @@ impl ProcessManager<'_> {
             RunningProcess {
                 handle: wait_thread_handle,
                 start: SystemTime::now(),
-                manually_killed: false
+                manually_killed: false,
             },
         );
         Ok(())
