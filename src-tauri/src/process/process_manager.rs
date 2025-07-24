@@ -104,7 +104,7 @@ impl ProcessManager<'_> {
         self.app_handle
             .opener()
             .open_path(dir.to_str().unwrap(), None::<&str>)
-            .map_err(|e| ProcessError::OpenerError(e))?;
+            .map_err(ProcessError::OpenerError)?;
         Ok(())
     }
 
@@ -228,7 +228,7 @@ impl ProcessManager<'_> {
 
         // TODO: refactor this path with open_process_logs
         let game_log_folder = &self.log_output_dir.join(game_id);
-        create_dir_all(game_log_folder).map_err(|e| ProcessError::IOError(e))?;
+        create_dir_all(game_log_folder).map_err(ProcessError::IOError)?;
 
         let current_time = chrono::offset::Local::now();
         let log_file = OpenOptions::new()

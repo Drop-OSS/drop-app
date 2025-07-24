@@ -10,7 +10,6 @@ use crate::{
 use bitcode::{Decode, DecodeOwned, Encode};
 use cacache::Integrity;
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
-use log::info;
 
 #[macro_export]
 macro_rules! offline {
@@ -45,7 +44,7 @@ pub fn get_cached_object_db<K: AsRef<str> + Display, D: DecodeOwned>(
     let data = bitcode::decode::<D>(&bytes).map_err(|_| {
         RemoteAccessError::Cache(cacache::Error::EntryNotFound(
             db.cache_dir.clone(),
-            (&key).to_string(),
+            key.to_string(),
         ))
     })?;
     Ok(data)
