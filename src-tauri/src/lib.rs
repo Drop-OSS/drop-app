@@ -71,6 +71,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use bitcode::{Encode, Decode};
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
@@ -83,7 +84,7 @@ pub enum AppStatus {
     ServerUnavailable,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     id: String,

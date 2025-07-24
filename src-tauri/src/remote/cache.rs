@@ -7,11 +7,10 @@ use crate::{
     database::{db::borrow_db_checked, models::data::Database},
     error::remote_access_error::RemoteAccessError,
 };
+use bitcode::{Decode, DecodeOwned, Encode};
 use cacache::Integrity;
-use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Response};
+use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::info;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_binary::binary_stream::Endian;
 
 #[macro_export]
 macro_rules! offline {
@@ -25,45 +24,57 @@ macro_rules! offline {
     }
 }
 
-pub fn cache_object<K: AsRef<str>, D: Serialize + DeserializeOwned>(
+pub fn cache_object<K: AsRef<str>, D: Encode>(
     key: K,
     data: &D,
 ) -> Result<Integrity, RemoteAccessError> {
-    let bytes = serde_binary::to_vec(data, Endian::Little).unwrap();
+    let bytes = bitcode::encode(data);
     cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
         .map_err(RemoteAccessError::Cache)
 }
-pub fn get_cached_object<K: AsRef<str> + Display, D: Serialize + DeserializeOwned>(
+pub fn get_cached_object<K: AsRef<str> + Display, D: Encode + DecodeOwned>(
     key: K,
 ) -> Result<D, RemoteAccessError> {
     get_cached_object_db::<K, D>(key, &borrow_db_checked())
 }
-pub fn get_cached_object_db<K: AsRef<str> + Display, D: Serialize + DeserializeOwned>(
+pub fn get_cached_object_db<K: AsRef<str> + Display, D: DecodeOwned>(
     key: K,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
     let now = SystemTime::now();
     let bytes = cacache::read_sync(&db.cache_dir, &key).map_err(RemoteAccessError::Cache)?;
-    let data = serde_binary::from_slice::<D>(&bytes, Endian::Little).map_err(|_| {
+    let read = now.elapsed().unwrap();
+
+    let data = bitcode::decode::<D>(&bytes).map_err(|_| {
         RemoteAccessError::Cache(cacache::Error::EntryNotFound(
             db.cache_dir.clone(),
             (&key).to_string(),
         ))
     })?;
-    let time = now.elapsed().unwrap();
-    info!("cache fetch took: {}, {}", time.as_millis(), bytes.len());
+    let total = now.elapsed().unwrap();
+    info!(
+        "cache fetch took: read: {}, serde: {}, bytes: {}",
+        read.as_millis(),
+        (total.abs_diff(read).as_millis()),
+        bytes.len()
+    );
     Ok(data)
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Encode, Decode)]
 pub struct ObjectCache {
     content_type: String,
     body: Vec<u8>,
-    expiry: SystemTime,
+    expiry: u128,
 }
 
 impl ObjectCache {
     pub fn has_expired(&self) -> bool {
-        self.expiry.elapsed().is_err()
+        let duration = Duration::from_millis(self.expiry.try_into().unwrap());
+        SystemTime::UNIX_EPOCH
+            .checked_add(duration)
+            .unwrap()
+            .elapsed()
+            .is_err()
     }
 }
 
@@ -80,7 +91,10 @@ impl From<Response<Vec<u8>>> for ObjectCache {
             body: value.body().clone(),
             expiry: SystemTime::now()
                 .checked_add(Duration::from_days(1))
-                .unwrap(),
+                .unwrap()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_millis(),
         }
     }
 }
