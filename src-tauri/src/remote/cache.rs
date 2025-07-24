@@ -41,23 +41,13 @@ pub fn get_cached_object_db<K: AsRef<str> + Display, D: DecodeOwned>(
     key: K,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let now = SystemTime::now();
     let bytes = cacache::read_sync(&db.cache_dir, &key).map_err(RemoteAccessError::Cache)?;
-    let read = now.elapsed().unwrap();
-
     let data = bitcode::decode::<D>(&bytes).map_err(|_| {
         RemoteAccessError::Cache(cacache::Error::EntryNotFound(
             db.cache_dir.clone(),
             (&key).to_string(),
         ))
     })?;
-    let total = now.elapsed().unwrap();
-    info!(
-        "cache fetch took: read: {}, serde: {}, bytes: {}",
-        read.as_millis(),
-        (total.abs_diff(read).as_millis()),
-        bytes.len()
-    );
     Ok(data)
 }
 #[derive(Encode, Decode)]
