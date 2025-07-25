@@ -19,6 +19,7 @@ use crate::remote::auth::generate_authorization_header;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
 use crate::AppState;
+use bitcode::{Encode, Decode};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FetchGameStruct {
@@ -27,7 +28,7 @@ pub struct FetchGameStruct {
     version: Option<GameVersion>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
     id: String,

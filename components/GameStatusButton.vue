@@ -61,6 +61,7 @@ import {
   ChevronDownIcon,
   PlayIcon,
   QueueListIcon,
+  StopIcon,
   WrenchIcon,
 } from "@heroicons/vue/20/solid";
 
@@ -128,7 +129,7 @@ const buttonIcons: { [key in GameStatusEnum]: Component } = {
   [GameStatusEnum.Installed]: PlayIcon,
   [GameStatusEnum.Updating]: ArrowDownTrayIcon,
   [GameStatusEnum.Uninstalling]: TrashIcon,
-  [GameStatusEnum.Running]: PlayIcon,
+  [GameStatusEnum.Running]: StopIcon,
   [GameStatusEnum.PartiallyInstalled]: ArrowDownTrayIcon
 };
 

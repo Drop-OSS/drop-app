@@ -13,6 +13,7 @@ pub enum ProcessError {
     IOError(Error),
     FormatError(String), // String errors supremacy
     InvalidPlatform,
+    OpenerError(tauri_plugin_opener::Error)
 }
 
 impl Display for ProcessError {
@@ -22,12 +23,13 @@ impl Display for ProcessError {
             ProcessError::NotInstalled => "Game not installed",
             ProcessError::AlreadyRunning => "Game already running",
             ProcessError::NotDownloaded => "Game not downloaded",
-            ProcessError::InvalidID => "Invalid Game ID",
-            ProcessError::InvalidVersion => "Invalid Game version",
+            ProcessError::InvalidID => "Invalid game ID",
+            ProcessError::InvalidVersion => "Invalid game version",
             ProcessError::IOError(error) => &error.to_string(),
-            ProcessError::InvalidPlatform => "This Game cannot be played on the current platform",
+            ProcessError::InvalidPlatform => "This game cannot be played on the current platform",
             ProcessError::FormatError(e) => &format!("Failed to format template: {e}"),
-        };
+            ProcessError::OpenerError(error) => &format!("Failed to open directory: {error}"),
+                    };
         write!(f, "{s}")
     }
 }

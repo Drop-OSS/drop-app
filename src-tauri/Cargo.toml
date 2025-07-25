@@ -3,7 +3,7 @@ name = "drop-app"
 version = "0.3.0-rc-7"
 description = "The client application for the open-source, self-hosted game distribution platform Drop"
 authors = ["Drop OSS"]
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -25,7 +25,6 @@ tauri-build = { version = "2.0.0", features = [] }
 [dependencies]
 tauri-plugin-shell = "2.2.1"
 serde_json = "1"
-serde-binary = "0.5.0"
 rayon = "1.10.0"
 webbrowser = "1.0.2"
 url = "2.5.2"
@@ -67,6 +66,8 @@ filetime = "0.2.25"
 walkdir = "2.5.0"
 known-folders = "1.2.0"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
+tauri-plugin-opener = "2.4.0"
+bitcode = "0.6.6"
 # tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]

@@ -14,7 +14,6 @@ export type SerializedGameStatus = [
 ];
 
 export const parseStatus = (status: SerializedGameStatus): GameStatus => {
-  console.log(status);
   if (status[0]) {
     return {
       type: status[0].type,
@@ -48,7 +47,6 @@ export const useGame = async (gameId: string) => {
           status: SerializedGameStatus;
           version?: GameVersion;
         } = event.payload as any;
-        console.log(payload.status);
         gameStatusRegistry[gameId].value = parseStatus(payload.status);
         
         /**

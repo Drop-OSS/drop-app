@@ -38,3 +38,13 @@ pub fn kill_game(
         .kill_game(game_id)
         .map_err(ProcessError::IOError)
 }
+
+#[tauri::command]
+pub fn open_process_logs(
+    game_id: String,
+    state: tauri::State<'_, Mutex<AppState>>,
+) -> Result<(), ProcessError> {
+    let state_lock = state.lock().unwrap();
+    let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
+    process_manager_lock.open_process_logs(game_id)
+}

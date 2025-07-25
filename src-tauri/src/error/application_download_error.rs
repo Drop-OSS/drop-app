@@ -5,7 +5,7 @@ use std::{
 
 use serde_with::SerializeDisplay;
 
-use super::{remote_access_error::RemoteAccessError};
+use super::remote_access_error::RemoteAccessError;
 
 // TODO: Rename / separate from downloads
 #[derive(Debug, SerializeDisplay)]

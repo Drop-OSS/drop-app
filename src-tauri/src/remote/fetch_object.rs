@@ -12,6 +12,14 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
     // Drop leading /
     let object_id = &request.uri().path()[1..];
 
+    let cache_result = get_cached_object::<&str, ObjectCache>(object_id);
+    if let Ok(cache_result) = &cache_result
+        && !cache_result.has_expired()
+    {
+        responder.respond(cache_result.into());
+        return;
+    }
+
     let header = generate_authorization_header();
     let client: reqwest::blocking::Client = reqwest::blocking::Client::new();
     let response = make_request(&client, &["/api/v1/client/object/", object_id], &[], |f| {
@@ -20,10 +28,8 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
     .unwrap()
     .send();
     if response.is_err() {
-        let data = get_cached_object::<&str, ObjectCache>(object_id);
-
-        match data {
-            Ok(data) => responder.respond(data.into()),
+        match cache_result {
+            Ok(cache_result) => responder.respond(cache_result.into()),
             Err(e) => {
                 warn!("{e}")
             }
@@ -38,7 +44,9 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
     );
     let data = Vec::from(response.bytes().unwrap());
     let resp = resp_builder.body(data).unwrap();
-    cache_object::<&str, ObjectCache>(object_id, &resp.clone().into()).unwrap();
+    if cache_result.is_err() || cache_result.unwrap().has_expired() {
+        cache_object::<&str, ObjectCache>(object_id, &resp.clone().into()).unwrap();
+    }
 
     responder.respond(resp);
 }

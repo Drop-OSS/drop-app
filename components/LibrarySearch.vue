@@ -1,19 +1,30 @@
 <template>
   <div>
-    <div
-      class="relative mb-3 transition-transform duration-300 hover:scale-105 active:scale-95"
-    >
+    <div class="mb-3 inline-flex gap-x-2">
       <div
-        class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"
+        class="relative transition-transform duration-300 hover:scale-105 active:scale-95"
       >
-        <MagnifyingGlassIcon class="h-5 w-5 text-zinc-400" aria-hidden="true" />
+        <div
+          class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"
+        >
+          <MagnifyingGlassIcon
+            class="h-5 w-5 text-zinc-400"
+            aria-hidden="true"
+          />
+        </div>
+        <input
+          type="text"
+          v-model="searchQuery"
+          class="block w-full rounded-lg border-0 bg-zinc-800/50 py-2 pl-10 pr-3 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm sm:leading-6"
+          placeholder="Search library..."
+        />
       </div>
-      <input
-        type="text"
-        v-model="searchQuery"
-        class="block w-full rounded-lg border-0 bg-zinc-800/50 py-2 pl-10 pr-3 text-zinc-100 placeholder:text-zinc-500 focus:bg-zinc-800 focus:ring-2 focus:ring-inset focus:ring-blue-500 sm:text-sm sm:leading-6"
-        placeholder="Search library..."
-      />
+      <button
+        @click="() => calculateGames(true)"
+        class="p-1 flex items-center justify-center transition-transform duration-300 size-10 hover:scale-110 active:scale-90 rounded-lg bg-zinc-800/50 text-zinc-100"
+      >
+        <ArrowPathIcon class="size-4" />
+      </button>
     </div>
 
     <TransitionGroup name="list" tag="ul" class="flex flex-col gap-y-1.5">
@@ -60,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { MagnifyingGlassIcon } from "@heroicons/vue/20/solid";
+import { ArrowPathIcon, MagnifyingGlassIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
 import { TransitionGroup } from "vue";
@@ -76,7 +87,7 @@ const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Updating]: "text-blue-500",
   [GameStatusEnum.Uninstalling]: "text-zinc-100",
   [GameStatusEnum.SetupRequired]: "text-yellow-500",
-  [GameStatusEnum.PartiallyInstalled]: "text-gray-600"
+  [GameStatusEnum.PartiallyInstalled]: "text-gray-600",
 };
 const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Remote]: "Not installed",
@@ -87,7 +98,7 @@ const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Uninstalling]: "Uninstalling...",
   [GameStatusEnum.SetupRequired]: "Setup required",
   [GameStatusEnum.Running]: "Running",
-  [GameStatusEnum.PartiallyInstalled]: "Partially installed"
+  [GameStatusEnum.PartiallyInstalled]: "Partially installed",
 };
 
 const router = useRouter();
@@ -101,16 +112,20 @@ const icons: { [key: string]: string } = {};
 
 const rawGames: Ref<Game[], Game[]> = ref([]);
 
-async function calculateGames() {
-  rawGames.value = await invoke("fetch_library");
-  for (const game of rawGames.value) {
+async function calculateGames(clearAll = false) {
+  if (clearAll) rawGames.value = [];
+  // If we update immediately, the navigation gets re-rendered before we
+  // add all the necessary state, and it freaks tf out
+  const newGames = await invoke<typeof rawGames.value>("fetch_library");
+  for (const game of newGames) {
     if (games[game.id]) continue;
     games[game.id] = await useGame(game.id);
   }
-  for (const game of rawGames.value) {
+  for (const game of newGames) {
     if (icons[game.id]) continue;
     icons[game.id] = await useObject(game.mIconObjectId);
   }
+  rawGames.value = newGames;
 }
 
 await calculateGames();

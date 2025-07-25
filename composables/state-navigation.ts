@@ -18,7 +18,7 @@ export function setupHooks() {
   });
 
   listen("auth/finished", async (event) => {
-    router.push("/store");
+    router.push("/library");
     state.value = JSON.parse(await invoke("fetch_state"));
   });
 
@@ -30,9 +30,28 @@ export function setupHooks() {
         description: `Drop encountered an error while downloading your game: "${(
           event.payload as unknown as string
         ).toString()}"`,
-        buttonText: "Close"
+        buttonText: "Close",
       },
       (e, c) => c()
+    );
+  });
+
+  // This is for errors that (we think) aren't our fault
+  listen("launch_external_error", (event) => {
+    createModal(
+      ModalType.Confirmation,
+      {
+        title: "Did something go wrong?",
+        description:
+          "Drop detected that something might've gone wrong with launching your game. Do you want to open the log directory?",
+        buttonText: "Open",
+      },
+      async (e, c) => {
+        if (e == "confirm") {
+          await invoke("open_process_logs", { gameId: event.payload });
+        }
+        c();
+      }
     );
   });
 
@@ -63,6 +82,6 @@ export function initialNavigation(state: Ref<AppState>) {
       router.push("/error/serverunavailable");
       break;
     default:
-      router.push("/store");
+      router.push("/library");
   }
 }

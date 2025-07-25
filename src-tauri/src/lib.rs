@@ -1,4 +1,5 @@
 #![feature(fn_traits)]
+#![feature(duration_constructors)]
 #![deny(clippy::all)]
 
 mod database;
@@ -10,6 +11,7 @@ mod error;
 mod process;
 mod remote;
 
+use crate::process::commands::open_process_logs;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use client::commands::fetch_state;
 use client::{
@@ -25,8 +27,8 @@ use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
-use download_manager::download_manager_frontend::DownloadManager;
 use download_manager::download_manager_builder::DownloadManagerBuilder;
+use download_manager::download_manager_frontend::DownloadManager;
 use games::collections::commands::{
     add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
     fetch_collection, fetch_collections,
@@ -69,6 +71,7 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use bitcode::{Encode, Decode};
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
@@ -81,7 +84,7 @@ pub enum AppStatus {
     ServerUnavailable,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct User {
     id: String,
@@ -225,7 +228,8 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
             .as_secs()
     ));
     let mut file = File::create_new(crash_file).ok()?;
-    file.write_all(format!("Drop crashed with the following panic:\n{e}").as_bytes()).ok()?;
+    file.write_all(format!("Drop crashed with the following panic:\n{e}").as_bytes())
+        .ok()?;
     drop(file);
 
     Some(())
@@ -235,11 +239,11 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 pub fn run() {
     panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
-        let dft = panic::take_hook();
-        dft.call((e,));
+        println!("{e}");
     }));
 
     let mut builder = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init());
 
@@ -299,6 +303,7 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
+            open_process_logs
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

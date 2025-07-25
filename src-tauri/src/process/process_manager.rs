@@ -1,12 +1,13 @@
 use std::{
     collections::HashMap,
-    fs::OpenOptions,
+    fs::{OpenOptions, create_dir_all},
     io::{self},
     path::PathBuf,
     process::{Command, ExitStatus},
     str::FromStr,
     sync::{Arc, Mutex},
     thread::spawn,
+    time::{Duration, SystemTime},
 };
 
 use dynfmt::Format;
@@ -14,11 +15,13 @@ use dynfmt::SimpleCurlyFormat;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri_plugin_opener::OpenerExt;
 
 use crate::{
+    AppState, DB,
     database::{
-        db::{borrow_db_mut_checked, DATA_ROOT_DIR},
+        db::{DATA_ROOT_DIR, borrow_db_mut_checked},
         models::data::{
             ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
             GameVersion,
@@ -26,13 +29,18 @@ use crate::{
     },
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
-    AppState, DB,
 };
+
+pub struct RunningProcess {
+    handle: Arc<SharedChild>,
+    start: SystemTime,
+    manually_killed: bool,
+}
 
 pub struct ProcessManager<'a> {
     current_platform: Platform,
     log_output_dir: PathBuf,
-    processes: HashMap<String, Arc<SharedChild>>,
+    processes: HashMap<String, RunningProcess>,
     app_handle: AppHandle,
     game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
 }
@@ -77,10 +85,11 @@ impl ProcessManager<'_> {
     }
 
     pub fn kill_game(&mut self, game_id: String) -> Result<(), io::Error> {
-        match self.processes.get(&game_id) {
-            Some(child) => {
-                child.kill()?;
-                child.wait()?;
+        match self.processes.get_mut(&game_id) {
+            Some(process) => {
+                process.manually_killed = true;
+                process.handle.kill()?;
+                process.handle.wait()?;
                 Ok(())
             }
             None => Err(io::Error::new(
@@ -90,15 +99,26 @@ impl ProcessManager<'_> {
         }
     }
 
+    pub fn open_process_logs(&mut self, game_id: String) -> Result<(), ProcessError> {
+        let dir = self.log_output_dir.join(game_id);
+        self.app_handle
+            .opener()
+            .open_path(dir.to_str().unwrap(), None::<&str>)
+            .map_err(ProcessError::OpenerError)?;
+        Ok(())
+    }
+
     fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
         if !self.processes.contains_key(&game_id) {
-            warn!("process on_finish was called, but game_id is no longer valid. finished with result: {result:?}");
+            warn!(
+                "process on_finish was called, but game_id is no longer valid. finished with result: {result:?}"
+            );
             return;
         }
 
         debug!("process for {:?} exited with {:?}", &game_id, result);
 
-        self.processes.remove(&game_id);
+        let process = self.processes.remove(&game_id).unwrap();
 
         let mut db_handle = borrow_db_mut_checked();
         let meta = db_handle
@@ -114,26 +134,32 @@ impl ProcessManager<'_> {
             version_name,
             install_dir,
         }) = current_state
+            && let Ok(exit_code) = result
+            && exit_code.success()
         {
-            if let Ok(exit_code) = result {
-                if exit_code.success() {
-                    db_handle.applications.game_statuses.insert(
-                        game_id.clone(),
-                        GameDownloadStatus::Installed {
-                            version_name: version_name.to_string(),
-                            install_dir: install_dir.to_string(),
-                        },
-                    );
-                }
-            }
+            db_handle.applications.game_statuses.insert(
+                game_id.clone(),
+                GameDownloadStatus::Installed {
+                    version_name: version_name.to_string(),
+                    install_dir: install_dir.to_string(),
+                },
+            );
         }
         drop(db_handle);
 
+        let elapsed = process.start.elapsed().unwrap_or(Duration::ZERO);
+        // If we started and ended really quickly, something might've gone wrong
+        // Or if the status isn't 0
+        // Or if it's an error
+        if !process.manually_killed
+            && (elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success())
+        {
+            warn!("drop detected that the game {game_id} may have failed to launch properly");
+            let _ = self.app_handle.emit("launch_external_error", &game_id);
+        }
+
         let status = GameStatusManager::fetch_state(&game_id);
-
         push_game_update(&self.app_handle, &game_id, None, status);
-
-        // TODO better management
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
@@ -156,7 +182,7 @@ impl ProcessManager<'_> {
         {
             Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
             Some(GameDownloadStatus::SetupRequired { .. }) => {
-                return Err(ProcessError::SetupRequired)
+                return Err(ProcessError::SetupRequired);
             }
             _ => return Err(ProcessError::NotInstalled),
         };
@@ -202,18 +228,17 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
+        // TODO: refactor this path with open_process_logs
+        let game_log_folder = &self.log_output_dir.join(game_id);
+        create_dir_all(game_log_folder).map_err(ProcessError::IOError)?;
+
         let current_time = chrono::offset::Local::now();
         let log_file = OpenOptions::new()
             .write(true)
             .truncate(true)
             .read(true)
             .create(true)
-            .open(self.log_output_dir.join(format!(
-                "{}-{}-{}.log",
-                &game_id,
-                &version,
-                current_time.timestamp()
-            )))
+            .open(game_log_folder.join(format!("{}-{}.log", &version, current_time.timestamp())))
             .map_err(ProcessError::IOError)?;
 
         let error_file = OpenOptions::new()
@@ -221,9 +246,8 @@ impl ProcessManager<'_> {
             .truncate(true)
             .read(true)
             .create(true)
-            .open(self.log_output_dir.join(format!(
-                "{}-{}-{}-error.log",
-                &game_id,
+            .open(game_log_folder.join(format!(
+                "{}-{}-error.log",
                 &version,
                 current_time.timestamp()
             )))
@@ -282,7 +306,7 @@ impl ProcessManager<'_> {
         #[cfg(unix)]
         let mut command: Command = Command::new("sh");
         #[cfg(unix)]
-        command.arg("-c").arg(launch_string);
+        command.args(vec!["-c", &launch_string]);
 
         command
             .stderr(error_file)
@@ -325,7 +349,14 @@ impl ProcessManager<'_> {
             drop(app_state_handle);
         });
 
-        self.processes.insert(meta.id, wait_thread_handle);
+        self.processes.insert(
+            meta.id,
+            RunningProcess {
+                handle: wait_thread_handle,
+                start: SystemTime::now(),
+                manually_killed: false,
+            },
+        );
         Ok(())
     }
 }
