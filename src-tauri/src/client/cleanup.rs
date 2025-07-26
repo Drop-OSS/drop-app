@@ -1,11 +1,10 @@
 use log::{debug, error};
 use tauri::AppHandle;
-use tokio::sync::Mutex;
 
-use crate::AppState;
+use crate::DropFunctionState;
 
 #[tauri::command]
-pub async fn quit(app: tauri::AppHandle, state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
+pub async fn quit<>(app: tauri::AppHandle, state: tauri::State<'_, DropFunctionState<'_>>) -> Result<(), ()> {
     cleanup_and_exit(&app, &state).await;
 
     Ok(())
@@ -13,7 +12,7 @@ pub async fn quit(app: tauri::AppHandle, state: tauri::State<'_, Mutex<AppState<
 
 pub async fn cleanup_and_exit(
     app: &AppHandle,
-    state: &tauri::State<'_, Mutex<AppState<'_>>>,
+    state: &tauri::State<'_, DropFunctionState<'_>>,
 ) {
     debug!("cleaning up and exiting application");
     let download_manager = state.lock().await.download_manager.clone();

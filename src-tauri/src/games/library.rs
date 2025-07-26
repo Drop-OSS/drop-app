@@ -5,9 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri::Emitter;
 use tokio::spawn;
-use tokio::sync::Mutex;
 
-use crate::AppState;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
@@ -18,6 +16,7 @@ use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
+use crate::DropFunctionState;
 use bitcode::{Decode, Encode};
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -73,7 +72,7 @@ pub struct StatsUpdateEvent {
 }
 
 pub async fn fetch_library_logic(
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let header = generate_authorization_header().await;
 
@@ -125,7 +124,7 @@ pub async fn fetch_library_logic(
     Ok(games)
 }
 pub async fn fetch_library_logic_offline(
-    _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library").await?;
 
@@ -142,7 +141,7 @@ pub async fn fetch_library_logic_offline(
 }
 pub async fn fetch_game_logic(
     id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let mut state_handle = state.lock().await;
 
@@ -222,7 +221,7 @@ pub async fn fetch_game_logic(
 
 pub async fn fetch_game_logic_offline(
     id: String,
-    _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let handle = borrow_db_checked().await;
     let metadata_option = handle.applications.installed_game_version.get(&id);
@@ -253,7 +252,7 @@ pub async fn fetch_game_logic_offline(
 
 pub async fn fetch_game_verion_options_logic(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
     let client = reqwest::Client::new();
 

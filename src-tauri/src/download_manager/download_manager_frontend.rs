@@ -9,7 +9,7 @@ use std::{
 
 use log::{debug, info};
 use serde::Serialize;
-use tokio::task::{JoinError, JoinHandle};
+use tauri::async_runtime::JoinHandle;
 
 use crate::{
     database::models::data::DownloadableMetadata,
@@ -170,7 +170,7 @@ impl DownloadManager {
     pub fn resume_downloads(&self) {
         self.command_sender.send(DownloadManagerSignal::Go).unwrap();
     }
-    pub async fn ensure_terminated(&self) -> Result<Result<(), ()>, JoinError> {
+    pub async fn ensure_terminated(&self) -> Result<Result<(), ()>, tauri::Error> {
         self.command_sender
             .send(DownloadManagerSignal::Finish)
             .unwrap();

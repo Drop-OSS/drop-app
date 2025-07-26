@@ -16,19 +16,16 @@ use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
-use tokio::{spawn, sync::Mutex};
+use tokio::spawn;
 
 use crate::{
-    AppState, DB,
     database::{
-        db::{DATA_ROOT_DIR, borrow_db_mut_checked},
+        db::{borrow_db_mut_checked, DATA_ROOT_DIR},
         models::data::{
             ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
             GameVersion,
         },
-    },
-    error::process_error::ProcessError,
-    games::{library::push_game_update, state::GameStatusManager},
+    }, error::process_error::ProcessError, games::{library::push_game_update, state::GameStatusManager}, DropFunctionState, DB
 };
 
 pub struct RunningProcess {
@@ -337,7 +334,7 @@ impl ProcessManager<'_> {
         spawn(async move {
             let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
 
-            let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
+            let app_state = wait_thread_apphandle.state::<tauri::State<'_, DropFunctionState<'_>>>();
             let app_state_handle = app_state.lock().await;
 
             let mut process_manager_handle = app_state_handle.process_manager.lock().await;

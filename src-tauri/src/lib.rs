@@ -72,7 +72,6 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
-use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
@@ -220,6 +219,7 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
 }
 
 pub static DB: OnceCellDatabase = OnceCellDatabase::new();
+pub type DropFunctionState<'a> = Mutex<AppState<'a>>;
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
     let crash_file = DATA_ROOT_DIR.join(format!(
@@ -238,14 +238,11 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub async fn run() {
+pub fn run() {
     panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
         println!("{e}");
     }));
-
-    DB.init(async { DatabaseInterface::set_up_database().await })
-        .await;
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -318,9 +315,11 @@ pub async fn run() {
         ))
         .setup(|app| {
             let app = app.handle().clone();
-            let runtime = Handle::current();
 
-            runtime.spawn(async move {
+            tauri::async_runtime::spawn(async move {
+                DB.init(async { DatabaseInterface::set_up_database().await })
+                    .await;
+
                 let state = setup(app.clone()).await;
                 info!("initialized drop client");
                 if !app.manage(Mutex::new(state)) {
@@ -363,18 +362,24 @@ pub async fn run() {
                 )
                 .unwrap();
 
-                run_on_tray(|| {
+                let tray_app_handle = app.clone();
+                run_on_tray(move || {
                     TrayIconBuilder::new()
-                        .icon(app.default_window_icon().unwrap().clone())
+                        .icon(tray_app_handle.default_window_icon().unwrap().clone())
                         .menu(&menu)
                         .on_menu_event(|app, event| {
+                            let tray_app_handle = app.clone();
                             tauri::async_runtime::block_on(async move {
                                 match event.id.as_ref() {
                                     "open" => {
                                         app.webview_windows().get("main").unwrap().show().unwrap();
                                     }
                                     "quit" => {
-                                        cleanup_and_exit(app, &app.state()).await;
+                                        cleanup_and_exit(
+                                            &tray_app_handle,
+                                            &tray_app_handle.state(),
+                                        )
+                                        .await;
                                     }
 
                                     _ => {
@@ -383,7 +388,7 @@ pub async fn run() {
                                 }
                             })
                         })
-                        .build(&app)
+                        .build(&tray_app_handle)
                         .expect("error while setting up tray menu");
                 });
 
@@ -422,7 +427,7 @@ pub async fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
             tauri::async_runtime::block_on(async move {
-                let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+                let state = ctx.app_handle().state::<DropFunctionState<'_>>();
                 offline!(
                     state,
                     fetch_object,
@@ -435,7 +440,7 @@ pub async fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("server", move |ctx, request, responder| {
             tauri::async_runtime::block_on(async move {
-                let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+                let state = ctx.app_handle().state::<DropFunctionState<'_>>();
                 offline!(
                     state,
                     handle_server_proto,

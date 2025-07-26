@@ -1,16 +1,11 @@
 use serde::Deserialize;
 use tauri::AppHandle;
-use tokio::sync::Mutex;
 
 use crate::{
-    AppState,
-    database::{db::borrow_db_mut_checked, models::data::GameVersion},
-    error::{library_error::LibraryError, remote_access_error::RemoteAccessError},
-    games::library::{
+    database::{db::borrow_db_mut_checked, models::data::GameVersion}, error::{library_error::LibraryError, remote_access_error::RemoteAccessError}, games::library::{
         fetch_game_logic_offline, fetch_library_logic_offline, get_current_meta,
         uninstall_game_logic,
-    },
-    offline,
+    }, offline, DropFunctionState
 };
 
 use super::{
@@ -23,7 +18,7 @@ use super::{
 
 #[tauri::command]
 pub async fn fetch_library(
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     offline!(
         state,
@@ -37,7 +32,7 @@ pub async fn fetch_library(
 #[tauri::command]
 pub async fn fetch_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     offline!(
         state,
@@ -68,7 +63,7 @@ pub async fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<()
 #[tauri::command]
 pub async fn fetch_game_verion_options(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
     fetch_game_verion_options_logic(game_id, state).await
 }

@@ -1,11 +1,9 @@
-use tokio::sync::Mutex;
-
-use crate::{AppState, error::process_error::ProcessError};
+use crate::{error::process_error::ProcessError, DropFunctionState};
 
 #[tauri::command]
 pub async fn launch_game(
     id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), ProcessError> {
     let state_lock = state.lock().await;
     let mut process_manager_lock = state_lock.process_manager.lock().await;
@@ -30,7 +28,7 @@ pub async fn launch_game(
 #[tauri::command]
 pub async fn kill_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), ProcessError> {
     let state_lock = state.lock().await;
     let mut process_manager_lock = state_lock.process_manager.lock().await;
@@ -42,7 +40,7 @@ pub async fn kill_game(
 #[tauri::command]
 pub async fn open_process_logs(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), ProcessError> {
     let state_lock = state.lock().await;
     let mut process_manager_lock = state_lock.process_manager.lock().await;

@@ -6,9 +6,9 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
-use crate::remote::auth::generate_authorization_header;
+use crate::remote::auth::{generate_authorization_header, generate_authorization_header_part};
 use futures::TryStreamExt;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::RequestBuilder;
 use tokio::fs::{File, OpenOptions};
@@ -97,6 +97,7 @@ where
             }
 
             let mut bytes_read = self.source.read(&mut copy_buf).await?;
+            info!("read {}", bytes_read);
             current_size += bytes_read;
 
             if current_size > self.size {
@@ -139,8 +140,11 @@ pub async fn download_game_chunk(
         progress.set(0);
         return Ok(false);
     }
+
+    let header_generator = generate_authorization_header_part().await;
+
     let response = request
-        .header("Authorization", generate_authorization_header().await)
+        .header("Authorization", header_generator())
         .send()
         .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;

@@ -1,15 +1,15 @@
-use std::{collections::HashMap, env, sync::Mutex};
+use std::{collections::HashMap, env};
 
 use chrono::Utc;
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
-use log::{debug, error, warn};
+use log::{debug, error, info, warn};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus, User,
+    AppStatus, DropFunctionState, User,
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
@@ -50,16 +50,23 @@ struct HandshakeResponse {
 }
 
 pub async fn generate_authorization_header() -> String {
+    let func = generate_authorization_header_part().await;
+    func()
+}
+
+pub async fn generate_authorization_header_part() -> Box<dyn FnOnce() -> String> {
     let certs = {
         let db = borrow_db_checked().await;
         db.auth.clone().unwrap()
     };
 
-    let nonce = Utc::now().timestamp_millis().to_string();
+    Box::new(move || {
+        let nonce = Utc::now().timestamp_millis().to_string();
 
-    let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
+        let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
 
-    format!("Nonce {} {} {}", certs.client_id, nonce, signature)
+        format!("Nonce {} {} {}", certs.client_id, nonce, signature)
+    })
 }
 
 pub async fn fetch_user() -> Result<User, RemoteAccessError> {
@@ -156,11 +163,11 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
         return;
     }
 
-    let app_state = app.state::<Mutex<AppState>>();
+    let app_state = app.state::<DropFunctionState<'_>>();
 
     let (app_status, user) = setup().await;
-    
-    let mut state_lock = app_state.lock().unwrap();
+
+    let mut state_lock = app_state.lock().await;
     state_lock.status = app_status;
     state_lock.user = user;
 
@@ -185,20 +192,20 @@ pub async fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
         ]),
     };
 
-    let client = reqwest::blocking::Client::new();
-    let response = client.post(endpoint.to_string()).json(&body).send()?;
+    let client = reqwest::Client::new();
+    let response = client.post(endpoint.to_string()).json(&body).send().await?;
 
     if response.status() != 200 {
-        let data: DropServerError = response.json()?;
+        let data: DropServerError = response.json().await?;
         error!("could not start handshake: {}", data.status_message);
 
         return Err(RemoteAccessError::HandshakeFailed(data.status_message));
     }
 
-    let redir_url = response.text()?;
+    let redir_url = response.text().await?;
     let complete_redir_url = base_url.join(&redir_url)?;
 
-    debug!("opening web browser to continue authentication");
+    info!("opening web browser to continue authentication: {}", complete_redir_url);
     webbrowser::open(complete_redir_url.as_ref()).unwrap();
 
     Ok(())

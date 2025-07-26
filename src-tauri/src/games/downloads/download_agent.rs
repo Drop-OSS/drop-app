@@ -1,5 +1,6 @@
+use crate::DB;
 use crate::auth::generate_authorization_header;
-use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
+use crate::database::db::{DatabaseImpls, borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadType, DownloadableMetadata,
 };
@@ -105,6 +106,7 @@ impl GameDownloadAgent {
 
     // Blocking
     pub async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        debug!("starting download");
         self.setup_download().await?;
         self.set_progress_object_params();
         let timer = Instant::now();
@@ -268,11 +270,19 @@ impl GameDownloadAgent {
             self.id, max_download_threads
         );
 
-        let client = &reqwest::Client::new();
+        let base_url = DB
+            .fetch_base_url()
+            .await
+            .join("/api/v1/client/chunk")
+            .unwrap();
+        let client = reqwest::Client::new();
+        let client_ref = unsafe { extend_lifetime(&client) };
 
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(max_download_threads)
             .thread_name("drop-download-thread")
+            .enable_io()
+            .enable_time()
             .build()
             .map_err(|e| {
                 warn!("failed to create download scheduler: {e}");
@@ -288,8 +298,6 @@ impl GameDownloadAgent {
 
             let context_map = self.context_map.lock().unwrap();
             for (index, context) in contexts.iter().enumerate() {
-                let client = client.clone();
-
                 let progress = self.progress.get(index);
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
 
@@ -308,30 +316,22 @@ impl GameDownloadAgent {
                 */
                 let context = unsafe { extend_lifetime(context) };
                 let self_static = unsafe { extend_lifetime(self) };
+                let mut base_url = base_url.clone();
                 rt.spawn(async move {
-                    let request = match make_request(
-                        &client,
-                        &["/api/v1/client/chunk"],
-                        &[
+                    {
+                        let mut query = base_url.query_pairs_mut();
+                        let query_params = [
                             ("id", &context.game_id),
                             ("version", &context.version),
                             ("name", &context.file_name),
                             ("chunk", &context.index.to_string()),
-                        ],
-                        async |r| r,
-                    )
-                    .await
-                    {
-                        Ok(request) => request,
-                        Err(e) => {
-                            sender
-                                .send(DownloadManagerSignal::Error(
-                                    ApplicationDownloadError::Communication(e),
-                                ))
-                                .unwrap();
-                            return;
+                        ];
+                        for (param, val) in query_params {
+                            query.append_pair(param.as_ref(), val.as_ref());
                         }
-                    };
+                    }
+
+                    let request = client_ref.get(base_url);
 
                     match download_game_chunk(
                         context,
@@ -356,7 +356,6 @@ impl GameDownloadAgent {
 
         let mut newly_completed = Vec::new();
         while let Some(completed_checksum) = rx.recv().await {
-            println!("completed checksum {}", completed_checksum);
             newly_completed.push(completed_checksum);
         }
 
@@ -409,6 +408,7 @@ impl Downloadable for GameDownloadAgent {
     }
 
     async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        debug!("starting download from downloadable trait");
         *self.status.lock().unwrap() = DownloadStatus::Downloading;
         self.download(app_handle).await
     }

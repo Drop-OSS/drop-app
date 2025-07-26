@@ -1,11 +1,10 @@
 use log::debug;
 use reqwest::Client;
 use tauri::{AppHandle, Emitter, Manager};
-use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{
-    AppState, AppStatus,
+    AppStatus, DropFunctionState,
     database::db::{borrow_db_checked, borrow_db_mut_checked},
     error::remote_access_error::RemoteAccessError,
     remote::{auth::generate_authorization_header, requests::make_request},
@@ -20,7 +19,7 @@ use super::{
 #[tauri::command]
 pub async fn use_remote(
     url: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), RemoteAccessError> {
     use_remote_logic(url, state).await
 }
@@ -70,7 +69,7 @@ pub async fn sign_out(app: AppHandle) {
 
     // Update app state
     {
-        let app_state = app.state::<Mutex<AppState>>();
+        let app_state = app.state::<DropFunctionState<'_>>();
         let mut app_state_handle = app_state.lock().await;
         app_state_handle.status = AppStatus::SignedOut;
         app_state_handle.user = None;
@@ -81,7 +80,7 @@ pub async fn sign_out(app: AppHandle) {
 }
 
 #[tauri::command]
-pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
+pub async fn retry_connect(state: tauri::State<'_, DropFunctionState<'_>>) -> Result<(), ()> {
     let (app_status, user) = setup().await;
 
     let mut guard = state.lock().await;

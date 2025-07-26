@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
-use reqwest::blocking::Client;
+use reqwest::Client;
 use tauri::UriSchemeResponder;
 
 use crate::database::db::borrow_db_checked;
@@ -44,10 +44,11 @@ pub async fn handle_server_proto(request: Request<Vec<u8>>, responder: UriScheme
         .header("Authorization", format!("Bearer {web_token}"))
         .headers(request.headers().clone())
         .send()
+        .await
         .unwrap();
 
     let response_status = response.status();
-    let response_body = response.bytes().unwrap();
+    let response_body = response.bytes().await.unwrap();
 
     let http_response = Response::builder()
         .status(response_status)

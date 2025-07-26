@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 
 use crate::{
@@ -8,8 +8,7 @@ use crate::{
     download_manager::{
         download_manager_frontend::DownloadManagerSignal, downloadable::Downloadable,
     },
-    error::download_manager_error::DownloadManagerError,
-    AppState,
+    error::download_manager_error::DownloadManagerError, DropFunctionState,
 };
 
 use super::download_agent::GameDownloadAgent;
@@ -19,9 +18,9 @@ pub async fn download_game(
     game_id: String,
     game_version: String,
     install_dir: usize,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
-    let sender = state.lock().unwrap().download_manager.get_sender();
+    let sender = state.lock().await.download_manager.get_sender();
     let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new_from_index(
         game_id,
         game_version,
@@ -30,7 +29,7 @@ pub async fn download_game(
     ).await) as Box<dyn Downloadable + Send + Sync>);
     Ok(state
         .lock()
-        .unwrap()
+        .await
         .download_manager
         .queue_download(game_download_agent)?)
 }
@@ -38,7 +37,7 @@ pub async fn download_game(
 #[tauri::command]
 pub async fn resume_download(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, DropFunctionState<'_>>,
 ) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
     let s = borrow_db_checked().await
         .applications
@@ -56,7 +55,7 @@ pub async fn resume_download(
             install_dir,
         } => (version_name, install_dir),
     };
-    let sender = state.lock().unwrap().download_manager.get_sender();
+    let sender = state.lock().await.download_manager.get_sender();
     let parent_dir: PathBuf = install_dir.into();
     let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new(
         game_id,
@@ -66,7 +65,7 @@ pub async fn resume_download(
     )) as Box<dyn Downloadable + Send + Sync>);
     Ok(state
         .lock()
-        .unwrap()
+        .await
         .download_manager
         .queue_download(game_download_agent)?)
 }
