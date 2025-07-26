@@ -78,6 +78,7 @@
                           v-for="(url, index) in mediaUrls"
                           :key="url"
                           :src="url"
+                          loading="lazy"
                           class="absolute inset-0 w-full h-full object-cover"
                           v-show="index === currentImageIndex"
                         />

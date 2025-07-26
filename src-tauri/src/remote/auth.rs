@@ -9,12 +9,12 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
+    AppState, AppStatus, User,
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
     },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    AppState, AppStatus, User,
 };
 
 use super::{
@@ -49,9 +49,9 @@ struct HandshakeResponse {
     id: String,
 }
 
-pub fn generate_authorization_header() -> String {
+pub async fn generate_authorization_header() -> String {
     let certs = {
-        let db = borrow_db_checked();
+        let db = borrow_db_checked().await;
         db.auth.clone().unwrap()
     };
 
@@ -62,16 +62,18 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-pub fn fetch_user() -> Result<User, RemoteAccessError> {
-    let header = generate_authorization_header();
+pub async fn fetch_user() -> Result<User, RemoteAccessError> {
+    let header = generate_authorization_header().await;
 
-    let client = reqwest::blocking::Client::new();
-    let response = make_request(&client, &["/api/v1/client/user"], &[], |f| {
+    let client = reqwest::Client::new();
+    let response = make_request(&client, &["/api/v1/client/user"], &[], async |f| {
         f.header("Authorization", header)
-    })?
-    .send()?;
+    })
+    .await?
+    .send()
+    .await?;
     if response.status() != 200 {
-        let err: DropServerError = response.json()?;
+        let err: DropServerError = response.json().await?;
         warn!("{err:?}");
 
         if err.status_message == "Nonce expired" {
@@ -81,10 +83,10 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    response.json::<User>().map_err(|e| e.into())
+    response.json::<User>().await.map_err(|e| e.into())
 }
 
-fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
+async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
     let path_chunks: Vec<&str> = path.split("/").collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
@@ -94,7 +96,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     }
 
     let base_url = {
-        let handle = borrow_db_checked();
+        let handle = borrow_db_checked().await;
         Url::parse(handle.base_url.as_str())?
     };
 
@@ -106,16 +108,16 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
-    let client = reqwest::blocking::Client::new();
-    let response = client.post(endpoint).json(&body).send()?;
+    let client = reqwest::Client::new();
+    let response = client.post(endpoint).json(&body).send().await?;
     debug!("handshake responsded with {}", response.status().as_u16());
     if !response.status().is_success() {
-        return Err(RemoteAccessError::InvalidResponse(response.json()?));
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
     }
-    let response_struct: HandshakeResponse = response.json()?;
+    let response_struct: HandshakeResponse = response.json().await?;
 
     {
-        let mut handle = borrow_db_mut_checked();
+        let mut handle = borrow_db_mut_checked().await;
         handle.auth = Some(DatabaseAuth {
             private: response_struct.private,
             cert: response_struct.certificate,
@@ -125,28 +127,29 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     }
 
     let web_token = {
-        let header = generate_authorization_header();
+        let header = generate_authorization_header().await;
         let token = client
             .post(base_url.join("/api/v1/client/user/webtoken").unwrap())
             .header("Authorization", header)
             .send()
+            .await
             .unwrap();
 
-        token.text().unwrap()
+        token.text().await.unwrap()
     };
 
-    let mut handle = borrow_db_mut_checked();
+    let mut handle = borrow_db_mut_checked().await;
     let mut_auth = handle.auth.as_mut().unwrap();
     mut_auth.web_token = Some(web_token);
 
     Ok(())
 }
 
-pub fn recieve_handshake(app: AppHandle, path: String) {
+pub async fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
     app.emit("auth/processing", ()).unwrap();
 
-    let handshake_result = recieve_handshake_logic(&app, path);
+    let handshake_result = recieve_handshake_logic(&app, path).await;
     if let Err(e) = handshake_result {
         warn!("error with authentication: {e}");
         app.emit("auth/failed", e.to_string()).unwrap();
@@ -154,21 +157,19 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     }
 
     let app_state = app.state::<Mutex<AppState>>();
+
+    let (app_status, user) = setup().await;
+    
     let mut state_lock = app_state.lock().unwrap();
-
-    let (app_status, user) = setup();
-
     state_lock.status = app_status;
     state_lock.user = user;
-
-    drop(state_lock);
 
     app.emit("auth/finished", ()).unwrap();
 }
 
-pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
+pub async fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     let base_url = {
-        let db_lock = borrow_db_checked();
+        let db_lock = borrow_db_checked().await;
         Url::parse(&db_lock.base_url.clone())?
     };
 
@@ -203,21 +204,21 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
     Ok(())
 }
 
-pub fn setup() -> (AppStatus, Option<User>) {
-    let data = borrow_db_checked();
+pub async fn setup() -> (AppStatus, Option<User>) {
+    let data = borrow_db_checked().await;
     let auth = data.auth.clone();
     drop(data);
 
     if auth.is_some() {
-        let user_result = match fetch_user() {
+        let user_result = match fetch_user().await {
             Ok(data) => data,
             Err(RemoteAccessError::FetchError(_)) => {
-                let user = get_cached_object::<_, User>("user").unwrap();
+                let user = get_cached_object::<_, User>("user").await.unwrap();
                 return (AppStatus::Offline, Some(user));
             }
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),
         };
-        cache_object("user", &user_result).unwrap();
+        cache_object("user", &user_result).await.unwrap();
         return (AppStatus::SignedIn, Some(user_result));
     }
 

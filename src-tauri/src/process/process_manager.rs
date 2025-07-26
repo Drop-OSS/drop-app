@@ -5,8 +5,7 @@ use std::{
     path::PathBuf,
     process::{Command, ExitStatus},
     str::FromStr,
-    sync::{Arc, Mutex},
-    thread::spawn,
+    sync::{Arc},
     time::{Duration, SystemTime},
 };
 
@@ -17,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
+use tokio::{spawn, sync::Mutex};
 
 use crate::{
     AppState, DB,
@@ -108,7 +108,7 @@ impl ProcessManager<'_> {
         Ok(())
     }
 
-    fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
+    async fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) {
         if !self.processes.contains_key(&game_id) {
             warn!(
                 "process on_finish was called, but game_id is no longer valid. finished with result: {result:?}"
@@ -120,7 +120,7 @@ impl ProcessManager<'_> {
 
         let process = self.processes.remove(&game_id).unwrap();
 
-        let mut db_handle = borrow_db_mut_checked();
+        let mut db_handle = borrow_db_mut_checked().await;
         let meta = db_handle
             .applications
             .installed_game_version
@@ -158,7 +158,7 @@ impl ProcessManager<'_> {
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        let status = GameStatusManager::fetch_state(&game_id);
+        let status = GameStatusManager::fetch_state(&game_id).await;
         push_game_update(&self.app_handle, &game_id, None, status);
     }
 
@@ -167,14 +167,14 @@ impl ProcessManager<'_> {
         Ok(self.game_launchers.contains_key(&(*current, *platform)))
     }
 
-    pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
+    pub async fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
         if self.processes.contains_key(&game_id) {
             return Err(ProcessError::AlreadyRunning);
         }
 
         let version = match DB
             .borrow_data()
-            .unwrap()
+            .await
             .applications
             .game_statuses
             .get(&game_id)
@@ -192,7 +192,7 @@ impl ProcessManager<'_> {
             download_type: DownloadType::Game,
         };
 
-        let mut db_lock = borrow_db_mut_checked();
+        let mut db_lock = borrow_db_mut_checked().await;
         debug!(
             "Launching process {:?} with games {:?}",
             &game_id, db_lock.applications.game_versions
@@ -334,14 +334,14 @@ impl ProcessManager<'_> {
         let wait_thread_apphandle = self.app_handle.clone();
         let wait_thread_game_id = meta.clone();
 
-        spawn(move || {
+        spawn(async move {
             let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
 
             let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
-            let app_state_handle = app_state.lock().unwrap();
+            let app_state_handle = app_state.lock().await;
 
-            let mut process_manager_handle = app_state_handle.process_manager.lock().unwrap();
-            process_manager_handle.on_process_finish(wait_thread_game_id.id, result);
+            let mut process_manager_handle = app_state_handle.process_manager.lock().await;
+            process_manager_handle.on_process_finish(wait_thread_game_id.id, result).await;
 
             // As everything goes out of scope, they should get dropped
             // But just to explicit about it

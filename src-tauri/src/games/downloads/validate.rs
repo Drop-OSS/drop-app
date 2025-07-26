@@ -1,12 +1,11 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read, Seek, SeekFrom, Write},
-    sync::{mpsc::Sender, Arc},
+    sync::{Arc, mpsc::Sender},
 };
 
 use log::{debug, error, info};
 use md5::Context;
-use rayon::ThreadPoolBuilder;
 
 use crate::{
     database::db::borrow_db_checked,
@@ -21,7 +20,7 @@ use crate::{
     games::downloads::{drop_data::DropData, manifest::DropDownloadContext},
 };
 
-pub fn game_validate_logic(
+pub async fn game_validate_logic(
     dropdata: &DropData,
     contexts: Vec<DropDownloadContext>,
     progress: Arc<ProgressObject>,
@@ -29,49 +28,47 @@ pub fn game_validate_logic(
     control_flag: &DownloadThreadControl,
 ) -> Result<bool, ApplicationDownloadError> {
     progress.reset(contexts.len());
-    let max_download_threads = borrow_db_checked().settings.max_download_threads;
+    let max_download_threads = borrow_db_checked().await.settings.max_download_threads;
 
     debug!(
         "validating game: {} with {} threads",
         dropdata.game_id, max_download_threads
     );
-    let pool = ThreadPoolBuilder::new()
-        .num_threads(max_download_threads)
-        .build()
-        .unwrap();
 
     debug!("{contexts:#?}");
     let invalid_chunks = Arc::new(boxcar::Vec::new());
-    pool.scope(|scope| {
-        for (index, context) in contexts.iter().enumerate() {
-            let current_progress = progress.get(index);
-            let progress_handle = ProgressHandle::new(current_progress, progress.clone());
-            let invalid_chunks_scoped = invalid_chunks.clone();
-            let sender = sender.clone();
+    unsafe {
+        async_scoped::TokioScope::scope_and_collect(|scope| {
+            for (index, context) in contexts.iter().enumerate() {
+                let current_progress = progress.get(index);
+                let progress_handle = ProgressHandle::new(current_progress, progress.clone());
+                let invalid_chunks_scoped = invalid_chunks.clone();
+                let sender = sender.clone();
 
-            scope.spawn(move |_| {
-                match validate_game_chunk(context, control_flag, progress_handle) {
-                    Ok(true) => {
-                        debug!(
-                            "Finished context #{} with checksum {}",
-                            index, context.checksum
-                        );
+                scope.spawn(async move {
+                    match validate_game_chunk(context, control_flag, progress_handle) {
+                        Ok(true) => {
+                            debug!(
+                                "Finished context #{} with checksum {}",
+                                index, context.checksum
+                            );
+                        }
+                        Ok(false) => {
+                            debug!(
+                                "Didn't finish context #{} with checksum {}",
+                                index, &context.checksum
+                            );
+                            invalid_chunks_scoped.push(context.checksum.clone());
+                        }
+                        Err(e) => {
+                            error!("{e}");
+                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                        }
                     }
-                    Ok(false) => {
-                        debug!(
-                            "Didn't finish context #{} with checksum {}",
-                            index, &context.checksum
-                        );
-                        invalid_chunks_scoped.push(context.checksum.clone());
-                    }
-                    Err(e) => {
-                        error!("{e}");
-                        sender.send(DownloadManagerSignal::Error(e)).unwrap();
-                    }
-                }
-            });
-        }
-    });
+                });
+            }
+        }).await
+    };
 
     // If there are any contexts left which are false
     if !invalid_chunks.is_empty() {

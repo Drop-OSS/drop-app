@@ -1,16 +1,15 @@
 use std::{
-    any::Any,
     collections::VecDeque,
     fmt::Debug,
     sync::{
         mpsc::{SendError, Sender},
         Mutex, MutexGuard,
     },
-    thread::JoinHandle,
 };
 
 use log::{debug, info};
 use serde::Serialize;
+use tokio::task::{JoinError, JoinHandle};
 
 use crate::{
     database::models::data::DownloadableMetadata,
@@ -118,8 +117,8 @@ impl DownloadManager {
     pub fn read_queue(&self) -> VecDeque<DownloadableMetadata> {
         self.download_queue.read()
     }
-    pub fn get_current_download_progress(&self) -> Option<f64> {
-        let progress_object = (*self.progress.lock().unwrap()).clone()?;
+    pub async fn get_current_download_progress(&self) -> Option<f64> {
+        let progress_object = (*self.progress.lock().await).clone()?;
         Some(progress_object.get_progress())
     }
     pub fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
@@ -171,12 +170,12 @@ impl DownloadManager {
     pub fn resume_downloads(&self) {
         self.command_sender.send(DownloadManagerSignal::Go).unwrap();
     }
-    pub fn ensure_terminated(&self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
+    pub async fn ensure_terminated(&self) -> Result<Result<(), ()>, JoinError> {
         self.command_sender
             .send(DownloadManagerSignal::Finish)
             .unwrap();
         let terminator = self.terminator.lock().unwrap().take();
-        terminator.unwrap().join()
+        terminator.unwrap().await
     }
     pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {
         self.command_sender.clone()

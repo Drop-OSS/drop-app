@@ -4,49 +4,64 @@ use std::{
 };
 
 use crate::{
-    database::{db::borrow_db_checked, models::data::Database},
+    database::{
+        db::borrow_db_checked,
+        models::data::Database,
+    },
     error::remote_access_error::RemoteAccessError,
 };
 use bitcode::{Decode, DecodeOwned, Encode};
 use cacache::Integrity;
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
+use log::info;
 
 #[macro_export]
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        if $crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == $crate::AppStatus::Offline {
-            $func2( $( $arg ), *)
+        (async || if $crate::borrow_db_checked().await.settings.force_offline || $var.lock().await.status == $crate::AppStatus::Offline {
+            $func2( $( $arg ), *).await
         } else {
-            $func1( $( $arg ), *)
-        }
+            $func1( $( $arg ), *).await
+        })()
     }
 }
 
-pub fn cache_object<K: AsRef<str>, D: Encode>(
+pub async fn cache_object<K: AsRef<str>, D: Encode>(
     key: K,
     data: &D,
 ) -> Result<Integrity, RemoteAccessError> {
     let bytes = bitcode::encode(data);
-    cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
+    cacache::write_sync(&borrow_db_checked().await.cache_dir, key, bytes)
         .map_err(RemoteAccessError::Cache)
 }
-pub fn get_cached_object<K: AsRef<str> + Display, D: Encode + DecodeOwned>(
+pub async fn get_cached_object<K: AsRef<str> + Display, D: Encode + DecodeOwned>(
     key: K,
 ) -> Result<D, RemoteAccessError> {
-    get_cached_object_db::<K, D>(key, &borrow_db_checked())
+    get_cached_object_db::<K, D>(key, &&(borrow_db_checked().await)).await
 }
-pub fn get_cached_object_db<K: AsRef<str> + Display, D: DecodeOwned>(
+pub async fn get_cached_object_db<'a, K: AsRef<str> + Display, D: DecodeOwned>(
     key: K,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let bytes = cacache::read_sync(&db.cache_dir, &key).map_err(RemoteAccessError::Cache)?;
+    let start = SystemTime::now();
+    let bytes = cacache::read(&db.cache_dir, &key)
+        .await
+        .map_err(RemoteAccessError::Cache)?;
+    let read = start.elapsed().unwrap();
     let data = bitcode::decode::<D>(&bytes).map_err(|_| {
         RemoteAccessError::Cache(cacache::Error::EntryNotFound(
             db.cache_dir.clone(),
             key.to_string(),
         ))
     })?;
+    let parse = start.elapsed().unwrap().abs_diff(read);
+    info!(
+        "read object: r: {}, p: {}, b: {}",
+        read.as_millis(),
+        parse.as_millis(),
+        bytes.len()
+    );
     Ok(data)
 }
 #[derive(Encode, Decode)]

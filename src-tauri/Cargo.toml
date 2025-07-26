@@ -25,7 +25,6 @@ tauri-build = { version = "2.0.0", features = [] }
 [dependencies]
 tauri-plugin-shell = "2.2.1"
 serde_json = "1"
-rayon = "1.10.0"
 webbrowser = "1.0.2"
 url = "2.5.2"
 tauri-plugin-deep-link = "2"
@@ -68,6 +67,11 @@ known-folders = "1.2.0"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
 tauri-plugin-opener = "2.4.0"
 bitcode = "0.6.6"
+async-trait = "0.1.88"
+futures = "0.3.31"
+tokio-util = { version = "0.7.15", features = ["io"] }
+async-scoped = { version = "0.9.0", features = ["use-tokio"] }
+async-once-cell = "0.5.4"
 # tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]
@@ -94,14 +98,14 @@ features = ["fs"]
 version = "1.10.0"
 features = ["v4", "fast-rng", "macro-diagnostics"]
 
-[dependencies.rustbreak]
-version = "2"
-features = ["other_errors"] # You can also use "yaml_enc" or "bin_enc"
+[dependencies.dropbreak]
+git = "https://github.com/Drop-OSS/dropbreak.git"
+features = ["other_errors"]                       # You can also use "yaml_enc" or "bin_enc"
 
 [dependencies.reqwest]
 version = "0.12"
 default-features = false
-features = ["json", "http2", "blocking", "rustls-tls-webpki-roots"]
+features = ["json", "http2", "blocking", "rustls-tls-webpki-roots", "stream"]
 
 [dependencies.serde]
 version = "1"

@@ -3,14 +3,19 @@ use std::{
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
     path::PathBuf,
-    sync::{Arc, LazyLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, LazyLock},
 };
 
+use async_once_cell::OnceCell;
 use chrono::Utc;
-use log::{debug, error, info, warn};
+use dropbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
+use log::{debug, info, warn};
 use native_model::{Decode, Encode};
-use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
+use tokio::{
+    spawn,
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+};
 use url::Url;
 
 use crate::DB;
@@ -27,15 +32,15 @@ pub struct DropDatabaseSerializer;
 impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     for DropDatabaseSerializer
 {
-    fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
+    fn serialize(&self, val: &T) -> dropbreak::error::DeSerResult<Vec<u8>> {
         native_model::rmp_serde_1_3::RmpSerde::encode(val)
             .map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
-    fn deserialize<R: std::io::Read>(&self, mut s: R) -> rustbreak::error::DeSerResult<T> {
+    fn deserialize<R: std::io::Read>(&self, mut s: R) -> dropbreak::error::DeSerResult<T> {
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
-            .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
+            .map_err(|e| dropbreak::error::DeSerError::Other(e.into()))?;
         let val = native_model::rmp_serde_1_3::RmpSerde::decode(buf)
             .map_err(|e| DeSerError::Internal(e.to_string()))?;
         Ok(val)
@@ -43,15 +48,33 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
 }
 
 pub type DatabaseInterface =
-    rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;
+    dropbreak::Database<Database, dropbreak::backend::PathBackend, DropDatabaseSerializer>;
+
+pub struct OnceCellDatabase(OnceCell<DatabaseInterface>);
+impl OnceCellDatabase {
+    pub const fn new() -> Self {
+        Self(OnceCell::new())
+    }
+
+    pub async fn init(&self, init: impl Future<Output = DatabaseInterface>) {
+        self.0.get_or_init(init).await;
+    }
+}
+impl<'a> Deref for OnceCellDatabase {
+    type Target = DatabaseInterface;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.get().unwrap()
+    }
+}
 
 pub trait DatabaseImpls {
-    fn set_up_database() -> DatabaseInterface;
-    fn database_is_set_up(&self) -> bool;
-    fn fetch_base_url(&self) -> Url;
+    async fn set_up_database() -> DatabaseInterface;
+    async fn database_is_set_up(&self) -> bool;
+    async fn fetch_base_url(&self) -> Url;
 }
 impl DatabaseImpls for DatabaseInterface {
-    fn set_up_database() -> DatabaseInterface {
+    async fn set_up_database() -> DatabaseInterface {
         let db_path = DATA_ROOT_DIR.join("drop.db");
         let games_base_dir = DATA_ROOT_DIR.join("games");
         let logs_root_dir = DATA_ROOT_DIR.join("logs");
@@ -68,9 +91,9 @@ impl DatabaseImpls for DatabaseInterface {
         let exists = fs::exists(db_path.clone()).unwrap();
 
         match exists {
-            true => match PathDatabase::load_from_path(db_path.clone()) {
+            true => match PathDatabase::load_from_path(db_path.clone()).await {
                 Ok(db) => db,
-                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
+                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir).await,
             },
             false => {
                 let default = Database::new(games_base_dir, None, cache_dir);
@@ -79,28 +102,28 @@ impl DatabaseImpls for DatabaseInterface {
                     db_path.as_os_str().to_str().unwrap()
                 );
                 PathDatabase::create_at_path(db_path, default)
+                    .await
                     .expect("Database could not be created")
             }
         }
     }
 
-    fn database_is_set_up(&self) -> bool {
-        !self.borrow_data().unwrap().base_url.is_empty()
+    async fn database_is_set_up(&self) -> bool {
+        !self.borrow_data().await.base_url.is_empty()
     }
 
-    fn fetch_base_url(&self) -> Url {
-        let handle = self.borrow_data().unwrap();
+    async fn fetch_base_url(&self) -> Url {
+        let handle = self.borrow_data().await;
         Url::parse(&handle.base_url).unwrap()
     }
 }
 
-// TODO: Make the error relelvant rather than just assume that it's a Deserialize error
-fn handle_invalid_database(
+async fn handle_invalid_database(
     _e: RustbreakError,
     db_path: PathBuf,
     games_base_dir: PathBuf,
     cache_dir: PathBuf,
-) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
+) -> dropbreak::Database<Database, dropbreak::backend::PathBackend, DropDatabaseSerializer> {
     warn!("{_e}");
     let new_path = {
         let time = Utc::now().timestamp();
@@ -117,7 +140,9 @@ fn handle_invalid_database(
         cache_dir,
     );
 
-    PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
+    PathDatabase::create_at_path(db_path, db)
+        .await
+        .expect("Database could not be created")
 }
 
 // To automatically save the database upon drop
@@ -148,31 +173,20 @@ impl<'a> Drop for DBWrite<'a> {
             ManuallyDrop::drop(&mut self.0);
         }
 
-        match DB.save() {
-            Ok(_) => {}
-            Err(e) => {
-                error!("database failed to save with error {e}");
-                panic!("database failed to save with error {e}")
+        spawn(async {
+            match DB.save().await {
+                Ok(_) => {}
+                Err(e) => {
+                    panic!("database failed to save with error {e}")
+                }
             }
-        }
+        });
     }
 }
-pub fn borrow_db_checked<'a>() -> DBRead<'a> {
-    match DB.borrow_data() {
-        Ok(data) => DBRead(data),
-        Err(e) => {
-            error!("database borrow failed with error {e}");
-            panic!("database borrow failed with error {e}");
-        }
-    }
+pub async fn borrow_db_checked<'a>() -> DBRead<'a> {
+    DBRead(DB.borrow_data().await)
 }
 
-pub fn borrow_db_mut_checked<'a>() -> DBWrite<'a> {
-    match DB.borrow_data_mut() {
-        Ok(data) => DBWrite(ManuallyDrop::new(data)),
-        Err(e) => {
-            error!("database borrow mut failed with error {e}");
-            panic!("database borrow mut failed with error {e}");
-        }
-    }
+pub async fn borrow_db_mut_checked<'a>() -> DBWrite<'a> {
+    DBWrite(ManuallyDrop::new(DB.borrow_data_mut().await))
 }

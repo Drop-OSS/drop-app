@@ -1,14 +1,14 @@
-use reqwest::blocking::{Client, RequestBuilder};
+use reqwest::{Client, RequestBuilder};
 
 use crate::{database::db::DatabaseImpls, error::remote_access_error::RemoteAccessError, DB};
 
-pub fn make_request<T: AsRef<str>, F: FnOnce(RequestBuilder) -> RequestBuilder>(
+pub async fn make_request<T: AsRef<str>, F: AsyncFnOnce(RequestBuilder) -> RequestBuilder>(
     client: &Client,
     path_components: &[T],
     query: &[(T, T)],
     f: F,
 ) -> Result<RequestBuilder, RemoteAccessError> {
-    let mut base_url = DB.fetch_base_url();
+    let mut base_url = DB.fetch_base_url().await;
     for endpoint in path_components {
         base_url = base_url.join(endpoint.as_ref())?;
     }
@@ -19,5 +19,5 @@ pub fn make_request<T: AsRef<str>, F: FnOnce(RequestBuilder) -> RequestBuilder>(
         }
     }
     let response = client.get(base_url);
-    Ok(f(response))
+    Ok(f(response).await)
 }

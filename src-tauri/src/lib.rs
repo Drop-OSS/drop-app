@@ -1,5 +1,6 @@
 #![feature(fn_traits)]
 #![feature(duration_constructors)]
+#![feature(impl_trait_in_assoc_type)]
 #![deny(clippy::all)]
 
 mod database;
@@ -11,8 +12,11 @@ mod error;
 mod process;
 mod remote;
 
+use crate::database::db::OnceCellDatabase;
+use crate::games::commands::update_game_configuration;
 use crate::process::commands::open_process_logs;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
+use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
@@ -22,7 +26,7 @@ use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
 };
-use database::db::{borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, DATA_ROOT_DIR};
+use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
 use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
@@ -37,13 +41,13 @@ use games::commands::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
 use games::downloads::commands::download_game;
-use games::library::{update_game_configuration, Game};
-use log::{debug, info, warn, LevelFilter};
+use games::library::Game;
+use log::{LevelFilter, debug, info, warn};
+use log4rs::Config;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{self, recieve_handshake};
@@ -61,17 +65,14 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
+use std::collections::HashMap;
 use std::{env, panic};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
-use bitcode::{Encode, Decode};
+use tokio::sync::Mutex;
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
@@ -107,7 +108,7 @@ pub struct AppState<'a> {
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
 }
 
-fn setup(handle: AppHandle) -> AppState<'static> {
+async fn setup(handle: AppHandle) -> AppState<'static> {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d} | {l} | {f}:{L} - {m}{n}",
@@ -143,7 +144,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
 
     debug!("checking if database is set up");
-    let is_set_up = DB.database_is_set_up();
+    let is_set_up = DB.database_is_set_up().await;
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
@@ -157,9 +158,9 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     debug!("database is set up");
 
     // TODO: Account for possible failure
-    let (app_status, user) = auth::setup();
+    let (app_status, user) = auth::setup().await;
 
-    let db_handle = borrow_db_checked();
+    let db_handle = borrow_db_checked().await;
     let mut missing_games = Vec::new();
     let statuses = db_handle.applications.game_statuses.clone();
     drop(db_handle);
@@ -190,7 +191,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
 
     info!("detected games missing: {missing_games:?}");
 
-    let mut db_handle = borrow_db_mut_checked();
+    let mut db_handle = borrow_db_mut_checked().await;
     for game_id in missing_games {
         db_handle
             .applications
@@ -204,7 +205,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     debug!("finished setup!");
 
     // Sync autostart state
-    if let Err(e) = sync_autostart_on_startup(&handle) {
+    if let Err(e) = sync_autostart_on_startup(&handle).await {
         warn!("failed to sync autostart state: {e}");
     }
 
@@ -217,7 +218,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     }
 }
 
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
+pub static DB: OnceCellDatabase = OnceCellDatabase::new();
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
     let crash_file = DATA_ROOT_DIR.join(format!(
@@ -236,11 +237,14 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub async fn run() {
     panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
         println!("{e}");
     }));
+
+    DB.init(async { DatabaseInterface::set_up_database().await })
+        .await;
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
@@ -312,114 +316,131 @@ pub fn run() {
             Some(vec!["--minimize"]),
         ))
         .setup(|app| {
-            let handle = app.handle().clone();
-            let state = setup(handle);
-            debug!("initialized drop client");
-            app.manage(Mutex::new(state));
+            let app = app.handle().clone();
 
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
-                debug!("registered all pre-defined deep links");
-            }
+            tauri::async_runtime::spawn(async move {
+                let state = setup(app.clone()).await;
+                debug!("initialized drop client");
+                app.manage(Mutex::new(state));
 
-            let handle = app.handle().clone();
-
-            let _main_window = tauri::WebviewWindowBuilder::new(
-                &handle,
-                "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
-                tauri::WebviewUrl::App("index.html".into()),
-            )
-            .title("Drop Desktop App")
-            .min_inner_size(1000.0, 500.0)
-            .inner_size(1536.0, 864.0)
-            .decorations(false)
-            .shadow(false)
-            .data_directory(DATA_ROOT_DIR.join(".webview"))
-            .build()
-            .unwrap();
-
-            app.deep_link().on_open_url(move |event| {
-                debug!("handling drop:// url");
-                let binding = event.urls();
-                let url = binding.first().unwrap();
-                if url.host_str().unwrap() == "handshake" {
-                    recieve_handshake(handle.clone(), url.path().to_string())
+                {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    let _ = app.deep_link().register_all();
+                    debug!("registered all pre-defined deep links");
                 }
+
+                let _main_window = tauri::WebviewWindowBuilder::new(
+                    &app,
+                    "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
+                    tauri::WebviewUrl::App("index.html".into()),
+                )
+                .title("Drop Desktop App")
+                .min_inner_size(1000.0, 500.0)
+                .inner_size(1536.0, 864.0)
+                .decorations(false)
+                .shadow(false)
+                .data_directory(DATA_ROOT_DIR.join(".webview"))
+                .build()
+                .unwrap();
+
+                let deep_link_handle = app.clone();
+
+                app.deep_link().on_open_url(move |event| {
+                    let deep_link_handle = deep_link_handle.clone();
+
+                    tauri::async_runtime::block_on(async move {
+                        debug!("handling drop:// url");
+                        let binding = event.urls();
+                        let url = binding.first().unwrap();
+                        if url.host_str().unwrap() == "handshake" {
+                            recieve_handshake(deep_link_handle, url.path().to_string()).await
+                        }
+                    });
+                });
+
+                let menu = Menu::with_items(
+                    &app,
+                    &[
+                        &MenuItem::with_id(&app, "open", "Open", true, None::<&str>).unwrap(),
+                        &PredefinedMenuItem::separator(&app).unwrap(),
+                        /*
+                        &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
+                        &PredefinedMenuItem::separator(app)?,
+                         */
+                        &MenuItem::with_id(&app, "quit", "Quit", true, None::<&str>).unwrap(),
+                    ],
+                )
+                .unwrap();
+
+                run_on_tray(|| {
+                    TrayIconBuilder::new()
+                        .icon(app.default_window_icon().unwrap().clone())
+                        .menu(&menu)
+                        .on_menu_event(|app, event| {
+                            tauri::async_runtime::block_on(async move {
+                                match event.id.as_ref() {
+                                    "open" => {
+                                        app.webview_windows().get("main").unwrap().show().unwrap();
+                                    }
+                                    "quit" => {
+                                        cleanup_and_exit(app, &app.state()).await;
+                                    }
+
+                                    _ => {
+                                        warn!("menu event not handled: {:?}", event.id);
+                                    }
+                                }
+                            })
+                        })
+                        .build(&app)
+                        .expect("error while setting up tray menu");
+                });
+
+                {
+                    let mut db_handle = borrow_db_mut_checked().await;
+                    if let Some(original) = db_handle.prev_database.take() {
+                        warn!(
+                            "Database corrupted. Original file at {}",
+                            original.canonicalize().unwrap().to_string_lossy()
+                        );
+                        app.dialog()
+                            .message(
+                                "Database corrupted. A copy has been saved at: ".to_string()
+                                    + original.to_str().unwrap(),
+                            )
+                            .title("Database corrupted")
+                            .show(|_| {});
+                    }
+                };
             });
-
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    /*
-                    &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
-                    &PredefinedMenuItem::separator(app)?,
-                     */
-                    &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
-                ],
-            )?;
-
-            run_on_tray(|| {
-                TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
-                    .menu(&menu)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
-                        "open" => {
-                            app.webview_windows().get("main").unwrap().show().unwrap();
-                        }
-                        "quit" => {
-                            cleanup_and_exit(app, &app.state());
-                        }
-
-                        _ => {
-                            warn!("menu event not handled: {:?}", event.id);
-                        }
-                    })
-                    .build(app)
-                    .expect("error while setting up tray menu");
-            });
-
-            {
-                let mut db_handle = borrow_db_mut_checked();
-                if let Some(original) = db_handle.prev_database.take() {
-                    warn!(
-                        "Database corrupted. Original file at {}",
-                        original.canonicalize().unwrap().to_string_lossy()
-                    );
-                    app.dialog()
-                        .message(
-                            "Database corrupted. A copy has been saved at: ".to_string()
-                                + original.to_str().unwrap(),
-                        )
-                        .title("Database corrupted")
-                        .show(|_| {});
-                }
-            }
-
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
-            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
-            offline!(
-                state,
-                fetch_object,
-                fetch_object_offline,
-                request,
-                responder
-            );
+            tauri::async_runtime::block_on(async move {
+                let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+                offline!(
+                    state,
+                    fetch_object,
+                    fetch_object_offline,
+                    request,
+                    responder
+                )
+                .await;
+            });
         })
         .register_asynchronous_uri_scheme_protocol("server", move |ctx, request, responder| {
-            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
-            offline!(
-                state,
-                handle_server_proto,
-                handle_server_proto_offline,
-                request,
-                responder
-            );
+            tauri::async_runtime::block_on(async move {
+                let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
+                offline!(
+                    state,
+                    handle_server_proto,
+                    handle_server_proto_offline,
+                    request,
+                    responder
+                )
+                .await;
+            });
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

@@ -12,16 +12,17 @@ use super::{
     util::{download_thread_control_flag::DownloadThreadControl, progress_object::ProgressObject},
 };
 
+#[async_trait::async_trait]
 pub trait Downloadable: Send + Sync {
-    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
-    fn progress(&self) -> Arc<ProgressObject>;
-    fn control_flag(&self) -> DownloadThreadControl;
-    fn validate(&self) -> Result<bool, ApplicationDownloadError>;
-    fn status(&self) -> DownloadStatus;
+    async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
+    async fn progress(&self) -> Arc<ProgressObject>;
+    async fn control_flag(&self) -> DownloadThreadControl;
+    async fn validate(&self) -> Result<bool, ApplicationDownloadError>;
+    async fn status(&self) -> DownloadStatus;
     fn metadata(&self) -> DownloadableMetadata;
-    fn on_initialised(&self, app_handle: &AppHandle);
-    fn on_error(&self, app_handle: &AppHandle, error: &ApplicationDownloadError);
-    fn on_complete(&self, app_handle: &AppHandle);
-    fn on_incomplete(&self, app_handle: &AppHandle);
-    fn on_cancelled(&self, app_handle: &AppHandle);
+    async fn on_initialised(&self, app_handle: &AppHandle);
+    async fn on_error(&self, app_handle: &AppHandle, error: &ApplicationDownloadError);
+    async fn on_complete(&self, app_handle: &AppHandle);
+    async fn on_incomplete(&self, app_handle: &AppHandle);
+    async fn on_cancelled(&self, app_handle: &AppHandle);
 }

@@ -15,21 +15,27 @@ use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::game_validate_logic;
 use crate::games::library::{on_game_complete, on_game_incomplete, push_game_update};
 use crate::remote::requests::make_request;
-use log::{debug, error, info};
-use rayon::ThreadPoolBuilder;
+use log::{debug, error, info, warn};
 use std::collections::HashMap;
-use std::fs::{create_dir_all, OpenOptions};
+use std::fs::{OpenOptions, create_dir_all};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::{AppHandle, Emitter};
+use tokio::sync::mpsc;
 
 #[cfg(target_os = "linux")]
-use rustix::fs::{fallocate, FallocateFlags};
+use rustix::fs::{FallocateFlags, fallocate};
 
 use super::download_logic::download_game_chunk;
 use super::drop_data::DropData;
+
+// This is cursed but necessary
+// See the message where it is used
+unsafe fn extend_lifetime<'b, R>(r: &'b R) -> &'static R {
+    unsafe { std::mem::transmute::<&'b R, &'static R>(r) }
+}
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -45,13 +51,13 @@ pub struct GameDownloadAgent {
 }
 
 impl GameDownloadAgent {
-    pub fn new_from_index(
+    pub async fn new_from_index(
         id: String,
         version: String,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
     ) -> Self {
-        let db_lock = borrow_db_checked();
+        let db_lock = borrow_db_checked().await;
         let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
 
@@ -87,8 +93,8 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn setup_download(&self) -> Result<(), ApplicationDownloadError> {
-        self.ensure_manifest_exists()?;
+    pub async fn setup_download(&self) -> Result<(), ApplicationDownloadError> {
+        self.ensure_manifest_exists().await?;
 
         self.ensure_contexts()?;
 
@@ -98,8 +104,8 @@ impl GameDownloadAgent {
     }
 
     // Blocking
-    pub fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
-        self.setup_download()?;
+    pub async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        self.setup_download().await?;
         self.set_progress_object_params();
         let timer = Instant::now();
         push_game_update(
@@ -115,6 +121,7 @@ impl GameDownloadAgent {
         );
         let res = self
             .run()
+            .await
             .map_err(|_| ApplicationDownloadError::DownloadError);
 
         debug!(
@@ -125,37 +132,39 @@ impl GameDownloadAgent {
         res
     }
 
-    pub fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
+    pub async fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
         }
 
-        self.download_manifest()
+        self.download_manifest().await
     }
 
-    fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
-        let header = generate_authorization_header();
-        let client = reqwest::blocking::Client::new();
+    async fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
+        let header = generate_authorization_header().await;
+        let client = reqwest::Client::new();
         let response = make_request(
             &client,
             &["/api/v1/client/game/manifest"],
             &[("id", &self.id), ("version", &self.version)],
-            |f| f.header("Authorization", header),
+            async |f| f.header("Authorization", header),
         )
+        .await
         .map_err(ApplicationDownloadError::Communication)?
         .send()
+        .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
         if response.status() != 200 {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::ManifestDownloadFailed(
                     response.status(),
-                    response.text().unwrap(),
+                    response.text().await.unwrap(),
                 ),
             ));
         }
 
-        let manifest_download: DropManifest = response.json().unwrap();
+        let manifest_download: DropManifest = response.json().await.unwrap();
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -251,30 +260,35 @@ impl GameDownloadAgent {
         Ok(())
     }
 
-    // TODO: Change return value on Err
-    pub fn run(&self) -> Result<bool, ()> {
-        let max_download_threads = borrow_db_checked().settings.max_download_threads;
+    pub async fn run(&self) -> Result<bool, ()> {
+        let max_download_threads = borrow_db_checked().await.settings.max_download_threads;
 
         debug!(
             "downloading game: {} with {} threads",
             self.id, max_download_threads
         );
-        let pool = ThreadPoolBuilder::new()
-            .num_threads(max_download_threads)
+
+        let client = &reqwest::Client::new();
+
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(max_download_threads)
+            .thread_name("drop-download-thread")
             .build()
-            .unwrap();
+            .map_err(|e| {
+                warn!("failed to create download scheduler: {e}");
+                ()
+            })?;
 
-        let completed_contexts = Arc::new(boxcar::Vec::new());
-        let completed_indexes_loop_arc = completed_contexts.clone();
+        let (tx, mut rx) = mpsc::channel(32);
 
-        let contexts = self.contexts.lock().unwrap();
-        debug!("{contexts:#?}");
-        pool.scope(|scope| {
-            let client = &reqwest::blocking::Client::new();
+        // Scope this for safety
+        {
+            let contexts = self.contexts.lock().unwrap();
+            debug!("{contexts:#?}");
+
             let context_map = self.context_map.lock().unwrap();
             for (index, context) in contexts.iter().enumerate() {
                 let client = client.clone();
-                let completed_indexes = completed_indexes_loop_arc.clone();
 
                 let progress = self.progress.get(index);
                 let progress_handle = ProgressHandle::new(progress, self.progress.clone());
@@ -287,33 +301,48 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let request = match make_request(
-                    &client,
-                    &["/api/v1/client/chunk"],
-                    &[
-                        ("id", &context.game_id),
-                        ("version", &context.version),
-                        ("name", &context.file_name),
-                        ("chunk", &context.index.to_string()),
-                    ],
-                    |r| r,
-                ) {
-                    Ok(request) => request,
-                    Err(e) => {
-                        sender
-                            .send(DownloadManagerSignal::Error(
-                                ApplicationDownloadError::Communication(e),
-                            ))
-                            .unwrap();
-                        continue;
-                    }
-                };
+                let local_tx = tx.clone();
+                /*
+                This lifetime extensions are necessary, because this loop acts like a scope
+                but Rust doesn't know that.
+                */
+                let context = unsafe { extend_lifetime(context) };
+                let self_static = unsafe { extend_lifetime(self) };
+                rt.spawn(async move {
+                    let request = match make_request(
+                        &client,
+                        &["/api/v1/client/chunk"],
+                        &[
+                            ("id", &context.game_id),
+                            ("version", &context.version),
+                            ("name", &context.file_name),
+                            ("chunk", &context.index.to_string()),
+                        ],
+                        async |r| r,
+                    )
+                    .await
+                    {
+                        Ok(request) => request,
+                        Err(e) => {
+                            sender
+                                .send(DownloadManagerSignal::Error(
+                                    ApplicationDownloadError::Communication(e),
+                                ))
+                                .unwrap();
+                            return;
+                        }
+                    };
 
-                scope.spawn(move |_| {
-                    match download_game_chunk(context, &self.control_flag, progress_handle, request)
+                    match download_game_chunk(
+                        context,
+                        &self_static.control_flag,
+                        progress_handle,
+                        request,
+                    )
+                    .await
                     {
                         Ok(true) => {
-                            completed_indexes.push(context.checksum.clone());
+                            local_tx.send(context.checksum.clone()).await.unwrap();
                         }
                         Ok(false) => {}
                         Err(e) => {
@@ -323,19 +352,22 @@ impl GameDownloadAgent {
                     }
                 });
             }
-        });
+        }
 
-        let newly_completed = completed_contexts.to_owned();
+        let mut newly_completed = Vec::new();
+        while let Some(completed_checksum) = rx.recv().await {
+            println!("completed checksum {}", completed_checksum);
+            newly_completed.push(completed_checksum);
+        }
 
-        let completed_lock_len = {
-            let mut context_map_lock = self.context_map.lock().unwrap();
-            for (_, item) in newly_completed.iter() {
-                context_map_lock.insert(item.clone(), true);
-            }
+        // 'return' from the download
+        let mut context_map_lock = self.context_map.lock().unwrap();
+        for item in newly_completed.iter() {
+            context_map_lock.insert(item.clone(), true);
+        }
+        let completed_lock_len = context_map_lock.values().filter(|x| **x).count();
 
-            context_map_lock.values().filter(|x| **x).count()
-        };
-        let context_map_lock = self.context_map.lock().unwrap();
+        let contexts = self.contexts.lock().unwrap();
         let contexts = contexts
             .iter()
             .map(|x| {
@@ -345,6 +377,7 @@ impl GameDownloadAgent {
                 )
             })
             .collect::<Vec<(String, bool)>>();
+
         drop(context_map_lock);
 
         self.stored_manifest.set_contexts(&contexts);
@@ -365,20 +398,8 @@ impl GameDownloadAgent {
     }
 }
 
+#[async_trait::async_trait]
 impl Downloadable for GameDownloadAgent {
-    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
-        *self.status.lock().unwrap() = DownloadStatus::Downloading;
-        self.download(app_handle)
-    }
-
-    fn progress(&self) -> Arc<ProgressObject> {
-        self.progress.clone()
-    }
-
-    fn control_flag(&self) -> DownloadThreadControl {
-        self.control_flag.clone()
-    }
-
     fn metadata(&self) -> DownloadableMetadata {
         DownloadableMetadata {
             id: self.id.clone(),
@@ -387,11 +408,24 @@ impl Downloadable for GameDownloadAgent {
         }
     }
 
-    fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
+    async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+        *self.status.lock().unwrap() = DownloadStatus::Downloading;
+        self.download(app_handle).await
+    }
+
+    async fn progress(&self) -> Arc<ProgressObject> {
+        self.progress.clone()
+    }
+
+    async fn control_flag(&self) -> DownloadThreadControl {
+        self.control_flag.clone()
+    }
+
+    async fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
         *self.status.lock().unwrap() = DownloadStatus::Queued;
     }
 
-    fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
+    async fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
         *self.status.lock().unwrap() = DownloadStatus::Error;
         app_handle
             .emit("download_error", error.to_string())
@@ -399,46 +433,49 @@ impl Downloadable for GameDownloadAgent {
 
         error!("error while managing download: {error}");
 
-        let mut handle = borrow_db_mut_checked();
+        let mut handle = borrow_db_mut_checked().await;
         handle
             .applications
             .transient_statuses
             .remove(&self.metadata());
     }
 
-    fn on_complete(&self, app_handle: &tauri::AppHandle) {
+    async fn on_complete(&self, app_handle: &tauri::AppHandle) {
         on_game_complete(
             &self.metadata(),
             self.stored_manifest.base_path.to_string_lossy().to_string(),
             app_handle,
         )
+        .await
         .unwrap();
     }
 
-    // TODO: fix this function. It doesn't restart the download properly, nor does it reset the state properly
-    fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
+    async fn on_incomplete(&self, app_handle: &tauri::AppHandle) {
         on_game_incomplete(
             &self.metadata(),
             self.stored_manifest.base_path.to_string_lossy().to_string(),
             app_handle,
         )
+        .await
         .unwrap();
     }
 
-    fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}
+    async fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}
 
-    fn status(&self) -> DownloadStatus {
+    async fn status(&self) -> DownloadStatus {
         self.status.lock().unwrap().clone()
     }
 
-    fn validate(&self) -> Result<bool, ApplicationDownloadError> {
+    async fn validate(&self) -> Result<bool, ApplicationDownloadError> {
         *self.status.lock().unwrap() = DownloadStatus::Validating;
+        let contexts = self.contexts.lock().unwrap().clone();
         game_validate_logic(
             &self.stored_manifest,
-            self.contexts.lock().unwrap().clone(),
+            contexts,
             self.progress.clone(),
             self.sender.clone(),
             &self.control_flag,
         )
+        .await
     }
 }

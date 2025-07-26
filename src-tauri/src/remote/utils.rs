@@ -5,8 +5,8 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    database::db::borrow_db_mut_checked, error::remote_access_error::RemoteAccessError, AppState,
-    AppStatus,
+    AppState, AppStatus, database::db::borrow_db_mut_checked,
+    error::remote_access_error::RemoteAccessError,
 };
 
 #[derive(Deserialize)]
@@ -15,7 +15,7 @@ struct DropHealthcheck {
     app_name: String,
 }
 
-pub fn use_remote_logic(
+pub async fn use_remote_logic(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
@@ -33,11 +33,12 @@ pub fn use_remote_logic(
         return Err(RemoteAccessError::InvalidEndpoint);
     }
 
-    let mut app_state = state.lock().unwrap();
-    app_state.status = AppStatus::SignedOut;
-    drop(app_state);
+    {
+        let mut app_state = state.lock().unwrap();
+        app_state.status = AppStatus::SignedOut;
+    }
 
-    let mut db_state = borrow_db_mut_checked();
+    let mut db_state = borrow_db_mut_checked().await;
     db_state.base_url = base_url.to_string();
 
     Ok(())

@@ -15,11 +15,11 @@ use crate::{
 use super::download_agent::GameDownloadAgent;
 
 #[tauri::command]
-pub fn download_game(
+pub async fn download_game(
     game_id: String,
     game_version: String,
     install_dir: usize,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
     let sender = state.lock().unwrap().download_manager.get_sender();
     let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new_from_index(
@@ -27,7 +27,7 @@ pub fn download_game(
         game_version,
         install_dir,
         sender,
-    )) as Box<dyn Downloadable + Send + Sync>);
+    ).await) as Box<dyn Downloadable + Send + Sync>);
     Ok(state
         .lock()
         .unwrap()
@@ -36,11 +36,11 @@ pub fn download_game(
 }
 
 #[tauri::command]
-pub fn resume_download(
+pub async fn resume_download(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
-    let s = borrow_db_checked()
+    let s = borrow_db_checked().await
         .applications
         .game_statuses
         .get(&game_id)

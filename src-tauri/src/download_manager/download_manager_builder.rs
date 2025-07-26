@@ -1,14 +1,15 @@
 use std::{
     collections::HashMap,
     sync::{
-        Arc, Mutex,
+        Arc,
         mpsc::{Receiver, Sender, channel},
     },
-    thread::{JoinHandle, spawn},
 };
 
+use ::futures::future::join_all;
 use log::{debug, error, info, warn};
 use tauri::{AppHandle, Emitter};
+use tokio::{spawn, sync::Mutex, task::JoinHandle};
 
 use crate::{
     database::models::data::DownloadableMetadata,
@@ -69,7 +70,7 @@ Behold, my madness - quexeky
 pub struct DownloadManagerBuilder {
     download_agent_registry: HashMap<DownloadableMetadata, DownloadAgent>,
     download_queue: Queue,
-    command_receiver: Receiver<DownloadManagerSignal>,
+    command_receiver: Mutex<Receiver<DownloadManagerSignal>>,
     sender: Sender<DownloadManagerSignal>,
     progress: CurrentProgressObject,
     status: Arc<Mutex<DownloadManagerStatus>>,
@@ -89,7 +90,7 @@ impl DownloadManagerBuilder {
         let manager = Self {
             download_agent_registry: HashMap::new(),
             download_queue: queue.clone(),
-            command_receiver,
+            command_receiver: Mutex::new(command_receiver),
             status: status.clone(),
             sender: command_sender.clone(),
             progress: active_progress.clone(),
@@ -100,86 +101,86 @@ impl DownloadManagerBuilder {
             active_control_flag: None,
         };
 
-        let terminator = spawn(|| manager.manage_queue());
+        let terminator = spawn(async{ manager.manage_queue().await });
 
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
 
-    fn set_status(&self, status: DownloadManagerStatus) {
-        *self.status.lock().unwrap() = status;
+    async fn set_status(&self, status: DownloadManagerStatus) {
+        *self.status.lock().await = status;
     }
 
-    fn remove_and_cleanup_front_download(&mut self, meta: &DownloadableMetadata) -> DownloadAgent {
+    async fn remove_and_cleanup_front_download(&mut self, meta: &DownloadableMetadata) -> DownloadAgent {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(meta).unwrap();
-        self.cleanup_current_download();
+        self.cleanup_current_download().await;
         download_agent
     }
 
     // CAREFUL WITH THIS FUNCTION
     // Make sure the download thread is terminated
-    fn cleanup_current_download(&mut self) {
+    async fn cleanup_current_download(&mut self) {
         self.active_control_flag = None;
-        *self.progress.lock().unwrap() = None;
+        *self.progress.lock().await = None;
         self.current_download_agent = None;
 
-        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        let mut download_thread_lock = self.current_download_thread.lock().await;
         *download_thread_lock = None;
         drop(download_thread_lock);
     }
 
-    fn stop_and_wait_current_download(&self) {
-        self.set_status(DownloadManagerStatus::Paused);
+    async fn stop_and_wait_current_download(&self) {
+        self.set_status(DownloadManagerStatus::Paused).await;
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
         }
 
-        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        let mut download_thread_lock = self.current_download_thread.lock().await;
         if let Some(current_download_thread) = download_thread_lock.take() {
-            current_download_thread.join().unwrap();
+            current_download_thread.await.unwrap();
         }
     }
 
-    fn manage_queue(mut self) -> Result<(), ()> {
+    async fn manage_queue(mut self) -> Result<(), ()> {
         loop {
-            let signal = match self.command_receiver.recv() {
+            let signal = match self.command_receiver.lock().await.recv() {
                 Ok(signal) => signal,
                 Err(_) => return Err(()),
             };
 
             match signal {
                 DownloadManagerSignal::Go => {
-                    self.manage_go_signal();
+                    self.manage_go_signal().await;
                 }
                 DownloadManagerSignal::Stop => {
-                    self.manage_stop_signal();
+                    self.manage_stop_signal().await;
                 }
                 DownloadManagerSignal::Completed(meta) => {
-                    self.manage_completed_signal(meta);
+                    self.manage_completed_signal(meta).await;
                 }
                 DownloadManagerSignal::Queue(download_agent) => {
-                    self.manage_queue_signal(download_agent);
+                    self.manage_queue_signal(download_agent).await;
                 }
                 DownloadManagerSignal::Error(e) => {
-                    self.manage_error_signal(e);
+                    self.manage_error_signal(e).await;
                 }
                 DownloadManagerSignal::UpdateUIQueue => {
-                    self.push_ui_queue_update();
+                    self.push_ui_queue_update().await;
                 }
                 DownloadManagerSignal::UpdateUIStats(kbs, time) => {
                     self.push_ui_stats_update(kbs, time);
                 }
                 DownloadManagerSignal::Finish => {
-                    self.stop_and_wait_current_download();
+                    self.stop_and_wait_current_download().await;
                     return Ok(());
                 }
                 DownloadManagerSignal::Cancel(meta) => {
-                    self.manage_cancel_signal(&meta);
+                    self.manage_cancel_signal(&meta).await;
                 }
             };
         }
     }
-    fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
+    async fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
         debug!("got signal Queue");
         let meta = download_agent.metadata();
 
@@ -190,7 +191,7 @@ impl DownloadManagerBuilder {
             return;
         }
 
-        download_agent.on_initialised(&self.app_handle);
+        download_agent.on_initialised(&self.app_handle).await;
         self.download_queue.append(meta.clone());
         self.download_agent_registry.insert(meta, download_agent);
 
@@ -199,7 +200,7 @@ impl DownloadManagerBuilder {
             .unwrap();
     }
 
-    fn manage_go_signal(&mut self) {
+    async fn manage_go_signal(&mut self) {
         debug!("got signal Go");
         if self.download_agent_registry.is_empty() {
             debug!(
@@ -233,28 +234,28 @@ impl DownloadManagerBuilder {
             .unwrap()
             .clone();
 
-        self.active_control_flag = Some(download_agent.control_flag());
+        self.active_control_flag = Some(download_agent.control_flag().await);
         self.current_download_agent = Some(download_agent.clone());
 
         let sender = self.sender.clone();
 
-        let mut download_thread_lock = self.current_download_thread.lock().unwrap();
+        let mut download_thread_lock = self.current_download_thread.lock().await;
         let app_handle = self.app_handle.clone();
 
-        *download_thread_lock = Some(spawn(move || {
-            match download_agent.download(&app_handle) {
+        *download_thread_lock = Some(spawn(async move {
+            match download_agent.download(&app_handle).await {
                 // Ok(true) is for completed and exited properly
                 Ok(true) => {
                     debug!("download {:?} has completed", download_agent.metadata());
-                    match download_agent.validate() {
+                    match download_agent.validate().await {
                         Ok(true) => {
-                            download_agent.on_complete(&app_handle);
+                            download_agent.on_complete(&app_handle).await;
                             sender
                                 .send(DownloadManagerSignal::Completed(download_agent.metadata()))
                                 .unwrap();
                         }
                         Ok(false) => {
-                            download_agent.on_incomplete(&app_handle);
+                            download_agent.on_incomplete(&app_handle).await;
                         }
                         Err(e) => {
                             error!(
@@ -262,7 +263,7 @@ impl DownloadManagerBuilder {
                                 download_agent.metadata(),
                                 &e
                             );
-                            download_agent.on_error(&app_handle, &e);
+                            download_agent.on_error(&app_handle, &e).await;
                             sender.send(DownloadManagerSignal::Error(e)).unwrap();
                         }
                     }
@@ -270,69 +271,69 @@ impl DownloadManagerBuilder {
                 // Ok(false) is for incomplete but exited properly
                 Ok(false) => {
                     debug!("Donwload agent finished incomplete");
-                    download_agent.on_incomplete(&app_handle);
+                    download_agent.on_incomplete(&app_handle).await;
                 }
                 Err(e) => {
                     error!("download {:?} has error {}", download_agent.metadata(), &e);
-                    download_agent.on_error(&app_handle, &e);
+                    download_agent.on_error(&app_handle, &e).await;
                     sender.send(DownloadManagerSignal::Error(e)).unwrap();
                 }
             }
             sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
         }));
 
-        self.set_status(DownloadManagerStatus::Downloading);
+        self.set_status(DownloadManagerStatus::Downloading).await;
         let active_control_flag = self.active_control_flag.clone().unwrap();
         active_control_flag.set(DownloadThreadControlFlag::Go);
     }
-    fn manage_stop_signal(&mut self) {
+    async fn manage_stop_signal(&mut self) {
         debug!("got signal Stop");
 
         if let Some(active_control_flag) = self.active_control_flag.clone() {
-            self.set_status(DownloadManagerStatus::Paused);
+            self.set_status(DownloadManagerStatus::Paused).await;
             active_control_flag.set(DownloadThreadControlFlag::Stop);
         }
     }
-    fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
+    async fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
         debug!("got signal Completed");
         if let Some(interface) = &self.current_download_agent
             && interface.metadata() == meta
         {
-            self.remove_and_cleanup_front_download(&meta);
+            self.remove_and_cleanup_front_download(&meta).await;
         }
 
-        self.push_ui_queue_update();
+        self.push_ui_queue_update().await;
         self.sender.send(DownloadManagerSignal::Go).unwrap();
     }
-    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
+    async fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         debug!("got signal Error");
         if let Some(current_agent) = self.current_download_agent.clone() {
-            current_agent.on_error(&self.app_handle, &error);
+            current_agent.on_error(&self.app_handle, &error).await;
 
-            self.stop_and_wait_current_download();
-            self.remove_and_cleanup_front_download(&current_agent.metadata());
+            self.stop_and_wait_current_download().await;
+            self.remove_and_cleanup_front_download(&current_agent.metadata()).await;
         }
-        self.set_status(DownloadManagerStatus::Error);
+        self.set_status(DownloadManagerStatus::Error).await;
     }
-    fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
+    async fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");
 
         if let Some(current_download) = &self.current_download_agent {
             if &current_download.metadata() == meta {
-                self.set_status(DownloadManagerStatus::Paused);
-                current_download.on_cancelled(&self.app_handle);
-                self.stop_and_wait_current_download();
+                self.set_status(DownloadManagerStatus::Paused).await;
+                current_download.on_cancelled(&self.app_handle).await;
+                self.stop_and_wait_current_download().await;
 
                 self.download_queue.pop_front();
 
-                self.cleanup_current_download();
+                self.cleanup_current_download().await;
                 debug!("current download queue: {:?}", self.download_queue.read());
             }
             // TODO: Collapse these two into a single if statement somehow
             else if let Some(download_agent) = self.download_agent_registry.get(meta) {
                 let index = self.download_queue.get_by_meta(meta);
                 if let Some(index) = index {
-                    download_agent.on_cancelled(&self.app_handle);
+                    download_agent.on_cancelled(&self.app_handle).await;
                     let _ = self.download_queue.edit().remove(index).unwrap();
                     let removed = self.download_agent_registry.remove(meta);
                     debug!(
@@ -345,7 +346,7 @@ impl DownloadManagerBuilder {
         } else if let Some(download_agent) = self.download_agent_registry.get(meta) {
             let index = self.download_queue.get_by_meta(meta);
             if let Some(index) = index {
-                download_agent.on_cancelled(&self.app_handle);
+                download_agent.on_cancelled(&self.app_handle).await;
                 let _ = self.download_queue.edit().remove(index).unwrap();
                 let removed = self.download_agent_registry.remove(meta);
                 debug!(
@@ -355,28 +356,27 @@ impl DownloadManagerBuilder {
                 );
             }
         }
-        self.push_ui_queue_update();
+        self.push_ui_queue_update().await;
     }
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
         let event_data = StatsUpdateEvent { speed: kbs, time };
 
         self.app_handle.emit("update_stats", event_data).unwrap();
     }
-    fn push_ui_queue_update(&self) {
+    async fn push_ui_queue_update(&self) {
         let queue = &self.download_queue.read();
-        let queue_objs = queue
+        let queue_objs = join_all(queue
             .iter()
-            .map(|key| {
+            .map(async |key| {
                 let val = self.download_agent_registry.get(key).unwrap();
                 QueueUpdateEventQueueData {
                     meta: DownloadableMetadata::clone(key),
-                    status: val.status(),
-                    progress: val.progress().get_progress(),
-                    current: val.progress().sum(),
-                    max: val.progress().get_max(),
+                    status: val.status().await,
+                    progress: val.progress().await.get_progress(),
+                    current: val.progress().await.sum(),
+                    max: val.progress().await.get_max(),
                 }
-            })
-            .collect();
+            })).await;
 
         let event_data = QueueUpdateEvent { queue: queue_objs };
         self.app_handle.emit("update_queue", event_data).unwrap();

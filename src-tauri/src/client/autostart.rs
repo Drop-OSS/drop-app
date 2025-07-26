@@ -3,7 +3,7 @@ use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 
-pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), String> {
+pub async fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), String> {
     let manager = app.autolaunch();
     if enabled {
         manager.enable().map_err(|e| e.to_string())?;
@@ -14,16 +14,18 @@ pub fn toggle_autostart_logic(app: AppHandle, enabled: bool) -> Result<(), Strin
     }
 
     // Store the state in DB
-    let mut db_handle = borrow_db_mut_checked();
+    let mut db_handle = borrow_db_mut_checked().await;
     db_handle.settings.autostart = enabled;
     drop(db_handle);
 
     Ok(())
 }
 
-pub fn get_autostart_enabled_logic(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
+pub async fn get_autostart_enabled_logic(
+    app: AppHandle,
+) -> Result<bool, tauri_plugin_autostart::Error> {
     // First check DB state
-    let db_handle = borrow_db_checked();
+    let db_handle = borrow_db_checked().await;
     let db_state = db_handle.settings.autostart;
     drop(db_handle);
 
@@ -44,8 +46,8 @@ pub fn get_autostart_enabled_logic(app: AppHandle) -> Result<bool, tauri_plugin_
 }
 
 // New function to sync state on startup
-pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
-    let db_handle = borrow_db_checked();
+pub async fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
+    let db_handle = borrow_db_checked().await;
     let should_be_enabled = db_handle.settings.autostart;
     drop(db_handle);
 
@@ -65,11 +67,11 @@ pub fn sync_autostart_on_startup(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 #[tauri::command]
-pub fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
-    toggle_autostart_logic(app, enabled)
+pub async fn toggle_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    toggle_autostart_logic(app, enabled).await
 }
 
 #[tauri::command]
-pub fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
-    get_autostart_enabled_logic(app)
+pub async fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autostart::Error> {
+    get_autostart_enabled_logic(app).await
 }

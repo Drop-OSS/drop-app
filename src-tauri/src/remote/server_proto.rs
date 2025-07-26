@@ -6,7 +6,7 @@ use tauri::UriSchemeResponder;
 
 use crate::database::db::borrow_db_checked;
 
-pub fn handle_server_proto_offline(_request: Request<Vec<u8>>, responder: UriSchemeResponder) {
+pub async fn handle_server_proto_offline(_request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let four_oh_four = Response::builder()
         .status(StatusCode::NOT_FOUND)
         .body(Vec::new())
@@ -14,8 +14,8 @@ pub fn handle_server_proto_offline(_request: Request<Vec<u8>>, responder: UriSch
     responder.respond(four_oh_four);
 }
 
-pub fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
-    let db_handle = borrow_db_checked();
+pub async fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
+    let db_handle = borrow_db_checked().await;
     let web_token = match &db_handle.auth.as_ref().unwrap().web_token {
         Some(e) => e,
         None => return,

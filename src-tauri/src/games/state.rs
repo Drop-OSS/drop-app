@@ -10,8 +10,8 @@ pub type GameStatusWithTransient = (
 pub struct GameStatusManager {}
 
 impl GameStatusManager {
-    pub fn fetch_state(game_id: &String) -> GameStatusWithTransient {
-        let db_lock = borrow_db_checked();
+    pub async fn fetch_state(game_id: &String) -> GameStatusWithTransient {
+        let db_lock = borrow_db_checked().await;
         let online_state = match db_lock.applications.installed_game_version.get(game_id) {
             Some(meta) => db_lock.applications.transient_statuses.get(meta).cloned(),
             None => None,

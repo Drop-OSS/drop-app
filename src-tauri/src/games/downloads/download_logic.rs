@@ -7,68 +7,70 @@ use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::DropDownloadContext;
 use crate::remote::auth::generate_authorization_header;
+use futures::TryStreamExt;
 use log::{debug, warn};
 use md5::{Context, Digest};
-use reqwest::blocking::{RequestBuilder, Response};
+use reqwest::RequestBuilder;
+use tokio::fs::{File, OpenOptions};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncSeekExt, AsyncWrite, AsyncWriteExt};
+use tokio_util::io::StreamReader;
 
-use std::fs::{set_permissions, Permissions};
-use std::io::Read;
+use std::fs::{Permissions, set_permissions};
+use std::io::Write;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
-    fs::{File, OpenOptions},
-    io::{self, BufWriter, Seek, SeekFrom, Write},
+    io::{self, SeekFrom},
     path::PathBuf,
 };
 
-pub struct DropWriter<W: Write> {
+pub struct DropWriter<W: AsyncWrite> {
     hasher: Context,
     destination: W,
 }
 impl DropWriter<File> {
-    fn new(path: PathBuf) -> Self {
+    async fn new(path: PathBuf) -> Self {
         Self {
-            destination: OpenOptions::new().write(true).open(path).unwrap(),
+            destination: OpenOptions::new().write(true).open(path).await.unwrap(),
             hasher: Context::new(),
         }
     }
 
-    fn finish(mut self) -> io::Result<Digest> {
-        self.flush().unwrap();
+    async fn finish(mut self) -> io::Result<Digest> {
+        self.flush().await.unwrap();
         Ok(self.hasher.compute())
     }
-}
-// Write automatically pushes to file and hasher
-impl Write for DropWriter<File> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+
+    async fn write(&mut self, mut buf: &[u8]) -> io::Result<()> {
         self.hasher
             .write_all(buf)
             .map_err(|e| io::Error::other(format!("Unable to write to hasher: {e}")))?;
-        self.destination.write(buf)
+        self.destination.write_all_buf(&mut buf).await
     }
 
-    fn flush(&mut self) -> io::Result<()> {
+    async fn flush(&mut self) -> io::Result<()> {
         self.hasher.flush()?;
-        self.destination.flush()
+        self.destination.flush().await
     }
-}
-// Seek moves around destination output
-impl Seek for DropWriter<File> {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.destination.seek(pos)
+
+    async fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+        self.destination.seek(pos).await
     }
 }
 
-pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
+pub struct DropDownloadPipeline<'a, R: AsyncRead, W: AsyncWrite> {
     pub source: R,
     pub destination: DropWriter<W>,
     pub control_flag: &'a DownloadThreadControl,
     pub progress: ProgressHandle,
     pub size: usize,
 }
-impl<'a> DropDownloadPipeline<'a, Response, File> {
+impl<'a, R> DropDownloadPipeline<'a, R, File>
+where
+    R: AsyncRead + Unpin,
+{
     fn new(
-        source: Response,
+        source: R,
         destination: DropWriter<File>,
         control_flag: &'a DownloadThreadControl,
         progress: ProgressHandle,
@@ -83,19 +85,18 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         }
     }
 
-    fn copy(&mut self) -> Result<bool, io::Error> {
+    async fn copy(&mut self) -> Result<bool, io::Error> {
         let copy_buf_size = 512;
         let mut copy_buf = vec![0; copy_buf_size];
-        let mut buf_writer = BufWriter::with_capacity(1024 * 1024, &mut self.destination);
 
         let mut current_size = 0;
         loop {
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
-                buf_writer.flush()?;
+                self.destination.flush().await?;
                 return Ok(false);
             }
 
-            let mut bytes_read = self.source.read(&mut copy_buf)?;
+            let mut bytes_read = self.source.read(&mut copy_buf).await?;
             current_size += bytes_read;
 
             if current_size > self.size {
@@ -105,7 +106,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 current_size = self.size;
             }
 
-            buf_writer.write_all(&copy_buf[0..bytes_read])?;
+            self.destination.write(&copy_buf[0..bytes_read]).await?;
             self.progress.add(bytes_read);
 
             if current_size >= self.size {
@@ -116,18 +117,18 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 break;
             }
         }
-        buf_writer.flush()?;
+        self.destination.flush().await?;
 
         Ok(true)
     }
 
-    fn finish(self) -> Result<Digest, io::Error> {
-        let checksum = self.destination.finish()?;
+    async fn finish(self) -> Result<Digest, io::Error> {
+        let checksum = self.destination.finish().await?;
         Ok(checksum)
     }
 }
 
-pub fn download_game_chunk(
+pub async fn download_game_chunk(
     ctx: &DropDownloadContext,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
@@ -139,13 +140,14 @@ pub fn download_game_chunk(
         return Ok(false);
     }
     let response = request
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header().await)
         .send()
+        .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
         debug!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().unwrap();
+        let raw_res = response.text().await.unwrap();
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
@@ -156,11 +158,12 @@ pub fn download_game_chunk(
         ));
     }
 
-    let mut destination = DropWriter::new(ctx.path.clone());
+    let mut destination = DropWriter::new(ctx.path.clone()).await;
 
     if ctx.offset != 0 {
         destination
             .seek(SeekFrom::Start(ctx.offset))
+            .await
             .expect("Failed to seek to file offset");
     }
 
@@ -168,7 +171,7 @@ pub fn download_game_chunk(
     if content_length.is_none() {
         warn!("recieved 0 length content from server");
         return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidResponse(response.json().unwrap()),
+            RemoteAccessError::InvalidResponse(response.json().await.unwrap()),
         ));
     }
 
@@ -178,11 +181,17 @@ pub fn download_game_chunk(
         return Err(ApplicationDownloadError::DownloadError);
     }
 
+    let response_stream = StreamReader::new(
+        response
+            .bytes_stream()
+            .map_err(|e| std::io::Error::other(e)),
+    );
     let mut pipeline =
-        DropDownloadPipeline::new(response, destination, control_flag, progress, length);
+        DropDownloadPipeline::new(response_stream, destination, control_flag, progress, length);
 
     let completed = pipeline
         .copy()
+        .await
         .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
     if !completed {
         return Ok(false);
@@ -197,6 +206,7 @@ pub fn download_game_chunk(
 
     let checksum = pipeline
         .finish()
+        .await
         .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
 
     let res = hex::encode(checksum.0);
