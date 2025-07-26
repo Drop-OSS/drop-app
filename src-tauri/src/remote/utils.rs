@@ -1,7 +1,6 @@
-use std::sync::Mutex;
-
 use log::{debug, warn};
 use serde::Deserialize;
+use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{
@@ -34,7 +33,7 @@ pub async fn use_remote_logic(
     }
 
     {
-        let mut app_state = state.lock().unwrap();
+        let mut app_state = state.lock().await;
         app_state.status = AppStatus::SignedOut;
     }
 

@@ -58,6 +58,7 @@ use remote::commands::{
 use remote::fetch_object::{fetch_object, fetch_object_offline};
 use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::panic::PanicHookInfo;
@@ -65,13 +66,13 @@ use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
-use std::collections::HashMap;
 use std::{env, panic};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use tokio::runtime::Handle;
 use tokio::sync::Mutex;
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
@@ -317,31 +318,20 @@ pub async fn run() {
         ))
         .setup(|app| {
             let app = app.handle().clone();
+            let runtime = Handle::current();
 
-            tauri::async_runtime::spawn(async move {
+            runtime.spawn(async move {
                 let state = setup(app.clone()).await;
-                debug!("initialized drop client");
-                app.manage(Mutex::new(state));
+                info!("initialized drop client");
+                if !app.manage(Mutex::new(state)) {
+                    panic!("failed to setup drop state before Tauri does")
+                }
 
                 {
                     use tauri_plugin_deep_link::DeepLinkExt;
                     let _ = app.deep_link().register_all();
                     debug!("registered all pre-defined deep links");
                 }
-
-                let _main_window = tauri::WebviewWindowBuilder::new(
-                    &app,
-                    "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
-                    tauri::WebviewUrl::App("index.html".into()),
-                )
-                .title("Drop Desktop App")
-                .min_inner_size(1000.0, 500.0)
-                .inner_size(1536.0, 864.0)
-                .decorations(false)
-                .shadow(false)
-                .data_directory(DATA_ROOT_DIR.join(".webview"))
-                .build()
-                .unwrap();
 
                 let deep_link_handle = app.clone();
 
@@ -413,6 +403,20 @@ pub async fn run() {
                             .show(|_| {});
                     }
                 };
+
+                let _main_window = tauri::WebviewWindowBuilder::new(
+                    &app,
+                    "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
+                    tauri::WebviewUrl::App("index.html".into()),
+                )
+                .title("Drop Desktop App")
+                .min_inner_size(1000.0, 500.0)
+                .inner_size(1536.0, 864.0)
+                .decorations(false)
+                .shadow(false)
+                .data_directory(DATA_ROOT_DIR.join(".webview"))
+                .build()
+                .unwrap();
             });
             Ok(())
         })

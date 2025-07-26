@@ -22,6 +22,7 @@ const router = useRouter();
 const state = useAppState();
 try {
   state.value = JSON.parse(await invoke("fetch_state"));
+  console.log(state.value)
 } catch (e) {
   console.error("failed to parse state", e);
 }
