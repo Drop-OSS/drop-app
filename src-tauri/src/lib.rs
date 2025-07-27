@@ -13,6 +13,7 @@ mod remote;
 
 use crate::process::commands::open_process_logs;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
+use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
@@ -22,7 +23,7 @@ use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
 };
-use database::db::{borrow_db_checked, borrow_db_mut_checked, DatabaseInterface, DATA_ROOT_DIR};
+use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
 use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
@@ -37,13 +38,13 @@ use games::commands::{
     fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
 };
 use games::downloads::commands::download_game;
-use games::library::{update_game_configuration, Game};
-use log::{debug, info, warn, LevelFilter};
+use games::library::{Game, update_game_configuration};
+use log::{LevelFilter, debug, info, warn};
+use log4rs::Config;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Root};
 use log4rs::encode::pattern::PatternEncoder;
-use log4rs::Config;
 use process::commands::{kill_game, launch_game};
 use process::process_manager::ProcessManager;
 use remote::auth::{self, recieve_handshake};
@@ -51,7 +52,7 @@ use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
     sign_out, use_remote,
 };
-use remote::fetch_object::{fetch_object, fetch_object_offline};
+use remote::fetch_object::fetch_object;
 use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -71,7 +72,6 @@ use tauri::tray::TrayIconBuilder;
 use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
-use bitcode::{Encode, Decode};
 
 #[derive(Clone, Copy, Serialize, Eq, PartialEq)]
 pub enum AppStatus {
@@ -402,14 +402,9 @@ pub fn run() {
             Ok(())
         })
         .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
-            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
-            offline!(
-                state,
-                fetch_object,
-                fetch_object_offline,
-                request,
-                responder
-            );
+            tauri::async_runtime::spawn(async move {
+                fetch_object(request, responder).await;
+            });
         })
         .register_asynchronous_uri_scheme_protocol("server", move |ctx, request, responder| {
             let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
