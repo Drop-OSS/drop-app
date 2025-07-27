@@ -401,7 +401,7 @@ pub fn run() {
 
             Ok(())
         })
-        .register_asynchronous_uri_scheme_protocol("object", move |ctx, request, responder| {
+        .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
             tauri::async_runtime::spawn(async move {
                 fetch_object(request, responder).await;
             });

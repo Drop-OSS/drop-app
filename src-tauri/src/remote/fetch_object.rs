@@ -1,6 +1,5 @@
 use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::warn;
-use rustix::path::Arg;
 use tauri::UriSchemeResponder;
 
 use crate::{DB, database::db::DatabaseImpls};

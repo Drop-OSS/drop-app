@@ -1,8 +1,8 @@
 use std::{
     fs::File,
     io::{self, Write},
-    path::PathBuf,
-    time::{Duration, SystemTime},
+    path::{Path, PathBuf},
+    time::SystemTime,
 };
 
 use crate::{
@@ -11,7 +11,7 @@ use crate::{
 };
 use bitcode::{Decode, DecodeOwned, Encode};
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
-use log::{debug, info};
+use log::debug;
 
 #[macro_export]
 macro_rules! offline {
@@ -32,22 +32,22 @@ fn get_sys_time_in_secs() -> u64 {
     }
 }
 
-fn get_cache_path(base: &PathBuf, key: &str) -> PathBuf {
+fn get_cache_path(base: &Path, key: &str) -> PathBuf {
     let key_hash = hex::encode(md5::compute(key.as_bytes()).0);
     base.join(key_hash)
 }
 
-fn write_sync(base: &PathBuf, key: &str, data: Vec<u8>) -> io::Result<()> {
+fn write_sync(base: &Path, key: &str, data: Vec<u8>) -> io::Result<()> {
     let cache_path = get_cache_path(base, key);
     let mut file = File::create(cache_path)?;
     file.write_all(&data)?;
     Ok(())
 }
 
-fn read_sync(base: &PathBuf, key: &str) -> io::Result<Vec<u8>> {
+fn read_sync(base: &Path, key: &str) -> io::Result<Vec<u8>> {
     let cache_path = get_cache_path(base, key);
     let file = std::fs::read(cache_path)?;
-    return Ok(file);
+    Ok(file)
 }
 
 pub fn cache_object<D: Encode>(key: &str, data: &D) -> Result<(), RemoteAccessError> {
