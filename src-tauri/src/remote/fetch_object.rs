@@ -1,10 +1,12 @@
-use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder};
-use log::warn;
+use std::{alloc::System, time::SystemTime};
+
+use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
+use log::{info, warn};
 use tauri::UriSchemeResponder;
 
 use super::{
     auth::generate_authorization_header,
-    cache::{cache_object, get_cached_object, ObjectCache},
+    cache::{ObjectCache, cache_object, get_cached_object},
     requests::make_request,
 };
 
@@ -12,7 +14,7 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
     // Drop leading /
     let object_id = &request.uri().path()[1..];
 
-    let cache_result = get_cached_object::<&str, ObjectCache>(object_id);
+    let cache_result = get_cached_object::<ObjectCache>(object_id);
     if let Ok(cache_result) = &cache_result
         && !cache_result.has_expired()
     {
@@ -45,14 +47,14 @@ pub fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeRespond
     let data = Vec::from(response.bytes().unwrap());
     let resp = resp_builder.body(data).unwrap();
     if cache_result.is_err() || cache_result.unwrap().has_expired() {
-        cache_object::<&str, ObjectCache>(object_id, &resp.clone().into()).unwrap();
+        cache_object::<ObjectCache>(object_id, &resp.clone().into()).unwrap();
     }
 
     responder.respond(resp);
 }
 pub fn fetch_object_offline(request: http::Request<Vec<u8>>, responder: UriSchemeResponder) {
     let object_id = &request.uri().path()[1..];
-    let data = get_cached_object::<&str, ObjectCache>(object_id);
+    let data = get_cached_object::<ObjectCache>(object_id);
 
     match data {
         Ok(data) => responder.respond(data.into()),

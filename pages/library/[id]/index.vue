@@ -76,7 +76,7 @@
                       <TransitionGroup name="slide" tag="div" class="h-full">
                         <img
                           v-for="(url, index) in mediaUrls"
-                          :key="url"
+                          :key="index"
                           :src="url"
                           class="absolute inset-0 w-full h-full object-cover"
                           v-show="index === currentImageIndex"
@@ -157,8 +157,8 @@
     <template #default>
       <div class="sm:flex sm:items-start">
         <div class="mt-3 text-center sm:mt-0 sm:text-left">
-          <h3 class="text-base font-semibold text-zinc-100"
-            >Install {{ game.mName }}?
+          <h3 class="text-base font-semibold text-zinc-100">
+            Install {{ game.mName }}?
           </h3>
           <div class="mt-2">
             <p class="text-sm text-zinc-400">
@@ -350,9 +350,7 @@
     <template #buttons>
       <LoadingButton
         @click="() => install()"
-        :disabled="
-          !(versionOptions && versionOptions.length > 0)
-        "
+        :disabled="!(versionOptions && versionOptions.length > 0)"
         :loading="installLoading"
         type="submit"
         class="ml-2 w-full sm:w-fit"
@@ -370,7 +368,11 @@
     </template>
   </ModalTemplate>
 
-  <GameOptionsModal v-if="status.type === GameStatusEnum.Installed" v-model="configureModalOpen" :game-id="game.id" />
+  <GameOptionsModal
+    v-if="status.type === GameStatusEnum.Installed"
+    v-model="configureModalOpen"
+    :game-id="game.id"
+  />
 
   <Transition
     enter="transition ease-out duration-300"
@@ -420,7 +422,7 @@
           <img
             v-for="(url, index) in mediaUrls"
             v-show="currentImageIndex === index"
-            :key="url"
+            :key="index"
             :src="url"
             class="max-h-[90vh] max-w-[90vw] object-contain"
             :alt="`${game.mName} screenshot ${index + 1}`"
@@ -482,7 +484,10 @@ const bannerUrl = await useObject(game.value.mBannerObjectId);
 
 // Get all available images
 const mediaUrls = await Promise.all(
-  game.value.mImageCarouselObjectIds.map((id) => useObject(id))
+  game.value.mImageCarouselObjectIds.map(async (v) => {
+    const src = await useObject(v);
+    return src;
+  })
 );
 
 const htmlDescription = micromark(game.value.mDescription);
@@ -495,7 +500,6 @@ const installDirs = ref<undefined | Array<string>>();
 const currentImageIndex = ref(0);
 
 const configureModalOpen = ref(false);
-
 
 async function installFlow() {
   installFlowOpen.value = true;
@@ -535,12 +539,11 @@ async function install() {
 }
 
 async function resumeDownload() {
-    try {
-      await invoke("resume_download", { gameId: game.value.id })
-    }
-    catch(e) {
-      console.error(e)
-    }
+  try {
+    await invoke("resume_download", { gameId: game.value.id });
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 async function launch() {

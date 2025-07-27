@@ -1,4 +1,5 @@
 <template>
+  <LoadingIndicator />
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
     <ModalStack />

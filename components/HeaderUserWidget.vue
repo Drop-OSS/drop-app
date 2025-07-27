@@ -23,7 +23,7 @@
       <MenuItems
         class="absolute bg-zinc-900 right-0 top-10 z-50 w-56 origin-top-right focus:outline-none shadow-md"
       >
-        <PanelWidget class="flex-col gap-y-2">
+        <div class="flex-col gap-y-2">
           <NuxtLink
             to="/id/me"
             class="transition inline-flex items-center w-full py-3 px-4 hover:bg-zinc-800"
@@ -65,7 +65,7 @@
               </button>
             </MenuItem>
           </div>
-        </PanelWidget>
+        </div>
       </MenuItems>
     </transition>
   </Menu>

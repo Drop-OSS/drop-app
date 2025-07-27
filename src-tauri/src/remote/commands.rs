@@ -55,7 +55,7 @@ pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
         }
         Err(e) => {
             debug!("{e}");
-            get_cached_object::<&str, Vec<u8>>(&path)
+            get_cached_object::<Vec<u8>>(&path)
         }
     }
 }
