@@ -113,7 +113,7 @@ pub fn fetch_library_logic(
         }
         // We should always have a cache of the object
         // Pass db_handle because otherwise we get a gridlock
-        let game = get_cached_object_db::<String, Game>(meta.id.clone(), &db_handle)?;
+        let game = get_cached_object_db::<Game>(&meta.id.clone(), &db_handle)?;
         games.push(game);
     }
 
@@ -173,7 +173,7 @@ pub fn fetch_game_logic(
             version,
         };
 
-        cache_object(id, game)?;
+        cache_object(&id, game)?;
 
         return Ok(data);
     }
@@ -212,7 +212,7 @@ pub fn fetch_game_logic(
         version,
     };
 
-    cache_object(id, &game)?;
+    cache_object(&id, &game)?;
 
     Ok(data)
 }
@@ -239,7 +239,7 @@ pub fn fetch_game_logic_offline(
     drop(handle);
 
     let status = GameStatusManager::fetch_state(&id);
-    let game = get_cached_object::<String, Game>(id)?;
+    let game = get_cached_object::<Game>(&id)?;
 
     Ok(FetchGameStruct {
         game,
