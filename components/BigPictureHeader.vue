@@ -17,10 +17,10 @@
     <div class="flex items-center space-x-4">
       <!-- User Dropdown -->
       <Menu v-if="state.user" as="div" class="relative inline-block">
-        <MenuButton class="flex items-center space-x-3 hover:bg-zinc-800 rounded-lg p-2 transition-colors duration-200">
+        <MenuButton class="flex items-center space-x-3 hover:bg-zinc-800/80 rounded-lg p-3 transition-colors duration-200 border border-zinc-700/50 hover:border-zinc-600">
           <img 
             :src="profilePictureUrl" 
-            class="w-10 h-10 rounded-lg border-2 border-zinc-700" 
+            class="w-10 h-10 rounded-lg border-2 border-zinc-600" 
             alt="Profile"
           />
           <div class="text-right">
@@ -43,23 +43,37 @@
           leave-to-class="transform opacity-0 scale-95"
         >
           <MenuItems
-            class="absolute bg-zinc-900 right-0 top-12 z-50 w-56 origin-top-right focus:outline-none shadow-md rounded-lg border border-zinc-800"
+            class="absolute bg-zinc-900 right-0 top-14 z-50 w-56 origin-top-right focus:outline-none shadow-lg rounded-lg border border-zinc-800"
           >
-            <div class="flex-col gap-y-2 p-2">
-              <MenuItem v-slot="{ active }">
-                <button
-                  @click="exitBigPictureMode"
-                  :class="[
-                    active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
-                    'transition text-left block w-full px-4 py-3 text-sm font-semibold text-red-400 hover:text-red-300',
-                  ]"
-                >
-                  <div class="flex items-center space-x-2">
-                    <XMarkIcon class="h-5 w-5" />
-                    <span>Exit Big Picture Mode</span>
-                  </div>
-                </button>
-              </MenuItem>
+            <div class="flex-col gap-y-2">
+              <NuxtLink
+                to="/id/me"
+                class="transition inline-flex items-center w-full py-3 px-4 hover:bg-zinc-800"
+              >
+                <div class="inline-flex items-center text-zinc-300">
+                  <img :src="profilePictureUrl" class="w-5 h-5 rounded-sm" />
+                  <span class="ml-2 text-sm font-bold">{{
+                    state.user.displayName
+                  }}</span>
+                </div>
+              </NuxtLink>
+              <div class="h-0.5 rounded-full w-full bg-zinc-800" />
+              <div class="flex flex-col mb-1">
+                <MenuItem v-slot="{ active }">
+                  <button
+                    @click="exitBigPictureMode"
+                    :class="[
+                      active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
+                      'transition text-left block px-4 py-2 text-sm',
+                    ]"
+                  >
+                    <div class="flex items-center space-x-2">
+                      <XMarkIcon class="h-4 w-4" />
+                      <span>Exit Big Picture Mode</span>
+                    </div>
+                  </button>
+                </MenuItem>
+              </div>
             </div>
           </MenuItems>
         </transition>
