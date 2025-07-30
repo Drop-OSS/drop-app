@@ -84,15 +84,16 @@ const queue = useQueueState();
 const stats = useStatsState();
 
 const formatSpeed = (bytesPerSecond: number): string => {
-  const units = ["B", "KB", "MB", "GB"];
+  const units = ["KB", "MB", "GB", "TB", "PB"];
   let value = bytesPerSecond;
   let unitIndex = 0;
-  
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
+  const scalar = 1000;
+
+  while (value >= scalar && unitIndex < units.length - 1) {
+    value /= scalar;
     unitIndex++;
   }
-  
+
   return `${value.toFixed(1)} ${units[unitIndex]}`;
 };
 
