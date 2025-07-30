@@ -73,8 +73,8 @@
 <script setup lang="ts">
 import { QueueListIcon, BookOpenIcon } from "@heroicons/vue/24/outline";
 import { invoke } from "@tauri-apps/api/core";
+import { type DownloadableMetadata } from "~/types";
 import { useQueueState, useStatsState } from "~/composables/downloads";
-import BigPictureQueueItem from "~/components/BigPictureQueueItem.vue";
 
 definePageMeta({
   layout: "big-picture"
