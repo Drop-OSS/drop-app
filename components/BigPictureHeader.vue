@@ -1,9 +1,9 @@
 <template>
-  <div class="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between">
+  <div class="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between transition-all duration-300">
     <!-- Left Section -->
     <div class="flex items-center space-x-6">
       <!-- Current Page Title -->
-      <div>
+      <div class="transform transition-all duration-300">
         <h1 class="text-2xl font-bold font-display text-zinc-100">
           {{ currentPageTitle }}
         </h1>

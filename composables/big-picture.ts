@@ -13,12 +13,14 @@ export interface BigPictureState {
   isActive: boolean;
   currentPage: string;
   lastNormalPage: string;
+  showIntro: boolean;
 }
 
 export const useBigPictureMode = () => useState<BigPictureState>("big-picture", () => ({
   isActive: false,
   currentPage: "/big-picture/library",
-  lastNormalPage: "/library"
+  lastNormalPage: "/library",
+  showIntro: false
 }));
 
 export const toggleBigPictureMode = async () => {
@@ -42,11 +44,17 @@ export const enterBigPictureMode = async () => {
     // Enter fullscreen
     await invoke("enter_fullscreen");
     
-    // Set big picture mode active
+    // Set big picture mode active and show intro
     state.value.isActive = true;
+    state.value.showIntro = true;
     
     // Navigate to big picture library
     await router.push("/big-picture/library");
+    
+    // Hide intro after animation completes
+    setTimeout(() => {
+      state.value.showIntro = false;
+    }, 1800); // Slightly longer than the intro animation
     
   } catch (error) {
     console.error("Failed to enter big picture mode:", error);

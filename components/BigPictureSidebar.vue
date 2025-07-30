@@ -1,7 +1,7 @@
 <template>
-  <div class="bg-zinc-900 border-r border-zinc-800 p-6 space-y-4">
+  <div class="bg-zinc-900 border-r border-zinc-800 p-6 space-y-4 transition-all duration-500 ease-out">
     <!-- Logo Section -->
-    <div class="mb-8">
+    <div class="mb-8 transform transition-all duration-300 hover:scale-105">
       <Wordmark class="h-10" />
     </div>
     
