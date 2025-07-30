@@ -65,15 +65,15 @@
         </div>
       </div>
 
-      <!-- Game Description -->
-      <div v-if="selectedGame.mDescription" class="bg-zinc-800/50 rounded-xl p-8 backdrop-blur-sm">
-        <h2 class="text-3xl font-semibold text-zinc-100 mb-6">About This Game</h2>
-        <div class="prose prose-invert prose-blue max-w-none">
-          <p class="text-zinc-300 leading-relaxed text-lg">
-            {{ selectedGame.mDescription }}
-          </p>
-        </div>
-      </div>
+             <!-- Game Description -->
+       <div v-if="selectedGame.mDescription" class="bg-zinc-800/50 rounded-xl p-8 backdrop-blur-sm">
+         <h2 class="text-3xl font-semibold text-zinc-100 mb-6">About This Game</h2>
+         <div class="prose prose-invert prose-blue max-w-none">
+           <p class="text-zinc-300 leading-relaxed text-lg break-words overflow-hidden">
+             {{ selectedGame.mDescription }}
+           </p>
+         </div>
+       </div>
 
       <!-- Additional Actions -->
       <div class="flex justify-center">
