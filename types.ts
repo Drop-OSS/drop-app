@@ -86,3 +86,18 @@ export type Settings = {
   maxDownloadThreads: number;
   forceOffline: boolean;
 };
+
+// Big Picture Mode Types
+export type BigPictureNavItem = {
+  icon: Component;
+  label: string;
+  route: string;
+  description: string;
+  notifications?: number;
+};
+
+export type BigPictureState = {
+  isActive: boolean;
+  currentPage: string;
+  lastNormalPage: string;
+};

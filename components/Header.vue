@@ -37,6 +37,7 @@
               <component class="h-5" :is="item.icon" />
             </HeaderWidget>
           </li>
+          <BigPictureToggle />
           <OfflineHeaderWidget v-if="state.status === AppStatus.Offline" />
           <HeaderUserWidget />
         </ol>
@@ -50,6 +51,7 @@
 import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
 import { AppStatus, type NavigationItem, type QuickActionNav } from "../types";
 import HeaderWidget from "./HeaderWidget.vue";
+import BigPictureToggle from "./BigPictureToggle.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const window = getCurrentWindow();

@@ -14,7 +14,7 @@ mod remote;
 use crate::process::commands::open_process_logs;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
-use client::commands::fetch_state;
+use client::commands::{fetch_state, enter_fullscreen, exit_fullscreen, is_fullscreen};
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
@@ -303,7 +303,11 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
-            open_process_logs
+            open_process_logs,
+            // Big Picture Mode
+            enter_fullscreen,
+            exit_fullscreen,
+            is_fullscreen
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
