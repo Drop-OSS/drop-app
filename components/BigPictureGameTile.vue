@@ -1,7 +1,7 @@
 <template>
-  <div
-    @click="$emit('click')"
-    class="group relative bg-zinc-800 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 focus:ring-offset-zinc-900"
+  <NuxtLink
+    :to="`/big-picture/library/${props.game.id}`"
+    class="group relative bg-zinc-800 rounded-xl overflow-hidden cursor-pointer transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 focus:ring-offset-zinc-900 block"
   >
     <!-- Game Cover Image -->
     <div class="aspect-[4/3] relative overflow-hidden">
@@ -52,7 +52,7 @@
         </button>
       </div>
     </div>
-  </div>
+  </NuxtLink>
 </template>
 
 <script setup lang="ts">
@@ -68,23 +68,11 @@ import { invoke } from "@tauri-apps/api/core";
 
 const props = defineProps<{
   game: Game;
+  status?: GameStatus;
 }>();
 
-defineEmits<{
-  click: [];
-}>();
-
-// Get game status
-const status = ref<GameStatus>({ type: GameStatusEnum.Remote });
-
-onMounted(async () => {
-  try {
-    const gameStatus = await invoke("fetch_game_status", { gameId: props.game.id });
-    status.value = gameStatus as GameStatus;
-  } catch (error) {
-    console.error("Failed to fetch game status:", error);
-  }
-});
+// Use provided status or default to Remote
+const status = computed(() => props.status || { type: GameStatusEnum.Remote });
 
 // Get cover image URL
 const coverUrl = await useObject(props.game.mCoverObjectId);

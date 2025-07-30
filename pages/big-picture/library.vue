@@ -13,10 +13,10 @@
     <!-- Games Grid -->
     <div v-if="games.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       <BigPictureGameTile
-        v-for="game in games"
-        :key="game.id"
-        :game="game"
-        @click="navigateToGame(game.id)"
+        v-for="gameData in games"
+        :key="gameData.game.id"
+        :game="gameData.game"
+        :status="gameData.status"
       />
     </div>
 
@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { BookOpenIcon, BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { invoke } from "@tauri-apps/api/core";
-import BigPictureGameTile from "~/components/BigPictureGameTile.vue";
+import { type Game, type GameStatus } from "~/types";
 
 definePageMeta({
   layout: "big-picture"
@@ -53,19 +53,31 @@ definePageMeta({
 
 const router = useRouter();
 
-// Fetch games from backend
-const games = ref<Game[]>([]);
+// Fetch games with status from backend
+const games = ref<{ game: Game; status: GameStatus; cover: string }[]>([]);
 
 onMounted(async () => {
   try {
     const libraryData = await invoke("fetch_library");
-    games.value = libraryData as Game[];
+    const gameIds = libraryData as Game[];
+    
+    // Load each game with its status and cover
+    const gamesWithStatus = await Promise.all(
+      gameIds.map(async (game) => {
+        const gameData = await useGame(game.id);
+        const cover = await useObject(gameData.game.mCoverObjectId);
+        return {
+          game: gameData.game,
+          status: gameData.status.value,
+          cover
+        };
+      })
+    );
+    
+    games.value = gamesWithStatus;
   } catch (error) {
     console.error("Failed to fetch library:", error);
   }
 });
 
-const navigateToGame = (gameId: string) => {
-  router.push(`/big-picture/library/${gameId}`);
-};
 </script> 
