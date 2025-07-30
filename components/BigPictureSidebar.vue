@@ -15,15 +15,6 @@
         @click="navigateTo(item.route)"
       />
     </div>
-    
-    <!-- Exit Button -->
-    <div class="mt-auto pt-6 border-t border-zinc-800">
-      <BigPictureNavTile
-        :item="exitItem"
-        :is-active="false"
-        @click="exitBigPictureMode"
-      />
-    </div>
   </div>
 </template>
 
@@ -33,9 +24,8 @@ import {
   BuildingStorefrontIcon,
   QueueListIcon,
   Cog6ToothIcon,
-  XMarkIcon,
 } from "@heroicons/vue/24/outline";
-import { useBigPictureMode, setBigPicturePage, exitBigPictureMode } from "~/composables/big-picture";
+import { useBigPictureMode, setBigPicturePage } from "~/composables/big-picture";
 import { useQueueState } from "~/composables/downloads";
 import BigPictureNavTile from "~/components/BigPictureNavTile.vue";
 
@@ -74,14 +64,6 @@ const navigationItems = computed(() => [
     notifications: undefined
   }
 ]);
-
-const exitItem = {
-  icon: XMarkIcon,
-  label: "Exit Big Picture",
-  route: "",
-  description: "Return to normal mode",
-  notifications: undefined
-};
 
 const navigateTo = async (route: string) => {
   setBigPicturePage(route);
