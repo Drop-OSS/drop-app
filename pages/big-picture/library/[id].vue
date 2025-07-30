@@ -3,7 +3,7 @@
     <!-- Back Button -->
     <div class="mb-8">
       <button
-        @click="router.push('/big-picture/library')"
+        @click="() => router.push('/big-picture/library')"
         class="flex items-center space-x-3 text-zinc-400 hover:text-zinc-200 transition-colors duration-200 text-lg"
       >
         <ArrowLeftIcon class="h-6 w-6" />
@@ -140,16 +140,14 @@ const gameCover = ref<string>("");
 const isActionLoading = ref(false);
 
 // Load game data
-onMounted(async () => {
-  try {
-    const { game: rawGame, status } = await useGame(gameId);
-    game.value = rawGame;
-    gameStatus.value = status.value;
-    gameCover.value = await useObject(rawGame.mCoverObjectId);
-  } catch (error) {
-    console.error("Failed to load game data:", error);
-  }
-});
+try {
+  const { game: rawGame, status } = await useGame(gameId);
+  game.value = rawGame;
+  gameStatus.value = status.value;
+  gameCover.value = await useObject(rawGame.mCoverObjectId);
+} catch (error) {
+  console.error("Failed to load game data:", error);
+}
 
 // Status styling
 const statusClasses = {
