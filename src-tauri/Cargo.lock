@@ -1268,7 +1268,7 @@ dependencies = [
 
 [[package]]
 name = "drop-app"
-version = "0.3.0-rc-8"
+version = "0.3.0"
 dependencies = [
  "atomic-instant-full",
  "bitcode",
