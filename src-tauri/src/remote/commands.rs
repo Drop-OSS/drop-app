@@ -1,15 +1,17 @@
 use std::sync::Mutex;
 
-use log::debug;
+use futures_lite::StreamExt;
+use log::{debug, warn};
 use reqwest::blocking::Client;
+use reqwest_websocket::{Message, RequestBuilderExt};
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
+    AppState, AppStatus,
     database::db::{borrow_db_checked, borrow_db_mut_checked},
     error::remote_access_error::RemoteAccessError,
     remote::{auth::generate_authorization_header, requests::make_request},
-    AppState, AppStatus,
 };
 
 use super::{
@@ -91,7 +93,62 @@ pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
 
 #[tauri::command]
 pub fn auth_initiate() -> Result<(), RemoteAccessError> {
-    auth_initiate_logic()
+    let base_url = {
+        let db_lock = borrow_db_checked();
+        Url::parse(&db_lock.base_url.clone())?
+    };
+
+    let redir_url = auth_initiate_logic("callback".to_string())?;
+    let complete_redir_url = base_url.join(&redir_url)?;
+
+    debug!("opening web browser to continue authentication");
+    webbrowser::open(complete_redir_url.as_ref()).unwrap();
+    Ok(())
+}
+
+#[tauri::command]
+pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
+    let base_url = {
+        let db_lock = borrow_db_checked();
+        Url::parse(&db_lock.base_url.clone())?
+    };
+
+    let code = auth_initiate_logic("code".to_string())?;
+    let header_code = code.clone();
+
+    tauri::async_runtime::spawn(async move {
+        let load = async || -> Result<(), RemoteAccessError> {
+            let ws_url = base_url.join("/api/v1/client/auth/code/ws")?;
+            let response = reqwest::Client::default()
+                .get(ws_url)
+                .header("Authorization", format!("{header_code}e81u28dj"))
+                .upgrade()
+                .send()
+                .await?;
+
+            let mut websocket = response.into_websocket().await?;
+
+            while let Some(token) = websocket.try_next().await? {
+                if let Message::Text(text) = token {
+                    let recieve_app = app.clone();
+                    tauri::async_runtime::spawn_blocking(move || {
+                        manual_recieve_handshake(recieve_app, text);
+                    });
+                    return Ok(());
+                }
+            }
+
+            Err(RemoteAccessError::HandshakeFailed("Failed to connect to websocket".to_string()))
+        };
+
+        let result = load().await;
+        if let Err(err) = result {
+            warn!("{err}");
+            app.emit("auth/failed", err.to_string()).unwrap();
+        }
+    });
+
+    Ok(code)
 }
 
 #[tauri::command]

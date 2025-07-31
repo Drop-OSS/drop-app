@@ -12,6 +12,7 @@ mod process;
 mod remote;
 
 use crate::process::commands::open_process_logs;
+use crate::remote::commands::auth_initiate_code;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
@@ -267,6 +268,7 @@ pub fn run() {
             fetch_settings,
             // Auth
             auth_initiate,
+            auth_initiate_code,
             retry_connect,
             manual_recieve_handshake,
             sign_out,

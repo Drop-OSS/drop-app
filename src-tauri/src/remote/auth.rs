@@ -9,12 +9,12 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
+    AppState, AppStatus, User,
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
     },
     error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    AppState, AppStatus, User,
 };
 
 use super::{
@@ -32,6 +32,7 @@ struct InitiateRequestBody {
     name: String,
     platform: String,
     capabilities: HashMap<String, CapabilityConfiguration>,
+    mode: String,
 }
 
 #[derive(Serialize)]
@@ -166,7 +167,7 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     app.emit("auth/finished", ()).unwrap();
 }
 
-pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
+pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
     let base_url = {
         let db_lock = borrow_db_checked();
         Url::parse(&db_lock.base_url.clone())?
@@ -182,6 +183,7 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
             ("peerAPI".to_owned(), CapabilityConfiguration {}),
             ("cloudSaves".to_owned(), CapabilityConfiguration {}),
         ]),
+        mode: mode,
     };
 
     let client = reqwest::blocking::Client::new();
@@ -194,13 +196,9 @@ pub fn auth_initiate_logic() -> Result<(), RemoteAccessError> {
         return Err(RemoteAccessError::HandshakeFailed(data.status_message));
     }
 
-    let redir_url = response.text()?;
-    let complete_redir_url = base_url.join(&redir_url)?;
+    let response = response.text()?;
 
-    debug!("opening web browser to continue authentication");
-    webbrowser::open(complete_redir_url.as_ref()).unwrap();
-
-    Ok(())
+    Ok(response)
 }
 
 pub fn setup() -> (AppStatus, Option<User>) {
