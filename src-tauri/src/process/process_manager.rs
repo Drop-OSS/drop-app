@@ -281,7 +281,7 @@ impl ProcessManager<'_> {
         let launch_string = game_launcher.create_launch_process(
             &meta,
             launch.to_string(),
-            args.to_vec(),
+            args.clone(),
             game_version,
             install_dir,
         );

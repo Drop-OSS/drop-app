@@ -115,7 +115,7 @@ impl GameDownloadAgent {
         );
         let res = self
             .run()
-            .map_err(|_| ApplicationDownloadError::DownloadError);
+            .map_err(|()| ApplicationDownloadError::DownloadError);
 
         debug!(
             "{} took {}ms to download",
@@ -322,7 +322,7 @@ impl GameDownloadAgent {
             }
         });
 
-        let newly_completed = completed_contexts.to_owned();
+        let newly_completed = completed_contexts.clone();
 
         let completed_lock_len = {
             let mut context_map_lock = self.context_map.lock().unwrap();
@@ -338,7 +338,7 @@ impl GameDownloadAgent {
             .map(|x| {
                 (
                     x.checksum.clone(),
-                    context_map_lock.get(&x.checksum).cloned().unwrap_or(false),
+                    context_map_lock.get(&x.checksum).copied().unwrap_or(false),
                 )
             })
             .collect::<Vec<(String, bool)>>();

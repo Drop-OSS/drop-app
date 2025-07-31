@@ -27,7 +27,7 @@ pub mod data {
         use serde_with::serde_as;
         use std::{collections::HashMap, path::PathBuf};
 
-        use super::*;
+        use super::{Serialize, Deserialize, native_model};
 
         fn default_template() -> String {
             "{}".to_owned()
@@ -176,7 +176,7 @@ pub mod data {
 
         use serde_with::serde_as;
 
-        use super::*;
+        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, v1, GameVersion, DownloadableMetadata, ApplicationTransientStatus};
 
         #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
@@ -285,7 +285,7 @@ pub mod data {
     mod v3 {
         use std::path::PathBuf;
 
-        use super::*;
+        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, DatabaseApplications, DatabaseCompatInfo, v2};
         #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
@@ -338,7 +338,7 @@ pub mod data {
                     transient_statuses: HashMap::new(),
                 },
                 prev_database,
-                base_url: "".to_owned(),
+                base_url: String::new(),
                 auth: None,
                 settings: Settings::default(),
                 cache_dir,

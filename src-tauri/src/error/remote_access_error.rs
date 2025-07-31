@@ -38,7 +38,7 @@ impl Display for RemoteAccessError {
                     error,
                     error
                         .source()
-                        .map(|e| e.to_string())
+                        .map(std::string::ToString::to_string)
                         .or_else(|| Some("Unknown error".to_string()))
                         .unwrap()
                 )

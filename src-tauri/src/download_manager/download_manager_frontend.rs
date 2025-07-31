@@ -23,13 +23,13 @@ use super::{
 };
 
 pub enum DownloadManagerSignal {
-    /// Resumes (or starts) the DownloadManager
+    /// Resumes (or starts) the `DownloadManager`
     Go,
-    /// Pauses the DownloadManager
+    /// Pauses the `DownloadManager`
     Stop,
-    /// Called when a DownloadAgent has fully completed a download.
+    /// Called when a `DownloadAgent` has fully completed a download.
     Completed(DownloadableMetadata),
-    /// Generates and appends a DownloadAgent
+    /// Generates and appends a `DownloadAgent`
     /// to the registry and queue
     Queue(DownloadAgent),
     /// Tells the Manager to stop the current
@@ -70,14 +70,14 @@ pub enum DownloadStatus {
     Error,
 }
 
-/// Accessible front-end for the DownloadManager
+/// Accessible front-end for the `DownloadManager`
 ///
 /// The system works entirely through signals, both internally and externally,
-/// all of which are accessible through the DownloadManagerSignal type, but
+/// all of which are accessible through the `DownloadManagerSignal` type, but
 /// should not be used directly. Rather, signals are abstracted through this
 /// interface.
 ///
-/// The actual download queue may be accessed through the .edit() function,
+/// The actual download queue may be accessed through the .`edit()` function,
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
 pub struct DownloadManager {
@@ -139,7 +139,7 @@ impl DownloadManager {
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
         if current_index == new_index {
             return;
-        };
+        }
 
         let needs_pause = current_index == 0 || new_index == 0;
         if needs_pause {
@@ -183,7 +183,7 @@ impl DownloadManager {
     }
 }
 
-/// Takes in the locked value from .edit() and attempts to
+/// Takes in the locked value from .`edit()` and attempts to
 /// get the index of whatever id is passed in
 fn get_index_from_id(
     queue: &mut MutexGuard<'_, VecDeque<DownloadableMetadata>>,

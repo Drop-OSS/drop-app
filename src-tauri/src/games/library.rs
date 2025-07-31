@@ -96,7 +96,7 @@ pub fn fetch_library_logic(
 
     let mut db_handle = borrow_db_mut_checked();
 
-    for game in games.iter() {
+    for game in &games {
         handle.games.insert(game.id.clone(), game.clone());
         if !db_handle.applications.game_statuses.contains_key(&game.id) {
             db_handle
@@ -329,37 +329,34 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         drop(db_handle);
 
         let app_handle = app_handle.clone();
-        spawn(move || match remove_dir_all(install_dir) {
-            Err(e) => {
-                error!("{e}");
-            }
-            Ok(_) => {
-                let mut db_handle = borrow_db_mut_checked();
-                db_handle.applications.transient_statuses.remove(&meta);
-                db_handle
-                    .applications
-                    .installed_game_version
-                    .remove(&meta.id);
-                db_handle
-                    .applications
-                    .game_statuses
-                    .entry(meta.id.clone())
-                    .and_modify(|e| *e = GameDownloadStatus::Remote {});
-                drop(db_handle);
+        spawn(move || if let Err(e) = remove_dir_all(install_dir) {
+            error!("{e}");
+        } else {
+            let mut db_handle = borrow_db_mut_checked();
+            db_handle.applications.transient_statuses.remove(&meta);
+            db_handle
+                .applications
+                .installed_game_version
+                .remove(&meta.id);
+            db_handle
+                .applications
+                .game_statuses
+                .entry(meta.id.clone())
+                .and_modify(|e| *e = GameDownloadStatus::Remote {});
+            drop(db_handle);
 
-                debug!("uninstalled game id {}", &meta.id);
-                app_handle.emit("update_library", ()).unwrap();
+            debug!("uninstalled game id {}", &meta.id);
+            app_handle.emit("update_library", ()).unwrap();
 
-                push_game_update(
-                    &app_handle,
-                    &meta.id,
-                    None,
-                    (Some(GameDownloadStatus::Remote {}), None),
-                );
-            }
+            push_game_update(
+                &app_handle,
+                &meta.id,
+                None,
+                (Some(GameDownloadStatus::Remote {}), None),
+            );
         });
     } else {
-        warn!("invalid previous state for uninstall, failing silently.")
+        warn!("invalid previous state for uninstall, failing silently.");
     }
 }
 

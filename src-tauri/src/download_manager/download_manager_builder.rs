@@ -176,7 +176,7 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::Cancel(meta) => {
                     self.manage_cancel_signal(&meta);
                 }
-            };
+            }
         }
     }
     fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
