@@ -27,8 +27,9 @@ pub struct DropWriter<W: Write> {
 }
 impl DropWriter<File> {
     fn new(path: PathBuf) -> Self {
+        let destination = OpenOptions::new().write(true).create(true).truncate(false).open(&path).unwrap();
         Self {
-            destination: OpenOptions::new().write(true).open(path).unwrap(),
+            destination: destination,
             hasher: Context::new(),
         }
     }

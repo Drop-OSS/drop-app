@@ -1,3 +1,4 @@
+use crate::AppState;
 use crate::auth::generate_authorization_header;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
@@ -18,15 +19,15 @@ use crate::remote::requests::make_request;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
-use std::fs::{create_dir_all, OpenOptions};
+use std::fs::{OpenOptions, create_dir_all};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(target_os = "linux")]
-use rustix::fs::{fallocate, FallocateFlags};
+use rustix::fs::{FallocateFlags, fallocate};
 
 use super::download_logic::download_game_chunk;
 use super::drop_data::DropData;
@@ -187,10 +188,7 @@ impl GameDownloadAgent {
             self.generate_contexts()?;
         }
 
-        self.context_map
-            .lock()
-            .unwrap()
-            .extend(self.stored_manifest.get_contexts());
+        *self.context_map.lock().unwrap() = self.stored_manifest.get_contexts();
 
         Ok(())
     }
@@ -423,6 +421,7 @@ impl Downloadable for GameDownloadAgent {
             app_handle,
         )
         .unwrap();
+        println!("Attempting to redownload");
     }
 
     fn on_cancelled(&self, _app_handle: &tauri::AppHandle) {}
