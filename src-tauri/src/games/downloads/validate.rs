@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read, Seek, SeekFrom, Write},
-    sync::{mpsc::Sender, Arc},
+    sync::{Arc, mpsc::Sender},
 };
 
 use log::{debug, error, info};
@@ -73,6 +73,7 @@ pub fn game_validate_logic(
         }
     });
 
+
     // If there are any contexts left which are false
     if !invalid_chunks.is_empty() {
         info!(
@@ -80,6 +81,13 @@ pub fn game_validate_logic(
             dropdata.game_id.clone(),
             invalid_chunks
         );
+
+        for context in invalid_chunks.iter() {
+            dropdata.set_context(context.1.clone(), false);
+        }
+
+        dropdata.write();
+
         return Ok(false);
     }
 
@@ -101,7 +109,9 @@ pub fn validate_game_chunk(
         return Ok(false);
     }
 
-    let mut source = File::open(&ctx.path).unwrap();
+    let Ok(mut source) = File::open(&ctx.path) else {
+        return Ok(false);
+    };
 
     if ctx.offset != 0 {
         source

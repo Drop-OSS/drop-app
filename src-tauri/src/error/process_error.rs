@@ -4,7 +4,6 @@ use serde_with::SerializeDisplay;
 
 #[derive(SerializeDisplay)]
 pub enum ProcessError {
-    SetupRequired,
     NotInstalled,
     AlreadyRunning,
     NotDownloaded,
@@ -19,7 +18,6 @@ pub enum ProcessError {
 impl Display for ProcessError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            ProcessError::SetupRequired => "Game not set up",
             ProcessError::NotInstalled => "Game not installed",
             ProcessError::AlreadyRunning => "Game already running",
             ProcessError::NotDownloaded => "Game not downloaded",

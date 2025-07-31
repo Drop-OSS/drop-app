@@ -242,43 +242,47 @@ impl DownloadManagerBuilder {
         let app_handle = self.app_handle.clone();
 
         *download_thread_lock = Some(spawn(move || {
-            match download_agent.download(&app_handle) {
-                // Ok(true) is for completed and exited properly
-                Ok(true) => {
-                    debug!("download {:?} has completed", download_agent.metadata());
-                    match download_agent.validate() {
-                        Ok(true) => {
-                            download_agent.on_complete(&app_handle);
-                            sender
-                                .send(DownloadManagerSignal::Completed(download_agent.metadata()))
-                                .unwrap();
-                        }
-                        Ok(false) => {
-                            download_agent.on_incomplete(&app_handle);
-                        }
-                        Err(e) => {
-                            error!(
-                                "download {:?} has validation error {}",
-                                download_agent.metadata(),
-                                &e
-                            );
-                            download_agent.on_error(&app_handle, &e);
-                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
-                        }
+            loop {
+                let download_result = match download_agent.download(&app_handle) {
+                    // Ok(true) is for completed and exited properly
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("download {:?} has error {}", download_agent.metadata(), &e);
+                        download_agent.on_error(&app_handle, &e);
+                        sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                        return;
                     }
-                }
-                // Ok(false) is for incomplete but exited properly
-                Ok(false) => {
-                    debug!("Donwload agent finished incomplete");
+                };
+
+                // If the download gets cancel
+                if !download_result {
                     download_agent.on_incomplete(&app_handle);
+                    return;
                 }
-                Err(e) => {
-                    error!("download {:?} has error {}", download_agent.metadata(), &e);
-                    download_agent.on_error(&app_handle, &e);
-                    sender.send(DownloadManagerSignal::Error(e)).unwrap();
+
+                let validate_result = match download_agent.validate() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!(
+                            "download {:?} has validation error {}",
+                            download_agent.metadata(),
+                            &e
+                        );
+                        download_agent.on_error(&app_handle, &e);
+                        sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                        return;
+                    }
+                };
+
+                if validate_result {
+                    download_agent.on_complete(&app_handle);
+                    sender
+                        .send(DownloadManagerSignal::Completed(download_agent.metadata()))
+                        .unwrap();
+                    sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
+                    return;
                 }
             }
-            sender.send(DownloadManagerSignal::UpdateUIQueue).unwrap();
         }));
 
         self.set_status(DownloadManagerStatus::Downloading);
