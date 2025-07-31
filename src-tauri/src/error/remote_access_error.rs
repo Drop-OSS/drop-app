@@ -21,7 +21,7 @@ pub enum RemoteAccessError {
     UnparseableResponse(String),
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
-    Cache(cacache::Error),
+    Cache(std::io::Error),
 }
 
 impl Display for RemoteAccessError {

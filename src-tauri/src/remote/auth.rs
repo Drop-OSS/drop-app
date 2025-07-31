@@ -212,7 +212,7 @@ pub fn setup() -> (AppStatus, Option<User>) {
         let user_result = match fetch_user() {
             Ok(data) => data,
             Err(RemoteAccessError::FetchError(_)) => {
-                let user = get_cached_object::<_, User>("user").unwrap();
+                let user = get_cached_object::<User>("user").unwrap();
                 return (AppStatus::Offline, Some(user));
             }
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),

@@ -1,7 +1,7 @@
 {
   "name": "drop-app",
   "private": true,
-  "version": "0.3.0-rc-7",
+  "version": "0.3.0-rc-8",
   "type": "module",
   "scripts": {
     "build": "nuxt build",

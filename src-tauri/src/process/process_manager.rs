@@ -181,9 +181,7 @@ impl ProcessManager<'_> {
             .cloned()
         {
             Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
-            Some(GameDownloadStatus::SetupRequired { .. }) => {
-                return Err(ProcessError::SetupRequired);
-            }
+            Some(GameDownloadStatus::SetupRequired { version_name, .. }) => version_name,
             _ => return Err(ProcessError::NotInstalled),
         };
         let meta = DownloadableMetadata {

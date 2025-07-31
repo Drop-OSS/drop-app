@@ -1,6 +1,8 @@
 use std::{
-    fmt::Display,
-    time::{Duration, SystemTime},
+    fs::File,
+    io::{self, Write},
+    path::{Path, PathBuf},
+    time::SystemTime,
 };
 
 use crate::{
@@ -8,8 +10,8 @@ use crate::{
     error::remote_access_error::RemoteAccessError,
 };
 use bitcode::{Decode, DecodeOwned, Encode};
-use cacache::Integrity;
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
+use log::debug;
 
 #[macro_export]
 macro_rules! offline {
@@ -23,47 +25,67 @@ macro_rules! offline {
     }
 }
 
-pub fn cache_object<K: AsRef<str>, D: Encode>(
-    key: K,
-    data: &D,
-) -> Result<Integrity, RemoteAccessError> {
+fn get_sys_time_in_secs() -> u64 {
+    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+        Ok(n) => n.as_secs(),
+        Err(_) => panic!("SystemTime before UNIX EPOCH!"),
+    }
+}
+
+fn get_cache_path(base: &Path, key: &str) -> PathBuf {
+    let key_hash = hex::encode(md5::compute(key.as_bytes()).0);
+    base.join(key_hash)
+}
+
+fn write_sync(base: &Path, key: &str, data: Vec<u8>) -> io::Result<()> {
+    let cache_path = get_cache_path(base, key);
+    let mut file = File::create(cache_path)?;
+    file.write_all(&data)?;
+    Ok(())
+}
+
+fn read_sync(base: &Path, key: &str) -> io::Result<Vec<u8>> {
+    let cache_path = get_cache_path(base, key);
+    let file = std::fs::read(cache_path)?;
+    Ok(file)
+}
+
+pub fn cache_object<D: Encode>(key: &str, data: &D) -> Result<(), RemoteAccessError> {
     let bytes = bitcode::encode(data);
-    cacache::write_sync(&borrow_db_checked().cache_dir, key, bytes)
-        .map_err(RemoteAccessError::Cache)
+    write_sync(&borrow_db_checked().cache_dir, key, bytes).map_err(RemoteAccessError::Cache)
 }
-pub fn get_cached_object<K: AsRef<str> + Display, D: Encode + DecodeOwned>(
-    key: K,
-) -> Result<D, RemoteAccessError> {
-    get_cached_object_db::<K, D>(key, &borrow_db_checked())
+pub fn get_cached_object<D: Encode + DecodeOwned>(key: &str) -> Result<D, RemoteAccessError> {
+    get_cached_object_db::<D>(key, &borrow_db_checked())
 }
-pub fn get_cached_object_db<K: AsRef<str> + Display, D: DecodeOwned>(
-    key: K,
+pub fn get_cached_object_db<D: DecodeOwned>(
+    key: &str,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let bytes = cacache::read_sync(&db.cache_dir, &key).map_err(RemoteAccessError::Cache)?;
-    let data = bitcode::decode::<D>(&bytes).map_err(|_| {
-        RemoteAccessError::Cache(cacache::Error::EntryNotFound(
-            db.cache_dir.clone(),
-            key.to_string(),
-        ))
-    })?;
+    let start = SystemTime::now();
+    let bytes = read_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
+    let read = start.elapsed().unwrap();
+    let data =
+        bitcode::decode::<D>(&bytes).map_err(|e| RemoteAccessError::Cache(io::Error::other(e)))?;
+    let decode = start.elapsed().unwrap();
+    debug!(
+        "cache object took: r:{}, d:{}, b:{}",
+        read.as_millis(),
+        read.abs_diff(decode).as_millis(),
+        bytes.len()
+    );
     Ok(data)
 }
 #[derive(Encode, Decode)]
 pub struct ObjectCache {
     content_type: String,
     body: Vec<u8>,
-    expiry: u128,
+    expiry: u64,
 }
 
 impl ObjectCache {
     pub fn has_expired(&self) -> bool {
-        let duration = Duration::from_millis(self.expiry.try_into().unwrap());
-        SystemTime::UNIX_EPOCH
-            .checked_add(duration)
-            .unwrap()
-            .elapsed()
-            .is_err()
+        let current = get_sys_time_in_secs();
+        self.expiry < current
     }
 }
 
@@ -78,12 +100,7 @@ impl From<Response<Vec<u8>>> for ObjectCache {
                 .unwrap()
                 .to_owned(),
             body: value.body().clone(),
-            expiry: SystemTime::now()
-                .checked_add(Duration::from_days(1))
-                .unwrap()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_millis(),
+            expiry: get_sys_time_in_secs() + 60 * 60 * 24,
         }
     }
 }
