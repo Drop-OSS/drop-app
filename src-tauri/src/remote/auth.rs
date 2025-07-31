@@ -81,11 +81,11 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    response.json::<User>().map_err(|e| e.into())
+    response.json::<User>().map_err(std::convert::Into::into)
 }
 
 fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
-    let path_chunks: Vec<&str> = path.split("/").collect();
+    let path_chunks: Vec<&str> = path.split('/').collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
         return Err(RemoteAccessError::HandshakeFailed(
@@ -101,8 +101,8 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     let client_id = path_chunks.get(1).unwrap();
     let token = path_chunks.get(2).unwrap();
     let body = HandshakeRequestBody {
-        client_id: client_id.to_string(),
-        token: token.to_string(),
+        client_id: (*client_id).to_string(),
+        token: (*token).to_string(),
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;

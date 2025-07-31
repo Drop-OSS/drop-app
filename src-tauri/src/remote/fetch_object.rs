@@ -30,7 +30,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeR
         match cache_result {
             Ok(cache_result) => responder.respond(cache_result.into()),
             Err(e) => {
-                warn!("{e}")
+                warn!("{e}");
             }
         }
         return;

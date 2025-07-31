@@ -67,20 +67,17 @@ impl DatabaseImpls for DatabaseInterface {
 
         let exists = fs::exists(db_path.clone()).unwrap();
 
-        match exists {
-            true => match PathDatabase::load_from_path(db_path.clone()) {
-                Ok(db) => db,
-                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
-            },
-            false => {
-                let default = Database::new(games_base_dir, None, cache_dir);
-                debug!(
-                    "Creating database at path {}",
-                    db_path.as_os_str().to_str().unwrap()
-                );
-                PathDatabase::create_at_path(db_path, default)
-                    .expect("Database could not be created")
-            }
+        if exists { match PathDatabase::load_from_path(db_path.clone()) {
+            Ok(db) => db,
+            Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
+        } } else {
+            let default = Database::new(games_base_dir, None, cache_dir);
+            debug!(
+                "Creating database at path {}",
+                db_path.as_os_str().to_str().unwrap()
+            );
+            PathDatabase::create_at_path(db_path, default)
+                .expect("Database could not be created")
         }
     }
 
@@ -137,19 +134,19 @@ impl<'a> Deref for DBRead<'a> {
         &self.0
     }
 }
-impl<'a> DerefMut for DBWrite<'a> {
+impl DerefMut for DBWrite<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
-impl<'a> Drop for DBWrite<'a> {
+impl Drop for DBWrite<'_> {
     fn drop(&mut self) {
         unsafe {
             ManuallyDrop::drop(&mut self.0);
         }
 
         match DB.save() {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(e) => {
                 error!("database failed to save with error {e}");
                 panic!("database failed to save with error {e}")

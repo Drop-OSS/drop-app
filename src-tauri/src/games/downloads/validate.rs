@@ -125,7 +125,7 @@ pub fn validate_game_chunk(
         validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress).unwrap();
     if !completed {
         return Ok(false);
-    };
+    }
 
     let res = hex::encode(hasher.compute().0);
     if res != ctx.checksum {

@@ -163,7 +163,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let mut missing_games = Vec::new();
     let statuses = db_handle.applications.game_statuses.clone();
     drop(db_handle);
-    for (game_id, status) in statuses.into_iter() {
+    for (game_id, status) in statuses {
         match status {
             GameDownloadStatus::Remote {} => {}
             GameDownloadStatus::PartiallyInstalled { .. } => {}
@@ -344,7 +344,7 @@ pub fn run() {
                 let binding = event.urls();
                 let url = binding.first().unwrap();
                 if url.host_str().unwrap() == "handshake" {
-                    recieve_handshake(handle.clone(), url.path().to_string())
+                    recieve_handshake(handle.clone(), url.path().to_string());
                 }
             });
 

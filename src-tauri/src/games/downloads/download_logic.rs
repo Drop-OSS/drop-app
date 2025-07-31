@@ -151,7 +151,7 @@ pub fn download_game_chunk(
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
             ));
-        };
+        }
         return Err(ApplicationDownloadError::Communication(
             RemoteAccessError::UnparseableResponse(raw_res),
         ));
@@ -187,7 +187,7 @@ pub fn download_game_chunk(
         .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
     if !completed {
         return Ok(false);
-    };
+    }
 
     // If we complete the file, set the permissions (if on Linux)
     #[cfg(unix)]
