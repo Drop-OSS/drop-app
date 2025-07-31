@@ -29,7 +29,7 @@ impl DropWriter<File> {
     fn new(path: PathBuf) -> Self {
         let destination = OpenOptions::new().write(true).create(true).truncate(false).open(&path).unwrap();
         Self {
-            destination: destination,
+            destination,
             hasher: Context::new(),
         }
     }

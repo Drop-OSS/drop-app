@@ -83,7 +83,7 @@ impl DropData {
         };
     }
     pub fn set_contexts(&self, completed_contexts: &[(String, bool)]) {
-        *self.contexts.lock().unwrap() = completed_contexts.into_iter().map(|s| (s.0.clone(), s.1)).collect();
+        *self.contexts.lock().unwrap() = completed_contexts.iter().map(|s| (s.0.clone(), s.1)).collect();
     }
     pub fn set_context(&self, context: String, state: bool) {
         self.contexts.lock().unwrap().entry(context).insert_entry(state);

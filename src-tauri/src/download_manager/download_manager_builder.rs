@@ -8,15 +8,12 @@ use std::{
 };
 
 use log::{debug, error, info, warn};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 use crate::{
     database::models::data::DownloadableMetadata,
     error::application_download_error::ApplicationDownloadError,
-    games::{
-        downloads::commands::resume_download,
-        library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
-    },
+    games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
 };
 
 use super::{

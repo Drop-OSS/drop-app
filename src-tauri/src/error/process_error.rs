@@ -4,7 +4,6 @@ use serde_with::SerializeDisplay;
 
 #[derive(SerializeDisplay)]
 pub enum ProcessError {
-    SetupRequired,
     NotInstalled,
     AlreadyRunning,
     NotDownloaded,

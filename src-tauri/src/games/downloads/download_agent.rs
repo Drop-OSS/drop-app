@@ -1,4 +1,3 @@
-use crate::AppState;
 use crate::auth::generate_authorization_header;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{
@@ -24,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{FallocateFlags, fallocate};
