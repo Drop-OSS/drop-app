@@ -4,12 +4,12 @@ use crate::{database::models::data::DownloadableMetadata, AppState};
 
 #[tauri::command]
 pub fn pause_downloads(state: tauri::State<'_, Mutex<AppState>>) {
-    state.lock().unwrap().download_manager.pause_downloads()
+    state.lock().unwrap().download_manager.pause_downloads();
 }
 
 #[tauri::command]
 pub fn resume_downloads(state: tauri::State<'_, Mutex<AppState>>) {
-    state.lock().unwrap().download_manager.resume_downloads()
+    state.lock().unwrap().download_manager.resume_downloads();
 }
 
 #[tauri::command]
@@ -22,10 +22,10 @@ pub fn move_download_in_queue(
         .lock()
         .unwrap()
         .download_manager
-        .rearrange(old_index, new_index)
+        .rearrange(old_index, new_index);
 }
 
 #[tauri::command]
 pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, meta: DownloadableMetadata) {
-    state.lock().unwrap().download_manager.cancel(meta)
+    state.lock().unwrap().download_manager.cancel(meta);
 }

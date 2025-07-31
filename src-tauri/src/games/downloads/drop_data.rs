@@ -38,12 +38,9 @@ pub mod v1 {
 
 impl DropData {
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
-        let mut file = match File::open(base_path.join(DROP_DATA_PATH)) {
-            Ok(file) => file,
-            Err(_) => {
-                debug!("Generating new dropdata for game {game_id}");
-                return DropData::new(game_id, game_version, base_path);
-            }
+        let mut file = if let Ok(file) = File::open(base_path.join(DROP_DATA_PATH)) { file } else {
+            debug!("Generating new dropdata for game {game_id}");
+            return DropData::new(game_id, game_version, base_path);
         };
 
         let mut s = Vec::new();
@@ -53,7 +50,7 @@ impl DropData {
                 error!("{e}");
                 return DropData::new(game_id, game_version, base_path);
             }
-        };
+        }
 
         match native_model::rmp_serde_1_3::RmpSerde::decode(s) {
             Ok(manifest) => manifest,
@@ -78,9 +75,9 @@ impl DropData {
         };
 
         match file.write_all(&manifest_raw) {
-            Ok(_) => {}
+            Ok(()) => {}
             Err(e) => error!("{e}"),
-        };
+        }
     }
     pub fn set_contexts(&self, completed_contexts: &[(String, bool)]) {
         *self.contexts.lock().unwrap() = completed_contexts.iter().map(|s| (s.0.clone(), s.1)).collect();

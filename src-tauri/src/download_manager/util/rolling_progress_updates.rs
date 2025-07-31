@@ -11,7 +11,7 @@ pub struct RollingProgressWindow<const S: usize> {
 impl<const S: usize> RollingProgressWindow<S> {
     pub fn new() -> Self {
         Self {
-            window: Arc::new([(); S].map(|_| AtomicUsize::new(0))),
+            window: Arc::new([(); S].map(|()| AtomicUsize::new(0))),
             current: Arc::new(AtomicUsize::new(0)),
         }
     }

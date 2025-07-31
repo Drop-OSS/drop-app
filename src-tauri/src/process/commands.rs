@@ -17,9 +17,9 @@ pub fn launch_game(
     //};
 
     match process_manager_lock.launch_process(id) {
-        Ok(_) => {}
+        Ok(()) => {}
         Err(e) => return Err(e),
-    };
+    }
 
     drop(process_manager_lock);
     drop(state_lock);

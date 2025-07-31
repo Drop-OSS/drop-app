@@ -22,10 +22,7 @@ impl From<DownloadThreadControlFlag> for bool {
 /// false => Stop
 impl From<bool> for DownloadThreadControlFlag {
     fn from(value: bool) -> Self {
-        match value {
-            true => DownloadThreadControlFlag::Go,
-            false => DownloadThreadControlFlag::Stop,
-        }
+        if value { DownloadThreadControlFlag::Go } else { DownloadThreadControlFlag::Stop }
     }
 }
 
