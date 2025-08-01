@@ -154,20 +154,37 @@
 
          <!-- Library Grid View -->
      <div v-else class="h-full w-full p-8">
-       <!-- Page Header -->
+       <!-- Page Header with Search -->
        <div class="mb-8">
-         <h2 class="text-4xl font-bold font-display text-zinc-100 mb-2">
-           Your Library
-         </h2>
-         <p class="text-xl text-zinc-400">
-           {{ games.length }} games in your collection
-         </p>
+         <div class="flex items-end gap-8">
+           <div>
+             <h2 class="text-4xl font-bold font-display text-zinc-100 mb-2">
+               Your Library
+             </h2>
+             <p class="text-xl text-zinc-400">
+               {{ filteredGames.length }} games in your collection
+             </p>
+           </div>
+
+           <!-- Search Bar -->
+           <div class="relative">
+             <div class="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none z-10">
+               <MagnifyingGlassIcon class="h-8 w-8 text-zinc-400" />
+             </div>
+             <input
+               v-model="searchQuery"
+               type="text"
+               placeholder="Search games..."
+               class="w-96 pl-16 pr-6 py-6 bg-zinc-800/50 border-2 border-zinc-700/50 rounded-2xl text-zinc-100 placeholder-zinc-500 focus:outline-none focus:ring-4 focus:ring-blue-600/50 focus:border-blue-500 backdrop-blur-sm transition-all duration-300 text-lg"
+             />
+           </div>
+         </div>
        </div>
 
              <!-- Games Grid -->
-       <div v-if="games.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
+       <div v-if="filteredGames.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
                  <div
-           v-for="gameData in games"
+           v-for="gameData in filteredGames"
            :key="gameData.game.id"
            @click="selectGame(gameData.game)"
            class="group relative bg-zinc-800/50 backdrop-blur-sm rounded-xl overflow-hidden cursor-pointer transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-blue-600 focus:ring-offset-2 focus:ring-offset-zinc-900 block shadow-xl hover:shadow-2xl"
@@ -229,18 +246,27 @@
         <div class="text-center">
           <BookOpenIcon class="h-24 w-24 text-zinc-600 mx-auto mb-6" />
           <h3 class="text-2xl font-semibold text-zinc-300 mb-2">
-            No games in your library
+            {{ searchQuery ? 'No games found' : 'No games in your library' }}
           </h3>
           <p class="text-zinc-500 mb-6">
-            Visit the store to discover and install games
+            {{ searchQuery ? 'Try adjusting your search terms' : 'Visit the store to discover and install games' }}
           </p>
           <NuxtLink
+            v-if="!searchQuery"
             to="/big-picture/store"
             class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
           >
             <BuildingStorefrontIcon class="h-5 w-5 mr-2" />
             Visit Store
           </NuxtLink>
+          <button
+            v-else
+            @click="searchQuery = ''"
+            class="inline-flex items-center px-6 py-3 bg-zinc-700 hover:bg-zinc-600 text-white font-semibold rounded-lg transition-all duration-200 transform hover:scale-105"
+          >
+            <MagnifyingGlassIcon class="h-5 w-5 mr-2" />
+            Clear Search
+          </button>
         </div>
       </div>
     </div>
@@ -464,7 +490,7 @@
 </template>
 
 <script setup lang="ts">
-import { BookOpenIcon, BuildingStorefrontIcon, ArrowLeftIcon, Cog6ToothIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import { BookOpenIcon, BuildingStorefrontIcon, ArrowLeftIcon, Cog6ToothIcon, TrashIcon, MagnifyingGlassIcon } from "@heroicons/vue/24/outline";
 import {
   PlayIcon,
   ArrowDownTrayIcon,
@@ -486,8 +512,24 @@ definePageMeta({
 
 const router = useRouter();
 
+// Search functionality
+const searchQuery = ref("");
+
 // Fetch games with status from backend
 const games = ref<{ game: Game; status: GameStatus; cover: string }[]>([]);
+
+// Filtered games based on search query
+const filteredGames = computed(() => {
+  if (!searchQuery.value) {
+    return games.value;
+  }
+  
+  const query = searchQuery.value.toLowerCase();
+  return games.value.filter(gameData => 
+    gameData.game.mName.toLowerCase().includes(query) ||
+    gameData.game.mShortDescription.toLowerCase().includes(query)
+  );
+});
 
 // Selected game state
 const selectedGame = ref<Game | null>(null);
