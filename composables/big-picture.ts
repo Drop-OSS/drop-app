@@ -16,12 +16,26 @@ export interface BigPictureState {
   showIntro: boolean;
 }
 
-export const useBigPictureMode = () => useState<BigPictureState>("big-picture", () => ({
-  isActive: false,
-  currentPage: "/big-picture/library",
-  lastNormalPage: "/library",
-  showIntro: false
-}));
+export const useBigPictureMode = () => {
+  const state = useState<BigPictureState>("big-picture", () => ({
+    isActive: false,
+    currentPage: "/big-picture/library",
+    lastNormalPage: "/library",
+    showIntro: false
+  }));
+
+  // Auto-sync current page with route when in big picture mode
+  if (process.client) {
+    const router = useRouter();
+    watch(() => router.currentRoute.value.path, (newPath) => {
+      if (state.value.isActive && newPath.startsWith('/big-picture/')) {
+        state.value.currentPage = newPath;
+      }
+    });
+  }
+
+  return state;
+};
 
 export const toggleBigPictureMode = async () => {
   const state = useBigPictureMode();
