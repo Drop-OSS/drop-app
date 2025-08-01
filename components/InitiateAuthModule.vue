@@ -13,11 +13,7 @@
       <div class="max-w-lg">
         <slot />
         <div class="mt-10">
-          <button
-            @click="() => authWrapper_wrapper()"
-            :disabled="loading"
-            class="text-sm text-left font-semibold leading-7 text-blue-600"
-          >
+          <div>
             <div v-if="loading" role="status">
               <svg
                 aria-hidden="true"
@@ -37,10 +33,19 @@
               </svg>
               <span class="sr-only">Loading...</span>
             </div>
-            <span v-else>
-              Sign in with your browser <span aria-hidden="true">&rarr;</span>
+            <span class="inline-flex gap-x-8 items-center" v-else>
+              <button
+                @click="() => authWrapper_wrapper()"
+                :disabled="loading"
+                class="px-3 py-1 inline-flex items-center gap-x-2 bg-zinc-700 rounded text-sm text-left font-semibold leading-7 text-white"
+              >
+                Sign in with your browser <ArrowTopRightOnSquareIcon class="size-4" />
+              </button>
+              <NuxtLink href="/auth/code" class="text-zinc-100 text-sm hover:text-zinc-300">
+                Use a code &rarr;
+              </NuxtLink>
             </span>
-          </button>
+          </div>
 
           <div class="mt-5" v-if="offerManual">
             <h1 class="text-zinc-100 font-semibold">Having trouble?</h1>
@@ -121,6 +126,7 @@
 
 <script setup lang="ts">
 import { XCircleIcon } from "@heroicons/vue/16/solid";
+import { ArrowTopRightOnSquareIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 
 const loading = ref(false);
