@@ -42,7 +42,7 @@
                 Sign in with your browser <ArrowTopRightOnSquareIcon class="size-4" />
               </button>
               <NuxtLink href="/auth/code" class="text-zinc-100 text-sm hover:text-zinc-300">
-                Give me a code &rarr;
+                Use a code &rarr;
               </NuxtLink>
             </span>
           </div>

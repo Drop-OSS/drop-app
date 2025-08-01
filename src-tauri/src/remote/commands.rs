@@ -4,6 +4,7 @@ use futures_lite::StreamExt;
 use log::{debug, warn};
 use reqwest::blocking::Client;
 use reqwest_websocket::{Message, RequestBuilderExt};
+use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
@@ -106,6 +107,13 @@ pub fn auth_initiate() -> Result<(), RemoteAccessError> {
     Ok(())
 }
 
+#[derive(Deserialize)]
+struct CodeWebsocketResponse {
+    #[serde(rename = "type")]
+    response_type: String,
+    value: String,
+}
+
 #[tauri::command]
 pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
     let base_url = {
@@ -121,7 +129,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
             let ws_url = base_url.join("/api/v1/client/auth/code/ws")?;
             let response = reqwest::Client::default()
                 .get(ws_url)
-                .header("Authorization", format!("{header_code}e81u28dj"))
+                .header("Authorization", header_code)
                 .upgrade()
                 .send()
                 .await?;
@@ -129,16 +137,25 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
             let mut websocket = response.into_websocket().await?;
 
             while let Some(token) = websocket.try_next().await? {
-                if let Message::Text(text) = token {
-                    let recieve_app = app.clone();
-                    tauri::async_runtime::spawn_blocking(move || {
-                        manual_recieve_handshake(recieve_app, text);
-                    });
-                    return Ok(());
+                if let Message::Text(response) = token {
+                    let response = serde_json::from_str::<CodeWebsocketResponse>(&response)
+                        .map_err(|e| RemoteAccessError::UnparseableResponse(e.to_string()))?;
+                    match response.response_type.as_str() {
+                        "token" => {
+                            let recieve_app = app.clone();
+                            tauri::async_runtime::spawn_blocking(move || {
+                                manual_recieve_handshake(recieve_app, response.value);
+                            });
+                            return Ok(());
+                        }
+                        _ => return Err(RemoteAccessError::HandshakeFailed(response.value)),
+                    }
                 }
             }
 
-            Err(RemoteAccessError::HandshakeFailed("Failed to connect to websocket".to_string()))
+            Err(RemoteAccessError::HandshakeFailed(
+                "Failed to connect to websocket".to_string(),
+            ))
         };
 
         let result = load().await;
