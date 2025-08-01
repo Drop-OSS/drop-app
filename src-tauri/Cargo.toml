@@ -68,6 +68,8 @@ known-folders = "1.2.0"
 native_model = { version = "0.6.1", features = ["rmp_serde_1_3"] }
 tauri-plugin-opener = "2.4.0"
 bitcode = "0.6.6"
+reqwest-websocket = "0.5.0"
+futures-lite = "2.6.0"
 # tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]
