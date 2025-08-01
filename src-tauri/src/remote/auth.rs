@@ -183,7 +183,7 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
             ("peerAPI".to_owned(), CapabilityConfiguration {}),
             ("cloudSaves".to_owned(), CapabilityConfiguration {}),
         ]),
-        mode: mode,
+        mode,
     };
 
     let client = reqwest::blocking::Client::new();
