@@ -4,7 +4,7 @@ use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
 use reqwest::blocking::Client;
 use tauri::UriSchemeResponder;
 
-use crate::database::db::borrow_db_checked;
+use crate::{database::db::borrow_db_checked, remote::utils::DROP_CLIENT_SYNC};
 
 pub fn handle_server_proto_offline(_request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let four_oh_four = Response::builder()
@@ -38,7 +38,7 @@ pub fn handle_server_proto(request: Request<Vec<u8>>, responder: UriSchemeRespon
         return;
     }
 
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = client
         .request(request.method().clone(), new_uri.to_string())
         .header("Authorization", format!("Bearer {web_token}"))

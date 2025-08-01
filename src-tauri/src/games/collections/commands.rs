@@ -3,17 +3,17 @@ use serde_json::json;
 use url::Url;
 
 use crate::{
+    DB,
     database::db::DatabaseImpls,
     error::remote_access_error::RemoteAccessError,
-    remote::{auth::generate_authorization_header, requests::make_request},
-    DB,
+    remote::{auth::generate_authorization_header, requests::make_request, utils::DROP_CLIENT_SYNC},
 };
 
 use super::collection::{Collection, Collections};
 
 #[tauri::command]
 pub fn fetch_collections() -> Result<Collections, RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(&client, &["/api/v1/client/collection"], &[], |r| {
         r.header("Authorization", generate_authorization_header())
     })?
@@ -24,7 +24,7 @@ pub fn fetch_collections() -> Result<Collections, RemoteAccessError> {
 
 #[tauri::command]
 pub fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(
         &client,
         &["/api/v1/client/collection/", &collection_id],
@@ -38,7 +38,7 @@ pub fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAcces
 
 #[tauri::command]
 pub fn create_collection(name: String) -> Result<Collection, RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let base_url = DB.fetch_base_url();
 
     let base_url = Url::parse(&format!("{base_url}api/v1/client/collection/"))?;
@@ -57,7 +57,7 @@ pub fn add_game_to_collection(
     collection_id: String,
     game_id: String,
 ) -> Result<(), RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let url = Url::parse(&format!(
         "{}api/v1/client/collection/{}/entry/",
         DB.fetch_base_url(),
@@ -74,7 +74,7 @@ pub fn add_game_to_collection(
 
 #[tauri::command]
 pub fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let base_url = Url::parse(&format!(
         "{}api/v1/client/collection/{}",
         DB.fetch_base_url(),
@@ -93,7 +93,7 @@ pub fn delete_game_in_collection(
     collection_id: String,
     game_id: String,
 ) -> Result<(), RemoteAccessError> {
-    let client = Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let base_url = Url::parse(&format!(
         "{}api/v1/client/collection/{}/entry",
         DB.fetch_base_url(),

@@ -2,7 +2,7 @@ use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::warn;
 use tauri::UriSchemeResponder;
 
-use crate::{DB, database::db::DatabaseImpls};
+use crate::{database::db::DatabaseImpls, remote::utils::DROP_CLIENT_ASYNC, DB};
 
 use super::{
     auth::generate_authorization_header,
@@ -22,7 +22,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeR
     }
 
     let header = generate_authorization_header();
-    let client = reqwest::Client::new();
+    let client = DROP_CLIENT_ASYNC.clone();
     let url = format!("{}api/v1/client/object/{object_id}", DB.fetch_base_url());
     let response = client.get(url).header("Authorization", header).send().await;
 

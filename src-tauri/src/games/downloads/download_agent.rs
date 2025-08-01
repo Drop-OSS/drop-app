@@ -15,6 +15,7 @@ use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::game_validate_logic;
 use crate::games::library::{on_game_complete, on_game_incomplete, push_game_update};
 use crate::remote::requests::make_request;
+use crate::remote::utils::DROP_CLIENT_SYNC;
 use log::{debug, error, info};
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
@@ -135,7 +136,7 @@ impl GameDownloadAgent {
 
     fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
         let header = generate_authorization_header();
-        let client = reqwest::blocking::Client::new();
+        let client = DROP_CLIENT_SYNC.clone();
         let response = make_request(
             &client,
             &["/api/v1/client/game/manifest"],
@@ -267,7 +268,7 @@ impl GameDownloadAgent {
         let contexts = self.contexts.lock().unwrap();
         debug!("{contexts:#?}");
         pool.scope(|scope| {
-            let client = &reqwest::blocking::Client::new();
+            let client = &DROP_CLIENT_SYNC.clone();
             let context_map = self.context_map.lock().unwrap();
             for (index, context) in contexts.iter().enumerate() {
                 let client = client.clone();

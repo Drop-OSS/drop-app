@@ -9,10 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus,
-    database::db::{borrow_db_checked, borrow_db_mut_checked},
-    error::remote_access_error::RemoteAccessError,
-    remote::{auth::generate_authorization_header, requests::make_request},
+    database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{auth::generate_authorization_header, requests::make_request, utils::DROP_CLIENT_SYNC}, AppState, AppStatus
 };
 
 use super::{
@@ -45,7 +42,7 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
 #[tauri::command]
 pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
     let _drop_url = gen_drop_url(path.clone())?;
-    let req = make_request(&Client::new(), &[&path], &[], |r| {
+    let req = make_request(&DROP_CLIENT_SYNC, &[&path], &[], |r| {
         r.header("Authorization", generate_authorization_header())
     })?
     .send();
