@@ -7,10 +7,7 @@
     <BigPictureSidebar class="w-80 flex-shrink-0" />
     
     <!-- Main Content Area -->
-    <div class="flex flex-col flex-1 min-w-0">
-      <!-- Header -->
-      <BigPictureHeader class="h-20 flex-shrink-0" />
-      
+    <div class="flex flex-col flex-1 min-w-0 relative">
       <!-- Content -->
       <div class="flex-1 overflow-hidden">
         <div class="h-full overflow-y-auto">
@@ -27,6 +24,9 @@
           </Transition>
         </div>
       </div>
+      
+      <!-- Header (positioned on top) -->
+      <BigPictureHeader class="absolute top-0 left-0 right-0 h-28 z-10" />
     </div>
   </div>
 </template>

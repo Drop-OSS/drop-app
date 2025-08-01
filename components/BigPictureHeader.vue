@@ -1,37 +1,24 @@
 <template>
-  <div class="bg-zinc-900 border-b border-zinc-800 px-6 py-4 flex items-center justify-between transition-all duration-300">
-    <!-- Left Section -->
-    <div class="flex items-center space-x-6">
-      <!-- Current Page Title -->
-      <div class="transform transition-all duration-300">
-        <h1 class="text-2xl font-bold font-display text-zinc-100">
-          {{ currentPageTitle }}
-        </h1>
-        <p class="text-sm text-zinc-400 mt-1">
-          {{ currentPageDescription }}
-        </p>
-      </div>
-    </div>
-    
+  <div class="px-6 py-6 flex items-center justify-between transition-all duration-300">
     <!-- Right Section -->
-    <div class="flex items-center space-x-4">
+    <div class="flex items-center justify-end w-full space-x-6">
       <!-- User Dropdown -->
       <Menu v-if="state.user" as="div" class="relative inline-block">
-        <MenuButton class="flex items-center space-x-3 hover:bg-zinc-800/80 rounded-lg p-3 transition-colors duration-200 border border-zinc-700/50 hover:border-zinc-600">
+        <MenuButton class="flex items-center space-x-4 bg-zinc-900/80 backdrop-blur-xl hover:bg-zinc-800/80 rounded-xl p-4 transition-colors duration-200 border-2 border-zinc-700/50 hover:border-zinc-600">
           <img 
             :src="profilePictureUrl" 
-            class="w-10 h-10 rounded-lg border-2 border-zinc-600" 
+            class="w-14 h-14 rounded-xl border-2 border-zinc-600" 
             alt="Profile"
           />
           <div class="text-right">
-            <p class="text-sm font-semibold text-zinc-100">
+            <p class="text-lg font-semibold text-zinc-100">
               {{ state.user.displayName }}
             </p>
-            <p class="text-xs text-zinc-400">
+            <p class="text-sm text-zinc-400">
               {{ state.user.username }}
             </p>
           </div>
-          <ChevronDownIcon class="h-5 w-5 text-zinc-400 ml-2" />
+          <ChevronDownIcon class="h-6 w-6 text-zinc-400 ml-3" />
         </MenuButton>
 
         <transition
@@ -43,32 +30,32 @@
           leave-to-class="transform opacity-0 scale-95"
         >
           <MenuItems
-            class="absolute bg-zinc-900 right-0 top-14 z-50 w-56 origin-top-right focus:outline-none shadow-lg rounded-lg border border-zinc-800"
+            class="absolute bg-zinc-900 right-0 top-16 z-50 w-72 origin-top-right focus:outline-none shadow-lg rounded-xl border-2 border-zinc-800"
           >
-            <div class="flex-col gap-y-2">
+            <div class="flex-col gap-y-3 p-2">
               <NuxtLink
                 to="/id/me"
-                class="transition inline-flex items-center w-full py-3 px-4 hover:bg-zinc-800"
+                class="transition inline-flex items-center w-full py-4 px-6 hover:bg-zinc-800 rounded-lg"
               >
                 <div class="inline-flex items-center text-zinc-300">
-                  <img :src="profilePictureUrl" class="w-5 h-5 rounded-sm" />
-                  <span class="ml-2 text-sm font-bold">{{
+                  <img :src="profilePictureUrl" class="w-8 h-8 rounded-lg" />
+                  <span class="ml-3 text-base font-bold">{{
                     state.user.displayName
                   }}</span>
                 </div>
               </NuxtLink>
-              <div class="h-0.5 rounded-full w-full bg-zinc-800" />
+              <div class="h-0.5 rounded-full w-full bg-zinc-800 mx-2" />
               <div class="flex flex-col mb-1">
                 <MenuItem v-slot="{ active }">
                   <button
                     @click="exitBigPictureMode"
                     :class="[
                       active ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-400',
-                      'transition text-left block px-4 py-2 text-sm',
+                      'transition text-left block px-6 py-4 text-base rounded-lg',
                     ]"
                   >
-                    <div class="flex items-center space-x-2">
-                      <XMarkIcon class="h-4 w-4" />
+                    <div class="flex items-center space-x-3">
+                      <XMarkIcon class="h-5 w-5" />
                       <span>Exit Big Picture Mode</span>
                     </div>
                   </button>
