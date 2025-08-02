@@ -26,7 +26,7 @@ impl<const S: usize> RollingProgressWindow<S> {
             .iter()
             .enumerate()
             .filter(|(i, _)| i < &current)
-            .map(|(_, x)| x.load(Ordering::Relaxed))
+            .map(|(_, x)| x.load(Ordering::Acquire))
             .sum::<usize>()
             / S
     }

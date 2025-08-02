@@ -1,98 +1,21 @@
 use std::{
     fs::File,
     io::{self, BufWriter, Read, Seek, SeekFrom, Write},
-    sync::{Arc, mpsc::Sender},
 };
 
-use log::{debug, error, info};
+use log::debug;
 use md5::Context;
-use rayon::ThreadPoolBuilder;
 
 use crate::{
-    database::db::borrow_db_checked,
-    download_manager::{
-        download_manager_frontend::DownloadManagerSignal,
+    download_manager::
         util::{
             download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
-            progress_object::{ProgressHandle, ProgressObject},
-        },
-    },
+            progress_object::ProgressHandle,
+        }
+    ,
     error::application_download_error::ApplicationDownloadError,
-    games::downloads::{drop_data::DropData, manifest::DropDownloadContext},
+    games::downloads::manifest::DropDownloadContext,
 };
-
-pub fn game_validate_logic(
-    dropdata: &DropData,
-    contexts: Vec<DropDownloadContext>,
-    progress: Arc<ProgressObject>,
-    sender: Sender<DownloadManagerSignal>,
-    control_flag: &DownloadThreadControl,
-) -> Result<bool, ApplicationDownloadError> {
-    progress.reset(contexts.len());
-    let max_download_threads = borrow_db_checked().settings.max_download_threads;
-
-    debug!(
-        "validating game: {} with {} threads",
-        dropdata.game_id, max_download_threads
-    );
-    let pool = ThreadPoolBuilder::new()
-        .num_threads(max_download_threads)
-        .build()
-        .unwrap();
-
-    debug!("{contexts:#?}");
-    let invalid_chunks = Arc::new(boxcar::Vec::new());
-    pool.scope(|scope| {
-        for (index, context) in contexts.iter().enumerate() {
-            let current_progress = progress.get(index);
-            let progress_handle = ProgressHandle::new(current_progress, progress.clone());
-            let invalid_chunks_scoped = invalid_chunks.clone();
-            let sender = sender.clone();
-
-            scope.spawn(move |_| {
-                match validate_game_chunk(context, control_flag, progress_handle) {
-                    Ok(true) => {
-                        debug!(
-                            "Finished context #{} with checksum {}",
-                            index, context.checksum
-                        );
-                    }
-                    Ok(false) => {
-                        debug!(
-                            "Didn't finish context #{} with checksum {}",
-                            index, &context.checksum
-                        );
-                        invalid_chunks_scoped.push(context.checksum.clone());
-                    }
-                    Err(e) => {
-                        error!("{e}");
-                        sender.send(DownloadManagerSignal::Error(e)).unwrap();
-                    }
-                }
-            });
-        }
-    });
-
-
-    // If there are any contexts left which are false
-    if !invalid_chunks.is_empty() {
-        info!(
-            "validation of game id {} failed for chunks {:?}",
-            dropdata.game_id.clone(),
-            invalid_chunks
-        );
-
-        for context in invalid_chunks.iter() {
-            dropdata.set_context(context.1.clone(), false);
-        }
-
-        dropdata.write();
-
-        return Ok(false);
-    }
-
-    Ok(true)
-}
 
 pub fn validate_game_chunk(
     ctx: &DropDownloadContext,
@@ -129,10 +52,6 @@ pub fn validate_game_chunk(
 
     let res = hex::encode(hasher.compute().0);
     if res != ctx.checksum {
-        println!(
-            "Checksum failed. Correct: {}, actual: {}",
-            &ctx.checksum, &res
-        );
         return Ok(false);
     }
 

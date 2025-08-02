@@ -1,8 +1,14 @@
-use crate::database::models::data::Database;
-
+/**
+ * NEXT BREAKING CHANGE
+ * 
+ * UPDATE DATABASE TO USE RPMSERDENAMED
+ * 
+ * WE CAN'T DELETE ANY FIELDS
+ */
 pub mod data {
     use std::path::PathBuf;
 
+    
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
@@ -18,16 +24,14 @@ pub mod data {
     pub type DatabaseApplications = v2::DatabaseApplications;
     pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
-    use std::{collections::HashMap, process::Command};
-
-    use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
+    use std::collections::HashMap;
 
     pub mod v1 {
         use crate::process::process_manager::Platform;
         use serde_with::serde_as;
         use std::{collections::HashMap, path::PathBuf};
 
-        use super::{Serialize, Deserialize, native_model};
+        use super::{Deserialize, Serialize, native_model};
 
         fn default_template() -> String {
             "{}".to_owned()
@@ -115,6 +119,7 @@ pub mod data {
             Downloading { version_name: String },
             Uninstalling {},
             Updating { version_name: String },
+            Validating { version_name: String },
             Running {},
         }
 
@@ -174,7 +179,10 @@ pub mod data {
 
         use serde_with::serde_as;
 
-        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, v1, GameVersion, DownloadableMetadata, ApplicationTransientStatus};
+        use super::{
+            ApplicationTransientStatus, DatabaseAuth, Deserialize, DownloadableMetadata,
+            GameVersion, Serialize, Settings, native_model, v1,
+        };
 
         #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
@@ -206,7 +214,7 @@ pub mod data {
                     applications: value.applications,
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
-                    compat_info: crate::database::models::Database::create_new_compat_info(),
+                    compat_info: None,
                 }
             }
         }
@@ -283,7 +291,10 @@ pub mod data {
     mod v3 {
         use std::path::PathBuf;
 
-        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, DatabaseApplications, DatabaseCompatInfo, v2};
+        use super::{
+            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize,
+            Settings, native_model, v2,
+        };
         #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
@@ -297,6 +308,7 @@ pub mod data {
             pub cache_dir: PathBuf,
             pub compat_info: Option<DatabaseCompatInfo>,
         }
+
         impl From<v2::Database> for Database {
             fn from(value: v2::Database) -> Self {
                 Self {
@@ -306,22 +318,13 @@ pub mod data {
                     applications: value.applications.into(),
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
-                    compat_info: Database::create_new_compat_info(),
+                    compat_info: None,
                 }
             }
         }
     }
+
     impl Database {
-        fn create_new_compat_info() -> Option<DatabaseCompatInfo> {
-            #[cfg(target_os = "windows")]
-            return None;
-
-            let has_umu_installed = Command::new(UMU_LAUNCHER_EXECUTABLE).spawn().is_ok();
-            Some(DatabaseCompatInfo {
-                umu_installed: has_umu_installed,
-            })
-        }
-
         pub fn new<T: Into<PathBuf>>(
             games_base_dir: T,
             prev_database: Option<PathBuf>,
@@ -340,7 +343,7 @@ pub mod data {
                 auth: None,
                 settings: Settings::default(),
                 cache_dir,
-                compat_info: Database::create_new_compat_info(),
+                compat_info: None,
             }
         }
     }

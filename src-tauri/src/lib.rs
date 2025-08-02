@@ -11,7 +11,9 @@ mod error;
 mod process;
 mod remote;
 
+use crate::database::scan::scan_install_dirs;
 use crate::process::commands::open_process_logs;
+use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 use crate::remote::commands::auth_initiate_code;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
@@ -60,6 +62,7 @@ use std::fs::File;
 use std::io::Write;
 use std::panic::PanicHookInfo;
 use std::path::Path;
+use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -95,6 +98,27 @@ pub struct User {
     profile_picture_object_id: String,
 }
 
+#[derive(Clone)]
+pub struct CompatInfo {
+    umu_installed: bool,
+}
+
+fn create_new_compat_info() -> Option<CompatInfo> {
+    #[cfg(target_os = "windows")]
+    return None;
+
+    let has_umu_installed = Command::new(UMU_LAUNCHER_EXECUTABLE)
+        .stdout(Stdio::null())
+        .spawn();
+    if let Err(umu_error) = &has_umu_installed {
+        warn!("disabling windows support with error: {umu_error}");
+    }
+    let has_umu_installed = has_umu_installed.is_ok();
+    Some(CompatInfo {
+        umu_installed: has_umu_installed,
+    })
+}
+
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState<'a> {
@@ -106,6 +130,8 @@ pub struct AppState<'a> {
     download_manager: Arc<DownloadManager>,
     #[serde(skip_serializing)]
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
+    #[serde(skip_serializing)]
+    compat_info: Option<CompatInfo>,
 }
 
 fn setup(handle: AppHandle) -> AppState<'static> {
@@ -142,9 +168,13 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
+    let compat_info = create_new_compat_info();
 
     debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();
+
+    scan_install_dirs();
+
     if !is_set_up {
         return AppState {
             status: AppStatus::NotConfigured,
@@ -152,6 +182,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
             games,
             download_manager,
             process_manager,
+            compat_info,
         };
     }
 
@@ -164,6 +195,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     let mut missing_games = Vec::new();
     let statuses = db_handle.applications.game_statuses.clone();
     drop(db_handle);
+
     for (game_id, status) in statuses {
         match status {
             GameDownloadStatus::Remote {} => {}
@@ -215,6 +247,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
         games,
         download_manager,
         process_manager,
+        compat_info,
     }
 }
 

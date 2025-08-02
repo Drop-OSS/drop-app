@@ -38,9 +38,9 @@ impl DownloadThreadControl {
         }
     }
     pub fn get(&self) -> DownloadThreadControlFlag {
-        self.inner.load(Ordering::Relaxed).into()
+        self.inner.load(Ordering::Acquire).into()
     }
     pub fn set(&self, flag: DownloadThreadControlFlag) {
-        self.inner.store(flag.into(), Ordering::Relaxed);
+        self.inner.store(flag.into(), Ordering::Release);
     }
 }
