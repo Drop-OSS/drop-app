@@ -10,7 +10,7 @@
     <div class="flex flex-col flex-1 min-w-0 relative">
       <!-- Content -->
       <div class="flex-1 overflow-hidden">
-        <div class="h-full overflow-y-auto">
+        <div class="h-full overflow-y-auto scrollbar-hide">
           <Transition
             mode="out-in"
             enter-active-class="transition-all duration-300 ease-out"
@@ -36,3 +36,15 @@ import { useBigPictureMode } from "~/composables/big-picture";
 
 const bigPictureState = useBigPictureMode();
 </script>
+
+<style scoped>
+/* Hide scrollbars in Big Picture mode */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+</style>

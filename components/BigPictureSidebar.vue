@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-zinc-900 border-r border-zinc-800 p-6 space-y-4 transition-all duration-500 ease-out">
+  <div class="bg-zinc-900 border-r border-zinc-800 p-6 space-y-4 transition-all duration-500 ease-out scrollbar-hide">
     <!-- Logo Section -->
     <div class="mb-8 transform transition-all duration-300 hover:scale-105">
       <Wordmark class="h-10" />
@@ -69,4 +69,16 @@ const navigateTo = async (route: string) => {
   setBigPicturePage(route);
   await router.push(route);
 };
-</script> 
+</script>
+
+<style scoped>
+/* Hide scrollbars in Big Picture mode */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* Internet Explorer 10+ */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Safari and Chrome */
+}
+</style> 
