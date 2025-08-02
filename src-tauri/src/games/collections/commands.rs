@@ -1,4 +1,3 @@
-use reqwest::blocking::Client;
 use serde_json::json;
 use url::Url;
 

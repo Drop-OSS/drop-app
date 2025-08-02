@@ -1,7 +1,6 @@
 use std::str::FromStr;
 
 use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
-use reqwest::blocking::Client;
 use tauri::UriSchemeResponder;
 
 use crate::{database::db::borrow_db_checked, remote::utils::DROP_CLIENT_SYNC};

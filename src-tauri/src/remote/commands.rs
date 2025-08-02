@@ -2,7 +2,6 @@ use std::sync::Mutex;
 
 use futures_lite::StreamExt;
 use log::{debug, warn};
-use reqwest::blocking::Client;
 use reqwest_websocket::{Message, RequestBuilderExt};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager};

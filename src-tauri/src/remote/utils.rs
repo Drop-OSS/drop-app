@@ -13,7 +13,6 @@ use crate::{
     AppState, AppStatus,
     database::db::{DATA_ROOT_DIR, borrow_db_mut_checked},
     error::remote_access_error::RemoteAccessError,
-    remote::requests::make_request,
 };
 
 #[derive(Deserialize)]
@@ -23,8 +22,8 @@ struct DropHealthcheck {
 }
 
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> =
-    LazyLock::new(|| get_client_sync());
-pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(|| get_client_async());
+    LazyLock::new(get_client_sync);
+pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(get_client_async);
 
 pub fn get_client_sync() -> reqwest::blocking::Client {
     let mut client = reqwest::blocking::ClientBuilder::new();
@@ -59,7 +58,7 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
     for cert in certs {
         client = client.add_root_certificate(cert);
     }
-    return client.build().unwrap();
+    client.build().unwrap()
 }
 pub fn get_client_async() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
@@ -88,7 +87,7 @@ pub fn get_client_async() -> reqwest::Client {
     for cert in certs {
         client = client.add_root_certificate(cert);
     }
-    return client.build().unwrap();
+    client.build().unwrap()
 }
 
 pub fn use_remote_logic(
