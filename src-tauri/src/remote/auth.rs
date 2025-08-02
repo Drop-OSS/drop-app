@@ -9,12 +9,10 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus, User,
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    },
-    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::utils::DROP_CLIENT_SYNC, AppState, AppStatus, User
 };
 
 use super::{
@@ -66,7 +64,7 @@ pub fn generate_authorization_header() -> String {
 pub fn fetch_user() -> Result<User, RemoteAccessError> {
     let header = generate_authorization_header();
 
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(&client, &["/api/v1/client/user"], &[], |f| {
         f.header("Authorization", header)
     })?
@@ -107,7 +105,7 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = client.post(endpoint).json(&body).send()?;
     debug!("handshake responsded with {}", response.status().as_u16());
     if !response.status().is_success() {
@@ -186,7 +184,7 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
         mode,
     };
 
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = client.post(endpoint.to_string()).json(&body).send()?;
 
     if response.status() != 200 {
