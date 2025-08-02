@@ -381,12 +381,12 @@ pub fn run() {
             .unwrap();
 
             // Check if we should start in big picture mode
-            let should_start_in_big_picture = borrow_db_checked().settings.start_in_big_picture;
-            if should_start_in_big_picture {
+            let should_start_big_picture = borrow_db_checked().settings.big_picture_start;
+            if should_start_big_picture {
                 // Wait a bit for the window to be ready, then enter big picture mode
                 let handle_clone = handle.clone();
                 tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                    // tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
                     if let Err(e) = enter_fullscreen(handle_clone.clone()).await {
                         warn!("Failed to enter fullscreen on startup: {}", e);
                     }

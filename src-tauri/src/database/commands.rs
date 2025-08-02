@@ -81,14 +81,16 @@ pub fn fetch_settings() -> Settings {
 
 #[tauri::command]
 pub fn get_start_in_big_picture() -> bool {
-    borrow_db_checked().settings.start_in_big_picture
+    borrow_db_checked().settings.big_picture_start
 }
 
 #[tauri::command]
 pub fn set_start_in_big_picture(enabled: bool) {
     let mut db_lock = borrow_db_mut_checked();
-    db_lock.settings.start_in_big_picture = enabled;
+    db_lock.settings.big_picture_start = enabled;
 }
+
+
 #[tauri::command]
 pub fn fetch_system_data() -> SystemData {
     let db_handle = borrow_db_checked();

@@ -1,4 +1,5 @@
 use std::{
+    env::var_os,
     fs::{self, create_dir_all},
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
@@ -28,7 +29,7 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     for DropDatabaseSerializer
 {
     fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
-        native_model::rmp_serde_1_3::RmpSerde::encode(val)
+        native_model::encode(val)
             .map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
@@ -36,9 +37,10 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
             .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
-        let val = native_model::rmp_serde_1_3::RmpSerde::decode(buf)
+        let (database, ver) = native_model::decode::<T>(buf)
             .map_err(|e| DeSerError::Internal(e.to_string()))?;
-        Ok(val)
+        info!("imported database version: {}", ver);
+        Ok(database)
     }
 }
 
@@ -70,7 +72,13 @@ impl DatabaseImpls for DatabaseInterface {
         if exists {
             match PathDatabase::load_from_path(db_path.clone()) {
                 Ok(db) => db,
-                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
+                Err(e) => {
+                    if var_os("DEBUG_DATABASE").is_some() {
+                        Err::<(), _>(e).unwrap();
+                        unreachable!()
+                    }
+                    handle_invalid_database(e, db_path, games_base_dir, cache_dir)
+                }
             }
         } else {
             let default = Database::new(games_base_dir, None, cache_dir);

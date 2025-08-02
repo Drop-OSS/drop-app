@@ -1,20 +1,19 @@
 /**
  * NEXT BREAKING CHANGE
- * 
+ *
  * UPDATE DATABASE TO USE RPMSERDENAMED
- * 
+ *
  * WE CAN'T DELETE ANY FIELDS
  */
 pub mod data {
     use std::path::PathBuf;
 
-    
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
     pub type GameVersion = v1::GameVersion;
-    pub type Database = v3::Database;
-    pub type Settings = v1::Settings;
+    pub type Database = v4::Database;
+    pub type Settings = v4::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
     pub type GameDownloadStatus = v2::GameDownloadStatus;
@@ -39,7 +38,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct GameVersion {
             pub game_id: String,
             pub version_name: String,
@@ -67,7 +65,6 @@ pub mod data {
         #[serde_as]
         #[derive(Serialize, Clone, Deserialize, Default)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 3, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
@@ -81,12 +78,10 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 4, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
             pub force_offline: bool,
-            pub start_in_big_picture: bool,
         }
         impl Default for Settings {
             fn default() -> Self {
@@ -94,7 +89,6 @@ pub mod data {
                     autostart: false,
                     max_download_threads: 4,
                     force_offline: false,
-                    start_in_big_picture: false,
                 }
             }
         }
@@ -102,7 +96,6 @@ pub mod data {
         // Strings are version names for a particular game
         #[derive(Serialize, Clone, Deserialize)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -126,7 +119,6 @@ pub mod data {
         }
 
         #[derive(serde::Serialize, Clone, Deserialize)]
-        #[native_model(id = 6, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseAuth {
             pub private: String,
             pub cert: String,
@@ -134,7 +126,6 @@ pub mod data {
             pub web_token: Option<String>,
         }
 
-        #[native_model(id = 8, version = 1)]
         #[derive(
             Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone, Copy,
         )]
@@ -145,7 +136,6 @@ pub mod data {
             Mod,
         }
 
-        #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone)]
         #[serde(rename_all = "camelCase")]
         pub struct DownloadableMetadata {
@@ -163,8 +153,8 @@ pub mod data {
             }
         }
 
-        #[native_model(id = 1, version = 1)]
         #[derive(Serialize, Deserialize, Clone, Default)]
+        #[native_model(id = 1, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct Database {
             #[serde(default)]
             pub settings: Settings,
@@ -183,14 +173,14 @@ pub mod data {
 
         use super::{
             ApplicationTransientStatus, DatabaseAuth, Deserialize, DownloadableMetadata,
-            GameVersion, Serialize, Settings, native_model, v1,
+            GameVersion, Serialize, native_model, v1,
         };
 
         #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
-            pub settings: Settings,
+            pub settings: v1::Settings,
             pub auth: Option<DatabaseAuth>,
             pub base_url: String,
             pub applications: v1::DatabaseApplications,
@@ -200,7 +190,6 @@ pub mod data {
             pub compat_info: Option<DatabaseCompatInfo>,
         }
 
-        #[native_model(id = 8, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
 
         pub struct DatabaseCompatInfo {
@@ -223,7 +212,6 @@ pub mod data {
         // Strings are version names for a particular game
         #[derive(Serialize, Clone, Deserialize, Debug)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -263,7 +251,6 @@ pub mod data {
         #[serde_as]
         #[derive(Serialize, Clone, Deserialize, Default)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 3, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
@@ -293,15 +280,16 @@ pub mod data {
     mod v3 {
         use std::path::PathBuf;
 
+        use crate::database::models::data::v1;
+
         use super::{
-            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize,
-            Settings, native_model, v2,
+            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize, native_model, v2,
         };
         #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
-            pub settings: Settings,
+            pub settings: v1::Settings,
             pub auth: Option<DatabaseAuth>,
             pub base_url: String,
             pub applications: DatabaseApplications,
@@ -321,6 +309,65 @@ pub mod data {
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
                     compat_info: None,
+                }
+            }
+        }
+    }
+    mod v4 {
+        use std::path::PathBuf;
+
+        use super::{
+            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize,
+            native_model, v3,
+        };
+        #[native_model(id = 1, version = 4, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[derive(Serialize, Deserialize, Clone, Default)]
+        pub struct Database {
+            #[serde(default)]
+            pub settings: Settings,
+            pub auth: Option<DatabaseAuth>,
+            pub base_url: String,
+            pub applications: DatabaseApplications,
+            #[serde(skip)]
+            pub prev_database: Option<PathBuf>,
+            pub cache_dir: PathBuf,
+            pub compat_info: Option<DatabaseCompatInfo>,
+        }
+
+        impl From<v3::Database> for Database {
+            fn from(value: v3::Database) -> Self {
+                Self {
+                    settings: Settings {
+                        autostart: value.settings.autostart,
+                        max_download_threads: value.settings.max_download_threads,
+                        force_offline: value.settings.force_offline,
+                        ..Default::default()
+                    },
+                    auth: value.auth,
+                    base_url: value.base_url,
+                    applications: value.applications.into(),
+                    prev_database: value.prev_database,
+                    cache_dir: value.cache_dir,
+                    compat_info: None,
+                }
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[serde(rename_all = "camelCase")]
+        pub struct Settings {
+            pub autostart: bool,
+            pub max_download_threads: usize,
+            pub force_offline: bool,
+            pub big_picture_start: bool,
+        }
+        impl Default for Settings {
+            fn default() -> Self {
+                Self {
+                    autostart: false,
+                    max_download_threads: 4,
+                    force_offline: false,
+                    big_picture_start: false,
                 }
             }
         }

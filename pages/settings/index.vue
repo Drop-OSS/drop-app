@@ -16,15 +16,15 @@
         </p>
       </div>
       <Switch
-        v-model="autostartEnabled"
+        v-model="settings.autostart"
         :class="[
-          autostartEnabled ? 'bg-blue-600' : 'bg-zinc-700',
+          settings.autostart ? 'bg-blue-600' : 'bg-zinc-700',
           'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
         ]"
       >
         <span
           :class="[
-            autostartEnabled ? 'translate-x-5' : 'translate-x-0',
+            settings.autostart ? 'translate-x-5' : 'translate-x-0',
             'pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
           ]"
         />
@@ -41,15 +41,15 @@
         </p>
       </div>
       <Switch
-        v-model="startInBigPicture"
+        v-model="settings.bigPictureStart"
         :class="[
-          startInBigPicture ? 'bg-blue-600' : 'bg-zinc-700',
+          settings.bigPictureStart ? 'bg-blue-600' : 'bg-zinc-700',
           'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
         ]"
       >
         <span
           :class="[
-            startInBigPicture ? 'translate-x-5' : 'translate-x-0',
+            settings.bigPictureStart ? 'translate-x-5' : 'translate-x-0',
             'pointer-events-none relative inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
           ]"
         />
@@ -61,40 +61,19 @@
 <script setup lang="ts">
 import { Switch } from "@headlessui/vue";
 import { invoke } from "@tauri-apps/api/core";
+import type { Settings } from "~/types";
 
 defineProps<{}>();
 
-const autostartEnabled = ref<boolean>(false);
-const startInBigPicture = ref<boolean>(false);
-
-// Load initial state
-invoke("get_autostart_enabled").then((enabled) => {
-  autostartEnabled.value = enabled as boolean;
-});
-
-invoke("get_start_in_big_picture").then((enabled) => {
-  startInBigPicture.value = enabled as boolean;
-});
+const settings = ref(await invoke<Settings>("fetch_settings"));
 
 // Watch for changes and update autostart
-watch(autostartEnabled, async (newValue: boolean) => {
+watch(settings, async (newValue) => {
   try {
-    await invoke("toggle_autostart", { enabled: newValue });
+    await invoke("update_settings", { payload: newValue });
   } catch (error) {
     console.error("Failed to toggle autostart:", error);
     // Revert the toggle if it failed
-    autostartEnabled.value = !newValue;
-  }
-});
-
-// Watch for changes and update big picture setting
-watch(startInBigPicture, async (newValue: boolean) => {
-  try {
-    await invoke("set_start_in_big_picture", { enabled: newValue });
-  } catch (error) {
-    console.error("Failed to set big picture setting:", error);
-    // Revert the toggle if it failed
-    startInBigPicture.value = !newValue;
   }
 });
 </script>
