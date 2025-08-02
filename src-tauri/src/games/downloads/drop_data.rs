@@ -16,7 +16,7 @@ pub mod v1 {
     use serde::{Deserialize, Serialize};
 
     #[derive(Serialize, Deserialize, Debug)]
-    #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
+    #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
     pub struct DropData {
         pub game_id: String,
         pub game_version: String,
