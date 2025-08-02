@@ -187,13 +187,12 @@ impl ProcessManager<'_> {
         Ok(self
             .game_launchers
             .iter()
-            .filter(|e| {
+            .find(|e| {
                 let (e_current, e_target) = e.0;
                 e_current == self.current_platform
                     && e_target == *target_platform
-                    && e.1.valid_for_platform(&db_lock, state, &target_platform)
+                    && e.1.valid_for_platform(db_lock, state, target_platform)
             })
-            .next()
             .ok_or(ProcessError::InvalidPlatform)?
             .1)
     }
@@ -348,7 +347,7 @@ impl ProcessManager<'_> {
         #[cfg(unix)]
         command.args(vec!["-c", &launch_string]);
 
-        debug!("final launch string:\n\n{}\n", launch_string);
+        debug!("final launch string:\n\n{launch_string}\n");
 
         command
             .stderr(error_file)

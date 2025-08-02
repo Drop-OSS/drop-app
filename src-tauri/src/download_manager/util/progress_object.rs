@@ -8,7 +8,6 @@ use std::{
 };
 
 use atomic_instant_full::AtomicInstant;
-use log::info;
 use throttle_my_fn::throttle;
 
 use crate::download_manager::download_manager_frontend::DownloadManagerSignal;

@@ -1,9 +1,8 @@
-use crate::database::models::data::Database;
 
 pub mod data {
     use std::path::PathBuf;
 
-    use log::{info, warn};
+    
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
@@ -344,7 +343,7 @@ pub mod data {
                     settings: value.settings,
                     auth: value.auth,
                     base_url: value.base_url,
-                    applications: value.applications.into(),
+                    applications: value.applications,
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
                 }

@@ -125,7 +125,7 @@ impl<'a> Deref for DBWrite<'a> {
     type Target = Database;
 
     fn deref(&self) -> &Self::Target {
-        &(*self.0)
+        &self.0
     }
 }
 impl<'a> DerefMut for DBWrite<'a> {
@@ -137,7 +137,7 @@ impl<'a> Deref for DBRead<'a> {
     type Target = Database;
 
     fn deref(&self) -> &Self::Target {
-        &(*self.0)
+        &self.0
     }
 }
 impl Drop for DBWrite<'_> {

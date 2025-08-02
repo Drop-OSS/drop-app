@@ -1,8 +1,8 @@
 use std::{
-    collections::HashMap, fs::File, io::{self, Read, Write}, path::PathBuf
+    collections::HashMap, fs::File, io::{self, Read, Write}, path::{Path, PathBuf}
 };
 
-use log::{error, info};
+use log::error;
 use native_model::{Decode, Encode};
 
 pub type DropData = v1::DropData;
@@ -43,7 +43,7 @@ impl DropData {
             Err(_) => DropData::new(game_id, game_version, base_path),
         }
     }
-    pub fn read(base_path: &PathBuf) -> Result<Self, io::Error> {
+    pub fn read(base_path: &Path) -> Result<Self, io::Error> {
         let mut file = File::open(base_path.join(DROP_DATA_PATH))?;
 
         let mut s = Vec::new();

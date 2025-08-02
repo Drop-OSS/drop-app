@@ -1,6 +1,5 @@
 use crate::auth::generate_authorization_header;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
-use crate::database::models::data::v2::GameDownloadStatus;
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadType, DownloadableMetadata,
 };
@@ -15,7 +14,7 @@ use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::validate_game_chunk;
 use crate::games::library::{
-    GameUpdateEvent, on_game_complete, push_game_update, set_partially_installed,
+    on_game_complete, push_game_update, set_partially_installed,
 };
 use crate::games::state::GameStatusManager;
 use crate::remote::requests::make_request;
@@ -444,7 +443,7 @@ impl GameDownloadAgent {
         Ok(true)
     }
 
-    pub fn cancel(&self, app_handle: &AppHandle) -> () {
+    pub fn cancel(&self, app_handle: &AppHandle) {
         // See docs on usage
         set_partially_installed(
             &self.metadata(),
@@ -454,7 +453,7 @@ impl GameDownloadAgent {
 
         self.dropdata.write();
 
-        ()
+        
     }
 }
 

@@ -4,15 +4,12 @@ use log::warn;
 
 use crate::{
     database::{
-        db::{borrow_db_checked, borrow_db_mut_checked},
-        models::data::{
-            v1::{DownloadType, DownloadableMetadata},
-            v2::GameDownloadStatus,
-        },
+        db::borrow_db_mut_checked,
+        models::data::v1::{DownloadType, DownloadableMetadata},
     },
     games::{
         downloads::drop_data::{v1::DropData, DROP_DATA_PATH},
-        library::{set_partially_installed, set_partially_installed_db},
+        library::set_partially_installed_db,
     },
 };
 
@@ -22,7 +19,7 @@ pub fn scan_install_dirs() {
         let Ok(files) = fs::read_dir(install_dir) else {
             continue;
         };
-        for game in files.into_iter().filter(|e| e.is_ok()).map(|e| e.unwrap()) {
+        for game in files.into_iter().flatten() {
             let drop_data_file = game.path().join(DROP_DATA_PATH);
             if !drop_data_file.exists() {
                 continue;

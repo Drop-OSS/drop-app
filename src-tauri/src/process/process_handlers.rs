@@ -84,7 +84,7 @@ impl ProcessHandler for AsahiMuvmLauncher {
         let args = args_cmd.next().unwrap().trim();
         let cmd = format!("umu-run{}", args_cmd.next().unwrap());
 
-        format!("{} muvm -- {}", args, cmd)
+        format!("{args} muvm -- {cmd}")
     }
 
     #[allow(unreachable_code)]

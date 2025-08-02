@@ -1,5 +1,4 @@
 use std::fs::remove_dir_all;
-use std::path::PathBuf;
 use std::sync::Mutex;
 use std::thread::spawn;
 
@@ -309,7 +308,7 @@ pub fn set_partially_installed_db(
     install_dir: String,
     app_handle: Option<&AppHandle>,
 ) {
-    db_lock.applications.transient_statuses.remove(&meta);
+    db_lock.applications.transient_statuses.remove(meta);
     db_lock.applications.game_statuses.insert(
         meta.id.clone(),
         GameDownloadStatus::PartiallyInstalled {
@@ -327,7 +326,7 @@ pub fn set_partially_installed_db(
             app_handle,
             &meta.id,
             None,
-            GameStatusManager::fetch_state(&meta.id, &db_lock),
+            GameStatusManager::fetch_state(&meta.id, db_lock),
         );
     }
 }

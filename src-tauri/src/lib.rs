@@ -111,7 +111,7 @@ fn create_new_compat_info() -> Option<CompatInfo> {
         .stdout(Stdio::null())
         .spawn();
     if let Err(umu_error) = &has_umu_installed {
-        warn!("disabling windows support with error: {}", umu_error);
+        warn!("disabling windows support with error: {umu_error}");
     }
     let has_umu_installed = has_umu_installed.is_ok();
     Some(CompatInfo {

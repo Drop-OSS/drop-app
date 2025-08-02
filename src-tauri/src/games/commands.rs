@@ -5,7 +5,7 @@ use tauri::AppHandle;
 use crate::{
     AppState,
     database::{
-        db::{self, borrow_db_checked},
+        db::borrow_db_checked,
         models::data::GameVersion,
     },
     error::{library_error::LibraryError, remote_access_error::RemoteAccessError},
