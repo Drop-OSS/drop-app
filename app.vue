@@ -36,7 +36,7 @@ router.beforeEach(async () => {
 });
 
 setupHooks();
-initialNavigation(state);
+await initialNavigation(state);
 
 useHead({
   title: "Drop",

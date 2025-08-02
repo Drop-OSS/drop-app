@@ -81,7 +81,8 @@ pub mod data {
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
-            pub force_offline: bool, // ... other settings ...
+            pub force_offline: bool,
+            pub start_in_big_picture: bool,
         }
         impl Default for Settings {
             fn default() -> Self {
@@ -89,6 +90,7 @@ pub mod data {
                     autostart: false,
                     max_download_threads: 4,
                     force_offline: false,
+                    start_in_big_picture: false,
                 }
             }
         }

@@ -46,6 +46,32 @@
             </Switch>
           </div>
 
+          <!-- Start in Big Picture Mode Setting -->
+          <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
+            <div class="flex-1">
+              <h4 class="text-lg font-medium text-zinc-100 mb-1">
+                Start Drop in Big Picture Mode
+              </h4>
+              <p class="text-sm text-zinc-400">
+                Drop will automatically start in Big Picture mode when launched
+              </p>
+            </div>
+            <Switch
+              v-model="startInBigPicture"
+              :class="[
+                startInBigPicture ? 'bg-blue-600' : 'bg-zinc-700',
+                'relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
+              ]"
+            >
+              <span
+                :class="[
+                  startInBigPicture ? 'translate-x-6' : 'translate-x-0',
+                  'pointer-events-none relative inline-block h-7 w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                ]"
+              />
+            </Switch>
+          </div>
+
           <!-- Fullscreen Setting -->
           <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
             <div class="flex-1">
@@ -261,6 +287,7 @@ const router = useRouter();
 // Settings state
 const autostartEnabled = ref<boolean>(false);
 const autoFullscreen = ref<boolean>(true);
+const startInBigPicture = ref<boolean>(false);
 
 // Download settings
 const settings = await invoke<Settings>("fetch_settings");
@@ -300,6 +327,13 @@ onMounted(async () => {
     console.error("Failed to load autostart setting:", error);
   }
 
+  try {
+    const bigPictureEnabled = await invoke("get_start_in_big_picture");
+    startInBigPicture.value = bigPictureEnabled as boolean;
+  } catch (error) {
+    console.error("Failed to load big picture setting:", error);
+  }
+
   // Listen for auth events
   await listen("auth/signedout", () => {
     router.push("/auth/signedout");
@@ -313,6 +347,16 @@ watch(autostartEnabled, async (newValue: boolean) => {
   } catch (error) {
     console.error("Failed to toggle autostart:", error);
     autostartEnabled.value = !newValue;
+  }
+});
+
+// Watch for big picture mode changes
+watch(startInBigPicture, async (newValue: boolean) => {
+  try {
+    await invoke("set_start_in_big_picture", { enabled: newValue });
+  } catch (error) {
+    console.error("Failed to set big picture setting:", error);
+    startInBigPicture.value = !newValue;
   }
 });
 

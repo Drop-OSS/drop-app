@@ -85,6 +85,7 @@ export type Settings = {
   autostart: boolean;
   maxDownloadThreads: number;
   forceOffline: boolean;
+  startInBigPicture: boolean;
 };
 
 // Big Picture Mode Types

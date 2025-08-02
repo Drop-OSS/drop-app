@@ -97,4 +97,15 @@ export const exitBigPictureMode = async () => {
 export const setBigPicturePage = (page: string) => {
   const state = useBigPictureMode();
   state.value.currentPage = page;
+};
+
+export const checkAndEnterBigPictureMode = async () => {
+  try {
+    const shouldStartInBigPicture = await invoke("get_start_in_big_picture") as boolean;
+    if (shouldStartInBigPicture && !useBigPictureMode().value.isActive) {
+      await enterBigPictureMode();
+    }
+  } catch (error) {
+    console.error("Failed to check big picture setting:", error);
+  }
 }; 
