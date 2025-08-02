@@ -1,5 +1,5 @@
 <template>
-  <div class="h-screen w-screen">
+  <div class="h-full w-full">
          <!-- Game Detail View -->
      <div v-if="selectedGame" class="relative flex flex-col justify-center pt-72 overflow-hidden min-h-screen">
        <!-- Background Banner -->
@@ -99,7 +99,7 @@
 
        <!-- Main Content -->
        <div class="relative z-10 w-full bg-zinc-900 px-8 py-8">
-         <div class="max-w-7xl mx-auto">
+         <div class="w-full">
            <div class="grid grid-cols-[2fr,1fr] gap-8">
                                      <!-- Game Description -->
                         <div class="space-y-6 relative z-0">
@@ -107,8 +107,8 @@
                  <h2 class="text-2xl font-display font-semibold text-zinc-100 mb-6">
                    About This Game
                  </h2>
-                 <div class="prose prose-invert prose-blue overflow-y-auto custom-scrollbar max-w-none w-full overflow-hidden">
-                   <p class="text-zinc-300 leading-relaxed text-lg break-words overflow-hidden w-full">
+                 <div class="prose prose-invert prose-blue overflow-y-auto custom-scrollbar w-full">
+                   <p class="text-zinc-300 leading-relaxed text-lg break-words">
                      {{ selectedGame.mDescription }}
                    </p>
                  </div>
