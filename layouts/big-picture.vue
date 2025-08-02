@@ -28,13 +28,21 @@
       <!-- Header (positioned on top) -->
       <BigPictureHeader />
     </div>
+
+    <!-- Global Install Modal for Big Picture Mode -->
+    <BigPictureInstallModal ref="installModalRef" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useBigPictureMode } from "~/composables/big-picture";
+import BigPictureInstallModal from "~/components/BigPictureInstallModal.vue";
 
 const bigPictureState = useBigPictureMode();
+const installModalRef = ref();
+
+// Provide the install modal reference to child components
+provide('bigPictureInstallModal', installModalRef);
 </script>
 
 <style scoped>

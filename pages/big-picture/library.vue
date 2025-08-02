@@ -266,13 +266,13 @@ import {
   StopIcon,
   WrenchIcon,
   ChevronDownIcon,
-  CheckIcon,
-  ChevronUpDownIcon,
 } from "@heroicons/vue/20/solid";
-import { XCircleIcon } from "@heroicons/vue/24/solid";
-import { Menu, MenuButton, MenuItem, MenuItems, Listbox, ListboxButton, ListboxLabel, ListboxOption, ListboxOptions } from "@headlessui/vue";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { invoke } from "@tauri-apps/api/core";
 import { GameStatusEnum, type Game, type GameStatus } from "~/types";
+import ModalTemplate from "~/drop-base/components/ModalTemplate.vue";
+import LoadingButton from "~/drop-base/components/LoadingButton.vue";
+import PageWidget from "~/components/PageWidget.vue";
 
 definePageMeta({
   layout: "big-picture"
@@ -305,6 +305,9 @@ const selectedGameStatus = ref<GameStatus>({ type: GameStatusEnum.Remote });
 const selectedGameCover = ref<string>("");
 const selectedGameRemoteUrl = ref<string>("");
 const isActionLoading = ref(false);
+
+// Get the global install modal reference
+const installModal = inject('bigPictureInstallModal') as any;
 
 onMounted(async () => {
   try {
@@ -436,48 +439,6 @@ const showSelectedGameDropdown = computed(() => {
          selectedGameStatus.value.type === GameStatusEnum.PartiallyInstalled;
 });
 
-// Install modal state
-const installFlowOpen = ref(false);
-const versionOptions = ref<undefined | Array<{ versionName: string; platform: string }>>();
-const installDirs = ref<undefined | Array<string>>();
-const installLoading = ref(false);
-const installError = ref<string | undefined>();
-const installVersionIndex = ref(0);
-const installDir = ref(0);
-
-async function installFlow() {
-  installFlowOpen.value = true;
-  versionOptions.value = undefined;
-  installDirs.value = undefined;
-
-  try {
-    versionOptions.value = await invoke("fetch_game_verion_options", {
-      gameId: selectedGame.value!.id,
-    });
-    console.log(versionOptions.value);
-    installDirs.value = await invoke("fetch_download_dir_stats");
-  } catch (error) {
-    installError.value = (error as string).toString();
-  }
-}
-
-async function install() {
-  try {
-    if (!versionOptions.value) throw new Error("Versions have not been loaded");
-    installLoading.value = true;
-    await invoke("download_game", {
-      gameId: selectedGame.value!.id,
-      gameVersion: versionOptions.value[installVersionIndex.value].versionName,
-      installDir: installDir.value,
-    });
-    installFlowOpen.value = false;
-  } catch (error) {
-    installError.value = (error as string).toString();
-  }
-
-  installLoading.value = false;
-}
-
 // Game action handlers
 const handleSelectedGameAction = async () => {
   if (!selectedGame.value) return;
@@ -487,8 +448,10 @@ const handleSelectedGameAction = async () => {
   try {
     switch (selectedGameStatus.value.type) {
       case GameStatusEnum.Remote:
-        // Show install modal
-        await installFlow();
+        // Use the global install modal
+        if (installModal?.value?.openInstallModal) {
+          await installModal.value.openInstallModal(selectedGame.value.id, selectedGame.value.mName);
+        }
         break;
       case GameStatusEnum.Queued:
       case GameStatusEnum.Downloading:
@@ -545,8 +508,10 @@ const handleSelectedGameUninstall = async () => {
 const handleGameAction = async (game: Game, status: GameStatus) => {
   switch (status.type) {
     case GameStatusEnum.Remote:
-      // Select the game to show detail view
-      await selectGame(game);
+      // Use the global install modal instead of navigating to detail view
+      if (installModal?.value?.openInstallModal) {
+        await installModal.value.openInstallModal(game.id, game.mName);
+      }
       break;
     case GameStatusEnum.Queued:
     case GameStatusEnum.Downloading:
