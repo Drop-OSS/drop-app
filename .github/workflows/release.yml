@@ -83,7 +83,7 @@ jobs:
           CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Drop OSS")
           CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
-          echo "Certificate imported."
+          echo "Certificate imported. Using identity: $CERT_ID"
 
       - name: install frontend dependencies
         run: yarn install # change this to npm, pnpm or bun depending on which one you use.
