@@ -166,7 +166,7 @@
        </div>
 
        <!-- Debug Information -->
-       <div class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
+       <div v-if="showDebugSection" class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
          <h3 class="text-xl font-semibold text-zinc-100 mb-6 flex items-center">
            <BugAntIcon class="h-6 w-6 mr-3 text-orange-400" />
            Debug Information
@@ -219,7 +219,7 @@
          <div class="space-y-4">
            <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
              <span class="text-zinc-100">Version</span>
-             <span class="text-zinc-400">1.0.0</span>
+             <span class="text-zinc-400">{{ appVersion }}</span>
            </div>
            <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
              <span class="text-zinc-100">Build Date</span>
@@ -227,7 +227,7 @@
            </div>
            <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
              <span class="text-zinc-100">Platform</span>
-             <span class="text-zinc-400">Desktop</span>
+             <span class="text-zinc-400">{{ platformInfo }}</span>
            </div>
          </div>
        </div>
@@ -264,6 +264,12 @@ const router = useRouter();
 const autostartEnabled = ref<boolean>(false);
 const startInBigPicture = ref<boolean>(false);
 
+// Debug section visibility
+const showDebugSection = ref<boolean>(false);
+
+// App version from package.json
+const appVersion = ref<string>("Loading...");
+
 // Download settings
 const settings = await invoke<Settings>("fetch_settings");
 const downloadThreads = ref(settings?.maxDownloadThreads ?? 4);
@@ -293,6 +299,28 @@ dataDir.value = systemData.dataDir;
 const currentPlatform = await platform();
 platformInfo.value = currentPlatform;
 
+// Load version from package.json
+try {
+  const packageJson = await import('../../package.json');
+  appVersion.value = packageJson.version;
+} catch (error) {
+  console.error("Failed to load version from package.json:", error);
+  appVersion.value = "Unknown";
+}
+
+// Shift key detection for debug section
+const handleKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Shift') {
+    showDebugSection.value = true;
+  }
+};
+
+const handleKeyUp = (event: KeyboardEvent) => {
+  if (event.key === 'Shift') {
+    showDebugSection.value = false;
+  }
+};
+
 // Load initial state
 onMounted(async () => {
   try {
@@ -309,10 +337,20 @@ onMounted(async () => {
     console.error("Failed to load big picture setting:", error);
   }
 
+  // Add keyboard event listeners
+  document.addEventListener('keydown', handleKeyDown);
+  document.addEventListener('keyup', handleKeyUp);
+
   // Listen for auth events
   await listen("auth/signedout", () => {
     router.push("/auth/signedout");
   });
+});
+
+// Cleanup event listeners
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown);
+  document.removeEventListener('keyup', handleKeyUp);
 });
 
 // Watch for autostart changes
