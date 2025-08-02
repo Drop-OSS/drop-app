@@ -18,6 +18,7 @@ use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
+use crate::remote::utils::DROP_CLIENT_SYNC;
 use crate::AppState;
 use bitcode::{Encode, Decode};
 
@@ -78,7 +79,7 @@ pub fn fetch_library_logic(
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let header = generate_authorization_header();
 
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
         f.header("Authorization", header)
     })?
@@ -177,7 +178,7 @@ pub fn fetch_game_logic(
 
         return Ok(data);
     }
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(&client, &["/api/v1/client/game/", &id], &[], |r| {
         r.header("Authorization", generate_authorization_header())
     })?
@@ -252,7 +253,7 @@ pub fn fetch_game_verion_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
 
     let response = make_request(
         &client,
@@ -378,7 +379,7 @@ pub fn on_game_incomplete(
         return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
     }
 
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(
         &client,
         &["/api/v1/client/game/version"],
@@ -440,7 +441,7 @@ pub fn on_game_complete(
 
     let header = generate_authorization_header();
 
-    let client = reqwest::blocking::Client::new();
+    let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(
         &client,
         &["/api/v1/client/game/version"],
