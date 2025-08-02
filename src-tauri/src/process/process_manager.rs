@@ -348,9 +348,12 @@ impl ProcessManager<'_> {
         #[cfg(unix)]
         command.args(vec!["-c", &launch_string]);
 
+        debug!("final launch string:\n\n{}\n", launch_string);
+
         command
             .stderr(error_file)
             .stdout(log_file)
+            .env_remove("RUST_LOG")
             .current_dir(install_dir);
 
         let child = command.spawn().map_err(ProcessError::IOError)?;

@@ -80,7 +80,11 @@ impl ProcessHandler for AsahiMuvmLauncher {
             game_version,
             current_dir,
         );
-        format!("muvm -- {}", umu_string)
+        let mut args_cmd = umu_string.split("umu-run").collect::<Vec<&str>>().into_iter();
+        let args = args_cmd.next().unwrap().trim();
+        let cmd = format!("umu-run{}", args_cmd.next().unwrap());
+
+        format!("{} muvm -- {}", args, cmd)
     }
 
     #[allow(unreachable_code)]
