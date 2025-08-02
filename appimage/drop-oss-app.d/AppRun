@@ -1,0 +1,8 @@
+#!/bin/sh
+
+program="drop-oss-app"
+
+# point to libraries and run
+LD_LIBRARY_PATH=$APPDIR/usr/lib:/usr/local/lib:/usr/lib $APPDIR/usr/bin/$program $@
+
+# vim:ft=sh
