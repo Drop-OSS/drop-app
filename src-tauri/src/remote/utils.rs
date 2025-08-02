@@ -38,12 +38,14 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
                     Ok(c) => {
                         let mut buf = Vec::new();
                         File::open(c.path()).unwrap().read_to_end(&mut buf).unwrap();
+
                         for cert in Certificate::from_pem_bundle(&buf).unwrap() {
                             certs.push(cert);
                         }
                         info!(
-                            "added certificate: {} to keychain",
-                            c.file_name().to_string_lossy()
+                            "added {} certificate(s) from {}",
+                            certs.len(),
+                            c.file_name().into_string().unwrap()
                         );
                     }
                     Err(_) => todo!(),
