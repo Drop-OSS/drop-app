@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=drop-oss-app
+Comment=The client application for the open-source, self-hosted game distribution platform Drop
+Exec=AppRun
+Icon=drop-oss-app
+Type=Application
+Categories=Game;Network
