@@ -10,9 +10,7 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    AppState, AppStatus,
-    database::db::{DATA_ROOT_DIR, borrow_db_mut_checked},
-    error::remote_access_error::RemoteAccessError,
+    database::db::{borrow_db_mut_checked, DATA_ROOT_DIR}, error::remote_access_error::RemoteAccessError, remote::requests::make_request, AppState, AppStatus
 };
 
 #[derive(Deserialize)]
@@ -96,7 +94,8 @@ pub fn use_remote_logic(
 
     // Test Drop url
     let test_endpoint = base_url.join("/api/v1")?;
-    let response = reqwest::blocking::get(test_endpoint.to_string())?;
+    let client = DROP_CLIENT_SYNC.clone();
+    let response = client.get(test_endpoint.to_string()).send()?;
 
     let result: DropHealthcheck = response.json()?;
 
