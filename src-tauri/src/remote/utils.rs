@@ -21,12 +21,10 @@ struct DropHealthcheck {
     app_name: String,
 }
 
-pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> =
-    LazyLock::new(get_client_sync);
+pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> = LazyLock::new(get_client_sync);
 pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(get_client_async);
 
-pub fn get_client_sync() -> reqwest::blocking::Client {
-    let mut client = reqwest::blocking::ClientBuilder::new();
+fn fetch_certificates() -> Vec<Certificate> {
     let certificate_dir = DATA_ROOT_DIR.join("certificates");
 
     let mut certs = Vec::new();
@@ -55,6 +53,13 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
             debug!("not loading certificates due to error: {e}");
         }
     };
+    certs
+}
+
+pub fn get_client_sync() -> reqwest::blocking::Client {
+    let mut client = reqwest::blocking::ClientBuilder::new();
+    
+    let certs = fetch_certificates();
     for cert in certs {
         client = client.add_root_certificate(cert);
     }
@@ -62,28 +67,8 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
 }
 pub fn get_client_async() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
-    let certificate_dir = DATA_ROOT_DIR.join("certificates");
 
-    let mut certs = Vec::new();
-    match fs::read_dir(certificate_dir) {
-        Ok(c) => {
-            for entry in c {
-                match entry {
-                    Ok(c) => {
-                        let mut buf = Vec::new();
-                        File::open(c.path()).unwrap().read_to_end(&mut buf).unwrap();
-                        for cert in Certificate::from_pem_bundle(&buf).unwrap() {
-                            certs.push(cert);
-                        }
-                    }
-                    Err(_) => todo!(),
-                }
-            }
-        }
-        Err(e) => {
-            debug!("Not loading certificates due to error {e}");
-        }
-    };
+    let certs = fetch_certificates();
     for cert in certs {
         client = client.add_root_certificate(cert);
     }
