@@ -69,7 +69,7 @@ jobs:
           security set-keychain-settings -t 3600 -u build.keychain
           
           curl https://droposs.org/drop.crt --output drop.pem
-          security add-trusted-cert -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
+          echo "$KEYCHAIN_PASSWORD" | security add-trusted-cert -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
 
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
