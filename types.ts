@@ -54,12 +54,13 @@ export enum GameStatusEnum {
   Remote = "Remote",
   Queued = "Queued",
   Downloading = "Downloading",
+  Validating = "Validating",
   Installed = "Installed",
   Updating = "Updating",
   Uninstalling = "Uninstalling",
   SetupRequired = "SetupRequired",
   Running = "Running",
-  PartiallyInstalled = "PartiallyInstalled"
+  PartiallyInstalled = "PartiallyInstalled",
 }
 
 export type GameStatus = {

@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 use tauri::Emitter;
 
+use crate::AppState;
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
+use crate::database::models::data::Database;
 use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
@@ -16,11 +18,11 @@ use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
+use crate::remote::cache::cache_object_db;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
 use crate::remote::requests::make_request;
 use crate::remote::utils::DROP_CLIENT_SYNC;
-use crate::AppState;
-use bitcode::{Encode, Decode};
+use bitcode::{Decode, Encode};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FetchGameStruct {
@@ -146,27 +148,22 @@ pub fn fetch_game_logic(
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let mut state_handle = state.lock().unwrap();
 
-    let handle = borrow_db_checked();
+    let db_lock = borrow_db_checked();
 
-    let metadata_option = handle.applications.installed_game_version.get(&id);
+    let metadata_option = db_lock.applications.installed_game_version.get(&id);
     let version = match metadata_option {
         None => None,
-        Some(metadata) => Some(
-            handle
-                .applications
-                .game_versions
-                .get(&metadata.id)
-                .unwrap()
-                .get(metadata.version.as_ref().unwrap())
-                .unwrap()
-                .clone(),
-        ),
+        Some(metadata) => db_lock
+            .applications
+            .game_versions
+            .get(&metadata.id)
+            .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+            .cloned(),
     };
-    drop(handle);
 
     let game = state_handle.games.get(&id);
     if let Some(game) = game {
-        let status = GameStatusManager::fetch_state(&id);
+        let status = GameStatusManager::fetch_state(&id, &db_lock);
 
         let data = FetchGameStruct {
             game: game.clone(),
@@ -174,10 +171,12 @@ pub fn fetch_game_logic(
             version,
         };
 
-        cache_object(&id, game)?;
+        cache_object_db(&id, game, &db_lock)?;
 
         return Ok(data);
     }
+    drop(db_lock);
+
     let client = DROP_CLIENT_SYNC.clone();
     let response = make_request(&client, &["/api/v1/client/game/", &id], &[], |r| {
         r.header("Authorization", generate_authorization_header())
@@ -203,9 +202,10 @@ pub fn fetch_game_logic(
         .game_statuses
         .entry(id.clone())
         .or_insert(GameDownloadStatus::Remote {});
-    drop(db_handle);
 
-    let status = GameStatusManager::fetch_state(&id);
+    let status = GameStatusManager::fetch_state(&id, &db_handle);
+
+    drop(db_handle);
 
     let data = FetchGameStruct {
         game: game.clone(),
@@ -222,12 +222,12 @@ pub fn fetch_game_logic_offline(
     id: String,
     _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    let handle = borrow_db_checked();
-    let metadata_option = handle.applications.installed_game_version.get(&id);
+    let db_handle = borrow_db_checked();
+    let metadata_option = db_handle.applications.installed_game_version.get(&id);
     let version = match metadata_option {
         None => None,
         Some(metadata) => Some(
-            handle
+            db_handle
                 .applications
                 .game_versions
                 .get(&metadata.id)
@@ -237,10 +237,11 @@ pub fn fetch_game_logic_offline(
                 .clone(),
         ),
     };
-    drop(handle);
 
-    let status = GameStatusManager::fetch_state(&id);
+    let status = GameStatusManager::fetch_state(&id, &db_handle);
     let game = get_cached_object::<Game>(&id)?;
+
+    drop(db_handle);
 
     Ok(FetchGameStruct {
         game,
@@ -275,12 +276,59 @@ pub fn fetch_game_verion_options_logic(
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
     let data: Vec<GameVersion> = data
         .into_iter()
-        .filter(|v| process_manager_lock.valid_platform(&v.platform).unwrap())
+        .filter(|v| {
+            process_manager_lock
+                .valid_platform(&v.platform, &state_lock)
+                .unwrap()
+        })
         .collect();
     drop(process_manager_lock);
     drop(state_lock);
 
     Ok(data)
+}
+
+/**
+ * Called by:
+ *  - on_cancel, when cancelled, for obvious reasons
+ *  - when downloading, so if drop unexpectedly quits, we can resume the download. hidden by the "Downloading..." transient state, though
+ *  - when scanning, to import the game
+ */
+pub fn set_partially_installed(
+    meta: &DownloadableMetadata,
+    install_dir: String,
+    app_handle: Option<&AppHandle>,
+) {
+    set_partially_installed_db(&mut borrow_db_mut_checked(), meta, install_dir, app_handle);
+}
+
+pub fn set_partially_installed_db(
+    db_lock: &mut Database,
+    meta: &DownloadableMetadata,
+    install_dir: String,
+    app_handle: Option<&AppHandle>,
+) {
+    db_lock.applications.transient_statuses.remove(meta);
+    db_lock.applications.game_statuses.insert(
+        meta.id.clone(),
+        GameDownloadStatus::PartiallyInstalled {
+            version_name: meta.version.as_ref().unwrap().clone(),
+            install_dir,
+        },
+    );
+    db_lock
+        .applications
+        .installed_game_version
+        .insert(meta.id.clone(), meta.clone());
+
+    if let Some(app_handle) = app_handle {
+        push_game_update(
+            app_handle,
+            &meta.id,
+            None,
+            GameStatusManager::fetch_state(&meta.id, db_lock),
+        );
+    }
 }
 
 pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) {
@@ -296,7 +344,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         app_handle,
         &meta.id,
         None,
-        (None, Some(ApplicationTransientStatus::Uninstalling {})),
+        GameStatusManager::fetch_state(&meta.id, &db_handle),
     );
 
     let previous_state = db_handle.applications.game_statuses.get(&meta.id).cloned();
@@ -330,31 +378,35 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         drop(db_handle);
 
         let app_handle = app_handle.clone();
-        spawn(move || if let Err(e) = remove_dir_all(install_dir) {
-            error!("{e}");
-        } else {
-            let mut db_handle = borrow_db_mut_checked();
-            db_handle.applications.transient_statuses.remove(&meta);
-            db_handle
-                .applications
-                .installed_game_version
-                .remove(&meta.id);
-            db_handle
-                .applications
-                .game_statuses
-                .entry(meta.id.clone())
-                .and_modify(|e| *e = GameDownloadStatus::Remote {});
-            drop(db_handle);
+        spawn(move || {
+            if let Err(e) = remove_dir_all(install_dir) {
+                error!("{e}");
+            } else {
+                let mut db_handle = borrow_db_mut_checked();
+                db_handle.applications.transient_statuses.remove(&meta);
+                db_handle
+                    .applications
+                    .installed_game_version
+                    .remove(&meta.id);
+                db_handle
+                    .applications
+                    .game_statuses
+                    .entry(meta.id.clone())
+                    .and_modify(|e| *e = GameDownloadStatus::Remote {});
+                let _ = db_handle.applications.transient_statuses.remove(&meta);
 
-            debug!("uninstalled game id {}", &meta.id);
-            app_handle.emit("update_library", ()).unwrap();
+                push_game_update(
+                    &app_handle,
+                    &meta.id,
+                    None,
+                    GameStatusManager::fetch_state(&meta.id, &db_handle),
+                );
 
-            push_game_update(
-                &app_handle,
-                &meta.id,
-                None,
-                (Some(GameDownloadStatus::Remote {}), None),
-            );
+                debug!("uninstalled game id {}", &meta.id);
+                app_handle.emit("update_library", ()).unwrap();
+
+                drop(db_handle);
+            }
         });
     } else {
         warn!("invalid previous state for uninstall, failing silently.");
@@ -367,66 +419,6 @@ pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
         .installed_game_version
         .get(game_id)
         .cloned()
-}
-
-pub fn on_game_incomplete(
-    meta: &DownloadableMetadata,
-    install_dir: String,
-    app_handle: &AppHandle,
-) -> Result<(), RemoteAccessError> {
-    // Fetch game version information from remote
-    if meta.version.is_none() {
-        return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
-    }
-
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(
-        &client,
-        &["/api/v1/client/game/version"],
-        &[
-            ("id", &meta.id),
-            ("version", meta.version.as_ref().unwrap()),
-        ],
-        |f| f.header("Authorization", generate_authorization_header()),
-    )?
-    .send()?;
-
-    let game_version: GameVersion = response.json()?;
-
-    let mut handle = borrow_db_mut_checked();
-    handle
-        .applications
-        .game_versions
-        .entry(meta.id.clone())
-        .or_default()
-        .insert(meta.version.clone().unwrap(), game_version.clone());
-    handle
-        .applications
-        .installed_game_version
-        .insert(meta.id.clone(), meta.clone());
-
-    let status = GameDownloadStatus::PartiallyInstalled {
-        version_name: meta.version.clone().unwrap(),
-        install_dir,
-    };
-
-    handle
-        .applications
-        .game_statuses
-        .insert(meta.id.clone(), status.clone());
-    drop(handle);
-    app_handle
-        .emit(
-            &format!("update_game/{}", meta.id),
-            GameUpdateEvent {
-                game_id: meta.id.clone(),
-                status: (Some(status), None),
-                version: Some(game_version),
-            },
-        )
-        .unwrap();
-
-    Ok(())
 }
 
 pub fn on_game_complete(

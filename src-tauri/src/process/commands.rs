@@ -16,7 +16,7 @@ pub fn launch_game(
     //    download_type: DownloadType::Game,
     //};
 
-    match process_manager_lock.launch_process(id) {
+    match process_manager_lock.launch_process(id, &state_lock) {
         Ok(()) => {}
         Err(e) => return Err(e),
     }

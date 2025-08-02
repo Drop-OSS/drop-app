@@ -6,7 +6,6 @@ use serde_with::SerializeDisplay;
 pub enum ProcessError {
     NotInstalled,
     AlreadyRunning,
-    NotDownloaded,
     InvalidID,
     InvalidVersion,
     IOError(Error),
@@ -20,7 +19,6 @@ impl Display for ProcessError {
         let s = match self {
             ProcessError::NotInstalled => "Game not installed",
             ProcessError::AlreadyRunning => "Game already running",
-            ProcessError::NotDownloaded => "Game not downloaded",
             ProcessError::InvalidID => "Invalid game ID",
             ProcessError::InvalidVersion => "Invalid game version",
             ProcessError::IOError(error) => &error.to_string(),

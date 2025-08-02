@@ -1,13 +1,13 @@
 use std::{
-    collections::HashMap, fs::File, io::{Read, Write}, path::PathBuf
+    collections::HashMap, fs::File, io::{self, Read, Write}, path::{Path, PathBuf}
 };
 
-use log::{debug, error, info, warn};
+use log::error;
 use native_model::{Decode, Encode};
 
 pub type DropData = v1::DropData;
 
-static DROP_DATA_PATH: &str = ".dropdata";
+pub static DROP_DATA_PATH: &str = ".dropdata";
 
 pub mod v1 {
     use std::{collections::HashMap, path::PathBuf, sync::Mutex};
@@ -38,27 +38,18 @@ pub mod v1 {
 
 impl DropData {
     pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
-        let mut file = if let Ok(file) = File::open(base_path.join(DROP_DATA_PATH)) { file } else {
-            debug!("Generating new dropdata for game {game_id}");
-            return DropData::new(game_id, game_version, base_path);
-        };
+        match DropData::read(&base_path) {
+            Ok(v) => v,
+            Err(_) => DropData::new(game_id, game_version, base_path),
+        }
+    }
+    pub fn read(base_path: &Path) -> Result<Self, io::Error> {
+        let mut file = File::open(base_path.join(DROP_DATA_PATH))?;
 
         let mut s = Vec::new();
-        match file.read_to_end(&mut s) {
-            Ok(_) => {}
-            Err(e) => {
-                error!("{e}");
-                return DropData::new(game_id, game_version, base_path);
-            }
-        }
+        file.read_to_end(&mut s)?;
 
-        match native_model::rmp_serde_1_3::RmpSerde::decode(s) {
-            Ok(manifest) => manifest,
-            Err(e) => {
-                warn!("{e}");
-                DropData::new(game_id, game_version, base_path)
-            }
-        }
+        Ok(native_model::rmp_serde_1_3::RmpSerde::decode(s).unwrap())
     }
     pub fn write(&self) {
         let manifest_raw = match native_model::rmp_serde_1_3::RmpSerde::encode(&self) {
@@ -94,10 +85,6 @@ impl DropData {
             .collect()
     }
     pub fn get_contexts(&self) -> HashMap<String, bool> {
-        info!(
-            "Any contexts which are complete? {}",
-            self.contexts.lock().unwrap().iter().any(|x| *x.1)
-        );
         self.contexts.lock().unwrap().clone()
     }
 }

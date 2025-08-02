@@ -7,7 +7,7 @@ use std::{
 use serde_json::Value;
 
 use crate::{
-    database::db::borrow_db_mut_checked, error::download_manager_error::DownloadManagerError,
+    database::{db::borrow_db_mut_checked, scan::scan_install_dirs}, error::download_manager_error::DownloadManagerError,
 };
 
 use super::{
@@ -58,6 +58,8 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), DownloadManagerError<()>
     }
     lock.applications.install_dirs.push(new_dir);
     drop(lock);
+
+    scan_install_dirs();
 
     Ok(())
 }

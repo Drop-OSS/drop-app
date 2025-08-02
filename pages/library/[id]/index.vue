@@ -368,6 +368,13 @@
     </template>
   </ModalTemplate>
 
+  <!-- 
+  Dear future DecDuck,
+  This v-if is necessary for Vue rendering reasons
+  (it tries to access the game version for not installed games)
+  You have already tried to remove it
+  Don't.  
+  -->
   <GameOptionsModal
     v-if="status.type === GameStatusEnum.Installed"
     v-model="configureModalOpen"
