@@ -21,10 +21,10 @@ use tauri_plugin_opener::OpenerExt;
 use crate::{
     AppState, DB,
     database::{
-        db::{DATA_ROOT_DIR, borrow_db_mut_checked},
+        db::{DATA_ROOT_DIR, borrow_db_checked, borrow_db_mut_checked},
         models::data::{
-            ApplicationTransientStatus, DownloadType, DownloadableMetadata, GameDownloadStatus,
-            GameVersion,
+            ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata,
+            GameDownloadStatus, GameVersion,
         },
     },
     error::process_error::ProcessError,
@@ -160,7 +160,6 @@ impl ProcessManager<'_> {
                 },
             );
         }
-        drop(db_handle);
 
         let elapsed = process.start.elapsed().unwrap_or(Duration::ZERO);
         // If we started and ended really quickly, something might've gone wrong
@@ -173,19 +172,43 @@ impl ProcessManager<'_> {
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        let status = GameStatusManager::fetch_state(&game_id);
+        let status = GameStatusManager::fetch_state(&game_id, &db_handle);
+        drop(db_handle);
+
         push_game_update(&self.app_handle, &game_id, None, status);
     }
 
-    pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
+    fn fetch_process_handler(
+        &self,
+        db_lock: &Database,
+        state: &AppState,
+        target_platform: &Platform,
+    ) -> Result<&(dyn ProcessHandler + Send + Sync), ProcessError> {
         Ok(self
             .game_launchers
             .iter()
-            .find(|e| e.0.1 == *platform)
-            .is_some())
+            .filter(|e| {
+                let (e_current, e_target) = e.0;
+                e_current == self.current_platform
+                    && e_target == *target_platform
+                    && e.1.valid_for_platform(&db_lock, state, &target_platform)
+            })
+            .next()
+            .ok_or(ProcessError::InvalidPlatform)?
+            .1)
     }
 
-    pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
+    pub fn valid_platform(&self, platform: &Platform, state: &AppState) -> Result<bool, String> {
+        let db_lock = borrow_db_checked();
+        let process_handler = self.fetch_process_handler(&db_lock, state, platform);
+        Ok(process_handler.is_ok())
+    }
+
+    pub fn launch_process(
+        &mut self,
+        game_id: String,
+        state: &AppState,
+    ) -> Result<(), ProcessError> {
         if self.processes.contains_key(&game_id) {
             return Err(ProcessError::AlreadyRunning);
         }
@@ -209,10 +232,6 @@ impl ProcessManager<'_> {
         };
 
         let mut db_lock = borrow_db_mut_checked();
-        debug!(
-            "Launching process {:?} with games {:?}",
-            &game_id, db_lock.applications.game_versions
-        );
 
         let game_status = db_lock
             .applications
@@ -231,6 +250,12 @@ impl ProcessManager<'_> {
             } => (version_name, install_dir),
             _ => return Err(ProcessError::NotInstalled),
         };
+
+        debug!(
+            "Launching process {:?} with version {:?}",
+            &game_id,
+            db_lock.applications.game_versions.get(&game_id).unwrap()
+        );
 
         let game_version = db_lock
             .applications
@@ -265,21 +290,9 @@ impl ProcessManager<'_> {
             )))
             .map_err(ProcessError::IOError)?;
 
-        let current_platform = self.current_platform;
         let target_platform = game_version.platform;
 
-        let game_launcher = self
-            .game_launchers
-            .iter()
-            .filter(|e| {
-                let (e_current, e_target) = e.0;
-                e_current == current_platform
-                    && e_target == target_platform
-                    && e.1.valid_for_platform(&target_platform)
-            })
-            .next()
-            .ok_or(ProcessError::InvalidPlatform)?
-            .1;
+        let process_handler = self.fetch_process_handler(&db_lock, state, &target_platform)?;
 
         let (launch, args) = match game_status {
             GameDownloadStatus::Installed {
@@ -300,7 +313,7 @@ impl ProcessManager<'_> {
         let launch = PathBuf::from_str(install_dir).unwrap().join(launch);
         let launch = launch.to_str().unwrap();
 
-        let launch_string = game_launcher.create_launch_process(
+        let launch_string = process_handler.create_launch_process(
             &meta,
             launch.to_string(),
             args.clone(),
@@ -443,5 +456,5 @@ pub trait ProcessHandler: Send + 'static {
         current_dir: &str,
     ) -> String;
 
-    fn valid_for_platform(&self, target: &Platform) -> bool;
+    fn valid_for_platform(&self, db: &Database, state: &AppState, target: &Platform) -> bool;
 }

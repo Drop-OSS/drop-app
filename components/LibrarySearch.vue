@@ -81,18 +81,20 @@ import { listen } from "@tauri-apps/api/event";
 const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "text-green-500",
   [GameStatusEnum.Downloading]: "text-blue-500",
+  [GameStatusEnum.Validating]: "text-blue-300",
   [GameStatusEnum.Running]: "text-green-500",
   [GameStatusEnum.Remote]: "text-zinc-500",
   [GameStatusEnum.Queued]: "text-blue-500",
   [GameStatusEnum.Updating]: "text-blue-500",
   [GameStatusEnum.Uninstalling]: "text-zinc-100",
   [GameStatusEnum.SetupRequired]: "text-yellow-500",
-  [GameStatusEnum.PartiallyInstalled]: "text-gray-600",
+  [GameStatusEnum.PartiallyInstalled]: "text-gray-400",
 };
 const gameStatusText: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Remote]: "Not installed",
   [GameStatusEnum.Queued]: "Queued",
   [GameStatusEnum.Downloading]: "Downloading...",
+  [GameStatusEnum.Validating]: "Validating...",
   [GameStatusEnum.Installed]: "Installed",
   [GameStatusEnum.Updating]: "Updating...",
   [GameStatusEnum.Uninstalling]: "Uninstalling...",

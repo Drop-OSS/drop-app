@@ -8,6 +8,7 @@ use std::{
 };
 
 use atomic_instant_full::AtomicInstant;
+use log::info;
 use throttle_my_fn::throttle;
 
 use crate::download_manager::download_manager_frontend::DownloadManagerSignal;
@@ -39,20 +40,20 @@ impl ProgressHandle {
         }
     }
     pub fn set(&self, amount: usize) {
-        self.progress.store(amount, Ordering::Relaxed);
+        self.progress.store(amount, Ordering::Release);
     }
     pub fn add(&self, amount: usize) {
         self.progress
-            .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
+            .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
         calculate_update(&self.progress_object);
     }
     pub fn skip(&self, amount: usize) {
         self.progress
-            .fetch_add(amount, std::sync::atomic::Ordering::Relaxed);
+            .fetch_add(amount, std::sync::atomic::Ordering::Acquire);
         // Offset the bytes at last offset by this amount
         self.progress_object
             .bytes_last_update
-            .fetch_add(amount, Ordering::Relaxed);
+            .fetch_add(amount, Ordering::Acquire);
         // Dont' fire update
     }
 }
@@ -60,7 +61,6 @@ impl ProgressHandle {
 impl ProgressObject {
     pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
         let arr = Mutex::new((0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect());
-        // TODO: consolidate this calculation with the set_max function below
         Self {
             max: Arc::new(Mutex::new(max)),
             progress_instances: Arc::new(arr),
@@ -81,19 +81,18 @@ impl ProgressObject {
             .lock()
             .unwrap()
             .iter()
-            .map(|instance| instance.load(Ordering::Relaxed))
+            .map(|instance| instance.load(Ordering::Acquire))
             .sum()
     }
-    pub fn reset(&self, size: usize) {
+    pub fn reset(&self) {
         self.set_time_now();
-        self.set_size(size);
         self.bytes_last_update.store(0, Ordering::Release);
         self.rolling.reset();
         self.progress_instances
             .lock()
             .unwrap()
             .iter()
-            .for_each(|x| x.store(0, Ordering::Release));
+            .for_each(|x| x.store(0, Ordering::SeqCst));
     }
     pub fn get_max(&self) -> usize {
         *self.max.lock().unwrap()
@@ -127,7 +126,7 @@ pub fn calculate_update(progress: &ProgressObject) {
     let max = progress.get_max();
     let bytes_at_last_update = progress
         .bytes_last_update
-        .swap(current_bytes_downloaded, Ordering::Relaxed);
+        .swap(current_bytes_downloaded, Ordering::Acquire);
 
     let bytes_since_last_update = current_bytes_downloaded - bytes_at_last_update;
 

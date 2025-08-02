@@ -1,6 +1,6 @@
 use crate::database::{
     db::borrow_db_checked,
-    models::data::{ApplicationTransientStatus, GameDownloadStatus},
+    models::data::{ApplicationTransientStatus, Database, GameDownloadStatus},
 };
 
 pub type GameStatusWithTransient = (
@@ -10,14 +10,12 @@ pub type GameStatusWithTransient = (
 pub struct GameStatusManager {}
 
 impl GameStatusManager {
-    pub fn fetch_state(game_id: &String) -> GameStatusWithTransient {
-        let db_lock = borrow_db_checked();
-        let online_state = match db_lock.applications.installed_game_version.get(game_id) {
-            Some(meta) => db_lock.applications.transient_statuses.get(meta).cloned(),
+    pub fn fetch_state(game_id: &String, database: &Database) -> GameStatusWithTransient {
+        let online_state = match database.applications.installed_game_version.get(game_id) {
+            Some(meta) => database.applications.transient_statuses.get(meta).cloned(),
             None => None,
         };
-        let offline_state = db_lock.applications.game_statuses.get(game_id).cloned();
-        drop(db_lock);
+        let offline_state = database.applications.game_statuses.get(game_id).cloned();
 
         if online_state.is_some() {
             return (None, online_state);

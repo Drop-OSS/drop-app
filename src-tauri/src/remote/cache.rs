@@ -51,8 +51,15 @@ fn read_sync(base: &Path, key: &str) -> io::Result<Vec<u8>> {
 }
 
 pub fn cache_object<D: Encode>(key: &str, data: &D) -> Result<(), RemoteAccessError> {
+    cache_object_db(key, data, &borrow_db_checked())
+}
+pub fn cache_object_db<D: Encode>(
+    key: &str,
+    data: &D,
+    database: &Database,
+) -> Result<(), RemoteAccessError> {
     let bytes = bitcode::encode(data);
-    write_sync(&borrow_db_checked().cache_dir, key, bytes).map_err(RemoteAccessError::Cache)
+    write_sync(&database.cache_dir, key, bytes).map_err(RemoteAccessError::Cache)
 }
 pub fn get_cached_object<D: Encode + DecodeOwned>(key: &str) -> Result<D, RemoteAccessError> {
     get_cached_object_db::<D>(key, &borrow_db_checked())

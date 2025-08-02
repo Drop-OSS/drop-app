@@ -27,6 +27,7 @@ try {
   console.error("failed to parse state", e);
 }
 
+// This is inefficient but apparently we do it lol
 router.beforeEach(async () => {
   try {
     state.value = JSON.parse(await invoke("fetch_state"));

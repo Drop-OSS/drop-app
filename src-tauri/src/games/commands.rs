@@ -3,19 +3,23 @@ use std::sync::Mutex;
 use tauri::AppHandle;
 
 use crate::{
-    database::models::data::GameVersion,
+    AppState,
+    database::{
+        db::{self, borrow_db_checked},
+        models::data::GameVersion,
+    },
     error::{library_error::LibraryError, remote_access_error::RemoteAccessError},
     games::library::{
         fetch_game_logic_offline, fetch_library_logic_offline, get_current_meta,
         uninstall_game_logic,
     },
-    offline, AppState,
+    offline,
 };
 
 use super::{
     library::{
-        fetch_game_logic, fetch_game_verion_options_logic, fetch_library_logic, FetchGameStruct,
-        Game,
+        FetchGameStruct, Game, fetch_game_logic, fetch_game_verion_options_logic,
+        fetch_library_logic,
     },
     state::{GameStatusManager, GameStatusWithTransient},
 };
@@ -48,7 +52,8 @@ pub fn fetch_game(
 
 #[tauri::command]
 pub fn fetch_game_status(id: String) -> GameStatusWithTransient {
-    GameStatusManager::fetch_state(&id)
+    let db_handle = borrow_db_checked();
+    GameStatusManager::fetch_state(&id, &db_handle)
 }
 
 #[tauri::command]

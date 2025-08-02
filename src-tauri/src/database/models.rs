@@ -3,11 +3,12 @@ use crate::database::models::data::Database;
 pub mod data {
     use std::path::PathBuf;
 
+    use log::{info, warn};
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
     pub type GameVersion = v1::GameVersion;
-    pub type Database = v3::Database;
+    pub type Database = v4::Database;
     pub type Settings = v1::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
@@ -18,16 +19,14 @@ pub mod data {
     pub type DatabaseApplications = v2::DatabaseApplications;
     pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
-    use std::{collections::HashMap, process::Command};
-
-    use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
+    use std::collections::HashMap;
 
     pub mod v1 {
         use crate::process::process_manager::Platform;
         use serde_with::serde_as;
         use std::{collections::HashMap, path::PathBuf};
 
-        use super::{Serialize, Deserialize, native_model};
+        use super::{Deserialize, Serialize, native_model};
 
         fn default_template() -> String {
             "{}".to_owned()
@@ -35,7 +34,7 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub struct GameVersion {
             pub game_id: String,
             pub version_name: String,
@@ -63,7 +62,7 @@ pub mod data {
         #[serde_as]
         #[derive(Serialize, Clone, Deserialize, Default)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 3, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 3, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
@@ -77,7 +76,7 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 4, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 4, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
@@ -96,7 +95,7 @@ pub mod data {
         // Strings are version names for a particular game
         #[derive(Serialize, Clone, Deserialize)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 5, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -115,11 +114,12 @@ pub mod data {
             Downloading { version_name: String },
             Uninstalling {},
             Updating { version_name: String },
+            Validating { version_name: String },
             Running {},
         }
 
         #[derive(serde::Serialize, Clone, Deserialize)]
-        #[native_model(id = 6, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 6, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub struct DatabaseAuth {
             pub private: String,
             pub cert: String,
@@ -138,7 +138,7 @@ pub mod data {
             Mod,
         }
 
-        #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone)]
         #[serde(rename_all = "camelCase")]
         pub struct DownloadableMetadata {
@@ -174,9 +174,12 @@ pub mod data {
 
         use serde_with::serde_as;
 
-        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, v1, GameVersion, DownloadableMetadata, ApplicationTransientStatus};
+        use super::{
+            ApplicationTransientStatus, DatabaseAuth, Deserialize, DownloadableMetadata,
+            GameVersion, Serialize, Settings, native_model, v1,
+        };
 
-        #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
@@ -190,7 +193,7 @@ pub mod data {
             pub compat_info: Option<DatabaseCompatInfo>,
         }
 
-        #[native_model(id = 8, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 8, version = 2, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         #[derive(Serialize, Deserialize, Clone, Default)]
 
         pub struct DatabaseCompatInfo {
@@ -206,14 +209,14 @@ pub mod data {
                     applications: value.applications,
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
-                    compat_info: crate::database::models::Database::create_new_compat_info(),
+                    compat_info: None,
                 }
             }
         }
         // Strings are version names for a particular game
         #[derive(Serialize, Clone, Deserialize, Debug)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 5, version = 2, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -253,7 +256,7 @@ pub mod data {
         #[serde_as]
         #[derive(Serialize, Clone, Deserialize, Default)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 3, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[native_model(id = 3, version = 2, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
@@ -283,8 +286,11 @@ pub mod data {
     mod v3 {
         use std::path::PathBuf;
 
-        use super::{Serialize, Deserialize, native_model, Settings, DatabaseAuth, DatabaseApplications, DatabaseCompatInfo, v2};
-        #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde)]
+        use super::{
+            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize,
+            Settings, native_model, v2,
+        };
+        #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
@@ -297,6 +303,7 @@ pub mod data {
             pub cache_dir: PathBuf,
             pub compat_info: Option<DatabaseCompatInfo>,
         }
+
         impl From<v2::Database> for Database {
             fn from(value: v2::Database) -> Self {
                 Self {
@@ -306,22 +313,46 @@ pub mod data {
                     applications: value.applications.into(),
                     prev_database: value.prev_database,
                     cache_dir: value.cache_dir,
-                    compat_info: Database::create_new_compat_info(),
+                    compat_info: None,
                 }
             }
         }
     }
-    impl Database {
-        fn create_new_compat_info() -> Option<DatabaseCompatInfo> {
-            #[cfg(target_os = "windows")]
-            return None;
+    mod v4 {
+        use std::path::PathBuf;
 
-            let has_umu_installed = Command::new(UMU_LAUNCHER_EXECUTABLE).spawn().is_ok();
-            Some(DatabaseCompatInfo {
-                umu_installed: has_umu_installed,
-            })
+        use super::{
+            DatabaseApplications, DatabaseAuth, Deserialize, Serialize, Settings, native_model, v3,
+        };
+        #[native_model(id = 1, version = 4, with = native_model::rmp_serde_1_3::RmpSerdeNamed)]
+        #[derive(Serialize, Deserialize, Clone, Default)]
+        pub struct Database {
+            #[serde(default)]
+            pub settings: Settings,
+            pub auth: Option<DatabaseAuth>,
+            pub base_url: String,
+            pub applications: DatabaseApplications,
+            pub cache_dir: PathBuf,
+
+            #[serde(skip)]
+            pub prev_database: Option<PathBuf>,
         }
 
+        impl From<v3::Database> for Database {
+            fn from(value: v3::Database) -> Self {
+                Self {
+                    settings: value.settings,
+                    auth: value.auth,
+                    base_url: value.base_url,
+                    applications: value.applications.into(),
+                    prev_database: value.prev_database,
+                    cache_dir: value.cache_dir,
+                }
+            }
+        }
+    }
+
+    impl Database {
         pub fn new<T: Into<PathBuf>>(
             games_base_dir: T,
             prev_database: Option<PathBuf>,
@@ -340,7 +371,7 @@ pub mod data {
                 auth: None,
                 settings: Settings::default(),
                 cache_dir,
-                compat_info: Database::create_new_compat_info(),
+                // compat_info: Database::create_new_compat_info(),
             }
         }
     }

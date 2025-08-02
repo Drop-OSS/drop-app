@@ -254,13 +254,13 @@ impl DownloadManagerBuilder {
                     }
                 };
 
-                // If the download gets cancel
+                // If the download gets cancelled
+                // immediately return, on_cancelled gets called for us earlier
                 if !download_result {
-                    download_agent.on_incomplete(&app_handle);
                     return;
                 }
 
-                let validate_result = match download_agent.validate() {
+                let validate_result = match download_agent.validate(&app_handle) {
                     Ok(v) => v,
                     Err(e) => {
                         error!(

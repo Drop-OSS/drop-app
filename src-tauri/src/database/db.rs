@@ -10,7 +10,7 @@ use chrono::Utc;
 use log::{debug, error, info, warn};
 use native_model::{Decode, Encode};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use url::Url;
 
 use crate::DB;
@@ -67,17 +67,18 @@ impl DatabaseImpls for DatabaseInterface {
 
         let exists = fs::exists(db_path.clone()).unwrap();
 
-        if exists { match PathDatabase::load_from_path(db_path.clone()) {
-            Ok(db) => db,
-            Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
-        } } else {
+        if exists {
+            match PathDatabase::load_from_path(db_path.clone()) {
+                Ok(db) => db,
+                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
+            }
+        } else {
             let default = Database::new(games_base_dir, None, cache_dir);
             debug!(
                 "Creating database at path {}",
                 db_path.as_os_str().to_str().unwrap()
             );
-            PathDatabase::create_at_path(db_path, default)
-                .expect("Database could not be created")
+            PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
         }
     }
 
@@ -121,22 +122,22 @@ fn handle_invalid_database(
 pub struct DBRead<'a>(RwLockReadGuard<'a, Database>);
 pub struct DBWrite<'a>(ManuallyDrop<RwLockWriteGuard<'a, Database>>);
 impl<'a> Deref for DBWrite<'a> {
-    type Target = RwLockWriteGuard<'a, Database>;
+    type Target = Database;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &(*self.0)
+    }
+}
+impl<'a> DerefMut for DBWrite<'a> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 impl<'a> Deref for DBRead<'a> {
-    type Target = RwLockReadGuard<'a, Database>;
+    type Target = Database;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-impl DerefMut for DBWrite<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &(*self.0)
     }
 }
 impl Drop for DBWrite<'_> {
@@ -154,6 +155,7 @@ impl Drop for DBWrite<'_> {
         }
     }
 }
+
 pub fn borrow_db_checked<'a>() -> DBRead<'a> {
     match DB.borrow_data() {
         Ok(data) => DBRead(data),

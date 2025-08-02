@@ -1,10 +1,8 @@
 use log::debug;
 
 use crate::{
-    database::{
-        db::borrow_db_checked,
-        models::data::{DownloadableMetadata, GameVersion},
-    },
+    AppState,
+    database::models::data::{Database, DownloadableMetadata, GameVersion},
     process::process_manager::{Platform, ProcessHandler},
 };
 
@@ -21,7 +19,7 @@ impl ProcessHandler for NativeGameLauncher {
         format!("\"{}\" {}", launch_command, args.join(" "))
     }
 
-    fn valid_for_platform(&self, _target: &Platform) -> bool {
+    fn valid_for_platform(&self, _db: &Database, _state: &AppState, _target: &Platform) -> bool {
         true
     }
 }
@@ -56,9 +54,8 @@ impl ProcessHandler for UMULauncher {
         )
     }
 
-    fn valid_for_platform(&self, _target: &Platform) -> bool {
-        let db = borrow_db_checked();
-        let Some(ref compat_info) = db.compat_info else {
+    fn valid_for_platform(&self, _db: &Database, state: &AppState, _target: &Platform) -> bool {
+        let Some(ref compat_info) = state.compat_info else {
             return false;
         };
         compat_info.umu_installed
@@ -76,12 +73,18 @@ impl ProcessHandler for AsahiMuvmLauncher {
         current_dir: &str,
     ) -> String {
         let umu_launcher = UMULauncher {};
-        let umu_string = umu_launcher.create_launch_process(meta, launch_command, args, game_version, current_dir);
+        let umu_string = umu_launcher.create_launch_process(
+            meta,
+            launch_command,
+            args,
+            game_version,
+            current_dir,
+        );
         format!("muvm -- {}", umu_string)
     }
 
     #[allow(unreachable_code)]
-    fn valid_for_platform(&self, _target: &Platform) -> bool {
+    fn valid_for_platform(&self, _db: &Database, state: &AppState, _target: &Platform) -> bool {
         #[cfg(not(target_os = "linux"))]
         return false;
 
@@ -93,10 +96,10 @@ impl ProcessHandler for AsahiMuvmLauncher {
             return false;
         }
 
-        let db = borrow_db_checked();
-        let Some(ref compat_info) = db.compat_info else {
+        let Some(ref compat_info) = state.compat_info else {
             return false;
         };
+
         compat_info.umu_installed
     }
 }
