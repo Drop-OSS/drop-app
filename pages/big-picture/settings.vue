@@ -72,31 +72,7 @@
             </Switch>
           </div>
 
-          <!-- Fullscreen Setting -->
-          <div class="flex items-center justify-between p-4 bg-zinc-900/50 rounded-lg">
-            <div class="flex-1">
-              <h4 class="text-lg font-medium text-zinc-100 mb-1">
-                Always fullscreen in Big Picture
-              </h4>
-              <p class="text-sm text-zinc-400">
-                Automatically enter fullscreen when switching to Big Picture mode
-              </p>
-            </div>
-            <Switch
-              v-model="autoFullscreen"
-              :class="[
-                autoFullscreen ? 'bg-blue-600' : 'bg-zinc-700',
-                'relative inline-flex h-8 w-14 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out',
-              ]"
-            >
-              <span
-                :class="[
-                  autoFullscreen ? 'translate-x-6' : 'translate-x-0',
-                  'pointer-events-none relative inline-block h-7 w-7 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                ]"
-              />
-            </Switch>
-          </div>
+
         </div>
       </div>
 
@@ -286,7 +262,6 @@ const router = useRouter();
 
 // Settings state
 const autostartEnabled = ref<boolean>(false);
-const autoFullscreen = ref<boolean>(true);
 const startInBigPicture = ref<boolean>(false);
 
 // Download settings
@@ -360,19 +335,7 @@ watch(startInBigPicture, async (newValue: boolean) => {
   }
 });
 
-// Watch for auto fullscreen changes
-watch(autoFullscreen, (newValue: boolean) => {
-  // Save to localStorage or settings
-  localStorage.setItem("bigPictureAutoFullscreen", newValue.toString());
-});
 
-// Load auto fullscreen setting
-onMounted(() => {
-  const saved = localStorage.getItem("bigPictureAutoFullscreen");
-  if (saved !== null) {
-    autoFullscreen.value = saved === "true";
-  }
-});
 
 // Sign out function
 async function signOut() {
