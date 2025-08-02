@@ -4,13 +4,16 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
-use log::{debug, warn};
+use log::{debug, info, warn};
 use reqwest::Certificate;
 use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_mut_checked, DATA_ROOT_DIR}, error::remote_access_error::RemoteAccessError, remote::requests::make_request, AppState, AppStatus
+    AppState, AppStatus,
+    database::db::{DATA_ROOT_DIR, borrow_db_mut_checked},
+    error::remote_access_error::RemoteAccessError,
+    remote::requests::make_request,
 };
 
 #[derive(Deserialize)]
@@ -21,10 +24,7 @@ struct DropHealthcheck {
 
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> =
     LazyLock::new(|| get_client_sync());
-pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> =
-    LazyLock::new(|| get_client_async());
-
-
+pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(|| get_client_async());
 
 pub fn get_client_sync() -> reqwest::blocking::Client {
     let mut client = reqwest::blocking::ClientBuilder::new();
@@ -41,13 +41,17 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
                         for cert in Certificate::from_pem_bundle(&buf).unwrap() {
                             certs.push(cert);
                         }
+                        info!(
+                            "added certificate: {} to keychain",
+                            c.file_name().to_string_lossy()
+                        );
                     }
                     Err(_) => todo!(),
                 }
             }
         }
         Err(e) => {
-            debug!("Not loading certificates due to error {e}");
+            debug!("not loading certificates due to error: {e}");
         }
     };
     for cert in certs {
