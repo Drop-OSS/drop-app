@@ -1,6 +1,6 @@
 [package]
 name = "drop-app"
-version = "0.3.1-mac"
+version = "0.3.1"
 description = "The client application for the open-source, self-hosted game distribution platform Drop"
 authors = ["Drop OSS"]
 edition = "2024"
@@ -70,6 +70,7 @@ tauri-plugin-opener = "2.4.0"
 bitcode = "0.6.6"
 reqwest-websocket = "0.5.0"
 futures-lite = "2.6.0"
+page_size = "0.6.0"
 # tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]

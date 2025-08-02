@@ -29,6 +29,10 @@ use crate::{
     },
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
+    process::{
+        format::DropFormatArgs,
+        process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
+    },
 };
 
 pub struct RunningProcess {
@@ -42,7 +46,10 @@ pub struct ProcessManager<'a> {
     log_output_dir: PathBuf,
     processes: HashMap<String, RunningProcess>,
     app_handle: AppHandle,
-    game_launchers: HashMap<(Platform, Platform), &'a (dyn ProcessHandler + Sync + Send + 'static)>,
+    game_launchers: Vec<(
+        (Platform, Platform),
+        &'a (dyn ProcessHandler + Sync + Send + 'static),
+    )>,
 }
 
 impl ProcessManager<'_> {
@@ -62,7 +69,7 @@ impl ProcessManager<'_> {
             app_handle,
             processes: HashMap::new(),
             log_output_dir,
-            game_launchers: HashMap::from([
+            game_launchers: vec![
                 // Current platform to target platform
                 (
                     (Platform::Windows, Platform::Windows),
@@ -78,9 +85,13 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Windows),
+                    &AsahiMuvmLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                ),
+                (
+                    (Platform::Linux, Platform::Windows),
                     &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
-            ]),
+            ],
         }
     }
 
@@ -99,8 +110,12 @@ impl ProcessManager<'_> {
         }
     }
 
+    fn get_log_dir(&self, game_id: String) -> PathBuf {
+        self.log_output_dir.join(game_id)
+    }
+
     pub fn open_process_logs(&mut self, game_id: String) -> Result<(), ProcessError> {
-        let dir = self.log_output_dir.join(game_id);
+        let dir = self.get_log_dir(game_id);
         self.app_handle
             .opener()
             .open_path(dir.to_str().unwrap(), None::<&str>)
@@ -163,8 +178,11 @@ impl ProcessManager<'_> {
     }
 
     pub fn valid_platform(&self, platform: &Platform) -> Result<bool, String> {
-        let current = &self.current_platform;
-        Ok(self.game_launchers.contains_key(&(*current, *platform)))
+        Ok(self
+            .game_launchers
+            .iter()
+            .find(|e| e.0.1 == *platform)
+            .is_some())
     }
 
     pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
@@ -211,11 +229,7 @@ impl ProcessManager<'_> {
                 version_name,
                 install_dir,
             } => (version_name, install_dir),
-            GameDownloadStatus::PartiallyInstalled {
-                version_name,
-                install_dir,
-            } => (version_name, install_dir),
-            _ => return Err(ProcessError::NotDownloaded),
+            _ => return Err(ProcessError::NotInstalled),
         };
 
         let game_version = db_lock
@@ -227,7 +241,7 @@ impl ProcessManager<'_> {
             .ok_or(ProcessError::InvalidVersion)?;
 
         // TODO: refactor this path with open_process_logs
-        let game_log_folder = &self.log_output_dir.join(game_id);
+        let game_log_folder = &self.get_log_dir(game_id);
         create_dir_all(game_log_folder).map_err(ProcessError::IOError)?;
 
         let current_time = chrono::offset::Local::now();
@@ -256,8 +270,16 @@ impl ProcessManager<'_> {
 
         let game_launcher = self
             .game_launchers
-            .get(&(current_platform, target_platform))
-            .ok_or(ProcessError::InvalidPlatform)?;
+            .iter()
+            .filter(|e| {
+                let (e_current, e_target) = e.0;
+                e_current == current_platform
+                    && e_target == target_platform
+                    && e.1.valid_for_platform(&target_platform)
+            })
+            .next()
+            .ok_or(ProcessError::InvalidPlatform)?
+            .1;
 
         let (launch, args) = match game_status {
             GameDownloadStatus::Installed {
@@ -286,8 +308,15 @@ impl ProcessManager<'_> {
             install_dir,
         );
 
+        let format_args = DropFormatArgs::new(
+            launch_string,
+            install_dir,
+            &game_version.launch_command,
+            launch.to_string(),
+        );
+
         let launch_string = SimpleCurlyFormat
-            .format(&game_version.launch_command_template, &[launch_string])
+            .format(&game_version.launch_command_template, format_args)
             .map_err(|e| ProcessError::FormatError(e.to_string()))?
             .to_string();
 
@@ -413,49 +442,6 @@ pub trait ProcessHandler: Send + 'static {
         game_version: &GameVersion,
         current_dir: &str,
     ) -> String;
-}
 
-struct NativeGameLauncher;
-impl ProcessHandler for NativeGameLauncher {
-    fn create_launch_process(
-        &self,
-        _meta: &DownloadableMetadata,
-        launch_command: String,
-        args: Vec<String>,
-        _game_version: &GameVersion,
-        _current_dir: &str,
-    ) -> String {
-        format!("\"{}\" {}", launch_command, args.join(" "))
-    }
-}
-
-pub const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
-struct UMULauncher;
-impl ProcessHandler for UMULauncher {
-    fn create_launch_process(
-        &self,
-        _meta: &DownloadableMetadata,
-        launch_command: String,
-        args: Vec<String>,
-        game_version: &GameVersion,
-        _current_dir: &str,
-    ) -> String {
-        debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
-        let game_id = match &game_version.umu_id_override {
-            Some(game_override) => {
-                if game_override.is_empty() {
-                    game_version.game_id.clone()
-                } else {
-                    game_override.clone()
-                }
-            }
-            None => game_version.game_id.clone(),
-        };
-        format!(
-            "GAMEID={game_id} {umu} \"{launch}\" {args}",
-            umu = UMU_LAUNCHER_EXECUTABLE,
-            launch = launch_command,
-            args = args.join(" ")
-        )
-    }
+    fn valid_for_platform(&self, target: &Platform) -> bool;
 }

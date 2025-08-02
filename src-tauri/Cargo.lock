@@ -1284,7 +1284,7 @@ dependencies = [
 
 [[package]]
 name = "drop-app"
-version = "0.3.1-mac"
+version = "0.3.1"
 dependencies = [
  "atomic-instant-full",
  "bitcode",
@@ -1306,6 +1306,7 @@ dependencies = [
  "log4rs",
  "md5",
  "native_model",
+ "page_size",
  "parking_lot 0.12.3",
  "rand 0.9.1",
  "rayon",
@@ -3521,6 +3522,16 @@ checksum = "db335f4760b14ead6290116f2427bf33a14d4f0617d49f78a246de10c1831224"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
+]
+
+[[package]]
+name = "page_size"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30d5b2194ed13191c1999ae0704b7839fb18384fa22e49b57eeaa97d79ce40da"
+dependencies = [
+ "libc",
+ "winapi",
 ]
 
 [[package]]

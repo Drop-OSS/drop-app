@@ -20,7 +20,7 @@ pub mod data {
 
     use std::{collections::HashMap, process::Command};
 
-    use crate::process::process_manager::UMU_LAUNCHER_EXECUTABLE;
+    use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 
     pub mod v1 {
         use crate::process::process_manager::Platform;
