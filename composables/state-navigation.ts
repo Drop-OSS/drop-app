@@ -65,7 +65,7 @@ export function setupHooks() {
   */
 }
 
-export function initialNavigation(state: Ref<AppState>) {
+export async function initialNavigation(state: Ref<AppState>) {
   const router = useRouter();
 
   switch (state.value.status) {
@@ -82,6 +82,17 @@ export function initialNavigation(state: Ref<AppState>) {
       router.push("/error/serverunavailable");
       break;
     default:
-      router.push("/library");
+      // Check if we should start in big picture mode
+      try {
+        const shouldStartInBigPicture = await invoke("get_start_in_big_picture") as boolean;
+        if (shouldStartInBigPicture) {
+          router.push("/big-picture/library");
+        } else {
+          router.push("/library");
+        }
+      } catch (error) {
+        console.error("Failed to check big picture setting:", error);
+        router.push("/library");
+      }
   }
 }

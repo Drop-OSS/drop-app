@@ -17,14 +17,14 @@ use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 use crate::remote::commands::auth_initiate_code;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
-use client::commands::fetch_state;
+use client::commands::{fetch_state, enter_fullscreen, exit_fullscreen, is_fullscreen};
 use client::{
     autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
 };
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
-    fetch_system_data, update_settings,
+    fetch_system_data, update_settings, get_start_in_big_picture, set_start_in_big_picture,
 };
 use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
 use database::models::data::GameDownloadStatus;
@@ -338,7 +338,13 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
-            open_process_logs
+            open_process_logs,
+            // Big Picture Mode
+            enter_fullscreen,
+            exit_fullscreen,
+            is_fullscreen,
+            get_start_in_big_picture,
+            set_start_in_big_picture
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -373,6 +379,19 @@ pub fn run() {
             .data_directory(DATA_ROOT_DIR.join(".webview"))
             .build()
             .unwrap();
+
+            // Check if we should start in big picture mode
+            let should_start_in_big_picture = borrow_db_checked().settings.start_in_big_picture;
+            if should_start_in_big_picture {
+                // Wait a bit for the window to be ready, then enter big picture mode
+                let handle_clone = handle.clone();
+                tauri::async_runtime::spawn(async move {
+                    tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+                    if let Err(e) = enter_fullscreen(handle_clone.clone()).await {
+                        warn!("Failed to enter fullscreen on startup: {}", e);
+                    }
+                });
+            }
 
             app.deep_link().on_open_url(move |event| {
                 debug!("handling drop:// url");
