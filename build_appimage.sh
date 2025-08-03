@@ -27,12 +27,10 @@ fi
 
 # install binaries in the appdir, then the libraries
 cp $target_dir/release/drop-app $appdir/usr/bin
-for lib_name in $(readelf -d "$target_dir/release/drop-app" | grep NEEDED |cut -d'[' -f2 |tr -d ]);
+for lib_name in $(ldd "$target_dir/release/drop-app" | grep '=>' | awk '{ print $(NF-1) }');
 do
 	echo $lib_name
-	ld_path=$(ldconfig -p | grep $lib_name | head -1 | awk '{ print $NF }')
-	echo $ld_path
-	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 $ld_path)" $appdir/usr/lib
+	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 $lib_name)" $appdir/usr/lib
 done
 
 wget -O $appimage_dir/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$arch.AppImage
