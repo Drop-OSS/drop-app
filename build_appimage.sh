@@ -21,7 +21,7 @@ build() {
 
 rm -f $appdir/usr/bin/* $appdir/usr/lib/*
 
-if [[ ! "$1" == "--nobuild" ]]; then
+if [ ! "$1" == "--nobuild" ]; then
 	build
 fi
 
@@ -32,7 +32,7 @@ do
 	echo $lib_name
 	ld_path=$(ldconfig -p | grep $lib_name | awk '{ print $NF }')
 	echo $ld_path
-	install -g 1000 -o 1000 -Dm755 "$(ls -L1 $ld_path)" $appdir/usr/lib
+	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 $ld_path)" $appdir/usr/lib
 done
 
 wget -O $appimage_dir/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$arch.AppImage
