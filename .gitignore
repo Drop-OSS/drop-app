@@ -27,3 +27,7 @@ dist-ssr
 
 src-tauri/flamegraph.svg
 src-tauri/perf*
+
+build/appimage/*
+!build/appimage/drop-app.d
+drop-app
