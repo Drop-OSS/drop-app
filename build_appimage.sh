@@ -3,7 +3,7 @@
 # run this from the root of the git repo to make this work
 
 arch="$(uname -m)"
-git_dir="./"
+git_dir="$PWD"
 target_dir="$git_dir/src-tauri/target/"
 appimage_dir="$git_dir/build/appimage"
 appdir="$appimage_dir/drop-oss-app.d"
@@ -28,7 +28,7 @@ fi
 cp $target_dir/release/drop-app $appdir/usr/bin
 for i in $(readelf -d "$target_dir/release/drop-app" |grep NEEDED |cut -d'[' -f2 |tr -d ]);
 do
-	sudo install -g $USER -o $USER -Dm755 "$(ls -L1 /usr/lib/$i)" $appdir/usr/lib
+	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 /usr/lib/$i)" $appdir/usr/lib
 done
 
 wget -O $appimage_dir/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$arch.AppImage
