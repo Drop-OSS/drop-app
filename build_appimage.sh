@@ -21,7 +21,7 @@ build() {
 
 rm -f $appdir/usr/bin/* $appdir/usr/lib/*
 
-if [ ! "$1" == "--nobuild" ]; then
+if [[ ! "$1" == "--nobuild" ]]; then
 	build
 fi
 
