@@ -40,6 +40,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: lts/*
+          cache: 'yarn'
 
       - name: install Rust nightly
         uses: dtolnay/rust-toolchain@nightly
@@ -85,6 +86,11 @@ jobs:
           echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
           echo "Certificate imported. Using identity: $CERT_ID"
 
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
       - name: install frontend dependencies
         run: yarn install # change this to npm, pnpm or bun depending on which one you use.
 
@@ -116,3 +122,4 @@ jobs:
           file: build/appimage/*.AppImage
           file_glob: true
           release_id: ${{ steps.build.outputs.releaseId }}
+          overwrite: true
