@@ -5,7 +5,7 @@ set -e
 
 arch="$(uname -m)"
 git_dir="$PWD"
-target_dir="$git_dir/src-tauri/target/"
+target_dir="$git_dir/src-tauri/target"
 appimage_dir="$git_dir/build/appimage"
 appdir="$appimage_dir/drop-app.d"
 
@@ -40,3 +40,7 @@ wget -O $appimage_dir/appimagetool https://github.com/AppImage/AppImageKit/relea
 cd $appimage_dir
 chmod u+x appimagetool
 ./appimagetool $appdir
+
+ls "$appimage_dir/*.AppImage"
+
+echo "v__VERSION__"
