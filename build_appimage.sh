@@ -6,7 +6,7 @@ arch="$(uname -m)"
 git_dir="$PWD"
 target_dir="$git_dir/src-tauri/target/"
 appimage_dir="$git_dir/build/appimage"
-appdir="$appimage_dir/drop-oss-app.d"
+appdir="$appimage_dir/drop-app.d"
 
 build() {
 	# set up the repo
