@@ -102,7 +102,7 @@ jobs:
           prerelease: true
           args: ${{ matrix.args }}
 
-      - name: Build Appimage
+      - name: Bundle Appimage
         if: matrix.platform == 'ubuntu-22.04' || matrix.platform == 'ubuntu-22.04-arm'
         run:
-          build_appimage.sh
+          build_appimage.sh --nobuild
