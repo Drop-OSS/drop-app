@@ -41,6 +41,4 @@ cd $appimage_dir
 chmod u+x appimagetool
 ./appimagetool $appdir
 
-ls "$appimage_dir/*.AppImage"
-
-echo "v__VERSION__"
+ls "$appimage_dir/"

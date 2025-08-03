@@ -25,7 +25,7 @@ jobs:
           - platform: 'ubuntu-22.04' # for Tauri v1 you could replace this with ubuntu-20.04.
             args: ''
           - platform: 'ubuntu-22.04-arm'
-            args: '--target aarch64-unknown-linux-gnu'
+            args: ''
           - platform: 'windows-latest'
             args: ''
 
@@ -88,7 +88,7 @@ jobs:
       - name: install frontend dependencies
         run: yarn install # change this to npm, pnpm or bun depending on which one you use.
 
-      - name: build
+      - id: build
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -106,6 +106,6 @@ jobs:
       - name: Bundle AppImage
         if: matrix.platform == 'ubuntu-22.04' || matrix.platform == 'ubuntu-22.04-arm'
         run: |
-          export TAG v${{ steps.build.appVersion }}
+          export TAG "v${{ steps.build.outputs.appVersion }}"
           echo "Bundling $TAG"
           ./build_appimage.sh --nobuild
