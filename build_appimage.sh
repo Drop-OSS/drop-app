@@ -30,7 +30,7 @@ cp $target_dir/release/drop-app $appdir/usr/bin
 for lib_name in $(readelf -d "$target_dir/release/drop-app" | grep NEEDED |cut -d'[' -f2 |tr -d ]);
 do
 	echo $lib_name
-	ld_path=$(ldconfig -p | grep $lib_name | awk '{ print $NF }')
+	ld_path=$(ldconfig -p | grep $lib_name | head -1 | awk '{ print $NF }')
 	echo $ld_path
 	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 $ld_path)" $appdir/usr/lib
 done
