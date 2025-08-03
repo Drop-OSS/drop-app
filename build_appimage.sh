@@ -28,11 +28,11 @@ fi
 cp $target_dir/release/drop-app $appdir/usr/bin
 for i in $(readelf -d "$target_dir/release/drop-app" |grep NEEDED |cut -d'[' -f2 |tr -d ]);
 do
-	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 /usr/lib/$i)" $appdir/usr/lib
+	sudo install -g 1000 -o 1000 -Dm755 "$(ls -L1 /usR/LIB/$i)" $appdir/usr/lib
 done
 
 wget -O $appimage_dir/appimagetool https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-$arch.AppImage
 
 cd $appimage_dir
 chmod u+x appimagetool
-appimagetool $APPDIR
+appimagetool $appdir
