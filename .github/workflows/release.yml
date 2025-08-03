@@ -96,7 +96,7 @@ jobs:
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
         with:
-          tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          tagName: v__VERSION__ # update the below "upload artifacts to GitHub" if this gets updated
           releaseName: 'Auto-release v__VERSION__'
           releaseBody: 'See the assets to download this version and install. This release was created automatically.'
           releaseDraft: false
@@ -106,6 +106,12 @@ jobs:
       - name: Bundle AppImage
         if: matrix.platform == 'ubuntu-22.04' || matrix.platform == 'ubuntu-22.04-arm'
         run: |
-          export TAG "v${{ steps.build.outputs.appVersion }}"
-          echo "Bundling $TAG"
           ./build_appimage.sh --nobuild
+
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: build/appimage/*.AppImage
+          file_glob: true
+          release_id: v${{ steps.build.outputs.releaseId }}
