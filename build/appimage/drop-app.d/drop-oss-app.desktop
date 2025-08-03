@@ -5,3 +5,4 @@ Exec=AppRun
 Icon=drop-oss-app
 Type=Application
 Categories=Game;Network
+MimeType=x-scheme-handler/drop
