@@ -104,7 +104,7 @@ features = ["other_errors"] # You can also use "yaml_enc" or "bin_enc"
 [dependencies.reqwest]
 version = "0.12"
 default-features = false
-features = ["json", "http2", "blocking", "rustls-tls-webpki-roots"]
+features = ["json", "http2", "blocking", "rustls-tls", "native-tls-alpn", "rustls-tls-webpki-roots"]
 
 [dependencies.serde]
 version = "1"

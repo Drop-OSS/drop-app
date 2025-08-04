@@ -88,6 +88,7 @@ impl ProcessHandler for AsahiMuvmLauncher {
     }
 
     #[allow(unreachable_code)]
+    #[allow(unused_variables)]
     fn valid_for_platform(&self, _db: &Database, state: &AppState, _target: &Platform) -> bool {
         #[cfg(not(target_os = "linux"))]
         return false;

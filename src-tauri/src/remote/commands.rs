@@ -8,7 +8,11 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{auth::generate_authorization_header, requests::make_request, utils::DROP_CLIENT_SYNC}, AppState, AppStatus
+    database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{
+        auth::generate_authorization_header,
+        requests::make_request,
+        utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
+    }, AppState, AppStatus
 };
 
 use super::{
@@ -18,11 +22,11 @@ use super::{
 };
 
 #[tauri::command]
-pub fn use_remote(
+pub async fn use_remote(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
-    use_remote_logic(url, state)
+    use_remote_logic(url, state).await
 }
 
 #[tauri::command]
@@ -120,10 +124,12 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
     let code = auth_initiate_logic("code".to_string())?;
     let header_code = code.clone();
 
+    println!("using code: {} to sign in", code);
+
     tauri::async_runtime::spawn(async move {
         let load = async || -> Result<(), RemoteAccessError> {
             let ws_url = base_url.join("/api/v1/client/auth/code/ws")?;
-            let response = reqwest::Client::default()
+            let response = DROP_CLIENT_WS_CLIENT
                 .get(ws_url)
                 .header("Authorization", header_code)
                 .upgrade()
