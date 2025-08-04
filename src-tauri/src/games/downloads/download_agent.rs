@@ -13,13 +13,11 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::validate_game_chunk;
-use crate::games::library::{
-    on_game_complete, push_game_update, set_partially_installed,
-};
+use crate::games::library::{on_game_complete, push_game_update, set_partially_installed};
 use crate::games::state::GameStatusManager;
 use crate::remote::requests::make_request;
 use crate::remote::utils::DROP_CLIENT_SYNC;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
 use std::fs::{OpenOptions, create_dir_all};
@@ -34,6 +32,8 @@ use rustix::fs::{FallocateFlags, fallocate};
 
 use super::download_logic::download_game_chunk;
 use super::drop_data::DropData;
+
+static RETRY_COUNT: usize = 3;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -315,15 +315,44 @@ impl GameDownloadAgent {
                 };
 
                 scope.spawn(move |_| {
-                    match download_game_chunk(context, &self.control_flag, progress_handle, request)
-                    {
-                        Ok(true) => {
-                            completed_indexes.push(context.checksum.clone());
-                        }
-                        Ok(false) => {}
-                        Err(e) => {
-                            error!("{e}");
-                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                    // 3 attempts
+                    for i in 0..RETRY_COUNT {
+                        let loop_progress_handle = progress_handle.clone();
+                        match download_game_chunk(
+                            context,
+                            &self.control_flag,
+                            loop_progress_handle,
+                            request.try_clone().unwrap(),
+                        ) {
+                            Ok(true) => {
+                                completed_indexes.push(context.checksum.clone());
+                                return;
+                            }
+                            Ok(false) => return,
+                            Err(e) => {
+                                warn!("game download agent error: {e}");
+
+                                let retry = match &e {
+                                    // Some request failed. Let's retry.
+                                    ApplicationDownloadError::Communication(
+                                        _remote_access_error,
+                                    ) => true,
+                                    // Download checksum didn't match. Let's retry.
+                                    ApplicationDownloadError::Checksum => true,
+                                    // This doesn't happen from this function
+                                    ApplicationDownloadError::Lock => true,
+                                    // IO errors sound bad lol, let's not retry
+                                    ApplicationDownloadError::IoError(_error_kind) => false,
+                                    // Server validation error, let's not retry
+                                    ApplicationDownloadError::DownloadError => false,
+                                };
+
+                                if i == RETRY_COUNT - 1 || !retry {
+                                    warn!("retry logic failed, not re-attempting.");
+                                    sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                                    return;
+                                }
+                            }
                         }
                     }
                 });
@@ -452,8 +481,6 @@ impl GameDownloadAgent {
         );
 
         self.dropdata.write();
-
-        
     }
 }
 
