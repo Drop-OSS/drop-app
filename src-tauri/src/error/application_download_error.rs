@@ -4,7 +4,7 @@ use std::{
 };
 
 use serde_with::SerializeDisplay;
-use human_size::{SpecificSize, Byte};
+use humansize::{format_size, BINARY};
 
 use super::remote_access_error::RemoteAccessError;
 
@@ -12,7 +12,7 @@ use super::remote_access_error::RemoteAccessError;
 #[derive(Debug, SerializeDisplay)]
 pub enum ApplicationDownloadError {
     Communication(RemoteAccessError),
-    DiskFull(usize, usize),
+    DiskFull(u64, u64),
     Checksum,
     Lock,
     IoError(io::ErrorKind),
@@ -22,11 +22,11 @@ pub enum ApplicationDownloadError {
 impl Display for ApplicationDownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ApplicationDownloadError::DiskFull(required, remaining) => write!(
+            ApplicationDownloadError::DiskFull(required, available) => write!(
                 f,
-                "requires {}, {} remaining left on disk",
-                SpecificSize::new::<f64>(*required as f64, Byte).unwrap().to_string(),
-                SpecificSize::new::<f64>(*remaining as f64, Byte).unwrap().to_string(),
+                "Game requires {}, {} remaining left on disk.",
+                format_size(*required, BINARY),
+                format_size(*available, BINARY),
             ),
             ApplicationDownloadError::Communication(error) => write!(f, "{error}"),
             ApplicationDownloadError::Lock => write!(

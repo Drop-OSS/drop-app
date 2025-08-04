@@ -100,12 +100,16 @@ impl GameDownloadAgent {
             .unwrap()
             .values()
             .map(|e| e.lengths.iter().sum::<usize>())
-            .sum::<usize>();
+            .sum::<usize>()
+            as u64;
 
-        let available_space = get_disk_available(data_base_dir_path)?.try_into().unwrap();
+        let available_space = get_disk_available(data_base_dir_path)? as u64;
 
         if required_space > available_space {
-            return Err(ApplicationDownloadError::DiskFull(required_space, available_space));
+            return Err(ApplicationDownloadError::DiskFull(
+                required_space,
+                available_space,
+            ));
         }
 
         Ok(result)
