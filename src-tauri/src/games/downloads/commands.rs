@@ -29,11 +29,12 @@ pub fn download_game(
         sender,
     )?;
     let game_download_agent = Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
-    Ok(state
-        .lock()
-        .unwrap()
-        .download_manager
-        .queue_download(game_download_agent).unwrap())
+    state
+    .lock()
+    .unwrap()
+    .download_manager
+    .queue_download(game_download_agent).unwrap();
+    Ok(())
 }
 
 #[tauri::command]
@@ -68,9 +69,10 @@ pub fn resume_download(
         sender,
     )?) as Box<dyn Downloadable + Send + Sync>);
 
-    Ok(state
-        .lock()
-        .unwrap()
-        .download_manager
-        .queue_download(game_download_agent).unwrap())
+    state
+    .lock()
+    .unwrap()
+    .download_manager
+    .queue_download(game_download_agent).unwrap();
+    Ok(())
 }

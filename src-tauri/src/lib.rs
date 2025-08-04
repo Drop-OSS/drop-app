@@ -14,7 +14,6 @@ mod remote;
 use crate::database::scan::scan_install_dirs;
 use crate::process::commands::open_process_logs;
 use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
-use crate::process::utils::get_disk_available;
 use crate::remote::commands::auth_initiate_code;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
