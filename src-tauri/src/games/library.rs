@@ -116,7 +116,16 @@ pub fn fetch_library_logic(
         }
         // We should always have a cache of the object
         // Pass db_handle because otherwise we get a gridlock
-        let game = get_cached_object_db::<Game>(&meta.id.clone(), &db_handle)?;
+        let game = match get_cached_object_db::<Game>(&meta.id.clone(), &db_handle) {
+            Ok(game) => game,
+            Err(err) => {
+                warn!(
+                    "{} is installed, but encountered error fetching its error: {}.",
+                    meta.id, err
+                );
+                continue;
+            }
+        };
         games.push(game);
     }
 
