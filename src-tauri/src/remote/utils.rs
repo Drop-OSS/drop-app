@@ -2,6 +2,7 @@ use std::{
     fs::{self, File},
     io::Read,
     sync::{LazyLock, Mutex},
+    time::Duration,
 };
 
 use log::{debug, info, warn};
@@ -21,8 +22,10 @@ struct DropHealthcheck {
     app_name: String,
 }
 
+static DROP_CERT_BUNDLE: LazyLock<Vec<Certificate>> = LazyLock::new(fetch_certificates);
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> = LazyLock::new(get_client_sync);
 pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(get_client_async);
+pub static DROP_CLIENT_WS_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(get_client_ws);
 
 fn fetch_certificates() -> Vec<Certificate> {
     let certificate_dir = DATA_ROOT_DIR.join("certificates");
@@ -58,24 +61,30 @@ fn fetch_certificates() -> Vec<Certificate> {
 
 pub fn get_client_sync() -> reqwest::blocking::Client {
     let mut client = reqwest::blocking::ClientBuilder::new();
-    
-    let certs = fetch_certificates();
-    for cert in certs {
-        client = client.add_root_certificate(cert);
+
+    for cert in DROP_CERT_BUNDLE.iter() {
+        client = client.add_root_certificate(cert.clone());
     }
-    client.build().unwrap()
+    client.use_rustls_tls().build().unwrap()
 }
 pub fn get_client_async() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
 
-    let certs = fetch_certificates();
-    for cert in certs {
-        client = client.add_root_certificate(cert);
+    for cert in DROP_CERT_BUNDLE.iter() {
+        client = client.add_root_certificate(cert.clone());
     }
-    client.build().unwrap()
+    client.use_rustls_tls().build().unwrap()
+}
+pub fn get_client_ws() -> reqwest::Client {
+    let mut client = reqwest::ClientBuilder::new();
+
+    for cert in DROP_CERT_BUNDLE.iter() {
+        client = client.add_root_certificate(cert.clone());
+    }
+    client.use_rustls_tls().http1_only().build().unwrap()
 }
 
-pub fn use_remote_logic(
+pub async fn use_remote_logic(
     url: String,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), RemoteAccessError> {
@@ -84,10 +93,14 @@ pub fn use_remote_logic(
 
     // Test Drop url
     let test_endpoint = base_url.join("/api/v1")?;
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = client.get(test_endpoint.to_string()).send()?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = client
+        .get(test_endpoint.to_string())
+        .timeout(Duration::from_secs(3))
+        .send()
+        .await?;
 
-    let result: DropHealthcheck = response.json()?;
+    let result: DropHealthcheck = response.json().await?;
 
     if result.app_name != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
