@@ -5,10 +5,10 @@ use std::{
 
 use crate::{
     database::{db::borrow_db_checked, models::data::GameDownloadStatus},
-    download_manager::{
-        download_manager_frontend::DownloadManagerSignal, downloadable::Downloadable,
-    },
-    error::download_manager_error::DownloadManagerError,
+    download_manager::
+        downloadable::Downloadable
+    ,
+    error::application_download_error::ApplicationDownloadError,
     AppState,
 };
 
@@ -20,26 +20,27 @@ pub fn download_game(
     game_version: String,
     install_dir: usize,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
+) -> Result<(), ApplicationDownloadError> {
     let sender = state.lock().unwrap().download_manager.get_sender();
-    let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new_from_index(
+    let game_download_agent = GameDownloadAgent::new_from_index(
         game_id,
         game_version,
         install_dir,
         sender,
-    )) as Box<dyn Downloadable + Send + Sync>);
+    )?;
+    let game_download_agent = Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
     Ok(state
         .lock()
         .unwrap()
         .download_manager
-        .queue_download(game_download_agent)?)
+        .queue_download(game_download_agent).unwrap())
 }
 
 #[tauri::command]
 pub fn resume_download(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), DownloadManagerError<DownloadManagerSignal>> {
+) -> Result<(), ApplicationDownloadError> {
     let s = borrow_db_checked()
         .applications
         .game_statuses
@@ -56,17 +57,20 @@ pub fn resume_download(
             install_dir,
         } => (version_name, install_dir),
     };
+
     let sender = state.lock().unwrap().download_manager.get_sender();
     let parent_dir: PathBuf = install_dir.into();
+
     let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new(
         game_id,
         version_name.clone(),
         parent_dir.parent().unwrap().to_path_buf(),
         sender,
-    )) as Box<dyn Downloadable + Send + Sync>);
+    )?) as Box<dyn Downloadable + Send + Sync>);
+
     Ok(state
         .lock()
         .unwrap()
         .download_manager
-        .queue_download(game_download_agent)?)
+        .queue_download(game_download_agent).unwrap())
 }

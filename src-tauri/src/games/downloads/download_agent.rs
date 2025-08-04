@@ -15,6 +15,7 @@ use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::validate_game_chunk;
 use crate::games::library::{on_game_complete, push_game_update, set_partially_installed};
 use crate::games::state::GameStatusManager;
+use crate::process::utils::get_disk_available;
 use crate::remote::requests::make_request;
 use crate::remote::utils::DROP_CLIENT_SYNC;
 use log::{debug, error, info, warn};
@@ -54,7 +55,7 @@ impl GameDownloadAgent {
         version: String,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
-    ) -> Self {
+    ) -> Result<Self, ApplicationDownloadError> {
         let db_lock = borrow_db_checked();
         let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
@@ -66,7 +67,7 @@ impl GameDownloadAgent {
         version: String,
         base_dir: PathBuf,
         sender: Sender<DownloadManagerSignal>,
-    ) -> Self {
+    ) -> Result<Self, ApplicationDownloadError> {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
@@ -76,7 +77,7 @@ impl GameDownloadAgent {
         let stored_manifest =
             DropData::generate(id.clone(), version.clone(), data_base_dir_path.clone());
 
-        Self {
+        let result = Self {
             id,
             version,
             control_flag,
@@ -87,7 +88,27 @@ impl GameDownloadAgent {
             sender,
             dropdata: stored_manifest,
             status: Mutex::new(DownloadStatus::Queued),
+        };
+
+        result.ensure_manifest_exists()?;
+
+        let required_space = result
+            .manifest
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .values()
+            .map(|e| e.lengths.iter().sum::<usize>())
+            .sum::<usize>();
+
+        let available_space = get_disk_available(data_base_dir_path)?.try_into().unwrap();
+
+        if required_space > available_space {
+            return Err(ApplicationDownloadError::DiskFull(required_space, available_space));
         }
+
+        Ok(result)
     }
 
     // Blocking
@@ -333,18 +354,14 @@ impl GameDownloadAgent {
                                 warn!("game download agent error: {e}");
 
                                 let retry = match &e {
-                                    // Some request failed. Let's retry.
                                     ApplicationDownloadError::Communication(
                                         _remote_access_error,
                                     ) => true,
-                                    // Download checksum didn't match. Let's retry.
                                     ApplicationDownloadError::Checksum => true,
-                                    // This doesn't happen from this function
                                     ApplicationDownloadError::Lock => true,
-                                    // IO errors sound bad lol, let's not retry
                                     ApplicationDownloadError::IoError(_error_kind) => false,
-                                    // Server validation error, let's not retry
                                     ApplicationDownloadError::DownloadError => false,
+                                    ApplicationDownloadError::DiskFull(_, _) => false,
                                 };
 
                                 if i == RETRY_COUNT - 1 || !retry {
