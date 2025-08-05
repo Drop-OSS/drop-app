@@ -4,10 +4,8 @@
   "version": "0.3.1",
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
+    "build": "nuxt generate",
     "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "tauri": "tauri"
   },
@@ -15,12 +13,12 @@
     "@headlessui/vue": "^1.7.23",
     "@heroicons/vue": "^2.1.5",
     "@nuxtjs/tailwindcss": "^6.12.2",
+    "@tauri-apps/api": "^2.7.0",
     "koa": "^2.16.1",
     "markdown-it": "^14.1.0",
     "micromark": "^4.0.1",
     "nuxt": "^3.16.0",
     "scss": "^0.2.4",
-    "vue": "latest",
     "vue-router": "latest",
     "vuedraggable": "^4.1.0"
   },

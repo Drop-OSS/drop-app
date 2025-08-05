@@ -3,11 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "build": "node ./build.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -16,7 +12,9 @@
     "@tauri-apps/plugin-dialog": "^2.3.2",
     "@tauri-apps/plugin-opener": "^2.4.0",
     "@tauri-apps/plugin-os": "^2.3.0",
-    "@tauri-apps/plugin-shell": "^2.3.0"
+    "@tauri-apps/plugin-shell": "^2.3.0",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.1.1"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.7.1"

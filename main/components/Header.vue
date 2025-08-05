@@ -37,7 +37,7 @@
               <component class="h-5" :is="item.icon" />
             </HeaderWidget>
           </li>
-          <OfflineHeaderWidget v-if="state.status === AppStatus.Offline" />
+          <OfflineHeaderWidget v-if="state?.status === AppStatus.Offline" />
           <HeaderUserWidget />
         </ol>
       </div>

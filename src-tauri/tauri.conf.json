@@ -4,10 +4,10 @@
   "version": "0.3.1",
   "identifier": "dev.drop.client",
   "build": {
-    "beforeDevCommand": "yarn --cwd view dev --port 1432",
-    "devUrl": "http://localhost:1432",
-    "beforeBuildCommand": "yarn --cwd view generate",
-    "frontendDist": "../view/.output/public"
+    "beforeDevCommand": "yarn --cwd main dev --port 1432",
+    "devUrl": "http://localhost:1432/",
+    "beforeBuildCommand": "yarn build",
+    "frontendDist": "../.output"
   },
   "app": {
     "security": {
