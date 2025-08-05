@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=0.3.0
+Name=drop-oss-app
+Comment=Drop client for Linux
+Path=/usr/bin/
+Exec=drop-app
+Icon=drop-oss-app
+Terminal=false
