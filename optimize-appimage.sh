@@ -1,3 +1,5 @@
+## This script is largely useless, because there's not much we can do about AppImage size
+
 ARCH=$(uname -m)
 
 # build tauri apps
@@ -9,10 +11,12 @@ APPIMAGE=$(ls ./src-tauri/target/release/bundle/appimage/*.AppImage)
 
 # strip binary
 APPIMAGE_UNPACK="./squashfs-root"
-find $APPIMAGE_UNPACK -name "*.so" -exec strip {} \;
+find $APPIMAGE_UNPACK -type f -exec strip -s {} \;
 
 APPIMAGETOOL=$(echo "obsolete-appimagetool-$ARCH.AppImage")
 wget -O $APPIMAGETOOL "https://github.com/AppImage/AppImageKit/releases/download/13/$APPIMAGETOOL"
 chmod +x $APPIMAGETOOL
 
-./$APPIMAGETOOL $APPIMAGE_UNPACK
+APPIMAGE_OUTPUT=$(./$APPIMAGETOOL $APPIMAGE_UNPACK | grep ".AppImage" | grep squashfs-root | awk '{ print $6 }')
+
+mv $APPIMAGE_OUTPUT "$APPIMAGE"
