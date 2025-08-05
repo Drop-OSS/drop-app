@@ -1,5 +1,6 @@
 #![feature(fn_traits)]
 #![feature(duration_constructors)]
+#![feature(duration_millis_float)]
 #![deny(clippy::all)]
 
 mod database;

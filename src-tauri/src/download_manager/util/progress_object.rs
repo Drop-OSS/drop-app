@@ -23,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<250>,
+    rolling: RollingProgressWindow<10>,
 }
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl ProgressHandle {
     }
     pub fn add(&self, amount: usize) {
         self.progress
-            .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
+           .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
         calculate_update(&self.progress_object);
     }
     pub fn skip(&self, amount: usize) {

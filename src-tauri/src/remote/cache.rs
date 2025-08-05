@@ -11,7 +11,6 @@ use crate::{
 };
 use bitcode::{Decode, DecodeOwned, Encode};
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
-use log::debug;
 
 #[macro_export]
 macro_rules! offline {
@@ -68,18 +67,9 @@ pub fn get_cached_object_db<D: DecodeOwned>(
     key: &str,
     db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let start = SystemTime::now();
     let bytes = read_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
-    let read = start.elapsed().unwrap();
     let data =
         bitcode::decode::<D>(&bytes).map_err(|e| RemoteAccessError::Cache(io::Error::other(e)))?;
-    let decode = start.elapsed().unwrap();
-    debug!(
-        "cache object took: r:{}, d:{}, b:{}",
-        read.as_millis(),
-        read.abs_diff(decode).as_millis(),
-        bytes.len()
-    );
     Ok(data)
 }
 #[derive(Encode, Decode)]
