@@ -11,8 +11,8 @@ APPIMAGE=$(ls ./src-tauri/target/release/bundle/appimage/*.AppImage)
 APPIMAGE_UNPACK="./squashfs-root"
 find $APPIMAGE_UNPACK -name "*.so" -exec strip {} \;
 
-APPIMAGETOOL=$(echo "appimagetool-$ARCH.AppImage")
-wget -O $APPIMAGETOOL "https://github.com/AppImage/appimagetool/releases/download/1.9.0/$APPIMAGETOOL"
+APPIMAGETOOL=$(echo "obsolete-appimagetool-$ARCH.AppImage")
+wget -O $APPIMAGETOOL "https://github.com/AppImage/AppImageKit/releases/download/13/$APPIMAGETOOL"
 chmod +x $APPIMAGETOOL
 
 ./$APPIMAGETOOL $APPIMAGE_UNPACK
