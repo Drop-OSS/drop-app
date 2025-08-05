@@ -1,5 +1,5 @@
 <template>
-  <Menu v-if="state.user" as="div" class="relative inline-block">
+  <Menu v-if="state?.user" as="div" class="relative inline-block">
     <MenuButton>
       <HeaderWidget>
         <div class="inline-flex items-center text-zinc-300 hover:text-white">
@@ -87,7 +87,7 @@ router.afterEach(() => {
 
 const state = useAppState();
 const profilePictureUrl: string = await useObject(
-  state.value.user?.profilePictureObjectId ?? ""
+  state.value?.user?.profilePictureObjectId ?? ""
 );
 const adminUrl: string = await invoke("gen_drop_url", {
   path: "/admin",

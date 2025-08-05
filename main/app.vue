@@ -10,8 +10,6 @@
 import "~/composables/downloads.js";
 
 import { invoke } from "@tauri-apps/api/core";
-import { AppStatus } from "~/types";
-import { listen } from "@tauri-apps/api/event";
 import { useAppState } from "./composables/app-state.js";
 import {
   initialNavigation,
@@ -21,19 +19,26 @@ import {
 const router = useRouter();
 
 const state = useAppState();
-try {
-  state.value = JSON.parse(await invoke("fetch_state"));
-} catch (e) {
-  console.error("failed to parse state", e);
+
+async function fetchState() {
+  try {
+    state.value = JSON.parse(await invoke("fetch_state"));
+    if (!state.value)
+      throw createError({
+        statusCode: 500,
+        statusMessage: `App state is: ${state.value}`,
+        fatal: true,
+      });
+  } catch (e) {
+    console.error("failed to parse state", e);
+    throw e;
+  }
 }
+await fetchState();
 
 // This is inefficient but apparently we do it lol
 router.beforeEach(async () => {
-  try {
-    state.value = JSON.parse(await invoke("fetch_state"));
-  } catch (e) {
-    console.error("failed to parse state", e);
-  }
+  await fetchState();
 });
 
 setupHooks();

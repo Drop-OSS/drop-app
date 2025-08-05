@@ -1,46 +1,22 @@
 {
   "name": "drop-app",
   "private": true,
-  "version": "0.3.1",
   "type": "module",
   "scripts": {
-    "build": "nuxt build",
-    "dev": "nuxt dev",
-    "generate": "nuxt generate",
-    "preview": "nuxt preview",
-    "postinstall": "nuxt prepare",
+    "build": "node ./build.mjs",
     "tauri": "tauri"
   },
   "dependencies": {
-    "@headlessui/vue": "^1.7.23",
-    "@heroicons/vue": "^2.1.5",
-    "@nuxtjs/tailwindcss": "^6.12.2",
-    "@tauri-apps/api": ">=2.0.0",
-    "@tauri-apps/plugin-deep-link": "~2",
-    "@tauri-apps/plugin-dialog": "^2.0.1",
+    "@tauri-apps/api": "^2.7.0",
+    "@tauri-apps/plugin-deep-link": "^2.4.1",
+    "@tauri-apps/plugin-dialog": "^2.3.2",
     "@tauri-apps/plugin-opener": "^2.4.0",
-    "@tauri-apps/plugin-os": "~2",
-    "@tauri-apps/plugin-shell": "^2.2.1",
-    "koa": "^2.16.1",
-    "markdown-it": "^14.1.0",
-    "micromark": "^4.0.1",
-    "nuxt": "^3.16.0",
-    "scss": "^0.2.4",
-    "vue": "latest",
-    "vue-router": "latest",
-    "vuedraggable": "^4.1.0"
+    "@tauri-apps/plugin-os": "^2.3.0",
+    "@tauri-apps/plugin-shell": "^2.3.0",
+    "pino": "^9.7.0",
+    "pino-pretty": "^13.1.1"
   },
   "devDependencies": {
-    "@tailwindcss/forms": "^0.5.9",
-    "@tailwindcss/typography": "^0.5.15",
-    "@tauri-apps/cli": ">=2.0.0",
-    "@types/markdown-it": "^14.1.2",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47",
-    "sass-embedded": "^1.79.4",
-    "tailwindcss": "^3.4.13",
-    "typescript": "^5.8.3",
-    "vue-tsc": "^2.2.10"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    "@tauri-apps/cli": "^2.7.1"
+  }
 }

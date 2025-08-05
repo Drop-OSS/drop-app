@@ -27,3 +27,6 @@ dist-ssr
 
 src-tauri/flamegraph.svg
 src-tauri/perf*
+
+/*.AppImage
+/squashfs-root
