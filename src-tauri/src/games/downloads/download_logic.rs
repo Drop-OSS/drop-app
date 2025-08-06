@@ -31,22 +31,21 @@ pub struct DropWriter<W: Write> {
     progress: ProgressHandle,
 }
 impl DropWriter<File> {
-    fn new(path: PathBuf, progress: ProgressHandle) -> Self {
+    fn new(path: PathBuf, progress: ProgressHandle) -> Result<Self, io::Error> {
         let destination = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(false)
-            .open(&path)
-            .unwrap();
-        Self {
+            .open(&path)?;
+        Ok(Self {
             destination: BufWriter::with_capacity(1 * 1024 * 1024, destination),
             hasher: Context::new(),
             progress,
-        }
+        })
     }
 
     fn finish(mut self) -> io::Result<Digest> {
-        self.flush().unwrap();
+        self.flush()?;
         Ok(self.hasher.compute())
     }
 }
@@ -94,17 +93,17 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         control_flag: &'a DownloadThreadControl,
         progress: ProgressHandle,
         size: usize,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, io::Error> {
+        Ok(Self {
             source,
-            destination: DropWriter::new(destination, progress),
+            destination: DropWriter::new(destination, progress)?,
             control_flag,
             size,
-        }
+        })
     }
 
     fn copy(&mut self) -> Result<bool, io::Error> {
-        io::copy(&mut self.source, &mut self.destination).unwrap();
+        io::copy(&mut self.source, &mut self.destination)?;
 
         Ok(true)
     }
@@ -143,7 +142,9 @@ pub fn download_game_chunk(
 
     if response.status() != 200 {
         debug!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().unwrap();
+        let raw_res = response.text().map_err(|e| {
+            ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
+        })?;
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
@@ -154,15 +155,13 @@ pub fn download_game_chunk(
         ));
     }
 
-    let content_length = response.content_length();
-    if content_length.is_none() {
-        warn!("recieved 0 length content from server");
-        return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::InvalidResponse(response.json().unwrap()),
-        ));
-    }
-
-    let length = content_length.unwrap().try_into().unwrap();
+    let length = response
+        .content_length()
+        .ok_or(ApplicationDownloadError::Communication(
+            RemoteAccessError::UnparseableResponse("missing Content-Length header".to_owned()),
+        ))?
+        .try_into()
+        .unwrap();
 
     if length != ctx.length {
         return Err(ApplicationDownloadError::DownloadError);
@@ -171,7 +170,8 @@ pub fn download_game_chunk(
     let pipeline_start = start.elapsed();
 
     let mut pipeline =
-        DropDownloadPipeline::new(response, ctx.path.clone(), control_flag, progress, length);
+        DropDownloadPipeline::new(response, ctx.path.clone(), control_flag, progress, length)
+            .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
 
     if ctx.offset != 0 {
         pipeline
@@ -194,7 +194,8 @@ pub fn download_game_chunk(
     #[cfg(unix)]
     {
         let permissions = Permissions::from_mode(ctx.permissions);
-        set_permissions(ctx.path.clone(), permissions).unwrap();
+        set_permissions(ctx.path.clone(), permissions)
+            .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
     }
 
     let checksum = pipeline
