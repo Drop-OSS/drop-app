@@ -193,6 +193,12 @@ pub fn fetch_game_logic(
     .send()?;
 
     if response.status() == 404 {
+        drop(state_handle);
+        let offline_fetch = fetch_game_logic_offline(id.clone(), state);
+        if let Ok(fetch_data) = offline_fetch {
+            return Ok(fetch_data);
+        }
+
         return Err(RemoteAccessError::GameNotFound(id));
     }
     if response.status() != 200 {
@@ -235,16 +241,12 @@ pub fn fetch_game_logic_offline(
     let metadata_option = db_handle.applications.installed_game_version.get(&id);
     let version = match metadata_option {
         None => None,
-        Some(metadata) => Some(
-            db_handle
-                .applications
-                .game_versions
-                .get(&metadata.id)
-                .unwrap()
-                .get(metadata.version.as_ref().unwrap())
-                .unwrap()
-                .clone(),
-        ),
+        Some(metadata) => db_handle
+            .applications
+            .game_versions
+            .get(&metadata.id)
+            .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+            .cloned(),
     };
 
     let status = GameStatusManager::fetch_state(&id, &db_handle);
