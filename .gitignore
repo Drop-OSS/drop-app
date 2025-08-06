@@ -36,3 +36,5 @@ build/appimage/drop-app.d/usr/bin/*
 
 build/appimage/drop-app.d/usr/lib/*
 !build/appimage/drop-app.d/usr/lib/.gitkeep
+/*.AppImage
+/squashfs-root

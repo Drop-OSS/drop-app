@@ -26,6 +26,7 @@ pub struct ProgressObject {
     rolling: RollingProgressWindow<250>,
 }
 
+#[derive(Clone)]
 pub struct ProgressHandle {
     progress: Arc<AtomicUsize>,
     progress_object: Arc<ProgressObject>,

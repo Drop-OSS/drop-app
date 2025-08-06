@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "Drop Desktop Client",
-  "version": "0.3.1-appimage",
-  "identifier": "dev.drop.app",
+  "version": "0.3.1",
+  "identifier": "dev.drop.client",
   "build": {
-    "beforeDevCommand": "yarn dev --port 1432",
-    "devUrl": "http://localhost:1432",
-    "beforeBuildCommand": "yarn generate",
-    "frontendDist": "../.output/public"
+    "beforeDevCommand": "yarn --cwd main dev --port 1432",
+    "devUrl": "http://localhost:1432/",
+    "beforeBuildCommand": "yarn build",
+    "frontendDist": "../.output"
   },
   "app": {
     "security": {

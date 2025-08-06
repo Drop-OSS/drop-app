@@ -13,5 +13,9 @@ export default defineNuxtConfig({
 
   ssr: false,
 
-  extends: [["./drop-base"]],
+  extends: [["../libs/drop-base"]],
+
+  app: {
+    baseURL: "/main",
+  }
 });

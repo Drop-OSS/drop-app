@@ -65,7 +65,13 @@ export function setupHooks() {
   */
 }
 
-export function initialNavigation(state: Ref<AppState>) {
+export function initialNavigation(state: ReturnType<typeof useAppState>) {
+  if (!state.value)
+    throw createError({
+      statusCode: 500,
+      statusMessage: "App state not valid",
+      fatal: true,
+    });
   const router = useRouter();
 
   switch (state.value.status) {

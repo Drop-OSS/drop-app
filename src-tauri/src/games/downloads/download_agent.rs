@@ -13,13 +13,12 @@ use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::downloads::manifest::{DropDownloadContext, DropManifest};
 use crate::games::downloads::validate::validate_game_chunk;
-use crate::games::library::{
-    on_game_complete, push_game_update, set_partially_installed,
-};
+use crate::games::library::{on_game_complete, push_game_update, set_partially_installed};
 use crate::games::state::GameStatusManager;
+use crate::process::utils::get_disk_available;
 use crate::remote::requests::make_request;
 use crate::remote::utils::DROP_CLIENT_SYNC;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
 use std::fs::{OpenOptions, create_dir_all};
@@ -34,6 +33,8 @@ use rustix::fs::{FallocateFlags, fallocate};
 
 use super::download_logic::download_game_chunk;
 use super::drop_data::DropData;
+
+static RETRY_COUNT: usize = 3;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -54,7 +55,7 @@ impl GameDownloadAgent {
         version: String,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
-    ) -> Self {
+    ) -> Result<Self, ApplicationDownloadError> {
         let db_lock = borrow_db_checked();
         let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
         drop(db_lock);
@@ -66,7 +67,7 @@ impl GameDownloadAgent {
         version: String,
         base_dir: PathBuf,
         sender: Sender<DownloadManagerSignal>,
-    ) -> Self {
+    ) -> Result<Self, ApplicationDownloadError> {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
@@ -76,7 +77,7 @@ impl GameDownloadAgent {
         let stored_manifest =
             DropData::generate(id.clone(), version.clone(), data_base_dir_path.clone());
 
-        Self {
+        let result = Self {
             id,
             version,
             control_flag,
@@ -87,7 +88,31 @@ impl GameDownloadAgent {
             sender,
             dropdata: stored_manifest,
             status: Mutex::new(DownloadStatus::Queued),
+        };
+
+        result.ensure_manifest_exists()?;
+
+        let required_space = result
+            .manifest
+            .lock()
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .values()
+            .map(|e| e.lengths.iter().sum::<usize>())
+            .sum::<usize>()
+            as u64;
+
+        let available_space = get_disk_available(data_base_dir_path)? as u64;
+
+        if required_space > available_space {
+            return Err(ApplicationDownloadError::DiskFull(
+                required_space,
+                available_space,
+            ));
         }
+
+        Ok(result)
     }
 
     // Blocking
@@ -315,15 +340,40 @@ impl GameDownloadAgent {
                 };
 
                 scope.spawn(move |_| {
-                    match download_game_chunk(context, &self.control_flag, progress_handle, request)
-                    {
-                        Ok(true) => {
-                            completed_indexes.push(context.checksum.clone());
-                        }
-                        Ok(false) => {}
-                        Err(e) => {
-                            error!("{e}");
-                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                    // 3 attempts
+                    for i in 0..RETRY_COUNT {
+                        let loop_progress_handle = progress_handle.clone();
+                        match download_game_chunk(
+                            context,
+                            &self.control_flag,
+                            loop_progress_handle,
+                            request.try_clone().unwrap(),
+                        ) {
+                            Ok(true) => {
+                                completed_indexes.push(context.checksum.clone());
+                                return;
+                            }
+                            Ok(false) => return,
+                            Err(e) => {
+                                warn!("game download agent error: {e}");
+
+                                let retry = match &e {
+                                    ApplicationDownloadError::Communication(
+                                        _remote_access_error,
+                                    ) => true,
+                                    ApplicationDownloadError::Checksum => true,
+                                    ApplicationDownloadError::Lock => true,
+                                    ApplicationDownloadError::IoError(_error_kind) => false,
+                                    ApplicationDownloadError::DownloadError => false,
+                                    ApplicationDownloadError::DiskFull(_, _) => false,
+                                };
+
+                                if i == RETRY_COUNT - 1 || !retry {
+                                    warn!("retry logic failed, not re-attempting.");
+                                    sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                                    return;
+                                }
+                            }
                         }
                     }
                 });
@@ -452,8 +502,6 @@ impl GameDownloadAgent {
         );
 
         self.dropdata.write();
-
-        
     }
 }
 

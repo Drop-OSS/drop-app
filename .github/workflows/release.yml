@@ -101,6 +101,7 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          NO_STRIP: true
         with:
           tagName: v__VERSION__ # update the below "upload artifacts to GitHub" if this gets updated
           releaseName: 'Auto-release v__VERSION__'
