@@ -254,7 +254,7 @@ impl DownloadManagerBuilder {
                     }
                 };
 
-                // If the download gets cancelled
+                // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier
                 if !download_result {
                     return;

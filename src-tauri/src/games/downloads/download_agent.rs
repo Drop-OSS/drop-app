@@ -17,7 +17,7 @@ use crate::games::library::{on_game_complete, push_game_update, set_partially_in
 use crate::games::state::GameStatusManager;
 use crate::process::utils::get_disk_available;
 use crate::remote::requests::generate_url;
-use crate::remote::utils::DROP_CLIENT_SYNC;
+use crate::remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
@@ -50,19 +50,21 @@ pub struct GameDownloadAgent {
 }
 
 impl GameDownloadAgent {
-    pub fn new_from_index(
+    pub async fn new_from_index(
         id: String,
         version: String,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
     ) -> Result<Self, ApplicationDownloadError> {
-        let db_lock = borrow_db_checked();
-        let base_dir = db_lock.applications.install_dirs[target_download_dir].clone();
-        drop(db_lock);
+        let base_dir = {
+            let db_lock = borrow_db_checked();
 
-        Self::new(id, version, base_dir, sender)
+            db_lock.applications.install_dirs[target_download_dir].clone()
+        };
+
+        Self::new(id, version, base_dir, sender).await
     }
-    pub fn new(
+    pub async fn new(
         id: String,
         version: String,
         base_dir: PathBuf,
@@ -90,7 +92,7 @@ impl GameDownloadAgent {
             status: Mutex::new(DownloadStatus::Queued),
         };
 
-        result.ensure_manifest_exists()?;
+        result.ensure_manifest_exists().await?;
 
         let required_space = result
             .manifest
@@ -116,7 +118,9 @@ impl GameDownloadAgent {
 
     // Blocking
     pub fn setup_download(&self, app_handle: &AppHandle) -> Result<(), ApplicationDownloadError> {
-        self.ensure_manifest_exists()?;
+        if !self.check_manifest_exists() {
+            return Err(ApplicationDownloadError::NotInitialized);
+        }
 
         self.ensure_contexts()?;
 
@@ -158,16 +162,20 @@ impl GameDownloadAgent {
         res
     }
 
-    pub fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
+    pub fn check_manifest_exists(&self) -> bool {
+        self.manifest.lock().unwrap().is_some()
+    }
+
+    pub async fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
         if self.manifest.lock().unwrap().is_some() {
             return Ok(());
         }
 
-        self.download_manifest()
+        self.download_manifest().await
     }
 
-    fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
-        let client = DROP_CLIENT_SYNC.clone();
+    async fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
+        let client = DROP_CLIENT_ASYNC.clone();
         let url = generate_url(
             &["/api/v1/client/game/manifest"],
             &[("id", &self.id), ("version", &self.version)],
@@ -178,18 +186,19 @@ impl GameDownloadAgent {
             .get(url)
             .header("Authorization", generate_authorization_header())
             .send()
+            .await
             .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
         if response.status() != 200 {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::ManifestDownloadFailed(
                     response.status(),
-                    response.text().unwrap(),
+                    response.text().await.unwrap(),
                 ),
             ));
         }
 
-        let manifest_download: DropManifest = response.json().unwrap();
+        let manifest_download: DropManifest = response.json().await.unwrap();
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -363,9 +372,7 @@ impl GameDownloadAgent {
                                     ) => true,
                                     ApplicationDownloadError::Checksum => true,
                                     ApplicationDownloadError::Lock => true,
-                                    ApplicationDownloadError::IoError(_error_kind) => false,
-                                    ApplicationDownloadError::DownloadError => false,
-                                    ApplicationDownloadError::DiskFull(_, _) => false,
+                                    _ => false,
                                 };
 
                                 if i == RETRY_COUNT - 1 || !retry {

@@ -2,6 +2,7 @@
 #![feature(duration_constructors)]
 #![feature(duration_millis_float)]
 #![deny(clippy::all)]
+#[deny(unused_must_use)]
 
 mod database;
 mod games;
@@ -349,94 +350,98 @@ pub fn run() {
         ))
         .setup(|app| {
             let handle = app.handle().clone();
-            let state = setup(handle);
-            debug!("initialized drop client");
-            app.manage(Mutex::new(state));
 
-            {
-                use tauri_plugin_deep_link::DeepLinkExt;
-                let _ = app.deep_link().register_all();
-                debug!("registered all pre-defined deep links");
-            }
+            tauri::async_runtime::block_on(async move {
+                let state = setup(handle).await;
+                info!("initialized drop client");
+                app.manage(Mutex::new(state));
 
-            let handle = app.handle().clone();
+                {
+                    use tauri_plugin_deep_link::DeepLinkExt;
+                    let _ = app.deep_link().register_all();
+                    debug!("registered all pre-defined deep links");
+                }
 
-            let _main_window = tauri::WebviewWindowBuilder::new(
-                &handle,
-                "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
-                tauri::WebviewUrl::App("main".into()),
-            )
-            .title("Drop Desktop App")
-            .min_inner_size(1000.0, 500.0)
-            .inner_size(1536.0, 864.0)
-            .decorations(false)
-            .shadow(false)
-            .data_directory(DATA_ROOT_DIR.join(".webview"))
-            .build()
-            .unwrap();
+                let handle = app.handle().clone();
 
-            app.deep_link().on_open_url(move |event| {
-                debug!("handling drop:// url");
-                let binding = event.urls();
-                let url = binding.first().unwrap();
-                if url.host_str().unwrap() == "handshake" {
-                    tauri::async_runtime::spawn(recieve_handshake(
-                        handle.clone(),
-                        url.path().to_string(),
-                    ));
+                let _main_window = tauri::WebviewWindowBuilder::new(
+                    &handle,
+                    "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
+                    tauri::WebviewUrl::App("main".into()),
+                )
+                .title("Drop Desktop App")
+                .min_inner_size(1000.0, 500.0)
+                .inner_size(1536.0, 864.0)
+                .decorations(false)
+                .shadow(false)
+                .data_directory(DATA_ROOT_DIR.join(".webview"))
+                .build()
+                .unwrap();
+
+                app.deep_link().on_open_url(move |event| {
+                    debug!("handling drop:// url");
+                    let binding = event.urls();
+                    let url = binding.first().unwrap();
+                    if url.host_str().unwrap() == "handshake" {
+                        tauri::async_runtime::spawn(recieve_handshake(
+                            handle.clone(),
+                            url.path().to_string(),
+                        ));
+                    }
+                });
+
+                let menu = Menu::with_items(
+                    app,
+                    &[
+                        &MenuItem::with_id(app, "open", "Open", true, None::<&str>).unwrap(),
+                        &PredefinedMenuItem::separator(app).unwrap(),
+                        /*
+                        &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
+                        &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
+                        &PredefinedMenuItem::separator(app)?,
+                         */
+                        &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap(),
+                    ],
+                )
+                .unwrap();
+
+                run_on_tray(|| {
+                    TrayIconBuilder::new()
+                        .icon(app.default_window_icon().unwrap().clone())
+                        .menu(&menu)
+                        .on_menu_event(|app, event| match event.id.as_ref() {
+                            "open" => {
+                                app.webview_windows().get("main").unwrap().show().unwrap();
+                            }
+                            "quit" => {
+                                cleanup_and_exit(app, &app.state());
+                            }
+
+                            _ => {
+                                warn!("menu event not handled: {:?}", event.id);
+                            }
+                        })
+                        .build(app)
+                        .expect("error while setting up tray menu");
+                });
+
+                {
+                    let mut db_handle = borrow_db_mut_checked();
+                    if let Some(original) = db_handle.prev_database.take() {
+                        warn!(
+                            "Database corrupted. Original file at {}",
+                            original.canonicalize().unwrap().to_string_lossy()
+                        );
+                        app.dialog()
+                            .message(
+                                "Database corrupted. A copy has been saved at: ".to_string()
+                                    + original.to_str().unwrap(),
+                            )
+                            .title("Database corrupted")
+                            .show(|_| {});
+                    }
                 }
             });
-
-            let menu = Menu::with_items(
-                app,
-                &[
-                    &MenuItem::with_id(app, "open", "Open", true, None::<&str>)?,
-                    &PredefinedMenuItem::separator(app)?,
-                    /*
-                    &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
-                    &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
-                    &PredefinedMenuItem::separator(app)?,
-                     */
-                    &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?,
-                ],
-            )?;
-
-            run_on_tray(|| {
-                TrayIconBuilder::new()
-                    .icon(app.default_window_icon().unwrap().clone())
-                    .menu(&menu)
-                    .on_menu_event(|app, event| match event.id.as_ref() {
-                        "open" => {
-                            app.webview_windows().get("main").unwrap().show().unwrap();
-                        }
-                        "quit" => {
-                            cleanup_and_exit(app, &app.state());
-                        }
-
-                        _ => {
-                            warn!("menu event not handled: {:?}", event.id);
-                        }
-                    })
-                    .build(app)
-                    .expect("error while setting up tray menu");
-            });
-
-            {
-                let mut db_handle = borrow_db_mut_checked();
-                if let Some(original) = db_handle.prev_database.take() {
-                    warn!(
-                        "Database corrupted. Original file at {}",
-                        original.canonicalize().unwrap().to_string_lossy()
-                    );
-                    app.dialog()
-                        .message(
-                            "Database corrupted. A copy has been saved at: ".to_string()
-                                + original.to_str().unwrap(),
-                        )
-                        .title("Database corrupted")
-                        .show(|_| {});
-                }
-            }
 
             Ok(())
         })
@@ -446,7 +451,7 @@ pub fn run() {
             });
         })
         .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {
-            tauri::async_runtime::spawn(async move {
+            tauri::async_runtime::block_on(async move {
                 let state = ctx
                     .app_handle()
                     .state::<tauri::State<'_, Mutex<AppState>>>();

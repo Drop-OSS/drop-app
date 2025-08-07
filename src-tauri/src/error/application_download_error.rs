@@ -11,6 +11,7 @@ use super::remote_access_error::RemoteAccessError;
 // TODO: Rename / separate from downloads
 #[derive(Debug, SerializeDisplay)]
 pub enum ApplicationDownloadError {
+    NotInitialized,
     Communication(RemoteAccessError),
     DiskFull(u64, u64),
     Checksum,
@@ -22,6 +23,7 @@ pub enum ApplicationDownloadError {
 impl Display for ApplicationDownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            ApplicationDownloadError::NotInitialized => write!(f, "Download not initalized, did something go wrong?"),
             ApplicationDownloadError::DiskFull(required, available) => write!(
                 f,
                 "Game requires {}, {} remaining left on disk.",
