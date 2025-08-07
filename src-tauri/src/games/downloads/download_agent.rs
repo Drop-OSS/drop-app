@@ -16,7 +16,7 @@ use crate::games::downloads::validate::validate_game_chunk;
 use crate::games::library::{on_game_complete, push_game_update, set_partially_installed};
 use crate::games::state::GameStatusManager;
 use crate::process::utils::get_disk_available;
-use crate::remote::requests::make_request;
+use crate::remote::requests::generate_url;
 use crate::remote::utils::DROP_CLIENT_SYNC;
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
@@ -100,8 +100,7 @@ impl GameDownloadAgent {
             .unwrap()
             .values()
             .map(|e| e.lengths.iter().sum::<usize>())
-            .sum::<usize>()
-            as u64;
+            .sum::<usize>() as u64;
 
         let available_space = get_disk_available(data_base_dir_path)? as u64;
 
@@ -168,17 +167,18 @@ impl GameDownloadAgent {
     }
 
     fn download_manifest(&self) -> Result<(), ApplicationDownloadError> {
-        let header = generate_authorization_header();
         let client = DROP_CLIENT_SYNC.clone();
-        let response = make_request(
-            &client,
+        let url = generate_url(
             &["/api/v1/client/game/manifest"],
             &[("id", &self.id), ("version", &self.version)],
-            |f| f.header("Authorization", header),
         )
-        .map_err(ApplicationDownloadError::Communication)?
-        .send()
-        .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
+        .map_err(ApplicationDownloadError::Communication)?;
+
+        let response = client
+            .get(url)
+            .header("Authorization", generate_authorization_header())
+            .send()
+            .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
         if response.status() != 200 {
             return Err(ApplicationDownloadError::Communication(
@@ -317,8 +317,7 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let request = match make_request(
-                    &client,
+                let chunk_url = generate_url(
                     &["/api/v1/client/chunk"],
                     &[
                         ("id", &context.game_id),
@@ -326,8 +325,9 @@ impl GameDownloadAgent {
                         ("name", &context.file_name),
                         ("chunk", &context.index.to_string()),
                     ],
-                    |r| r,
-                ) {
+                );
+
+                let request = match chunk_url.map(|url| client.get(url)) {
                     Ok(request) => request,
                     Err(e) => {
                         sender

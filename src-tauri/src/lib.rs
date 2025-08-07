@@ -39,7 +39,7 @@ use games::collections::commands::{
     fetch_collection, fetch_collections,
 };
 use games::commands::{
-    fetch_game, fetch_game_status, fetch_game_verion_options, fetch_library, uninstall_game,
+    fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
 };
 use games::downloads::commands::download_game;
 use games::library::{Game, update_game_configuration};
@@ -135,7 +135,7 @@ pub struct AppState<'a> {
     compat_info: Option<CompatInfo>,
 }
 
-fn setup(handle: AppHandle) -> AppState<'static> {
+async fn setup(handle: AppHandle) -> AppState<'static> {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d} | {l} | {f}:{L} - {m}{n}",
@@ -190,7 +190,7 @@ fn setup(handle: AppHandle) -> AppState<'static> {
     debug!("database is set up");
 
     // TODO: Account for possible failure
-    let (app_status, user) = auth::setup();
+    let (app_status, user) = auth::setup().await;
 
     let db_handle = borrow_db_checked();
     let mut missing_games = Vec::new();
@@ -317,7 +317,7 @@ pub fn run() {
             delete_download_dir,
             fetch_download_dir_stats,
             fetch_game_status,
-            fetch_game_verion_options,
+            fetch_game_version_options,
             update_game_configuration,
             // Collections
             fetch_collections,
@@ -380,7 +380,10 @@ pub fn run() {
                 let binding = event.urls();
                 let url = binding.first().unwrap();
                 if url.host_str().unwrap() == "handshake" {
-                    recieve_handshake(handle.clone(), url.path().to_string());
+                    tauri::async_runtime::spawn(recieve_handshake(
+                        handle.clone(),
+                        url.path().to_string(),
+                    ));
                 }
             });
 
@@ -442,15 +445,21 @@ pub fn run() {
                 fetch_object(request, responder).await;
             });
         })
-        .register_asynchronous_uri_scheme_protocol("server", move |ctx, request, responder| {
-            let state: tauri::State<'_, Mutex<AppState>> = ctx.app_handle().state();
-            offline!(
-                state,
-                handle_server_proto,
-                handle_server_proto_offline,
-                request,
-                responder
-            );
+        .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {
+            tauri::async_runtime::spawn(async move {
+                let state = ctx
+                    .app_handle()
+                    .state::<tauri::State<'_, Mutex<AppState>>>();
+
+                offline!(
+                    state,
+                    handle_server_proto,
+                    handle_server_proto_offline,
+                    request,
+                    responder
+                )
+                .await;
+            });
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

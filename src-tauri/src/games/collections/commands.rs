@@ -5,105 +5,95 @@ use crate::{
     DB,
     database::db::DatabaseImpls,
     error::remote_access_error::RemoteAccessError,
-    remote::{auth::generate_authorization_header, requests::make_request, utils::DROP_CLIENT_SYNC},
+    remote::{
+        auth::generate_authorization_header,
+        requests::{generate_url, make_authenticated_get},
+        utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
+    },
 };
 
 use super::collection::{Collection, Collections};
 
 #[tauri::command]
-pub fn fetch_collections() -> Result<Collections, RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(&client, &["/api/v1/client/collection"], &[], |r| {
-        r.header("Authorization", generate_authorization_header())
-    })?
-    .send()?;
+pub async fn fetch_collections() -> Result<Collections, RemoteAccessError> {
+    let response =
+        make_authenticated_get(generate_url(&["/api/v1/client/collection"], &[])?).await?;
 
-    Ok(response.json()?)
+    Ok(response.json().await?)
 }
 
 #[tauri::command]
-pub fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(
-        &client,
+pub async fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAccessError> {
+    let response = make_authenticated_get(generate_url(
         &["/api/v1/client/collection/", &collection_id],
         &[],
-        |r| r.header("Authorization", generate_authorization_header()),
-    )?
-    .send()?;
+    )?)
+    .await?;
 
-    Ok(response.json()?)
+    Ok(response.json().await?)
 }
 
 #[tauri::command]
-pub fn create_collection(name: String) -> Result<Collection, RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let base_url = DB.fetch_base_url();
-
-    let base_url = Url::parse(&format!("{base_url}api/v1/client/collection/"))?;
+pub async fn create_collection(name: String) -> Result<Collection, RemoteAccessError> {
+    let client = DROP_CLIENT_ASYNC.clone();
+    let url = generate_url(&["/api/v1/client/collection"], &[])?;
 
     let response = client
-        .post(base_url)
+        .post(url)
         .header("Authorization", generate_authorization_header())
         .json(&json!({"name": name}))
-        .send()?;
+        .send()
+        .await?;
 
-    Ok(response.json()?)
+    Ok(response.json().await?)
 }
 
 #[tauri::command]
-pub fn add_game_to_collection(
+pub async fn add_game_to_collection(
     collection_id: String,
     game_id: String,
 ) -> Result<(), RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let url = Url::parse(&format!(
-        "{}api/v1/client/collection/{}/entry/",
-        DB.fetch_base_url(),
-        collection_id
-    ))?;
+    let client = DROP_CLIENT_ASYNC.clone();
+
+    let url = generate_url(&["/api/v1/client/collection", &collection_id, "entry"], &[])?;
 
     client
         .post(url)
         .header("Authorization", generate_authorization_header())
         .json(&json!({"id": game_id}))
-        .send()?;
+        .send()
+        .await?;
     Ok(())
 }
 
 #[tauri::command]
-pub fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let base_url = Url::parse(&format!(
-        "{}api/v1/client/collection/{}",
-        DB.fetch_base_url(),
-        collection_id
-    ))?;
+pub async fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessError> {
+    let client = DROP_CLIENT_ASYNC.clone();
+
+    let url = generate_url(&["/api/v1/client/collection", &collection_id], &[])?;
 
     let response = client
-        .delete(base_url)
+        .delete(url)
         .header("Authorization", generate_authorization_header())
-        .send()?;
+        .send()
+        .await?;
 
-    Ok(response.json()?)
+    Ok(response.json().await?)
 }
 #[tauri::command]
-pub fn delete_game_in_collection(
+pub async fn delete_game_in_collection(
     collection_id: String,
     game_id: String,
 ) -> Result<(), RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
-    let base_url = Url::parse(&format!(
-        "{}api/v1/client/collection/{}/entry",
-        DB.fetch_base_url(),
-        collection_id
-    ))?;
+    let client = DROP_CLIENT_ASYNC.clone();
+
+    let url = generate_url(&["/api/v1/client/collection", &collection_id, "entry"], &[])?;
 
     client
-        .delete(base_url)
+        .delete(url)
         .header("Authorization", generate_authorization_header())
         .json(&json!({"id": game_id}))
-        .send()?;
+        .send().await?;
 
     Ok(())
 }
