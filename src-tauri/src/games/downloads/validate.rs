@@ -22,7 +22,7 @@ pub fn validate_game_chunk(
 ) -> Result<bool, ApplicationDownloadError> {
     debug!(
         "Starting chunk validation {}, {}, {} #{}",
-        ctx.path, ctx.index, ctx.offset, ctx.checksum
+        ctx.path.display(), ctx.index, ctx.offset, ctx.checksum
     );
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {

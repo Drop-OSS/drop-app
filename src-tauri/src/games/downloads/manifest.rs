@@ -76,7 +76,7 @@ pub struct DropChunk {
 pub struct DropValidateContext {
     pub index: usize,
     pub offset: usize,
-    pub path: String,
+    pub path: PathBuf,
     pub checksum: String,
     pub length: usize,
 }
@@ -89,7 +89,7 @@ impl From<DownloadBucket> for Vec<DropValidateContext> {
             .map(|e| DropValidateContext {
                 index: e.index,
                 offset: e.start,
-                path: e.filename,
+                path: e.path,
                 checksum: e.checksum,
                 length: e.length,
             })

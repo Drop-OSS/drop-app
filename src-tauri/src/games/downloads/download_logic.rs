@@ -15,6 +15,7 @@ use http::response;
 use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
+use serde_json::de;
 use tokio::net::unix::pipe;
 
 use std::fs::{Permissions, set_permissions};
@@ -114,6 +115,9 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 .ok_or(io::Error::other("no destination"))
                 .unwrap();
             let mut remaining = drop.length;
+            if drop.start != 0 {
+                destination.seek(SeekFrom::Start(drop.start.try_into().unwrap()))?;
+            }
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
                 self.source.read_exact(&mut copy_buffer[0..size])?;

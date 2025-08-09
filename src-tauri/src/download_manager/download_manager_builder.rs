@@ -260,6 +260,10 @@ impl DownloadManagerBuilder {
                     return;
                 }
 
+                if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
+                    return;
+                }
+
                 let validate_result = match download_agent.validate(&app_handle) {
                     Ok(v) => v,
                     Err(e) => {
@@ -273,6 +277,10 @@ impl DownloadManagerBuilder {
                         return;
                     }
                 };
+
+                if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
+                    return;
+                }
 
                 if validate_result {
                     download_agent.on_complete(&app_handle);

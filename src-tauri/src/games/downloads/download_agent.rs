@@ -510,10 +510,7 @@ impl GameDownloadAgent {
             .collect();
         let max_download_threads = borrow_db_checked().settings.max_download_threads;
 
-        debug!(
-            "validating game: {} with {} threads",
-            self.dropdata.game_id, max_download_threads
-        );
+        info!("{} validation contexts", contexts.iter().count());
         let pool = ThreadPoolBuilder::new()
             .num_threads(max_download_threads)
             .build()
