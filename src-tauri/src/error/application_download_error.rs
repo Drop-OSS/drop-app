@@ -41,7 +41,7 @@ impl Display for ApplicationDownloadError {
             ApplicationDownloadError::IoError(error) => write!(f, "io error: {error}"),
             ApplicationDownloadError::DownloadError => write!(
                 f,
-                "download failed. See Download Manager status for specific error"
+                "Download failed. See Download Manager status for specific error"
             ),
         }
     }

@@ -3,11 +3,17 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use tauri::AppHandle;
+
 use crate::{
     AppState,
-    database::{db::borrow_db_checked, models::data::GameDownloadStatus},
+    database::{
+        db::{borrow_db_checked, borrow_db_mut_checked},
+        models::data::{GameDownloadStatus, v1::ApplicationTransientStatus},
+    },
     download_manager::downloadable::Downloadable,
     error::application_download_error::ApplicationDownloadError,
+    games::{library::push_game_update, state::GameStatusManager},
 };
 
 use super::download_agent::GameDownloadAgent;
@@ -18,11 +24,12 @@ pub async fn download_game(
     game_version: String,
     install_dir: usize,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
+    app_handle: AppHandle,
 ) -> Result<(), ApplicationDownloadError> {
     let sender = { state.lock().unwrap().download_manager.get_sender().clone() };
 
     let game_download_agent =
-        GameDownloadAgent::new_from_index(game_id, game_version, install_dir, sender).await?;
+        GameDownloadAgent::new_from_index(game_id.clone(), game_version.clone(), install_dir, sender).await?;
 
     let game_download_agent =
         Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
@@ -30,8 +37,9 @@ pub async fn download_game(
         .lock()
         .unwrap()
         .download_manager
-        .queue_download(game_download_agent)
+        .queue_download(game_download_agent.clone())
         .unwrap();
+
     Ok(())
 }
 
@@ -60,12 +68,15 @@ pub async fn resume_download(
     let sender = state.lock().unwrap().download_manager.get_sender();
     let parent_dir: PathBuf = install_dir.into();
 
-    let game_download_agent = Arc::new(Box::new(GameDownloadAgent::new(
-        game_id,
-        version_name.clone(),
-        parent_dir.parent().unwrap().to_path_buf(),
-        sender,
-    ).await?) as Box<dyn Downloadable + Send + Sync>);
+    let game_download_agent = Arc::new(Box::new(
+        GameDownloadAgent::new(
+            game_id,
+            version_name.clone(),
+            parent_dir.parent().unwrap().to_path_buf(),
+            sender,
+        )
+        .await?,
+    ) as Box<dyn Downloadable + Send + Sync>);
 
     state
         .lock()

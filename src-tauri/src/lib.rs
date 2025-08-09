@@ -1,6 +1,7 @@
 #![feature(fn_traits)]
 #![feature(duration_constructors)]
 #![feature(duration_millis_float)]
+#![feature(iterator_try_collect)]
 #![deny(clippy::all)]
 #[deny(unused_must_use)]
 

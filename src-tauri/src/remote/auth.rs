@@ -9,13 +9,10 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus, User,
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    },
-    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    remote::{requests::make_authenticated_get, utils::DROP_CLIENT_SYNC},
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
 };
 
 use super::{
@@ -83,7 +80,7 @@ pub async fn fetch_user() -> Result<User, RemoteAccessError> {
         .map_err(std::convert::Into::into)
 }
 
-fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
+async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
     let path_chunks: Vec<&str> = path.split('/').collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
@@ -105,13 +102,13 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = client.post(endpoint).json(&body).send()?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = client.post(endpoint).json(&body).send().await?;
     debug!("handshake responsded with {}", response.status().as_u16());
     if !response.status().is_success() {
-        return Err(RemoteAccessError::InvalidResponse(response.json()?));
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
     }
-    let response_struct: HandshakeResponse = response.json()?;
+    let response_struct: HandshakeResponse = response.json().await?;
 
     {
         let mut handle = borrow_db_mut_checked();
@@ -129,9 +126,10 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
             .post(base_url.join("/api/v1/client/user/webtoken").unwrap())
             .header("Authorization", header)
             .send()
+            .await
             .unwrap();
 
-        token.text().unwrap()
+        token.text().await.unwrap()
     };
 
     let mut handle = borrow_db_mut_checked();
@@ -145,7 +143,7 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
     app.emit("auth/processing", ()).unwrap();
 
-    let handshake_result = recieve_handshake_logic(&app, path);
+    let handshake_result = recieve_handshake_logic(&app, path).await;
     if let Err(e) = handshake_result {
         warn!("error with authentication: {e}");
         app.emit("auth/failed", e.to_string()).unwrap();

@@ -5,12 +5,17 @@ use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
-use crate::games::downloads::manifest::DropDownloadContext;
+use crate::games::downloads::manifest::{
+    ChunkBody, DownloadBucket, DownloadContext, DownloadDrop, DropValidateContext,
+};
 use crate::remote::auth::generate_authorization_header;
+use crate::remote::requests::generate_url;
+use crate::remote::utils::DROP_CLIENT_SYNC;
 use http::response;
 use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::{RequestBuilder, Response};
+use tokio::net::unix::pipe;
 
 use std::fs::{Permissions, set_permissions};
 use std::io::Read;
@@ -24,6 +29,8 @@ use std::{
     io::{self, BufWriter, Seek, SeekFrom, Write},
     path::PathBuf,
 };
+
+static MAX_PACKET_LENGTH: usize = 4096 * 4;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -75,50 +82,69 @@ impl Seek for DropWriter<File> {
 
 pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
     pub source: R,
-    pub destination: DropWriter<W>,
+    pub drops: Vec<DownloadDrop>,
+    pub destination: Vec<DropWriter<W>>,
     pub control_flag: &'a DownloadThreadControl,
-    pub size: usize,
-}
-
-impl<'a> Seek for DropDownloadPipeline<'a, Response, File> {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.destination.seek(pos)
-    }
 }
 
 impl<'a> DropDownloadPipeline<'a, Response, File> {
     fn new(
         source: Response,
-        destination: PathBuf,
+        drops: Vec<DownloadDrop>,
         control_flag: &'a DownloadThreadControl,
         progress: ProgressHandle,
-        size: usize,
     ) -> Result<Self, io::Error> {
         Ok(Self {
             source,
-            destination: DropWriter::new(destination, progress)?,
+            destination: drops
+                .iter()
+                .map(|drop| DropWriter::new(drop.path.clone(), progress.clone()))
+                .try_collect()?,
+            drops,
             control_flag,
-            size,
         })
     }
 
     fn copy(&mut self) -> Result<bool, io::Error> {
-        io::copy(&mut self.source, &mut self.destination)?;
+        let mut copy_buffer = [0u8; MAX_PACKET_LENGTH];
+        for (index, drop) in self.drops.iter().enumerate() {
+            let destination = self
+                .destination
+                .get_mut(index)
+                .ok_or(io::Error::other("no destination"))
+                .unwrap();
+            let mut remaining = drop.length;
+            loop {
+                let size = MAX_PACKET_LENGTH.min(remaining);
+                self.source.read_exact(&mut copy_buffer[0..size])?;
+                remaining -= size;
+
+                destination.write_all(&copy_buffer[0..size])?;
+
+                if remaining == 0 {
+                    break;
+                };
+            }
+        }
 
         Ok(true)
     }
 
-    fn finish(self) -> Result<Digest, io::Error> {
-        let checksum = self.destination.finish()?;
-        Ok(checksum)
+    fn finish(self) -> Result<Vec<Digest>, io::Error> {
+        let checksums = self
+            .destination
+            .into_iter()
+            .map(|e| e.finish())
+            .try_collect()?;
+        Ok(checksums)
     }
 }
 
-pub fn download_game_chunk(
-    ctx: &DropDownloadContext,
+pub fn download_game_bucket(
+    bucket: &DownloadBucket,
+    ctx: &DownloadContext,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
-    request: RequestBuilder,
 ) -> Result<bool, ApplicationDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -126,25 +152,26 @@ pub fn download_game_chunk(
         return Ok(false);
     }
 
-    let start = Instant::now();
-
-    debug!("started chunk {}", ctx.checksum);
-
     let header = generate_authorization_header();
-    let header_time = start.elapsed();
 
-    let response = request
+    let url = generate_url(&["/api/v2/client/chunk"], &[])
+        .map_err(ApplicationDownloadError::Communication)?;
+
+    let body = ChunkBody::create(ctx, &bucket.drops);
+
+    let response = DROP_CLIENT_SYNC
+        .post(url)
+        .json(&body)
         .header("Authorization", header)
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
-    let response_time = start.elapsed();
-
     if response.status() != 200 {
-        debug!("chunk request got status code: {}", response.status());
+        info!("chunk request got status code: {}", response.status());
         let raw_res = response.text().map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
+        info!("{}", raw_res);
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
@@ -155,31 +182,32 @@ pub fn download_game_chunk(
         ));
     }
 
-    let length = response
-        .content_length()
+    let lengths = response
+        .headers()
+        .get("Content-Lengths")
         .ok_or(ApplicationDownloadError::Communication(
-            RemoteAccessError::UnparseableResponse("missing Content-Length header".to_owned()),
+            RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
         ))?
-        .try_into()
-        .unwrap();
+        .to_str()
+        .unwrap()
+        .split(",");
 
-    if length != ctx.length {
-        return Err(ApplicationDownloadError::DownloadError);
+    for (i, raw_length) in lengths.enumerate() {
+        let length = raw_length.parse::<usize>().unwrap_or(0);
+        let drop = bucket.drops.get(i).unwrap();
+        if drop.length == length {
+        } else {
+            warn!(
+                "for {}, expected {}, got {} ({})",
+                drop.filename, drop.length, raw_length, length
+            );
+            return Err(ApplicationDownloadError::DownloadError);
+        }
     }
-
-    let pipeline_start = start.elapsed();
 
     let mut pipeline =
-        DropDownloadPipeline::new(response, ctx.path.clone(), control_flag, progress, length)
+        DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
             .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
-
-    if ctx.offset != 0 {
-        pipeline
-            .seek(SeekFrom::Start(ctx.offset))
-            .expect("Failed to seek to file offset");
-    }
-
-    let pipeline_setup = start.elapsed();
 
     let completed = pipeline
         .copy()
@@ -188,45 +216,26 @@ pub fn download_game_chunk(
         return Ok(false);
     }
 
-    let pipeline_finish = start.elapsed();
-
     // If we complete the file, set the permissions (if on Linux)
     #[cfg(unix)]
     {
-        let permissions = Permissions::from_mode(ctx.permissions);
-        set_permissions(ctx.path.clone(), permissions)
-            .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        for drop in bucket.drops.iter() {
+            let permissions = Permissions::from_mode(drop.permissions);
+            set_permissions(drop.path.clone(), permissions)
+                .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        }
     }
 
-    let checksum = pipeline
+    let checksums = pipeline
         .finish()
         .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
 
-    let checksum_finish = start.elapsed();
-
-    let res = hex::encode(checksum.0);
-    if res != ctx.checksum {
-        return Err(ApplicationDownloadError::Checksum);
+    for (index, drop) in bucket.drops.iter().enumerate() {
+        let res = hex::encode(**checksums.get(index).unwrap());
+        if res != drop.checksum {
+            return Err(ApplicationDownloadError::Checksum);
+        }
     }
-
-    let header_update = header_time.as_millis();
-    let response_update = response_time.sub(header_time).as_millis();
-    let pipeline_start_update = pipeline_start.sub(response_time).as_millis();
-    let pipeline_setup_update = pipeline_setup.sub(pipeline_start).as_millis();
-    let pipeline_finish_update = pipeline_finish.sub(pipeline_setup).as_millis();
-    let checksum_update = checksum_finish.sub(pipeline_finish).as_millis();
-
-    debug!(
-        "\nheader: {}\nresponse: {}\npipeline start: {}\npipeline setup: {}\npipeline finish: {}\nchecksum finish: {}",
-        header_update,
-        response_update,
-        pipeline_start_update,
-        pipeline_setup_update,
-        pipeline_finish_update,
-        checksum_update
-    );
-
-    debug!("finished chunk {}", ctx.checksum);
 
     Ok(true)
 }

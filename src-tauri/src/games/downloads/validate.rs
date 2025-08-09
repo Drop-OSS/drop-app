@@ -7,24 +7,22 @@ use log::debug;
 use md5::Context;
 
 use crate::{
-    download_manager::
-        util::{
-            download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
-            progress_object::ProgressHandle,
-        }
-    ,
+    download_manager::util::{
+        download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
+        progress_object::ProgressHandle,
+    },
     error::application_download_error::ApplicationDownloadError,
-    games::downloads::manifest::DropDownloadContext,
+    games::downloads::manifest::DropValidateContext,
 };
 
 pub fn validate_game_chunk(
-    ctx: &DropDownloadContext,
+    ctx: &DropValidateContext,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
 ) -> Result<bool, ApplicationDownloadError> {
     debug!(
         "Starting chunk validation {}, {}, {} #{}",
-        ctx.file_name, ctx.index, ctx.offset, ctx.checksum
+        ctx.path, ctx.index, ctx.offset, ctx.checksum
     );
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -38,7 +36,7 @@ pub fn validate_game_chunk(
 
     if ctx.offset != 0 {
         source
-            .seek(SeekFrom::Start(ctx.offset))
+            .seek(SeekFrom::Start(ctx.offset.try_into().unwrap()))
             .expect("Failed to seek to file offset");
     }
 

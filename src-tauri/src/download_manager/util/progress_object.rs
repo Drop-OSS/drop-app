@@ -1,8 +1,8 @@
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
         mpsc::Sender,
-        Arc, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -44,7 +44,7 @@ impl ProgressHandle {
     }
     pub fn add(&self, amount: usize) {
         self.progress
-           .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
+            .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
         calculate_update(&self.progress_object);
     }
     pub fn skip(&self, amount: usize) {
@@ -128,7 +128,11 @@ pub fn calculate_update(progress: &ProgressObject) {
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Acquire);
 
-    let bytes_since_last_update = current_bytes_downloaded - bytes_at_last_update;
+    let bytes_since_last_update = if current_bytes_downloaded > bytes_at_last_update {
+        current_bytes_downloaded - bytes_at_last_update
+    } else {
+        0
+    };
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 
