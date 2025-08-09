@@ -1,8 +1,8 @@
 use std::{
     sync::{
+        Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
         mpsc::Sender,
-        Arc, Mutex,
     },
     time::{Duration, Instant},
 };
@@ -23,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<250>,
+    rolling: RollingProgressWindow<1>,
 }
 
 #[derive(Clone)]
@@ -128,7 +128,7 @@ pub fn calculate_update(progress: &ProgressObject) {
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Acquire);
 
-    let bytes_since_last_update = current_bytes_downloaded - bytes_at_last_update;
+    let bytes_since_last_update = current_bytes_downloaded.saturating_sub(bytes_at_last_update);
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 

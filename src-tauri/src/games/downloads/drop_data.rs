@@ -76,14 +76,6 @@ impl DropData {
     pub fn set_context(&self, context: String, state: bool) {
         self.contexts.lock().unwrap().entry(context).insert_entry(state);
     }
-    pub fn get_completed_contexts(&self) -> Vec<String> {
-        self.contexts
-            .lock()
-            .unwrap()
-            .iter()
-            .filter_map(|x| if *x.1 { Some(x.0.clone()) } else { None })
-            .collect()
-    }
     pub fn get_contexts(&self) -> HashMap<String, bool> {
         self.contexts.lock().unwrap().clone()
     }

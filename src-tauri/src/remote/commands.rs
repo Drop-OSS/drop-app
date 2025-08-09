@@ -8,11 +8,14 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{
+    AppState, AppStatus,
+    database::db::{borrow_db_checked, borrow_db_mut_checked},
+    error::remote_access_error::RemoteAccessError,
+    remote::{
         auth::generate_authorization_header,
-        requests::make_request,
+        requests::generate_url,
         utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
-    }, AppState, AppStatus
+    },
 };
 
 use super::{
@@ -45,10 +48,11 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
 #[tauri::command]
 pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
     let _drop_url = gen_drop_url(path.clone())?;
-    let req = make_request(&DROP_CLIENT_SYNC, &[&path], &[], |r| {
-        r.header("Authorization", generate_authorization_header())
-    })?
-    .send();
+    let req = generate_url(&[&path], &[])?;
+    let req = DROP_CLIENT_SYNC
+        .get(req)
+        .header("Authorization", generate_authorization_header())
+        .send();
 
     match req {
         Ok(data) => {
@@ -83,13 +87,15 @@ pub fn sign_out(app: AppHandle) {
 }
 
 #[tauri::command]
-pub fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) {
-    let (app_status, user) = setup();
+pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
+    let (app_status, user) = setup().await;
 
     let mut guard = state.lock().unwrap();
     guard.status = app_status;
     guard.user = user;
     drop(guard);
+
+    Ok(())
 }
 
 #[tauri::command]
@@ -145,9 +151,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
                     match response.response_type.as_str() {
                         "token" => {
                             let recieve_app = app.clone();
-                            tauri::async_runtime::spawn_blocking(move || {
-                                manual_recieve_handshake(recieve_app, response.value);
-                            });
+                            manual_recieve_handshake(recieve_app, response.value).await.unwrap();
                             return Ok(());
                         }
                         _ => return Err(RemoteAccessError::HandshakeFailed(response.value)),
@@ -171,6 +175,8 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
 }
 
 #[tauri::command]
-pub fn manual_recieve_handshake(app: AppHandle, token: String) {
-    recieve_handshake(app, format!("handshake/{token}"));
+pub async fn manual_recieve_handshake(app: AppHandle, token: String) -> Result<(), ()> {
+    recieve_handshake(app, format!("handshake/{token}")).await;
+
+    Ok(())
 }

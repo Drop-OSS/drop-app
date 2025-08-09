@@ -12,12 +12,12 @@ use crate::{
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::utils::DROP_CLIENT_SYNC, AppState, AppStatus, User
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
 };
 
 use super::{
     cache::{cache_object, get_cached_object},
-    requests::make_request,
+    requests::generate_url,
 };
 
 #[derive(Serialize)]
@@ -61,16 +61,10 @@ pub fn generate_authorization_header() -> String {
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
 
-pub fn fetch_user() -> Result<User, RemoteAccessError> {
-    let header = generate_authorization_header();
-
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(&client, &["/api/v1/client/user"], &[], |f| {
-        f.header("Authorization", header)
-    })?
-    .send()?;
+pub async fn fetch_user() -> Result<User, RemoteAccessError> {
+    let response = make_authenticated_get(generate_url(&["/api/v1/client/user"], &[])?).await?;
     if response.status() != 200 {
-        let err: DropServerError = response.json()?;
+        let err: DropServerError = response.json().await?;
         warn!("{err:?}");
 
         if err.status_message == "Nonce expired" {
@@ -80,10 +74,13 @@ pub fn fetch_user() -> Result<User, RemoteAccessError> {
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    response.json::<User>().map_err(std::convert::Into::into)
+    response
+        .json::<User>()
+        .await
+        .map_err(std::convert::Into::into)
 }
 
-fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
+async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
     let path_chunks: Vec<&str> = path.split('/').collect();
     if path_chunks.len() != 3 {
         app.emit("auth/failed", ()).unwrap();
@@ -105,13 +102,13 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = client.post(endpoint).json(&body).send()?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = client.post(endpoint).json(&body).send().await?;
     debug!("handshake responsded with {}", response.status().as_u16());
     if !response.status().is_success() {
-        return Err(RemoteAccessError::InvalidResponse(response.json()?));
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
     }
-    let response_struct: HandshakeResponse = response.json()?;
+    let response_struct: HandshakeResponse = response.json().await?;
 
     {
         let mut handle = borrow_db_mut_checked();
@@ -129,9 +126,10 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
             .post(base_url.join("/api/v1/client/user/webtoken").unwrap())
             .header("Authorization", header)
             .send()
+            .await
             .unwrap();
 
-        token.text().unwrap()
+        token.text().await.unwrap()
     };
 
     let mut handle = borrow_db_mut_checked();
@@ -141,11 +139,11 @@ fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAc
     Ok(())
 }
 
-pub fn recieve_handshake(app: AppHandle, path: String) {
+pub async fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
     app.emit("auth/processing", ()).unwrap();
 
-    let handshake_result = recieve_handshake_logic(&app, path);
+    let handshake_result = recieve_handshake_logic(&app, path).await;
     if let Err(e) = handshake_result {
         warn!("error with authentication: {e}");
         app.emit("auth/failed", e.to_string()).unwrap();
@@ -153,9 +151,10 @@ pub fn recieve_handshake(app: AppHandle, path: String) {
     }
 
     let app_state = app.state::<Mutex<AppState>>();
-    let mut state_lock = app_state.lock().unwrap();
 
-    let (app_status, user) = setup();
+    let (app_status, user) = setup().await;
+
+    let mut state_lock = app_state.lock().unwrap();
 
     state_lock.status = app_status;
     state_lock.user = user;
@@ -199,13 +198,14 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
     Ok(response)
 }
 
-pub fn setup() -> (AppStatus, Option<User>) {
-    let data = borrow_db_checked();
-    let auth = data.auth.clone();
-    drop(data);
+pub async fn setup() -> (AppStatus, Option<User>) {
+    let auth = {
+        let data = borrow_db_checked();
+        data.auth.clone()
+    };
 
     if auth.is_some() {
-        let user_result = match fetch_user() {
+        let user_result = match fetch_user().await {
             Ok(data) => data,
             Err(RemoteAccessError::FetchError(_)) => {
                 let user = get_cached_object::<User>("user").unwrap();

@@ -266,6 +266,7 @@ pub mod data {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
             pub game_statuses: HashMap<String, GameDownloadStatus>,
+            
             pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
             pub installed_game_version: HashMap<String, DownloadableMetadata>,
 
