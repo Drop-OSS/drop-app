@@ -16,11 +16,12 @@ use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder}
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        (async || if $crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == $crate::AppStatus::Offline {
+        async move { if $crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == $crate::AppStatus::Offline {
             $func2( $( $arg ), *).await
         } else {
             $func1( $( $arg ), *).await
-        })()
+        }
+        }
     }
 }
 

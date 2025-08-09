@@ -1,4 +1,3 @@
-use reqwest::blocking::{Client, RequestBuilder};
 use url::Url;
 
 use crate::{

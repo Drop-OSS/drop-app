@@ -128,11 +128,7 @@ pub fn calculate_update(progress: &ProgressObject) {
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Acquire);
 
-    let bytes_since_last_update = if current_bytes_downloaded > bytes_at_last_update {
-        current_bytes_downloaded - bytes_at_last_update
-    } else {
-        0
-    };
+    let bytes_since_last_update = current_bytes_downloaded.saturating_sub(bytes_at_last_update);
 
     let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
 

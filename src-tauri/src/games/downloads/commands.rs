@@ -3,17 +3,15 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use tauri::AppHandle;
 
 use crate::{
     AppState,
     database::{
-        db::{borrow_db_checked, borrow_db_mut_checked},
-        models::data::{GameDownloadStatus, v1::ApplicationTransientStatus},
+        db::borrow_db_checked,
+        models::data::GameDownloadStatus,
     },
     download_manager::downloadable::Downloadable,
     error::application_download_error::ApplicationDownloadError,
-    games::{library::push_game_update, state::GameStatusManager},
 };
 
 use super::download_agent::GameDownloadAgent;
@@ -24,7 +22,6 @@ pub async fn download_game(
     game_version: String,
     install_dir: usize,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
-    app_handle: AppHandle,
 ) -> Result<(), ApplicationDownloadError> {
     let sender = { state.lock().unwrap().download_manager.get_sender().clone() };
 

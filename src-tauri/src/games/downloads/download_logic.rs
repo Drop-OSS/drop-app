@@ -5,26 +5,18 @@ use crate::download_manager::util::progress_object::ProgressHandle;
 use crate::error::application_download_error::ApplicationDownloadError;
 use crate::error::drop_server_error::DropServerError;
 use crate::error::remote_access_error::RemoteAccessError;
-use crate::games::downloads::manifest::{
-    ChunkBody, DownloadBucket, DownloadContext, DownloadDrop, DropValidateContext,
-};
+use crate::games::downloads::manifest::{ChunkBody, DownloadBucket, DownloadContext, DownloadDrop};
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::requests::generate_url;
 use crate::remote::utils::DROP_CLIENT_SYNC;
-use http::response;
-use log::{debug, info, warn};
+use log::{info, warn};
 use md5::{Context, Digest};
-use reqwest::blocking::{RequestBuilder, Response};
-use serde_json::de;
-use tokio::net::unix::pipe;
+use reqwest::blocking::Response;
 
 use std::fs::{Permissions, set_permissions};
 use std::io::Read;
-use std::ops::Sub;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::thread;
-use std::time::Instant;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -46,7 +38,7 @@ impl DropWriter<File> {
             .truncate(false)
             .open(&path)?;
         Ok(Self {
-            destination: BufWriter::with_capacity(1 * 1024 * 1024, destination),
+            destination: BufWriter::with_capacity(1024 * 1024, destination),
             hasher: Context::new(),
             progress,
         })
@@ -128,6 +120,10 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 if remaining == 0 {
                     break;
                 };
+            }
+
+            if self.control_flag.get() == DownloadThreadControlFlag::Stop {
+                return Ok(false);
             }
         }
 

@@ -1,14 +1,11 @@
 use serde_json::json;
-use url::Url;
 
 use crate::{
-    DB,
-    database::db::DatabaseImpls,
     error::remote_access_error::RemoteAccessError,
     remote::{
         auth::generate_authorization_header,
         requests::{generate_url, make_authenticated_get},
-        utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
+        utils::DROP_CLIENT_ASYNC,
     },
 };
 

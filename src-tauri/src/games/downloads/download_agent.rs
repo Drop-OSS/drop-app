@@ -153,7 +153,7 @@ impl GameDownloadAgent {
 
         let res = self
             .run()
-            .map_err(|e| ApplicationDownloadError::Communication(e));
+            .map_err(ApplicationDownloadError::Communication);
 
         debug!(
             "{} took {}ms to download",
@@ -292,7 +292,7 @@ impl GameDownloadAgent {
                 }
 
                 if current_bucket_size + *length >= TARGET_BUCKET_SIZE
-                    && current_bucket.drops.len() > 0
+                    && !current_bucket.drops.is_empty()
                 {
                     // Move current bucket into list and make a new one
                     buckets.push(current_bucket);
@@ -314,11 +314,11 @@ impl GameDownloadAgent {
             }
         }
 
-        if current_bucket.drops.len() > 0 {
+        if !current_bucket.drops.is_empty() {
             buckets.push(current_bucket);
         }
 
-        info!("buckets: {}", buckets.iter().count());
+        info!("buckets: {}", buckets.len());
 
         let existing_contexts = self.dropdata.get_completed_contexts();
         self.dropdata.set_contexts(
@@ -510,7 +510,7 @@ impl GameDownloadAgent {
             .collect();
         let max_download_threads = borrow_db_checked().settings.max_download_threads;
 
-        info!("{} validation contexts", contexts.iter().count());
+        info!("{} validation contexts", contexts.len());
         let pool = ThreadPoolBuilder::new()
             .num_threads(max_download_threads)
             .build()

@@ -157,7 +157,7 @@ pub async fn fetch_game_logic(
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let version = {
-        let mut state_handle = state.lock().unwrap();
+        let state_handle = state.lock().unwrap();
 
         let db_lock = borrow_db_checked();
 

@@ -47,7 +47,7 @@ pub struct ManifestBody {
 }
 
 impl ChunkBody {
-    pub fn create(context: &DownloadContext, drops: &Vec<DownloadDrop>) -> ChunkBody {
+    pub fn create(context: &DownloadContext, drops: &[DownloadDrop]) -> ChunkBody {
         Self {
             context: context.context.clone(),
             files: drops
