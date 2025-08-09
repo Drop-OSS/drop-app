@@ -1,7 +1,7 @@
 {
   "name": "view",
   "private": true,
-  "version": "0.3.2-dl",
+  "version": "0.3.2",
   "type": "module",
   "scripts": {
     "build": "nuxt generate",
