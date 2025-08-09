@@ -139,7 +139,7 @@ impl DownloadManagerBuilder {
             return current_download_thread.join().is_ok();
         };
 
-        return true;
+        true
     }
 
     fn manage_queue(mut self) -> Result<(), ()> {

@@ -392,7 +392,7 @@ impl GameDownloadAgent {
                     })
                     .collect::<Vec<DownloadDrop>>();
 
-                if todo_drops.len() == 0 {
+                if todo_drops.is_empty() {
                     continue;
                 };
 
