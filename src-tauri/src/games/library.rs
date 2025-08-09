@@ -144,10 +144,14 @@ pub async fn fetch_library_logic_offline(
     let db_handle = borrow_db_checked();
 
     games.retain(|game| {
-        db_handle
-            .applications
-            .installed_game_version
-            .contains_key(&game.id)
+        matches!(
+            &db_handle
+                .applications
+                .game_statuses
+                .get(&game.id)
+                .unwrap_or(&GameDownloadStatus::Remote {}),
+            GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
+        )
     });
 
     Ok(games)
@@ -213,7 +217,7 @@ pub async fn fetch_game_logic(
     }
 
     let game: Game = response.json().await?;
-    
+
     let mut state_handle = state.lock().unwrap();
     state_handle.games.insert(id.clone(), game.clone());
 

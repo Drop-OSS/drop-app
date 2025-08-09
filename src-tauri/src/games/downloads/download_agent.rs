@@ -318,19 +318,21 @@ impl GameDownloadAgent {
 
         info!("buckets: {}", buckets.len());
 
-        let existing_contexts = self.dropdata.get_completed_contexts();
+        let existing_contexts = self.dropdata.get_contexts();
         self.dropdata.set_contexts(
             &buckets
                 .iter()
                 .flat_map(|x| x.drops.iter().map(|v| v.checksum.clone()))
                 .map(|x| {
-                    let contains = existing_contexts.contains(&x);
-                    (x, contains)
+                    let contains = existing_contexts.get(&x).unwrap_or(&false);
+                    (x, *contains)
                 })
                 .collect::<Vec<(String, bool)>>(),
         );
 
         *self.buckets.lock().unwrap() = buckets;
+
+        info!("assigned buckets");
 
         Ok(())
     }
