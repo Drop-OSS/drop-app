@@ -151,9 +151,7 @@ impl GameDownloadAgent {
 
         info!("beginning download for {}...", self.metadata().id);
 
-        let res = self
-            .run()
-            .map_err(ApplicationDownloadError::Communication);
+        let res = self.run().map_err(ApplicationDownloadError::Communication);
 
         debug!(
             "{} took {}ms to download",
@@ -418,14 +416,12 @@ impl GameDownloadAgent {
                             Err(e) => {
                                 warn!("game download agent error: {e}");
 
-                                let retry = match &e {
-                                    ApplicationDownloadError::Communication(
-                                        _remote_access_error,
-                                    ) => true,
-                                    ApplicationDownloadError::Checksum => true,
-                                    ApplicationDownloadError::Lock => true,
-                                    _ => false,
-                                };
+                                let retry = matches!(
+                                    &e,
+                                    ApplicationDownloadError::Communication(_)
+                                        | ApplicationDownloadError::Checksum
+                                        | ApplicationDownloadError::Lock
+                                );
 
                                 if i == RETRY_COUNT - 1 || !retry {
                                     warn!("retry logic failed, not re-attempting.");
