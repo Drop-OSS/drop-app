@@ -23,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<10>,
+    rolling: RollingProgressWindow<1>,
 }
 
 #[derive(Clone)]

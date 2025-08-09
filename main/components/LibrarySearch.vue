@@ -74,7 +74,7 @@
       <div role="status">
         <svg
           aria-hidden="true"
-          class="w-6 h-6 text-transparent animate-spin fill-zinc-700"
+          class="w-6 h-6 text-transparent animate-spin fill-zinc-600"
           viewBox="0 0 100 101"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
@@ -167,8 +167,7 @@ const navigation = computed(() =>
 
     const isInstalled = computed(
       () =>
-        status.value.type == GameStatusEnum.Installed ||
-        status.value.type == GameStatusEnum.SetupRequired
+        status.value.type != GameStatusEnum.Remote
     );
 
     const item = {
