@@ -38,7 +38,7 @@ use super::drop_data::DropData;
 
 static RETRY_COUNT: usize = 3;
 
-const TARGET_BUCKET_SIZE: usize = 200 * 1000 * 1000;
+const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -122,14 +122,6 @@ impl GameDownloadAgent {
 
     // Blocking
     pub fn setup_download(&self, app_handle: &AppHandle) -> Result<(), ApplicationDownloadError> {
-        if !self.check_manifest_exists() {
-            return Err(ApplicationDownloadError::NotInitialized);
-        }
-
-        self.ensure_buckets()?;
-
-        self.control_flag.set(DownloadThreadControlFlag::Go);
-
         let mut db_lock = borrow_db_mut_checked();
         let status = ApplicationTransientStatus::Downloading {
             version_name: self.version.clone(),
@@ -140,6 +132,14 @@ impl GameDownloadAgent {
             .insert(self.metadata(), status.clone());
         // Don't use GameStatusManager because this game isn't installed
         push_game_update(app_handle, &self.metadata().id, None, (None, Some(status)));
+
+        if !self.check_manifest_exists() {
+            return Err(ApplicationDownloadError::NotInitialized);
+        }
+
+        self.ensure_buckets()?;
+
+        self.control_flag.set(DownloadThreadControlFlag::Go);
 
         Ok(())
     }
@@ -332,8 +332,6 @@ impl GameDownloadAgent {
 
         *self.buckets.lock().unwrap() = buckets;
 
-        info!("assigned buckets");
-
         Ok(())
     }
 
@@ -393,6 +391,10 @@ impl GameDownloadAgent {
                         todo
                     })
                     .collect::<Vec<DownloadDrop>>();
+
+                if todo_drops.len() == 0 {
+                    continue;
+                };
 
                 bucket.drops = todo_drops;
 

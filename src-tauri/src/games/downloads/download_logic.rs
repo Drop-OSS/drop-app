@@ -189,14 +189,17 @@ pub fn download_game_bucket(
             RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
         ))?
         .to_str()
-        .unwrap()
-        .split(",");
+        .unwrap();
 
-    for (i, raw_length) in lengths.enumerate() {
+
+
+    for (i, raw_length) in lengths.split(",").enumerate() {
         let length = raw_length.parse::<usize>().unwrap_or(0);
-        let drop = bucket.drops.get(i).unwrap();
-        if drop.length == length {
-        } else {
+        let Some(drop) = bucket.drops.get(i) else {
+            warn!("invalid number of Content-Lengths recieved: {}, {}", i, lengths);
+            return Err(ApplicationDownloadError::DownloadError);
+        };
+        if drop.length != length {
             warn!(
                 "for {}, expected {}, got {} ({})",
                 drop.filename, drop.length, raw_length, length

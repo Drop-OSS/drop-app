@@ -128,7 +128,7 @@ impl DownloadManagerBuilder {
         drop(download_thread_lock);
     }
 
-    fn stop_and_wait_current_download(&self) {
+    fn stop_and_wait_current_download(&self) -> bool {
         self.set_status(DownloadManagerStatus::Paused);
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
@@ -136,8 +136,10 @@ impl DownloadManagerBuilder {
 
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
         if let Some(current_download_thread) = download_thread_lock.take() {
-            current_download_thread.join().unwrap();
-        }
+            return current_download_thread.join().is_ok();
+        };
+
+        return true;
     }
 
     fn manage_queue(mut self) -> Result<(), ()> {
