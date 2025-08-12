@@ -19,6 +19,7 @@ use crate::process::commands::open_process_logs;
 use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 use crate::remote::commands::auth_initiate_code;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
+use appindicator3_sys::app_indicator_category_get_type;
 use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
 use client::{
@@ -278,6 +279,8 @@ pub fn run() {
         let _ = custom_panic_handler(e);
         println!("{e}");
     }));
+
+    let _ = unsafe { app_indicator_category_get_type() };
 
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())

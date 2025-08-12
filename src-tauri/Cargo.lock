@@ -63,6 +63,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
 
 [[package]]
+name = "appindicator3-sys"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1de844677d52b310793e46a737f3f47334ea8c83dcd617901c0d5c544b260f28"
+dependencies = [
+ "gdk-sys",
+ "glib-sys",
+ "gobject-sys",
+ "gtk-sys",
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "arc-swap"
 version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1286,6 +1300,7 @@ dependencies = [
 name = "drop-app"
 version = "0.3.1-appimage"
 dependencies = [
+ "appindicator3-sys",
  "atomic-instant-full",
  "bitcode",
  "boxcar",
