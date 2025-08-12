@@ -128,7 +128,7 @@ impl DownloadManagerBuilder {
         drop(download_thread_lock);
     }
 
-    fn stop_and_wait_current_download(&self) {
+    fn stop_and_wait_current_download(&self) -> bool {
         self.set_status(DownloadManagerStatus::Paused);
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
@@ -136,8 +136,10 @@ impl DownloadManagerBuilder {
 
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
         if let Some(current_download_thread) = download_thread_lock.take() {
-            current_download_thread.join().unwrap();
-        }
+            return current_download_thread.join().is_ok();
+        };
+
+        true
     }
 
     fn manage_queue(mut self) -> Result<(), ()> {
@@ -254,9 +256,13 @@ impl DownloadManagerBuilder {
                     }
                 };
 
-                // If the download gets cancelled
+                // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier
                 if !download_result {
+                    return;
+                }
+
+                if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
                     return;
                 }
 
@@ -273,6 +279,10 @@ impl DownloadManagerBuilder {
                         return;
                     }
                 };
+
+                if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
+                    return;
+                }
 
                 if validate_result {
                     download_agent.on_complete(&app_handle);
@@ -315,6 +325,7 @@ impl DownloadManagerBuilder {
 
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
+            self.push_ui_queue_update();
         }
         self.set_status(DownloadManagerStatus::Error);
     }
