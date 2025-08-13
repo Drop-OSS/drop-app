@@ -1,6 +1,6 @@
 use std::{
     fmt::{Display, Formatter},
-    io,
+    io, sync::Arc,
 };
 
 use serde_with::SerializeDisplay;
@@ -16,7 +16,7 @@ pub enum ApplicationDownloadError {
     DiskFull(u64, u64),
     Checksum,
     Lock,
-    IoError(io::ErrorKind),
+    IoError(Arc<io::Error>),
     DownloadError,
 }
 

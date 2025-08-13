@@ -17,6 +17,7 @@ use std::fs::{Permissions, set_permissions};
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -210,11 +211,11 @@ pub fn download_game_bucket(
 
     let mut pipeline =
         DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
-            .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+            .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
     let completed = pipeline
         .copy()
-        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
     if !completed {
         return Ok(false);
     }
@@ -225,13 +226,13 @@ pub fn download_game_bucket(
         for drop in bucket.drops.iter() {
             let permissions = Permissions::from_mode(drop.permissions);
             set_permissions(drop.path.clone(), permissions)
-                .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+                .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
         }
     }
 
     let checksums = pipeline
         .finish()
-        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
     for (index, drop) in bucket.drops.iter().enumerate() {
         let res = hex::encode(**checksums.get(index).unwrap());

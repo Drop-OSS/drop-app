@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 use futures_lite::io;
 use sysinfo::{Disk, DiskRefreshKind, Disks};
@@ -21,7 +21,7 @@ pub fn get_disk_available(mount_point: PathBuf) -> Result<u64, ApplicationDownlo
             return Ok(disk.available_space());
         }
     }
-    Err(ApplicationDownloadError::IoError(io::Error::other(
+    Err(ApplicationDownloadError::IoError(Arc::new(io::Error::other(
         "could not find disk of path",
-    ).kind()))
+    ))))
 }
