@@ -70,7 +70,7 @@ jobs:
           
           curl https://droposs.org/drop.crt --output drop.pem
           # sudo security authorizationdb write com.apple.trust-settings.admin allow
-          sudo security add-trusted-cert -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
+          security add-trusted-cert -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
           # sudo security authorizationdb remove com.apple.trust-settings.admin
 
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
