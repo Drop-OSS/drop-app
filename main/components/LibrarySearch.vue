@@ -122,7 +122,18 @@ async function calculateGames(clearAll = false) {
   rawGames.value = newGames;
 }
 
-calculateGames(true);
+// Wait up to 300 ms for the library to load, otherwise
+// show the loading state while we while
+await new Promise<void>((r) => {
+  let hasResolved = false;
+  const resolveFunc = () => {
+    if (!hasResolved) r();
+    hasResolved = true
+
+  }
+  calculateGames(true).then(resolveFunc);
+  setTimeout(resolveFunc, 300);
+})
 
 const navigation = computed(() =>
   rawGames.value.map((game) => {

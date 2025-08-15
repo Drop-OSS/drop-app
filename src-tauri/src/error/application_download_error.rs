@@ -14,6 +14,7 @@ pub enum ApplicationDownloadError {
     NotInitialized,
     Communication(RemoteAccessError),
     DiskFull(u64, u64),
+    #[allow(dead_code)]
     Checksum,
     Lock,
     IoError(Arc<io::Error>),

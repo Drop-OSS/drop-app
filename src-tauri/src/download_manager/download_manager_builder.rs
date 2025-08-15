@@ -326,8 +326,8 @@ impl DownloadManagerBuilder {
 
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
-            self.push_ui_queue_update();
         }
+        self.push_ui_queue_update();
         self.set_status(DownloadManagerStatus::Error);
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {

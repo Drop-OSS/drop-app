@@ -2,7 +2,6 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
-use log::info;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
