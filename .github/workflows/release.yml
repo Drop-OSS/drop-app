@@ -18,9 +18,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: 'macos-latest' # for Arm based macs (M1 and above).
+          - platform: 'macos-14' # for Arm based macs (M1 and above).
             args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest' # for Intel based macs.
+          - platform: 'macos-14' # for Intel based macs.
             args: '--target x86_64-apple-darwin'
           #- platform: 'ubuntu-22.04' # for Tauri v1 you could replace this with ubuntu-20.04.
           #  args: ''
@@ -69,9 +69,9 @@ jobs:
           security set-keychain-settings -t 3600 -u build.keychain
           
           curl https://droposs.org/drop.crt --output drop.pem
-          sudo security authorizationdb write com.apple.trust-settings.user allow
-          security add-trusted-cert -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
-          sudo security authorizationdb remove com.apple.trust-settings.user
+          sudo security authorizationdb write com.apple.trust-settings.admin allow
+          sudo security add-trusted-cert -d -r trustRoot -k build.keychain -p codeSign -u -1 drop.pem
+          sudo security authorizationdb remove com.apple.trust-settings.admin
 
           security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
