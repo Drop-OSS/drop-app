@@ -173,7 +173,7 @@ impl ProcessManager<'_> {
         }
 
         // This is too many unwraps for me to be comfortable
-        let version_data = (&db_handle)
+        let version_data = db_handle
             .applications
             .game_versions
             .get(&game_id)
