@@ -172,10 +172,23 @@ impl ProcessManager<'_> {
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        let status = GameStatusManager::fetch_state(&game_id, &db_handle);
-        drop(db_handle);
+        // This is too many unwraps for me to be comfortable
+        let version_data = db_handle
+            .applications
+            .game_versions
+            .get(&game_id)
+            .unwrap()
+            .get(&meta.version.unwrap())
+            .unwrap();
 
-        push_game_update(&self.app_handle, &game_id, None, status);
+        let status = GameStatusManager::fetch_state(&game_id, &db_handle);
+
+        push_game_update(
+            &self.app_handle,
+            &game_id,
+            Some(version_data.clone()),
+            status,
+        );
     }
 
     fn fetch_process_handler(
