@@ -162,8 +162,7 @@ listen("update_library", async (event) => {
   console.log("Updating library");
   let oldNavigation = navigation.value[currentNavigation.value];
   await calculateGames();
-  if (oldNavigation !== navigation.value[currentNavigation.value]) {
-    console.log("Triggered");
+  if (oldNavigation.route !== navigation.value[currentNavigation.value].route) {
     router.push("/library");
   }
 });

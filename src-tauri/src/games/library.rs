@@ -2,6 +2,7 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
+use log::info;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -362,8 +363,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
     db_handle
         .applications
         .transient_statuses
-        .entry(meta.clone())
-        .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
     push_game_update(
         app_handle,
@@ -397,8 +397,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         db_handle
             .applications
             .transient_statuses
-            .entry(meta.clone())
-            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+            .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
         drop(db_handle);
 
@@ -416,8 +415,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 db_handle
                     .applications
                     .game_statuses
-                    .entry(meta.id.clone())
-                    .and_modify(|e| *e = GameDownloadStatus::Remote {});
+                    .insert(meta.id.clone(), GameDownloadStatus::Remote {});
                 let _ = db_handle.applications.transient_statuses.remove(&meta);
 
                 push_game_update(
@@ -429,8 +427,6 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
                 debug!("uninstalled game id {}", &meta.id);
                 app_handle.emit("update_library", ()).unwrap();
-
-                drop(db_handle);
             }
         });
     } else {
@@ -503,6 +499,7 @@ pub fn on_game_complete(
         .game_statuses
         .insert(meta.id.clone(), status.clone());
     drop(db_handle);
+
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),
@@ -523,6 +520,17 @@ pub fn push_game_update(
     version: Option<GameVersion>,
     status: GameStatusWithTransient,
 ) {
+    if let Some(db_status) = &status.0 {
+        match db_status {
+            GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. } => {
+                if version.is_none() {
+                    panic!("pushed game for installed game that doesn't have version information");
+                }
+            }
+            _ => (),
+        }
+    }
+
     app_handle
         .emit(
             &format!("update_game/{game_id}"),
