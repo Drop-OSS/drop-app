@@ -14,6 +14,7 @@ use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
 use crate::download_manager::download_manager_frontend::DownloadStatus;
+use crate::error::drop_server_error::DropServerError;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
@@ -89,7 +90,10 @@ pub async fn fetch_library_logic(
         .await?;
 
     if response.status() != 200 {
-        let err = response.json().await.unwrap();
+        let err = response.json().await.unwrap_or(DropServerError {
+            status_code: 500,
+            status_message: "Invalid response from server.".to_owned(),
+        });
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }

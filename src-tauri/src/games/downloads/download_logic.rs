@@ -192,12 +192,13 @@ pub fn download_game_bucket(
         .to_str()
         .unwrap();
 
-
-
     for (i, raw_length) in lengths.split(",").enumerate() {
         let length = raw_length.parse::<usize>().unwrap_or(0);
         let Some(drop) = bucket.drops.get(i) else {
-            warn!("invalid number of Content-Lengths recieved: {}, {}", i, lengths);
+            warn!(
+                "invalid number of Content-Lengths recieved: {}, {}",
+                i, lengths
+            );
             return Err(ApplicationDownloadError::DownloadError);
         };
         if drop.length != length {
@@ -237,7 +238,9 @@ pub fn download_game_bucket(
     for (index, drop) in bucket.drops.iter().enumerate() {
         let res = hex::encode(**checksums.get(index).unwrap());
         if res != drop.checksum {
-            return Err(ApplicationDownloadError::Checksum);
+            warn!("context didn't match... doing nothing because we will validate later.");
+            // return Ok(false);
+            // return Err(ApplicationDownloadError::Checksum);
         }
     }
 

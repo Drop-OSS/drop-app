@@ -484,19 +484,16 @@ impl GameDownloadAgent {
 
         self.control_flag.set(DownloadThreadControlFlag::Go);
 
+        let status = ApplicationTransientStatus::Validating {
+            version_name: self.version.clone(),
+        };
+
         let mut db_lock = borrow_db_mut_checked();
-        db_lock.applications.transient_statuses.insert(
-            self.metadata(),
-            ApplicationTransientStatus::Validating {
-                version_name: self.version.clone(),
-            },
-        );
-        push_game_update(
-            app_handle,
-            &self.metadata().id,
-            None,
-            GameStatusManager::fetch_state(&self.metadata().id, &db_lock),
-        );
+        db_lock
+            .applications
+            .transient_statuses
+            .insert(self.metadata(), status.clone());
+        push_game_update(app_handle, &self.metadata().id, None, (None, Some(status)));
     }
 
     pub fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
