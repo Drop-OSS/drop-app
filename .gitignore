@@ -28,5 +28,13 @@ dist-ssr
 src-tauri/flamegraph.svg
 src-tauri/perf*
 
+build/appimage/*
+!build/appimage/drop-app.d
+
+build/appimage/drop-app.d/usr/bin/*
+!build/appimage/drop-app.d/usr/bin/.gitkeep
+
+build/appimage/drop-app.d/usr/lib/*
+!build/appimage/drop-app.d/usr/lib/.gitkeep
 /*.AppImage
 /squashfs-root
