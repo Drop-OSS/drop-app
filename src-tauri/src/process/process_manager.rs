@@ -346,13 +346,10 @@ impl ProcessManager<'_> {
             .to_string();
 
         #[cfg(target_os = "windows")]
-        use std::os::windows::process::CommandExt;
-
+        let mut command = Command::new("cmd");
         #[cfg(target_os = "windows")]
-        let mut command = Command::new("start");
-        #[cfg(target_os = "windows")]
-        command.raw_arg(format!("/min cmd /C \"{}\"", &launch_string));
-
+        command.raw_arg(format!("/C \"{}\"", &launch_string));
+        
         info!("launching (in {install_dir}): {launch_string}",);
 
         #[cfg(unix)]
