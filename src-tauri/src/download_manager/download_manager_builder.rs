@@ -124,7 +124,12 @@ impl DownloadManagerBuilder {
         self.current_download_agent = None;
 
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
-        *download_thread_lock = None;
+
+        if let Some(unfinished_thread) = download_thread_lock.take()
+            && !unfinished_thread.is_finished()
+        {
+            unfinished_thread.join().unwrap();
+        }
         drop(download_thread_lock);
     }
 
@@ -215,10 +220,6 @@ impl DownloadManagerBuilder {
             && self.download_queue.read().front().unwrap()
                 == &self.current_download_agent.as_ref().unwrap().metadata()
         {
-            debug!(
-                "Current download agent: {:?}",
-                self.current_download_agent.as_ref().unwrap().metadata()
-            );
             return;
         }
 
@@ -325,8 +326,8 @@ impl DownloadManagerBuilder {
 
             self.stop_and_wait_current_download();
             self.remove_and_cleanup_front_download(&current_agent.metadata());
-            self.push_ui_queue_update();
         }
+        self.push_ui_queue_update();
         self.set_status(DownloadManagerStatus::Error);
     }
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {

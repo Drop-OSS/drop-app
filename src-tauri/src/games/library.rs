@@ -14,6 +14,7 @@ use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
 use crate::download_manager::download_manager_frontend::DownloadStatus;
+use crate::error::drop_server_error::DropServerError;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
@@ -89,7 +90,10 @@ pub async fn fetch_library_logic(
         .await?;
 
     if response.status() != 200 {
-        let err = response.json().await.unwrap();
+        let err = response.json().await.unwrap_or(DropServerError {
+            status_code: 500,
+            status_message: "Invalid response from server.".to_owned(),
+        });
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
@@ -358,8 +362,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
     db_handle
         .applications
         .transient_statuses
-        .entry(meta.clone())
-        .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
     push_game_update(
         app_handle,
@@ -393,8 +396,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         db_handle
             .applications
             .transient_statuses
-            .entry(meta.clone())
-            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+            .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
         drop(db_handle);
 
@@ -412,8 +414,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 db_handle
                     .applications
                     .game_statuses
-                    .entry(meta.id.clone())
-                    .and_modify(|e| *e = GameDownloadStatus::Remote {});
+                    .insert(meta.id.clone(), GameDownloadStatus::Remote {});
                 let _ = db_handle.applications.transient_statuses.remove(&meta);
 
                 push_game_update(
@@ -425,8 +426,6 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
                 debug!("uninstalled game id {}", &meta.id);
                 app_handle.emit("update_library", ()).unwrap();
-
-                drop(db_handle);
             }
         });
     } else {
@@ -499,6 +498,7 @@ pub fn on_game_complete(
         .game_statuses
         .insert(meta.id.clone(), status.clone());
     drop(db_handle);
+
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),
@@ -519,6 +519,12 @@ pub fn push_game_update(
     version: Option<GameVersion>,
     status: GameStatusWithTransient,
 ) {
+    if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
+        &status.0
+        && version.is_none() {
+            panic!("pushed game for installed game that doesn't have version information");
+        }
+
     app_handle
         .emit(
             &format!("update_game/{game_id}"),
