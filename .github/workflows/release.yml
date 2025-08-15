@@ -26,8 +26,8 @@ jobs:
           #  args: ''
           #- platform: 'ubuntu-22.04-arm'
           #  args: '--target aarch64-unknown-linux-gnu'
-          #- platform: 'windows-latest'
-          #  args: ''
+          - platform: 'windows-latest'
+            args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
