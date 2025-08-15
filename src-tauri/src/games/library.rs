@@ -519,16 +519,11 @@ pub fn push_game_update(
     version: Option<GameVersion>,
     status: GameStatusWithTransient,
 ) {
-    if let Some(db_status) = &status.0 {
-        match db_status {
-            GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. } => {
-                if version.is_none() {
-                    panic!("pushed game for installed game that doesn't have version information");
-                }
-            }
-            _ => (),
+    if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
+        &status.0
+        && version.is_none() {
+            panic!("pushed game for installed game that doesn't have version information");
         }
-    }
 
     app_handle
         .emit(
