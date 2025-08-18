@@ -1,3 +1,10 @@
+use std::{
+    ffi::OsStr,
+    path::PathBuf,
+    process::{Command, Stdio},
+    sync::LazyLock,
+};
+
 use log::debug;
 
 use crate::{
@@ -24,7 +31,31 @@ impl ProcessHandler for NativeGameLauncher {
     }
 }
 
-pub const UMU_LAUNCHER_EXECUTABLE: &str = "umu-run";
+pub static UMU_LAUNCHER_EXECUTABLE: LazyLock<PathBuf> = LazyLock::new(|| {
+    let x = get_umu_executable();
+    println!("{:?}", &x);
+    x
+});
+const UMU_BASE_LAUNCHER_EXECUTABLE: &str = "umu-run";
+const UMU_INSTALL_DIRS: [&str; 4] = ["/app/share", "/use/local/share", "/usr/share", "/opt"];
+
+fn get_umu_executable() -> PathBuf {
+    if check_executable_exists(UMU_BASE_LAUNCHER_EXECUTABLE) {
+        return PathBuf::from(UMU_BASE_LAUNCHER_EXECUTABLE);
+    }
+
+    for dir in UMU_INSTALL_DIRS {
+        let p = PathBuf::from(dir).join(UMU_BASE_LAUNCHER_EXECUTABLE);
+        if check_executable_exists(&p) {
+            return p;
+        }
+    }
+    PathBuf::new()
+}
+fn check_executable_exists<P: AsRef<OsStr>>(exec: P) -> bool {
+    let has_umu_installed = Command::new(exec).stdout(Stdio::null()).spawn();
+    has_umu_installed.is_ok()
+}
 pub struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn create_launch_process(
@@ -47,8 +78,8 @@ impl ProcessHandler for UMULauncher {
             None => game_version.game_id.clone(),
         };
         format!(
-            "GAMEID={game_id} {umu} \"{launch}\" {args}",
-            umu = UMU_LAUNCHER_EXECUTABLE,
+            "GAMEID={game_id} {umu:?} \"{launch}\" {args}",
+            umu = &*UMU_LAUNCHER_EXECUTABLE,
             launch = launch_command,
             args = args.join(" ")
         )
@@ -80,7 +111,10 @@ impl ProcessHandler for AsahiMuvmLauncher {
             game_version,
             current_dir,
         );
-        let mut args_cmd = umu_string.split("umu-run").collect::<Vec<&str>>().into_iter();
+        let mut args_cmd = umu_string
+            .split("umu-run")
+            .collect::<Vec<&str>>()
+            .into_iter();
         let args = args_cmd.next().unwrap().trim();
         let cmd = format!("umu-run{}", args_cmd.next().unwrap());
 
