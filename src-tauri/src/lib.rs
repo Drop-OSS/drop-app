@@ -64,8 +64,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::panic::PanicHookInfo;
-use std::path::Path;
-use std::process::{Command, Stdio};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -110,13 +109,7 @@ fn create_new_compat_info() -> Option<CompatInfo> {
     #[cfg(target_os = "windows")]
     return None;
 
-    let has_umu_installed = Command::new(UMU_LAUNCHER_EXECUTABLE)
-        .stdout(Stdio::null())
-        .spawn();
-    if let Err(umu_error) = &has_umu_installed {
-        warn!("disabling windows support with error: {umu_error}");
-    }
-    let has_umu_installed = has_umu_installed.is_ok();
+    let has_umu_installed = *UMU_LAUNCHER_EXECUTABLE == PathBuf::new();
     Some(CompatInfo {
         umu_installed: has_umu_installed,
     })
