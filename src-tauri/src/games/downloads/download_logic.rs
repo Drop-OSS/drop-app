@@ -172,7 +172,7 @@ pub fn download_game_bucket(
         let raw_res = response.text().map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
-        info!("{}", raw_res);
+        info!("{raw_res}");
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
@@ -196,8 +196,7 @@ pub fn download_game_bucket(
         let length = raw_length.parse::<usize>().unwrap_or(0);
         let Some(drop) = bucket.drops.get(i) else {
             warn!(
-                "invalid number of Content-Lengths recieved: {}, {}",
-                i, lengths
+                "invalid number of Content-Lengths recieved: {i}, {lengths}"
             );
             return Err(ApplicationDownloadError::DownloadError);
         };
