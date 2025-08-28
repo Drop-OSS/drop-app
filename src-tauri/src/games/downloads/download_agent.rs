@@ -22,9 +22,8 @@ use crate::remote::requests::generate_url;
 use crate::remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
-use serde_json::json;
 use std::collections::{HashMap, HashSet};
-use std::fs::{self, create_dir_all, OpenOptions};
+use std::fs::{create_dir_all, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -368,8 +367,7 @@ impl GameDownloadAgent {
             .iter()
             .map(|e| &e.version)
             .collect::<HashSet<_>>()
-            .into_iter()
-            .map(|e| e.clone())
+            .into_iter().cloned()
             .collect::<Vec<String>>();
 
         info!("downloading across these versions: {versions:?}");
