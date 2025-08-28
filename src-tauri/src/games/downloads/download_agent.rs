@@ -330,8 +330,6 @@ impl GameDownloadAgent {
 
         info!("buckets: {}", buckets.len());
 
-        fs::write("./debug.json", serde_json::to_string(&buckets).unwrap()).unwrap();
-
         let existing_contexts = self.dropdata.get_contexts();
         self.dropdata.set_contexts(
             &buckets
