@@ -17,8 +17,13 @@ use crate::DB;
 
 use super::models::data::Database;
 
+#[cfg(not(debug_assertions))]
+static DATA_ROOT_PREFIX: &'static str = "drop";
+#[cfg(debug_assertions)]
+static DATA_ROOT_PREFIX: &'static str = "drop-debug";
+
 pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> =
-    LazyLock::new(|| Arc::new(dirs::data_dir().unwrap().join("drop")));
+    LazyLock::new(|| Arc::new(dirs::data_dir().unwrap().join(DATA_ROOT_PREFIX)));
 
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]
