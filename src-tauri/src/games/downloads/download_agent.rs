@@ -636,7 +636,7 @@ impl Downloadable for GameDownloadAgent {
             .emit("download_error", error.to_string())
             .unwrap();
 
-        error!("error while managing download: {error}");
+        error!("error while managing download: {error:?}");
 
         let mut handle = borrow_db_mut_checked();
         handle

@@ -113,7 +113,10 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             }
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
-                self.source.read_exact(&mut copy_buffer[0..size])?;
+                self.source.read_exact(&mut copy_buffer[0..size]).map_err(|e| {
+                    info!("got error from {}", drop.filename);
+                    e
+                })?;
                 remaining -= size;
 
                 destination.write_all(&copy_buffer[0..size])?;
@@ -121,6 +124,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 if remaining == 0 {
                     break;
                 };
+
             }
 
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
