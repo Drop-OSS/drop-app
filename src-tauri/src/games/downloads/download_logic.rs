@@ -9,7 +9,7 @@ use crate::games::downloads::manifest::{ChunkBody, DownloadBucket, DownloadConte
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::requests::generate_url;
 use crate::remote::utils::DROP_CLIENT_SYNC;
-use log::{info, warn};
+use log::{debug, info, warn};
 use md5::{Context, Digest};
 use reqwest::blocking::Response;
 
@@ -18,6 +18,7 @@ use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
+use std::time::Instant;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -80,6 +81,8 @@ pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
     pub drops: Vec<DownloadDrop>,
     pub destination: Vec<DropWriter<W>>,
     pub control_flag: &'a DownloadThreadControl,
+    #[allow(dead_code)]
+    progress: ProgressHandle,
 }
 
 impl<'a> DropDownloadPipeline<'a, Response, File> {
@@ -97,6 +100,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                 .try_collect()?,
             drops,
             control_flag,
+            progress,
         })
     }
 
@@ -115,12 +119,10 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             let mut last_bump = 0;
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
-                self.source
-                    .read_exact(&mut copy_buffer[0..size])
-                    .map_err(|e| {
-                        info!("got error from {}", drop.filename);
-                        e
-                    })?;
+                let size = self.source.read(&mut copy_buffer[0..size]).map_err(|e| {
+                    info!("got error from {}", drop.filename);
+                    e
+                })?;
                 remaining -= size;
                 last_bump += size;
 
@@ -146,6 +148,13 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         Ok(true)
     }
 
+    #[allow(dead_code)]
+    fn debug_skip_checksum(self) {
+        self.destination
+            .into_iter()
+            .for_each(|mut e| e.flush().unwrap());
+    }
+
     fn finish(self) -> Result<Vec<Digest>, io::Error> {
         let checksums = self
             .destination
@@ -167,6 +176,8 @@ pub fn download_game_bucket(
         progress.set(0);
         return Ok(false);
     }
+
+    let start = Instant::now();
 
     let header = generate_authorization_header();
 
@@ -221,6 +232,10 @@ pub fn download_game_bucket(
             return Err(ApplicationDownloadError::DownloadError);
         }
     }
+
+    let timestep = start.elapsed().as_millis();
+
+    debug!("took {}ms to start downloading", timestep);
 
     let mut pipeline =
         DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)

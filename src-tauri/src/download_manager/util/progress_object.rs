@@ -23,7 +23,7 @@ pub struct ProgressObject {
     //last_update: Arc<RwLock<Instant>>,
     last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
-    rolling: RollingProgressWindow<1>,
+    rolling: RollingProgressWindow<1000>,
 }
 
 #[derive(Clone)]
@@ -120,7 +120,7 @@ pub fn calculate_update(progress: &ProgressObject) {
     let last_update_time = progress
         .last_update_time
         .swap(Instant::now(), Ordering::SeqCst);
-    let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis();
+    let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis_f64();
 
     let current_bytes_downloaded = progress.sum();
     let max = progress.get_max();
@@ -128,17 +128,17 @@ pub fn calculate_update(progress: &ProgressObject) {
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Acquire);
 
-    let bytes_since_last_update = current_bytes_downloaded.saturating_sub(bytes_at_last_update);
+    let bytes_since_last_update = current_bytes_downloaded.saturating_sub(bytes_at_last_update) as f64;
 
-    let kilobytes_per_second = bytes_since_last_update / (time_since_last_update as usize).max(1);
+    let kilobytes_per_second = bytes_since_last_update / time_since_last_update;
 
     let bytes_remaining = max.saturating_sub(current_bytes_downloaded); // bytes
 
-    progress.update_window(kilobytes_per_second);
+    progress.update_window(kilobytes_per_second as usize);
     push_update(progress, bytes_remaining);
 }
 
-#[throttle(1, Duration::from_millis(500))]
+#[throttle(1, Duration::from_millis(250))]
 pub fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
     let average_speed = progress.rolling.get_average();
     let time_remaining = (bytes_remaining / 1000) / average_speed.max(1);

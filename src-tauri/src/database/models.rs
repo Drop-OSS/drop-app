@@ -6,7 +6,7 @@
  * WE CAN'T DELETE ANY FIELDS
  */
 pub mod data {
-    use std::path::PathBuf;
+    use std::{hash::Hash, path::PathBuf};
 
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
@@ -18,12 +18,27 @@ pub mod data {
 
     pub type GameDownloadStatus = v2::GameDownloadStatus;
     pub type ApplicationTransientStatus = v1::ApplicationTransientStatus;
+    /**
+     * Need to be universally accessible by the ID, and the version is just a couple sprinkles on top
+     */
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
     pub type DatabaseApplications = v2::DatabaseApplications;
     pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
     use std::collections::HashMap;
+
+    impl PartialEq for DownloadableMetadata {
+        fn eq(&self, other: &Self) -> bool {
+            self.id == other.id && self.download_type == other.download_type
+        }
+    }
+    impl Hash for DownloadableMetadata {
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            self.id.hash(state);
+            self.download_type.hash(state);
+        }
+    }
 
     pub mod v1 {
         use crate::process::process_manager::Platform;
@@ -144,7 +159,7 @@ pub mod data {
         }
 
         #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
-        #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone)]
+        #[derive(Debug, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
         #[serde(rename_all = "camelCase")]
         pub struct DownloadableMetadata {
             pub id: String,

@@ -12,7 +12,7 @@ use crate::{
     database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{cache::clear_cached_object, requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
 };
 
 use super::{
@@ -158,6 +158,9 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     state_lock.status = app_status;
     state_lock.user = user;
+
+    let _ = clear_cached_object("collections");
+    let _ = clear_cached_object("library");
 
     drop(state_lock);
 

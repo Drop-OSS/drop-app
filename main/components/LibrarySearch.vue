@@ -54,7 +54,7 @@
             v-for="item in nav.items"
             :key="nav.id"
             :class="[
-              'transition-all duration-300 rounded-lg flex items-center py-2 px-3 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-zinc-950/50',
+              'transition-all duration-300 rounded-lg flex items-center px-1 py-1.5 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-zinc-950/50',
               currentNavigation == item.id
                 ? 'bg-zinc-800 text-zinc-100 shadow-md shadow-zinc-950/20'
                 : item.isInstalled.value
@@ -63,24 +63,24 @@
             ]"
             :href="item.route"
           >
-            <div class="flex items-center w-full gap-x-3">
+            <div class="flex items-center w-full gap-x-2">
               <div
                 class="flex-none transition-transform duration-300 hover:-rotate-2"
               >
                 <img
-                  class="size-6 object-cover bg-zinc-900 rounded-lg transition-all duration-300 shadow-sm"
+                  class="size-6 object-cover bg-zinc-900 rounded transition-all duration-300 shadow-sm"
                   :src="icons[item.id]"
                   alt=""
                 />
               </div>
-              <div class="flex flex-col flex-1">
+              <div class="inline-flex items-center gap-x-2">
                 <p
-                  class="truncate text-xs font-display leading-5 flex-1 font-semibold"
+                  class="text-sm whitespace-nowrap font-display font-semibold"
                 >
                   {{ item.label }}
                 </p>
                 <p
-                  class="text-xs font-medium"
+                  class="truncate text-[10px] font-bold uppercase font-display"
                   :class="[
                     gameStatusTextStyle[games[item.id].status.value.type],
                   ]"
@@ -144,7 +144,7 @@ const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Downloading]: "text-zinc-400",
   [GameStatusEnum.Validating]: "text-blue-300",
   [GameStatusEnum.Running]: "text-green-500",
-  [GameStatusEnum.Remote]: "text-zinc-500",
+  [GameStatusEnum.Remote]: "text-zinc-700",
   [GameStatusEnum.Queued]: "text-zinc-400",
   [GameStatusEnum.Updating]: "text-zinc-400",
   [GameStatusEnum.Uninstalling]: "text-zinc-100",

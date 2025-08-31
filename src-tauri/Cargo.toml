@@ -73,6 +73,9 @@ futures-lite = "2.6.0"
 page_size = "0.6.0"
 sysinfo = "0.36.1"
 humansize = "2.1.3"
+tokio-util = { version = "0.7.16", features = ["io"] }
+futures-core = "0.3.31"
+bytes = "1.10.1"
 # tailscale = { path = "./tailscale" }
 
 [dependencies.dynfmt]
@@ -106,7 +109,15 @@ features = ["other_errors"] # You can also use "yaml_enc" or "bin_enc"
 [dependencies.reqwest]
 version = "0.12.22"
 default-features = false
-features = ["json", "http2", "blocking", "rustls-tls", "native-tls-alpn", "rustls-tls-native-roots"]
+features = [
+    "json",
+    "http2",
+    "blocking",
+    "rustls-tls",
+    "native-tls-alpn",
+    "rustls-tls-native-roots",
+    "stream",
+]
 
 [dependencies.serde]
 version = "1"

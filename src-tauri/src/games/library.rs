@@ -2,6 +2,7 @@ use std::fs::remove_dir_all;
 use std::sync::Mutex;
 use std::thread::spawn;
 
+use log::info;
 use log::{debug, error, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
@@ -528,9 +529,10 @@ pub fn push_game_update(
 ) {
     if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
         &status.0
-        && version.is_none() {
-            panic!("pushed game for installed game that doesn't have version information");
-        }
+        && version.is_none()
+    {
+        panic!("pushed game for installed game that doesn't have version information");
+    }
 
     app_handle
         .emit(

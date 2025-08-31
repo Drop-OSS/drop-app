@@ -32,3 +32,5 @@ listen("update_stats", (event) => {
   const stats = useStatsState();
   stats.value = event.payload as StatsState;
 });
+
+export const useDownloadHistory = () => useState<Array<number>>('history', () => []);
