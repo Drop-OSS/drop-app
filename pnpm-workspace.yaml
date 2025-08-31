@@ -1,0 +1,4 @@
+shamefullyHoist: true
+
+packages:
+  - "main"

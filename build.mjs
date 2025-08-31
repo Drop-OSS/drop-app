@@ -32,11 +32,8 @@ for (const view of views) {
   const loggerChild = logger.child({});
   process.chdir(`./${view}`);
 
-  loggerChild.info(`Install deps for "${view}"`);
-  await spawn("yarn");
-
   loggerChild.info(`Building "${view}"`);
-  await spawn("yarn build", {
+  await spawn("pnpm build", {
     env: { ...process.env, NUXT_APP_BASE_URL: `/${view}/` },
   });
 

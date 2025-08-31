@@ -3,11 +3,14 @@
 Drop app is the companion app for [Drop](https://github.com/Drop-OSS/drop). It uses a Tauri base with Nuxt 3 + TailwindCSS on top of it, so we can re-use components from the web UI.
 
 ## Running
-Before setting up the drop app, be sure that you have a server set up. 
+
+Before setting up the drop app, be sure that you have a server set up.
 The instructions for this can be found on the [Drop Docs](https://docs.droposs.org/docs/guides/quickstart)
 
 ## Current features
+
 Currently supported are the following features:
+
 - Signin (with custom server)
 - Database registering & recovery
 - Dynamic library fetching from server
@@ -17,13 +20,14 @@ Currently supported are the following features:
 
 ## Development
 
-Install dependencies with `yarn`
+Install dependencies with `pnpm`
 
-Run the app in development with `yarn tauri dev`. NVIDIA users on Linux, use shell script `./nvidia-prop-dev.sh`
+Run the app in development with `pnpm tauri dev`. NVIDIA users on Linux, use shell script `./nvidia-prop-dev.sh`
 
-To manually specify the logging level, add the environment variable `RUST_LOG=[debug, info, warn, error]` to `yarn tauri dev`:
+To manually specify the logging level, add the environment variable `RUST_LOG=[debug, info, warn, error]` to `pnpm tauri dev`:
 
-e.g. `RUST_LOG=debug yarn tauri dev`
+e.g. `RUST_LOG=debug pnpm tauri dev`
 
 ## Contributing
-Check the original [Drop repo](https://github.com/Drop-OSS/drop/blob/main/CONTRIBUTING.md) for contributing guidelines. 
+
+Check the original [Drop repo](https://github.com/Drop-OSS/drop/blob/main/CONTRIBUTING.md) for contributing guidelines.

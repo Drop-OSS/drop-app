@@ -4,9 +4,9 @@
   "version": "0.3.1",
   "identifier": "dev.drop.client",
   "build": {
-    "beforeDevCommand": "yarn --cwd main dev --port 1432",
+    "beforeDevCommand": "pnpm --cwd main dev --port 1432",
     "devUrl": "http://localhost:1432/",
-    "beforeBuildCommand": "yarn build",
+    "beforeBuildCommand": "pnpm build",
     "frontendDist": "../.output"
   },
   "app": {
@@ -21,13 +21,21 @@
   "plugins": {
     "deep-link": {
       "desktop": {
-        "schemes": ["drop"]
+        "schemes": [
+          "drop"
+        ]
       }
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "deb", "rpm", "dmg", "appimage"],
+    "targets": [
+      "nsis",
+      "deb",
+      "rpm",
+      "dmg",
+      "appimage"
+    ],
     "windows": {
       "nsis": {
         "installMode": "both"
