@@ -1,14 +1,13 @@
 /**
  * NEXT BREAKING CHANGE
- * 
+ *
  * UPDATE DATABASE TO USE RPMSERDENAMED
- * 
+ *
  * WE CAN'T DELETE ANY FIELDS
  */
 pub mod data {
     use std::path::PathBuf;
 
-    
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
@@ -116,6 +115,7 @@ pub mod data {
         // Stuff that shouldn't be synced to disk
         #[derive(Clone, Serialize, Deserialize, Debug)]
         pub enum ApplicationTransientStatus {
+            Queued { version_name: String },
             Downloading { version_name: String },
             Uninstalling {},
             Updating { version_name: String },
@@ -266,7 +266,7 @@ pub mod data {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
             pub game_statuses: HashMap<String, GameDownloadStatus>,
-            
+
             pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
             pub installed_game_version: HashMap<String, DownloadableMetadata>,
 

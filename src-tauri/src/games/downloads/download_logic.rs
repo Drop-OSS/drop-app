@@ -25,6 +25,7 @@ use std::{
 };
 
 static MAX_PACKET_LENGTH: usize = 4096 * 4;
+static BUMP_SIZE: usize = 4096 * 16;
 
 pub struct DropWriter<W: Write> {
     hasher: Context,
@@ -111,20 +112,30 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             if drop.start != 0 {
                 destination.seek(SeekFrom::Start(drop.start.try_into().unwrap()))?;
             }
+            let mut last_bump = 0;
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
-                self.source.read_exact(&mut copy_buffer[0..size]).map_err(|e| {
-                    info!("got error from {}", drop.filename);
-                    e
-                })?;
+                self.source
+                    .read_exact(&mut copy_buffer[0..size])
+                    .map_err(|e| {
+                        info!("got error from {}", drop.filename);
+                        e
+                    })?;
                 remaining -= size;
+                last_bump += size;
 
                 destination.write_all(&copy_buffer[0..size])?;
+
+                if last_bump > BUMP_SIZE {
+                    last_bump -= BUMP_SIZE;
+                    if self.control_flag.get() == DownloadThreadControlFlag::Stop {
+                        return Ok(false);
+                    }
+                }
 
                 if remaining == 0 {
                     break;
                 };
-
             }
 
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -199,9 +210,7 @@ pub fn download_game_bucket(
     for (i, raw_length) in lengths.split(",").enumerate() {
         let length = raw_length.parse::<usize>().unwrap_or(0);
         let Some(drop) = bucket.drops.get(i) else {
-            warn!(
-                "invalid number of Content-Lengths recieved: {i}, {lengths}"
-            );
+            warn!("invalid number of Content-Lengths recieved: {i}, {lengths}");
             return Err(ApplicationDownloadError::DownloadError);
         };
         if drop.length != length {

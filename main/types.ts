@@ -37,7 +37,7 @@ export type Game = {
   mImageCarouselObjectIds: string[];
 };
 
-export type COllection = {
+export type Collection = {
   id: string;
   name: string;
   isDefault: boolean;

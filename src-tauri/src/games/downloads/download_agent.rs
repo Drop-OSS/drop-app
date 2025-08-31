@@ -23,7 +23,7 @@ use crate::remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use std::collections::{HashMap, HashSet};
-use std::fs::{create_dir_all, OpenOptions};
+use std::fs::{OpenOptions, create_dir_all};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -367,7 +367,8 @@ impl GameDownloadAgent {
             .iter()
             .map(|e| &e.version)
             .collect::<HashSet<_>>()
-            .into_iter().cloned()
+            .into_iter()
+            .cloned()
             .collect::<Vec<String>>();
 
         info!("downloading across these versions: {versions:?}");
@@ -626,8 +627,22 @@ impl Downloadable for GameDownloadAgent {
         }
     }
 
-    fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
+    fn on_queued(&self, app_handle: &tauri::AppHandle) {
         *self.status.lock().unwrap() = DownloadStatus::Queued;
+        let mut db_lock = borrow_db_mut_checked();
+        let status = ApplicationTransientStatus::Queued {
+            version_name: self.version.clone(),
+        };
+        db_lock
+            .applications
+            .transient_statuses
+            .insert(self.metadata(), status.clone());
+        push_game_update(
+            app_handle,
+            &self.id,
+            None,
+            (None, Some(status)),
+        );
     }
 
     fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
@@ -662,15 +677,8 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
+        info!("cancelled {}", self.id);
         self.cancel(app_handle);
-        /*
-           on_game_incomplete(
-               &self.metadata(),
-               self.dropdata.base_path.to_string_lossy().to_string(),
-               app_handle,
-           )
-           .unwrap();
-        */
     }
 
     fn status(&self) -> DownloadStatus {
