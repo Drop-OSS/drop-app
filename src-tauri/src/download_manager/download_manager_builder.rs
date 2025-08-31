@@ -333,7 +333,7 @@ impl DownloadManagerBuilder {
             current_agent.on_error(&self.app_handle, &error);
 
             self.stop_and_wait_current_download();
-            self.remove_and_cleanup_front_download(&metadata);
+            self.remove_and_cleanup_front_download(metadata);
         }
         self.push_ui_queue_update();
         self.set_status(DownloadManagerStatus::Error);
@@ -343,7 +343,7 @@ impl DownloadManagerBuilder {
 
         // If the current download is the one we're tryna cancel
         if let Some(current_metadata) = self.download_queue.read().front()
-            && &current_metadata == &meta
+            && current_metadata == meta
             && let Some(current_download) = self.download_agent_registry.get(current_metadata)
         {
             self.set_status(DownloadManagerStatus::Paused);

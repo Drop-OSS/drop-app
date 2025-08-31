@@ -119,9 +119,8 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             let mut last_bump = 0;
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
-                let size = self.source.read(&mut copy_buffer[0..size]).map_err(|e| {
+                let size = self.source.read(&mut copy_buffer[0..size]).inspect_err(|_| {
                     info!("got error from {}", drop.filename);
-                    e
                 })?;
                 remaining -= size;
                 last_bump += size;

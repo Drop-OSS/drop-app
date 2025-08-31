@@ -20,7 +20,7 @@ use super::models::data::Database;
 #[cfg(not(debug_assertions))]
 static DATA_ROOT_PREFIX: &'static str = "drop";
 #[cfg(debug_assertions)]
-static DATA_ROOT_PREFIX: &'static str = "drop-debug";
+static DATA_ROOT_PREFIX: &str = "drop-debug";
 
 pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> =
     LazyLock::new(|| Arc::new(dirs::data_dir().unwrap().join(DATA_ROOT_PREFIX)));

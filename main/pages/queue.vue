@@ -15,7 +15,7 @@
         <div
           v-for="bar in speedHistory"
           :style="{ height: `${(bar / speedMax) * 100}%` }"
-          class="w-[4px] bg-blue-500 rounded-t-full"
+          class="w-[3px] bg-blue-600 rounded-t-full"
         />
       </div>
     </div>
@@ -106,7 +106,7 @@ window.addEventListener("resize", (event) => {
 const queue = useQueueState();
 const stats = useStatsState();
 const speedHistory = useDownloadHistory();
-const speedHistoryMax = computed(() => windowWidth.value / 5);
+const speedHistoryMax = computed(() => windowWidth.value / 4);
 const speedMax = computed(
   () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.1
 );

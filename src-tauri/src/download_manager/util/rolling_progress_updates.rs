@@ -31,8 +31,8 @@ impl<const S: usize> RollingProgressWindow<S> {
             .collect::<Vec<usize>>();
         let amount = valid.len();
         let sum = valid.into_iter().sum::<usize>();
-        let total = sum / amount;
-        total
+        
+        sum / amount
     }
     pub fn reset(&self) {
         self.window
