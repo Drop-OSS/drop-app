@@ -130,7 +130,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
     let code = auth_initiate_logic("code".to_string())?;
     let header_code = code.clone();
 
-    println!("using code: {} to sign in", code);
+    println!("using code: {code} to sign in");
 
     tauri::async_runtime::spawn(async move {
         let load = async || -> Result<(), RemoteAccessError> {

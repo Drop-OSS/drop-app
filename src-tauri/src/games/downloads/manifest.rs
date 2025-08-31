@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 // Drops go in buckets
 pub struct DownloadDrop {
     pub index: usize,
@@ -14,7 +14,7 @@ pub struct DownloadDrop {
     pub permissions: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct DownloadBucket {
     pub game_id: String,
     pub version: String,

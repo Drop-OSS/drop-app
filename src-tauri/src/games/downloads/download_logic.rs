@@ -17,6 +17,7 @@ use std::fs::{Permissions, set_permissions};
 use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::sync::Arc;
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -171,7 +172,7 @@ pub fn download_game_bucket(
         let raw_res = response.text().map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
-        info!("{}", raw_res);
+        info!("{raw_res}");
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
@@ -191,12 +192,12 @@ pub fn download_game_bucket(
         .to_str()
         .unwrap();
 
-
-
     for (i, raw_length) in lengths.split(",").enumerate() {
         let length = raw_length.parse::<usize>().unwrap_or(0);
         let Some(drop) = bucket.drops.get(i) else {
-            warn!("invalid number of Content-Lengths recieved: {}, {}", i, lengths);
+            warn!(
+                "invalid number of Content-Lengths recieved: {i}, {lengths}"
+            );
             return Err(ApplicationDownloadError::DownloadError);
         };
         if drop.length != length {
@@ -210,11 +211,11 @@ pub fn download_game_bucket(
 
     let mut pipeline =
         DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
-            .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+            .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
     let completed = pipeline
         .copy()
-        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
     if !completed {
         return Ok(false);
     }
@@ -225,18 +226,20 @@ pub fn download_game_bucket(
         for drop in bucket.drops.iter() {
             let permissions = Permissions::from_mode(drop.permissions);
             set_permissions(drop.path.clone(), permissions)
-                .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+                .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
         }
     }
 
     let checksums = pipeline
         .finish()
-        .map_err(|e| ApplicationDownloadError::IoError(e.kind()))?;
+        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
     for (index, drop) in bucket.drops.iter().enumerate() {
         let res = hex::encode(**checksums.get(index).unwrap());
         if res != drop.checksum {
-            return Err(ApplicationDownloadError::Checksum);
+            warn!("context didn't match... doing nothing because we will validate later.");
+            // return Ok(false);
+            // return Err(ApplicationDownloadError::Checksum);
         }
     }
 

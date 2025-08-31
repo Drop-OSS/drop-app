@@ -23,6 +23,7 @@ pub enum RemoteAccessError {
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,
     Cache(std::io::Error),
+    CorruptedState,
 }
 
 impl Display for RemoteAccessError {
@@ -81,6 +82,10 @@ impl Display for RemoteAccessError {
                 "server's and client's time are out of sync. Please ensure they are within at least 30 seconds of each other"
             ),
             RemoteAccessError::Cache(error) => write!(f, "Cache Error: {error}"),
+            RemoteAccessError::CorruptedState => write!(
+                f,
+                "Drop encountered a corrupted internal state. Please report this to the developers, with details of reproduction."
+            ),
         }
     }
 }

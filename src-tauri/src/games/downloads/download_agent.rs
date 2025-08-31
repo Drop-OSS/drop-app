@@ -22,8 +22,8 @@ use crate::remote::requests::generate_url;
 use crate::remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
-use std::collections::HashMap;
-use std::fs::{OpenOptions, create_dir_all};
+use std::collections::{HashMap, HashSet};
+use std::fs::{create_dir_all, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
@@ -242,12 +242,8 @@ impl GameDownloadAgent {
 
         let mut buckets = Vec::new();
 
-        let mut current_bucket = DownloadBucket {
-            game_id: game_id.clone(),
-            version: self.version.clone(),
-            drops: Vec::new(),
-        };
-        let mut current_bucket_size = 0;
+        let mut current_buckets = HashMap::<String, DownloadBucket>::new();
+        let mut current_bucket_sizes = HashMap::<String, usize>::new();
 
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
@@ -282,28 +278,41 @@ impl GameDownloadAgent {
 
                     buckets.push(DownloadBucket {
                         game_id: game_id.clone(),
-                        version: self.version.clone(),
+                        version: chunk.version_name.clone(),
                         drops: vec![drop],
                     });
 
                     continue;
                 }
 
-                if current_bucket_size + *length >= TARGET_BUCKET_SIZE
+                let current_bucket_size = current_bucket_sizes
+                    .entry(chunk.version_name.clone())
+                    .or_insert_with(|| 0);
+                let c_version_name = chunk.version_name.clone();
+                let c_game_id = game_id.clone();
+                let current_bucket = current_buckets
+                    .entry(chunk.version_name.clone())
+                    .or_insert_with(|| DownloadBucket {
+                        game_id: c_game_id,
+                        version: c_version_name,
+                        drops: vec![],
+                    });
+
+                if *current_bucket_size + length >= TARGET_BUCKET_SIZE
                     && !current_bucket.drops.is_empty()
                 {
                     // Move current bucket into list and make a new one
-                    buckets.push(current_bucket);
-                    current_bucket = DownloadBucket {
+                    buckets.push(current_bucket.clone());
+                    *current_bucket = DownloadBucket {
                         game_id: game_id.clone(),
-                        version: self.version.clone(),
-                        drops: Vec::new(),
+                        version: chunk.version_name.clone(),
+                        drops: vec![],
                     };
-                    current_bucket_size = 0;
+                    *current_bucket_size = 0;
                 }
 
                 current_bucket.drops.push(drop);
-                current_bucket_size += *length;
+                *current_bucket_size += *length;
             }
 
             #[cfg(target_os = "linux")]
@@ -312,8 +321,10 @@ impl GameDownloadAgent {
             }
         }
 
-        if !current_bucket.drops.is_empty() {
-            buckets.push(current_bucket);
+        for (_, bucket) in current_buckets.into_iter() {
+            if !bucket.drops.is_empty() {
+                buckets.push(bucket);
+            }
         }
 
         info!("buckets: {}", buckets.len());
@@ -348,27 +359,46 @@ impl GameDownloadAgent {
             .build()
             .unwrap();
 
+        let buckets = self.buckets.lock().unwrap();
+
+        let mut download_contexts = HashMap::<String, DownloadContext>::new();
+
+        let versions = buckets
+            .iter()
+            .map(|e| &e.version)
+            .collect::<HashSet<_>>()
+            .into_iter().cloned()
+            .collect::<Vec<String>>();
+
+        info!("downloading across these versions: {versions:?}");
+
         let completed_contexts = Arc::new(boxcar::Vec::new());
         let completed_indexes_loop_arc = completed_contexts.clone();
 
-        let download_context = DROP_CLIENT_SYNC
-            .post(generate_url(&["/api/v2/client/context"], &[]).unwrap())
-            .json(&ManifestBody {
-                game: self.id.clone(),
-                version: self.version.clone(),
-            })
-            .header("Authorization", generate_authorization_header())
-            .send()?;
+        for version in versions {
+            let download_context = DROP_CLIENT_SYNC
+                .post(generate_url(&["/api/v2/client/context"], &[]).unwrap())
+                .json(&ManifestBody {
+                    game: self.id.clone(),
+                    version: version.clone(),
+                })
+                .header("Authorization", generate_authorization_header())
+                .send()?;
 
-        if download_context.status() != 200 {
-            return Err(RemoteAccessError::InvalidResponse(download_context.json()?));
+            if download_context.status() != 200 {
+                return Err(RemoteAccessError::InvalidResponse(download_context.json()?));
+            }
+
+            let download_context = download_context.json::<DownloadContext>()?;
+            info!(
+                "download context: ({}) {}",
+                &version, download_context.context
+            );
+            download_contexts.insert(version, download_context);
         }
 
-        let download_context = &download_context.json::<DownloadContext>()?;
+        let download_contexts = &download_contexts;
 
-        info!("download context: {}", download_context.context);
-
-        let buckets = self.buckets.lock().unwrap();
         pool.scope(|scope| {
             let context_map = self.context_map.lock().unwrap();
             for (index, bucket) in buckets.iter().enumerate() {
@@ -399,6 +429,11 @@ impl GameDownloadAgent {
                 bucket.drops = todo_drops;
 
                 let sender = self.sender.clone();
+
+                let download_context = download_contexts
+                    .get(&bucket.version)
+                    .ok_or(RemoteAccessError::CorruptedState)
+                    .unwrap();
 
                 scope.spawn(move |_| {
                     // 3 attempts
@@ -484,19 +519,16 @@ impl GameDownloadAgent {
 
         self.control_flag.set(DownloadThreadControlFlag::Go);
 
+        let status = ApplicationTransientStatus::Validating {
+            version_name: self.version.clone(),
+        };
+
         let mut db_lock = borrow_db_mut_checked();
-        db_lock.applications.transient_statuses.insert(
-            self.metadata(),
-            ApplicationTransientStatus::Validating {
-                version_name: self.version.clone(),
-            },
-        );
-        push_game_update(
-            app_handle,
-            &self.metadata().id,
-            None,
-            GameStatusManager::fetch_state(&self.metadata().id, &db_lock),
-        );
+        db_lock
+            .applications
+            .transient_statuses
+            .insert(self.metadata(), status.clone());
+        push_game_update(app_handle, &self.metadata().id, None, (None, Some(status)));
     }
 
     pub fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
