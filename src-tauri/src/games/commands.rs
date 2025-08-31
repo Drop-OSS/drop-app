@@ -27,12 +27,14 @@ use super::{
 #[tauri::command]
 pub async fn fetch_library(
     state: tauri::State<'_, Mutex<AppState<'_>>>,
+    hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     offline!(
         state,
         fetch_library_logic,
         fetch_library_logic_offline,
-        state
+        state,
+        hard_refresh
     ).await
 }
 

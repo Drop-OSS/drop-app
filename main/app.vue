@@ -1,5 +1,5 @@
 <template>
-  <LoadingIndicator />
+    <NuxtLoadingIndicator color="#2563eb" />
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
     <ModalStack />
