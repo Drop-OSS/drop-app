@@ -20,7 +20,7 @@ pub mod data {
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
     pub type DatabaseApplications = v2::DatabaseApplications;
-    pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
+    // pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
     use std::collections::HashMap;
 

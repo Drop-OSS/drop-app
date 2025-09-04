@@ -8,7 +8,6 @@ use std::{
 
 use chrono::Utc;
 use log::{debug, error, info, warn};
-use native_model::{Decode, Encode};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{Serialize, de::DeserializeOwned};
 use url::Url;
