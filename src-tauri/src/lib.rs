@@ -14,6 +14,7 @@ mod download_manager;
 mod error;
 mod process;
 mod remote;
+mod utils;
 
 use crate::database::scan::scan_install_dirs;
 use crate::process::commands::open_process_logs;

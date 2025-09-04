@@ -14,6 +14,7 @@ use crate::{
     AppState, AppStatus,
     database::db::{DATA_ROOT_DIR, borrow_db_mut_checked},
     error::remote_access_error::RemoteAccessError,
+    state_lock,
 };
 
 #[derive(Deserialize)]
@@ -37,16 +38,40 @@ fn fetch_certificates() -> Vec<Certificate> {
                 match entry {
                     Ok(c) => {
                         let mut buf = Vec::new();
-                        File::open(c.path()).unwrap().read_to_end(&mut buf).unwrap();
-
-                        for cert in Certificate::from_pem_bundle(&buf).unwrap() {
-                            certs.push(cert);
+                        match File::open(c.path()) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                warn!(
+                                    "Failed to open file at {} with error {}",
+                                    c.path().display(),
+                                    e
+                                );
+                                continue;
+                            }
                         }
-                        info!(
-                            "added {} certificate(s) from {}",
-                            certs.len(),
-                            c.file_name().into_string().unwrap()
-                        );
+                        .read_to_end(&mut buf)
+                        .expect(&format!(
+                            "Failed to read to end of certificate file {}",
+                            c.path().display()
+                        ));
+
+                        match Certificate::from_pem_bundle(&buf) {
+                            Ok(certificates) => {
+                                for cert in certificates {
+                                    certs.push(cert);
+                                }
+                                info!(
+                                    "added {} certificate(s) from {}",
+                                    certs.len(),
+                                    c.file_name().display()
+                                );
+                            }
+                            Err(e) => warn!(
+                                "Invalid certificate file {} with error {}",
+                                c.path().display(),
+                                e
+                            ),
+                        }
                     }
                     Err(_) => todo!(),
                 }
@@ -65,7 +90,7 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
     for cert in DROP_CERT_BUNDLE.iter() {
         client = client.add_root_certificate(cert.clone());
     }
-    client.use_rustls_tls().build().unwrap()
+    client.use_rustls_tls().build().expect("Failed to build synchronous client")
 }
 pub fn get_client_async() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
@@ -73,7 +98,7 @@ pub fn get_client_async() -> reqwest::Client {
     for cert in DROP_CERT_BUNDLE.iter() {
         client = client.add_root_certificate(cert.clone());
     }
-    client.use_rustls_tls().build().unwrap()
+    client.use_rustls_tls().build().expect("Failed to build asynchronous client")
 }
 pub fn get_client_ws() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
@@ -81,7 +106,11 @@ pub fn get_client_ws() -> reqwest::Client {
     for cert in DROP_CERT_BUNDLE.iter() {
         client = client.add_root_certificate(cert.clone());
     }
-    client.use_rustls_tls().http1_only().build().unwrap()
+    client
+        .use_rustls_tls()
+        .http1_only()
+        .build()
+        .expect("Failed to build websocket client")
 }
 
 pub async fn use_remote_logic(
@@ -107,7 +136,7 @@ pub async fn use_remote_logic(
         return Err(RemoteAccessError::InvalidEndpoint);
     }
 
-    let mut app_state = state.lock().unwrap();
+    let mut app_state = state_lock!(state);
     app_state.status = AppStatus::SignedOut;
     drop(app_state);
 
