@@ -4,6 +4,7 @@
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
 #![deny(clippy::all)]
+#![deny(clippy::unwrap_used)]
 
 mod database;
 mod games;
@@ -45,7 +46,7 @@ use games::commands::{
 };
 use games::downloads::commands::download_game;
 use games::library::{Game, update_game_configuration};
-use log::{LevelFilter, debug, info, warn};
+use log::{LevelFilter, debug, info, warn, error};
 use log4rs::Config;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -137,7 +138,7 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
         )))
         .append(false)
         .build(DATA_ROOT_DIR.join("./drop.log"))
-        .unwrap();
+        .expect("Failed to setup logfile");
 
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
@@ -157,9 +158,9 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
                 .appenders(vec!["logfile", "console"])
                 .build(LevelFilter::from_str(&log_level).expect("Invalid log level")),
         )
-        .unwrap();
+        .expect("Failed to build config");
 
-    log4rs::init_config(config).unwrap();
+    log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
@@ -370,42 +371,57 @@ pub fn run() {
                 .shadow(false)
                 .data_directory(DATA_ROOT_DIR.join(".webview"))
                 .build()
-                .unwrap();
+                .expect("Failed to build main window");
 
                 app.deep_link().on_open_url(move |event| {
                     debug!("handling drop:// url");
                     let binding = event.urls();
-                    let url = binding.first().unwrap();
-                    if url.host_str().unwrap() == "handshake" {
-                        tauri::async_runtime::spawn(recieve_handshake(
-                            handle.clone(),
-                            url.path().to_string(),
-                        ));
+                    let url = match binding.first() {
+                        Some(url) => url,
+                        None => {
+                            warn!("No value recieved from deep link. Is this a drop server?");
+                            return;
+                        }
+                    };
+                    if let Some("handshake") = url.host_str() {
+                            tauri::async_runtime::spawn(recieve_handshake(
+                                handle.clone(),
+                                url.path().to_string(),
+                            ));
                     }
                 });
+                let open_menu_item = MenuItem::with_id(app, "open", "Open", true, None::<&str>).expect("Failed to generate open menu item");
+                
+                let sep = PredefinedMenuItem::separator(app).expect("Failed to generate menu separator item");
+
+                let quit_menu_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).expect("Failed to generate quit menu item");
 
                 let menu = Menu::with_items(
                     app,
                     &[
-                        &MenuItem::with_id(app, "open", "Open", true, None::<&str>).unwrap(),
-                        &PredefinedMenuItem::separator(app).unwrap(),
+                        &open_menu_item,
+                        &sep,
                         /*
                         &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
                         &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
                         &PredefinedMenuItem::separator(app)?,
                          */
-                        &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap(),
+                        &quit_menu_item,
                     ],
                 )
-                .unwrap();
+                .expect("Failed to generate menu");
 
                 run_on_tray(|| {
                     TrayIconBuilder::new()
-                        .icon(app.default_window_icon().unwrap().clone())
+                        .icon(app.default_window_icon().expect("Failed to get default window icon").clone())
                         .menu(&menu)
                         .on_menu_event(|app, event| match event.id.as_ref() {
                             "open" => {
-                                app.webview_windows().get("main").unwrap().show().unwrap();
+                                app.webview_windows()
+                                    .get("main")
+                                    .expect("Failed to get webview")
+                                    .show()
+                                    .expect("Failed to show window");
                             }
                             "quit" => {
                                 cleanup_and_exit(app, &app.state());
@@ -422,15 +438,19 @@ pub fn run() {
                 {
                     let mut db_handle = borrow_db_mut_checked();
                     if let Some(original) = db_handle.prev_database.take() {
+                        let canonicalised = match original.canonicalize() {
+                            Ok(o) => o,
+                            Err(_) => original,
+                        };
                         warn!(
                             "Database corrupted. Original file at {}",
-                            original.canonicalize().unwrap().to_string_lossy()
+                            canonicalised.display()
                         );
                         app.dialog()
-                            .message(
-                                "Database corrupted. A copy has been saved at: ".to_string()
-                                    + original.to_str().unwrap(),
-                            )
+                            .message(format!(
+                                "Database corrupted. A copy has been saved at: {}",
+                                canonicalised.display()
+                            ))
                             .title("Database corrupted")
                             .show(|_| {});
                     }
@@ -463,7 +483,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 run_on_tray(|| {
-                    window.hide().unwrap();
+                    window.hide().expect("Failed to close window in tray");
                     api.prevent_close();
                 });
             }
