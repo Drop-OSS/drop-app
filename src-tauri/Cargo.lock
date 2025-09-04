@@ -3118,13 +3118,13 @@ dependencies = [
 
 [[package]]
 name = "native_model"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7050d759e3da6673361dddda4f4a743492279dd2c6484a21fbee0a8278620df0"
+version = "0.6.4"
+source = "git+https://github.com/Drop-OSS/native_model.git#a91b422cbd53116df1f20b2459fb3d8257458bfd"
 dependencies = [
  "anyhow",
  "bincode",
  "doc-comment",
+ "log",
  "native_model_macro",
  "rmp-serde",
  "serde",
@@ -3134,10 +3134,10 @@ dependencies = [
 
 [[package]]
 name = "native_model_macro"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1577a0bebf5ed1754e240baf5d9b1845f51e598b20600aa894f55e11cd20cc6c"
+version = "0.6.4"
+source = "git+https://github.com/Drop-OSS/native_model.git#a91b422cbd53116df1f20b2459fb3d8257458bfd"
 dependencies = [
+ "log",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
