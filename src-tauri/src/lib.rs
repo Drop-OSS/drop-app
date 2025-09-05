@@ -20,6 +20,7 @@ use crate::database::scan::scan_install_dirs;
 use crate::process::commands::open_process_logs;
 use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 use crate::remote::commands::auth_initiate_code;
+use crate::remote::fetch_object::fetch_object_wrapper;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
@@ -47,7 +48,7 @@ use games::commands::{
 };
 use games::downloads::commands::download_game;
 use games::library::{Game, update_game_configuration};
-use log::{LevelFilter, debug, info, warn, error};
+use log::{LevelFilter, debug, info, warn};
 use log4rs::Config;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -60,7 +61,6 @@ use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
     sign_out, use_remote,
 };
-use remote::fetch_object::fetch_object;
 use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
@@ -462,7 +462,7 @@ pub fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
             tauri::async_runtime::spawn(async move {
-                fetch_object(request, responder).await;
+                fetch_object_wrapper(request, responder).await;
             });
         })
         .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {

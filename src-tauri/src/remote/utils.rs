@@ -50,9 +50,10 @@ fn fetch_certificates() -> Vec<Certificate> {
                             }
                         }
                         .read_to_end(&mut buf)
-                        .expect(&format!(
-                            "Failed to read to end of certificate file {}",
-                            c.path().display()
+                        .unwrap_or_else(|e| panic!(
+                            "Failed to read to end of certificate file {} with error {}",
+                            c.path().display(),
+                            e
                         ));
 
                         match Certificate::from_pem_bundle(&buf) {

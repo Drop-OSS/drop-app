@@ -7,16 +7,16 @@ use std::{
 
 use crate::{
     database::{db::borrow_db_checked, models::data::Database},
-    error::remote_access_error::RemoteAccessError,
+    error::{cache_error::CacheError, remote_access_error::RemoteAccessError},
 };
 use bitcode::{Decode, DecodeOwned, Encode};
-use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
+use http::{header::{ToStrError, CONTENT_TYPE}, response::Builder as ResponseBuilder, Response};
 
 #[macro_export]
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        async move { if $crate::borrow_db_checked().settings.force_offline || $var.lock().unwrap().status == $crate::AppStatus::Offline {
+        async move { if $crate::borrow_db_checked().settings.force_offline || $crate::state_lock!($var).status == $crate::AppStatus::Offline {
             $func2( $( $arg ), *).await
         } else {
             $func1( $( $arg ), *).await
@@ -87,19 +87,22 @@ impl ObjectCache {
     }
 }
 
-impl From<Response<Vec<u8>>> for ObjectCache {
-    fn from(value: Response<Vec<u8>>) -> Self {
-        ObjectCache {
+impl TryFrom<Response<Vec<u8>>> for ObjectCache {    
+    type Error = CacheError;
+    
+    fn try_from(value: Response<Vec<u8>>) -> Result<Self, Self::Error> {
+        Ok(ObjectCache {
             content_type: value
                 .headers()
                 .get(CONTENT_TYPE)
-                .unwrap()
+                .ok_or(CacheError::HeaderNotFound(CONTENT_TYPE))?
                 .to_str()
-                .unwrap()
+                .map_err(CacheError::ParseError)?
                 .to_owned(),
             body: value.body().clone(),
             expiry: get_sys_time_in_secs() + 60 * 60 * 24,
-        }
+        })
+
     }
 }
 impl From<ObjectCache> for Response<Vec<u8>> {
