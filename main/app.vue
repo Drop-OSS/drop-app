@@ -44,6 +44,10 @@ router.beforeEach(async () => {
 setupHooks();
 initialNavigation(state);
 
+// Setup playtime event listeners
+const { setupEventListeners } = usePlaytime();
+setupEventListeners();
+
 useHead({
   title: "Drop",
 });

@@ -94,3 +94,37 @@ export type Settings = {
   maxDownloadThreads: number;
   forceOffline: boolean;
 };
+
+export type GamePlaytimeStats = {
+  gameId: string;
+  totalPlaytimeSeconds: number;
+  sessionCount: number;
+  firstPlayed: string;
+  lastPlayed: string;
+  averageSessionLength: number;
+  currentSessionDuration?: number;
+};
+
+export type PlaytimeSession = {
+  gameId: string;
+  startTime: string;
+  sessionId: string;
+};
+
+export type PlaytimeUpdateEvent = {
+  gameId: string;
+  stats: GamePlaytimeStats;
+  isActive: boolean;
+};
+
+export type PlaytimeSessionStartEvent = {
+  gameId: string;
+  startTime: string;
+};
+
+export type PlaytimeSessionEndEvent = {
+  gameId: string;
+  sessionDurationSeconds: number;
+  totalPlaytimeSeconds: number;
+  sessionCount: number;
+};

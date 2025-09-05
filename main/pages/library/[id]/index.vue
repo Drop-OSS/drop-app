@@ -18,10 +18,19 @@
     <div class="relative z-10">
       <div class="px-8 pb-4">
         <h1
-          class="text-5xl text-zinc-100 font-bold font-display drop-shadow-lg mb-8"
+          class="text-5xl text-zinc-100 font-bold font-display drop-shadow-lg mb-4"
         >
           {{ game.mName }}
         </h1>
+        
+        <!-- Playtime Display -->
+        <div class="mb-8">
+          <PlaytimeDisplay 
+            :stats="gamePlaytime" 
+            :is-active="isPlaytimeActive"
+            :show-details="true"
+          />
+        </div>
 
         <div class="flex flex-row gap-x-4 items-stretch mb-8">
           <!-- Do not add scale animations to this: https://stackoverflow.com/a/35683068 -->
@@ -60,6 +69,12 @@
           </div>
 
           <div class="space-y-6">
+            <!-- Playtime Statistics -->
+            <PlaytimeStats 
+              :stats="gamePlaytime" 
+              :is-active="isPlaytimeActive"
+            />
+            
             <div class="bg-zinc-800/50 rounded-xl p-6 backdrop-blur-sm">
               <h2 class="text-xl font-display font-semibold text-zinc-100 mb-4">
                 Game Images
@@ -527,6 +542,19 @@ const installDirs = ref<undefined | Array<string>>();
 const currentImageIndex = ref(0);
 
 const configureModalOpen = ref(false);
+
+// Playtime tracking
+const { 
+  getGamePlaytime, 
+  setupGameEventListeners,
+  activeSessions 
+} = usePlaytime();
+
+const gamePlaytime = ref(await getGamePlaytime(id));
+const isPlaytimeActive = computed(() => activeSessions.value.has(id));
+
+// Setup playtime event listeners for this game
+setupGameEventListeners(id);
 
 async function installFlow() {
   installFlowOpen.value = true;
