@@ -11,7 +11,8 @@ pub enum ProcessError {
     IOError(Error),
     FormatError(String), // String errors supremacy
     InvalidPlatform,
-    OpenerError(tauri_plugin_opener::Error)
+    OpenerError(tauri_plugin_opener::Error),
+    PlaytimeError(String),
 }
 
 impl Display for ProcessError {
@@ -25,6 +26,7 @@ impl Display for ProcessError {
             ProcessError::InvalidPlatform => "This game cannot be played on the current platform",
             ProcessError::FormatError(e) => &format!("Failed to format template: {e}"),
             ProcessError::OpenerError(error) => &format!("Failed to open directory: {error}"),
+            ProcessError::PlaytimeError(error) => &format!("Playtime tracking error: {error}"),
                     };
         write!(f, "{s}")
     }

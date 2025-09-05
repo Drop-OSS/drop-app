@@ -29,6 +29,7 @@ use crate::{
     },
     error::process_error::ProcessError,
     games::{library::push_game_update, state::GameStatusManager},
+    playtime::events::{push_session_end, push_playtime_update},
     process::{
         format::DropFormatArgs,
         process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
@@ -393,6 +394,15 @@ impl ProcessManager<'_> {
 
             let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
             let app_state_handle = app_state.lock().unwrap();
+
+            // End playtime tracking before processing finish
+            let playtime_manager_lock = app_state_handle.playtime_manager.lock().unwrap();
+            if let Ok(stats) = playtime_manager_lock.end_session(wait_thread_game_id.id.clone()) {
+                debug!("Ended playtime tracking for game: {} (process finished)", wait_thread_game_id.id);
+                push_session_end(&app_state_handle.app_handle, &wait_thread_game_id.id, &stats);
+                push_playtime_update(&app_state_handle.app_handle, &wait_thread_game_id.id, stats, false);
+            }
+            drop(playtime_manager_lock);
 
             let mut process_manager_handle = app_state_handle.process_manager.lock().unwrap();
             process_manager_handle.on_process_finish(wait_thread_game_id.id, result);
