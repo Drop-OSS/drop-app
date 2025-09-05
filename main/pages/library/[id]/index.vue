@@ -28,7 +28,8 @@
           <PlaytimeDisplay 
             :stats="gamePlaytime" 
             :is-active="isPlaytimeActive"
-            :show-details="true"
+            :show-details="false"
+            :show-active-indicator="false"
           />
         </div>
 
