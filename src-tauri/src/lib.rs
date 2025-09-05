@@ -11,6 +11,7 @@ mod games;
 mod client;
 mod download_manager;
 mod error;
+mod playtime;
 mod process;
 mod remote;
 
@@ -46,6 +47,12 @@ use games::commands::{
 use games::downloads::commands::download_game;
 use games::library::{Game, update_game_configuration};
 use log::{LevelFilter, debug, info, warn};
+use playtime::manager::PlaytimeManager;
+use playtime::commands::{
+    start_playtime_tracking, end_playtime_tracking, fetch_game_playtime, 
+    fetch_all_playtime_stats, is_playtime_session_active, get_active_playtime_sessions,
+    cleanup_orphaned_playtime_sessions
+};
 use log4rs::Config;
 use log4rs::append::console::ConsoleAppender;
 use log4rs::append::file::FileAppender;
@@ -127,7 +134,11 @@ pub struct AppState<'a> {
     #[serde(skip_serializing)]
     process_manager: Arc<Mutex<ProcessManager<'a>>>,
     #[serde(skip_serializing)]
+    playtime_manager: Arc<Mutex<PlaytimeManager>>,
+    #[serde(skip_serializing)]
     compat_info: Option<CompatInfo>,
+    #[serde(skip_serializing)]
+    app_handle: AppHandle,
 }
 
 async fn setup(handle: AppHandle) -> AppState<'static> {
@@ -164,6 +175,7 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
     let games = HashMap::new();
     let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
+    let playtime_manager = Arc::new(Mutex::new(PlaytimeManager::new(handle.clone())));
     let compat_info = create_new_compat_info();
 
     debug!("checking if database is set up");
@@ -178,7 +190,9 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
             games,
             download_manager,
             process_manager,
+            playtime_manager,
             compat_info,
+            app_handle: handle.clone(),
         };
     }
 
@@ -237,13 +251,20 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
         warn!("failed to sync autostart state: {e}");
     }
 
+    // Clean up any orphaned playtime sessions
+    if let Err(e) = playtime_manager.lock().unwrap().cleanup_orphaned_sessions() {
+        warn!("failed to cleanup orphaned playtime sessions: {e}");
+    }
+
     AppState {
         status: app_status,
         user,
         games,
         download_manager,
         process_manager,
+        playtime_manager,
         compat_info,
+        app_handle: handle.clone(),
     }
 }
 
@@ -334,7 +355,15 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
-            open_process_logs
+            open_process_logs,
+            // Playtime tracking
+            start_playtime_tracking,
+            end_playtime_tracking,
+            fetch_game_playtime,
+            fetch_all_playtime_stats,
+            is_playtime_session_active,
+            get_active_playtime_sessions,
+            cleanup_orphaned_playtime_sessions
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
