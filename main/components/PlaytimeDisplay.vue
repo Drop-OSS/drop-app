@@ -17,7 +17,6 @@
       <div v-if="stats.sessionCount > 0">
         Avg: {{ formatPlaytime(stats.averageSessionLength) }} per session
       </div>
-      <div>Last played {{ formatRelativeTime(stats.lastPlayed) }}</div>
       <div v-if="stats.currentSessionDuration">
         Current session: {{ formatPlaytime(stats.currentSessionDuration) }}
       </div>
@@ -50,5 +49,5 @@ const props = withDefaults(defineProps<Props>(), {
   showActiveIndicator: true,
 });
 
-const { formatPlaytime, formatRelativeTime } = usePlaytime();
+const { formatPlaytime } = usePlaytime();
 </script>

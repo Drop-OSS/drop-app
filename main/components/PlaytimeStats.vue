@@ -33,34 +33,6 @@
           Avg: {{ formatPlaytime(stats.averageSessionLength) }}
         </div>
       </div>
-      
-      <!-- First Played -->
-      <div class="bg-zinc-700/50 rounded-lg p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <CalendarIcon class="w-4 h-4 text-purple-400" />
-          <span class="text-sm font-medium text-zinc-300">First Played</span>
-        </div>
-        <div class="text-lg font-semibold text-zinc-100">
-          {{ formatDate(stats.firstPlayed) }}
-        </div>
-        <div class="text-xs text-zinc-400 mt-1">
-          {{ formatRelativeTime(stats.firstPlayed) }}
-        </div>
-      </div>
-      
-      <!-- Last Played -->
-      <div class="bg-zinc-700/50 rounded-lg p-3">
-        <div class="flex items-center gap-2 mb-2">
-          <ClockIcon class="w-4 h-4 text-orange-400" />
-          <span class="text-sm font-medium text-zinc-300">Last Played</span>
-        </div>
-        <div class="text-lg font-semibold text-zinc-100">
-          {{ formatDate(stats.lastPlayed) }}
-        </div>
-        <div class="text-xs text-zinc-400 mt-1">
-          {{ formatRelativeTime(stats.lastPlayed) }}
-        </div>
-      </div>
     </div>
     
     <!-- No stats available -->
@@ -87,8 +59,7 @@
 import { 
   ChartBarIcon, 
   ClockIcon, 
-  PlayIcon, 
-  CalendarIcon 
+  PlayIcon 
 } from "@heroicons/vue/20/solid";
 import type { GamePlaytimeStats } from "~/types";
 
@@ -101,14 +72,5 @@ const props = withDefaults(defineProps<Props>(), {
   isActive: false,
 });
 
-const { formatPlaytime, formatDetailedPlaytime, formatRelativeTime } = usePlaytime();
-
-const formatDate = (timestamp: string): string => {
-  const date = new Date(timestamp);
-  return date.toLocaleDateString(undefined, { 
-    year: 'numeric', 
-    month: 'short', 
-    day: 'numeric' 
-  });
-};
+const { formatPlaytime, formatDetailedPlaytime } = usePlaytime();
 </script>
