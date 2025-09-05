@@ -51,13 +51,14 @@ pub struct PlaytimeStats {
 
 impl From<GamePlaytimeStats> for PlaytimeStats {
     fn from(stats: GamePlaytimeStats) -> Self {
+        let average_length = stats.average_session_length();
         Self {
             game_id: stats.game_id,
             total_playtime_seconds: stats.total_playtime_seconds,
             session_count: stats.session_count,
             first_played: stats.first_played,
             last_played: stats.last_played,
-            average_session_length: stats.average_session_length(),
+            average_session_length: average_length,
             current_session_duration: None,
         }
     }
