@@ -36,7 +36,7 @@ pub mod data {
         }
     }
 
-    pub mod v1 {
+    mod v1 {
         use crate::process::process_manager::Platform;
         use serde_with::serde_as;
         use std::{collections::HashMap, path::PathBuf};
@@ -185,7 +185,7 @@ pub mod data {
         }
     }
 
-    pub mod v2 {
+    mod v2 {
         use std::{collections::HashMap, path::PathBuf};
 
         use serde_with::serde_as;
