@@ -80,7 +80,13 @@ pub struct StatsUpdateEvent {
 
 pub async fn fetch_library_logic(
     state: tauri::State<'_, Mutex<AppState<'_>>>,
+    hard_fresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
+    let do_hard_refresh = hard_fresh.unwrap_or(false);
+    if !do_hard_refresh && let Ok(library) = get_cached_object("library") {
+        return Ok(library);
+    }
+
     let client = DROP_CLIENT_ASYNC.clone();
     let response = generate_url(&["/api/v1/client/user/library"], &[])?;
     let response = client
@@ -142,6 +148,7 @@ pub async fn fetch_library_logic(
 }
 pub async fn fetch_library_logic_offline(
     _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
 
@@ -521,9 +528,10 @@ pub fn push_game_update(
 ) {
     if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
         &status.0
-        && version.is_none() {
-            panic!("pushed game for installed game that doesn't have version information");
-        }
+        && version.is_none()
+    {
+        panic!("pushed game for installed game that doesn't have version information");
+    }
 
     app_handle
         .emit(

@@ -4,6 +4,7 @@ use crate::{
     error::remote_access_error::RemoteAccessError,
     remote::{
         auth::generate_authorization_header,
+        cache::{cache_object, get_cached_object},
         requests::{generate_url, make_authenticated_get},
         utils::DROP_CLIENT_ASYNC,
     },
@@ -12,11 +13,23 @@ use crate::{
 use super::collection::{Collection, Collections};
 
 #[tauri::command]
-pub async fn fetch_collections() -> Result<Collections, RemoteAccessError> {
+pub async fn fetch_collections(
+    hard_refresh: Option<bool>,
+) -> Result<Collections, RemoteAccessError> {
+    let do_hard_refresh = hard_refresh.unwrap_or(false);
+    if !do_hard_refresh && let Ok(cached_response) = get_cached_object::<Collections>("collections")
+    {
+        return Ok(cached_response);
+    }
+
     let response =
         make_authenticated_get(generate_url(&["/api/v1/client/collection"], &[])?).await?;
 
-    Ok(response.json().await?)
+    let collections: Collections = response.json().await?;
+
+    cache_object("collections", &collections)?;
+
+    Ok(collections)
 }
 
 #[tauri::command]
@@ -90,7 +103,8 @@ pub async fn delete_game_in_collection(
         .delete(url)
         .header("Authorization", generate_authorization_header())
         .json(&json!({"id": game_id}))
-        .send().await?;
+        .send()
+        .await?;
 
     Ok(())
 }

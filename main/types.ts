@@ -37,6 +37,13 @@ export type Game = {
   mImageCarouselObjectIds: string[];
 };
 
+export type Collection = {
+  id: string;
+  name: string;
+  isDefault: boolean;
+  entries: Array<{ gameId: string; game: Game }>;
+};
+
 export type GameVersion = {
   launchCommandTemplate: string;
 };

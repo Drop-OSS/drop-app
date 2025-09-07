@@ -50,6 +50,12 @@ fn read_sync(base: &Path, key: &str) -> io::Result<Vec<u8>> {
     Ok(file)
 }
 
+fn delete_sync(base: &Path, key: &str) -> io::Result<()> {
+    let cache_path = get_cache_path(base, key);
+    std::fs::remove_file(cache_path)?;
+    Ok(())
+}
+
 pub fn cache_object<D: Encode>(key: &str, data: &D) -> Result<(), RemoteAccessError> {
     cache_object_db(key, data, &borrow_db_checked())
 }
@@ -73,6 +79,17 @@ pub fn get_cached_object_db<D: DecodeOwned>(
         bitcode::decode::<D>(&bytes).map_err(|e| RemoteAccessError::Cache(io::Error::other(e)))?;
     Ok(data)
 }
+pub fn clear_cached_object(key: &str) -> Result<(), RemoteAccessError> {
+    clear_cached_object_db(key, &borrow_db_checked())
+}
+pub fn clear_cached_object_db(
+    key: &str,
+    db: &Database,
+) -> Result<(), RemoteAccessError> {
+    delete_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
+    Ok(())
+}
+
 #[derive(Encode, Decode)]
 pub struct ObjectCache {
     content_type: String,

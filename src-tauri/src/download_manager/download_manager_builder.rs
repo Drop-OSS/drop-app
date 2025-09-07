@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter};
 
 use crate::{
     database::models::data::DownloadableMetadata,
+    download_manager::download_manager_frontend::DownloadStatus,
     error::application_download_error::ApplicationDownloadError,
     games::library::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
 };
@@ -75,7 +76,6 @@ pub struct DownloadManagerBuilder {
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
 
-    current_download_agent: Option<DownloadAgent>, // Should be the only download agent in the map with the "Go" flag
     current_download_thread: Mutex<Option<JoinHandle<()>>>,
     active_control_flag: Option<DownloadThreadControl>,
 }
@@ -95,7 +95,6 @@ impl DownloadManagerBuilder {
             progress: active_progress.clone(),
             app_handle,
 
-            current_download_agent: None,
             current_download_thread: Mutex::new(None),
             active_control_flag: None,
         };
@@ -121,7 +120,6 @@ impl DownloadManagerBuilder {
     fn cleanup_current_download(&mut self) {
         self.active_control_flag = None;
         *self.progress.lock().unwrap() = None;
-        self.current_download_agent = None;
 
         let mut download_thread_lock = self.current_download_thread.lock().unwrap();
 
@@ -197,7 +195,7 @@ impl DownloadManagerBuilder {
             return;
         }
 
-        download_agent.on_initialised(&self.app_handle);
+        download_agent.on_queued(&self.app_handle);
         self.download_queue.append(meta.clone());
         self.download_agent_registry.insert(meta, download_agent);
 
@@ -216,19 +214,13 @@ impl DownloadManagerBuilder {
             return;
         }
 
-        if self.current_download_agent.is_some()
-            && self.download_queue.read().front().unwrap()
-                == &self.current_download_agent.as_ref().unwrap().metadata()
-        {
-            return;
-        }
-
         debug!("current download queue: {:?}", self.download_queue.read());
 
-        // Should always be Some if the above two statements keep going
-        let agent_data = self.download_queue.read().front().unwrap().clone();
-
-        info!("starting download for {agent_data:?}");
+        let agent_data = if let Some(agent_data) = self.download_queue.read().front() {
+            agent_data.clone()
+        } else {
+            return;
+        };
 
         let download_agent = self
             .download_agent_registry
@@ -236,8 +228,22 @@ impl DownloadManagerBuilder {
             .unwrap()
             .clone();
 
+        let status = download_agent.status();
+
+        // This download is already going
+        if status != DownloadStatus::Queued {
+            return;
+        }
+
+        // Ensure all others are marked as queued
+        for agent in self.download_agent_registry.values() {
+            if agent.metadata() != agent_data && agent.status() != DownloadStatus::Queued {
+                agent.on_queued(&self.app_handle);
+            }
+        }
+
+        info!("starting download for {agent_data:?}");
         self.active_control_flag = Some(download_agent.control_flag());
-        self.current_download_agent = Some(download_agent.clone());
 
         let sender = self.sender.clone();
 
@@ -310,8 +316,8 @@ impl DownloadManagerBuilder {
     }
     fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
         debug!("got signal Completed");
-        if let Some(interface) = &self.current_download_agent
-            && interface.metadata() == meta
+        if let Some(interface) = self.download_queue.read().front()
+            && interface == &meta
         {
             self.remove_and_cleanup_front_download(&meta);
         }
@@ -321,11 +327,13 @@ impl DownloadManagerBuilder {
     }
     fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         debug!("got signal Error");
-        if let Some(current_agent) = self.current_download_agent.clone() {
+        if let Some(metadata) = self.download_queue.read().front()
+            && let Some(current_agent) = self.download_agent_registry.get(metadata)
+        {
             current_agent.on_error(&self.app_handle, &error);
 
             self.stop_and_wait_current_download();
-            self.remove_and_cleanup_front_download(&current_agent.metadata());
+            self.remove_and_cleanup_front_download(metadata);
         }
         self.push_ui_queue_update();
         self.set_status(DownloadManagerStatus::Error);
@@ -333,32 +341,23 @@ impl DownloadManagerBuilder {
     fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");
 
-        if let Some(current_download) = &self.current_download_agent {
-            if &current_download.metadata() == meta {
-                self.set_status(DownloadManagerStatus::Paused);
-                current_download.on_cancelled(&self.app_handle);
-                self.stop_and_wait_current_download();
+        // If the current download is the one we're tryna cancel
+        if let Some(current_metadata) = self.download_queue.read().front()
+            && current_metadata == meta
+            && let Some(current_download) = self.download_agent_registry.get(current_metadata)
+        {
+            self.set_status(DownloadManagerStatus::Paused);
+            current_download.on_cancelled(&self.app_handle);
+            self.stop_and_wait_current_download();
 
-                self.download_queue.pop_front();
+            self.download_queue.pop_front();
 
-                self.cleanup_current_download();
-                debug!("current download queue: {:?}", self.download_queue.read());
-            }
-            // TODO: Collapse these two into a single if statement somehow
-            else if let Some(download_agent) = self.download_agent_registry.get(meta) {
-                let index = self.download_queue.get_by_meta(meta);
-                if let Some(index) = index {
-                    download_agent.on_cancelled(&self.app_handle);
-                    let _ = self.download_queue.edit().remove(index).unwrap();
-                    let removed = self.download_agent_registry.remove(meta);
-                    debug!(
-                        "removed {:?} from queue {:?}",
-                        removed.map(|x| x.metadata()),
-                        self.download_queue.read()
-                    );
-                }
-            }
-        } else if let Some(download_agent) = self.download_agent_registry.get(meta) {
+            self.cleanup_current_download();
+            self.download_agent_registry.remove(meta);
+            debug!("current download queue: {:?}", self.download_queue.read());
+        }
+        // else just cancel it
+        else if let Some(download_agent) = self.download_agent_registry.get(meta) {
             let index = self.download_queue.get_by_meta(meta);
             if let Some(index) = index {
                 download_agent.on_cancelled(&self.app_handle);
@@ -371,6 +370,7 @@ impl DownloadManagerBuilder {
                 );
             }
         }
+        self.sender.send(DownloadManagerSignal::Go).unwrap();
         self.push_ui_queue_update();
     }
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
