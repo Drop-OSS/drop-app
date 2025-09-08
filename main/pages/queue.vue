@@ -15,7 +15,10 @@
         <div
           v-for="bar in speedHistory"
           :style="{ height: `${(bar / speedMax) * 100}%` }"
-          class="w-[3px] bg-blue-600 rounded-t-full"
+          :class="[
+            'w-[3px] rounded-t-full transition-colors duration-500',
+            isCurrentlyValidating ? 'bg-green-600' : 'bg-blue-600'
+          ]"
         />
       </div>
     </div>
@@ -54,7 +57,10 @@
                 class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
               >
                 <div
-                  class="h-2 bg-blue-600"
+                  :class="[
+                    'h-2 transition-colors duration-500',
+                    element.status === 'Validating' ? 'bg-green-600' : 'bg-blue-600'
+                  ]"
                   :style="{ width: `${element.progress * 100}%` }"
                 />
               </div>
@@ -115,6 +121,12 @@ const previousGameId = useState<string | undefined>('previous_game');
 const games: Ref<{
   [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
 }> = ref({});
+
+// Check if the current download is validating
+const isCurrentlyValidating = computed(() => {
+  const currentItem = queue.value.queue.at(0);
+  return currentItem?.status === 'Validating';
+});
 
 function resetHistoryGraph() {
   speedHistory.value = [];
