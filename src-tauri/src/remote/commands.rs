@@ -8,14 +8,11 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus,
-    database::db::{borrow_db_checked, borrow_db_mut_checked},
-    error::remote_access_error::RemoteAccessError,
-    remote::{
+    app_emit, database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{
         auth::generate_authorization_header,
         requests::generate_url,
         utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
-    },
+    }, AppState, AppStatus
 };
 
 use super::{
@@ -83,7 +80,7 @@ pub fn sign_out(app: AppHandle) {
     }
 
     // Emit event for frontend
-    app.emit("auth/signedout", ()).unwrap();
+    app_emit!(app, "auth/signedout", ());
 }
 
 #[tauri::command]
@@ -167,7 +164,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
         let result = load().await;
         if let Err(err) = result {
             warn!("{err}");
-            app.emit("auth/failed", err.to_string()).unwrap();
+            app_emit!(app, "auth/failed", err.to_string());
         }
     });
 

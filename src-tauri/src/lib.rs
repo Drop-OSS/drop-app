@@ -21,6 +21,7 @@ use crate::process::commands::open_process_logs;
 use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
 use crate::remote::commands::auth_initiate_code;
 use crate::remote::fetch_object::fetch_object_wrapper;
+use crate::remote::server_proto::handle_server_proto_wrapper;
 use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
 use bitcode::{Decode, Encode};
 use client::commands::fetch_state;
@@ -61,7 +62,7 @@ use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
     sign_out, use_remote,
 };
-use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
+use remote::server_proto::handle_server_proto_offline_wrapper;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
@@ -164,7 +165,7 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
     log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
+    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone())); 
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
     let compat_info = create_new_compat_info();
 
@@ -473,8 +474,8 @@ pub fn run() {
 
                 offline!(
                     state,
-                    handle_server_proto,
-                    handle_server_proto_offline,
+                    handle_server_proto_wrapper,
+                    handle_server_proto_offline_wrapper,
                     request,
                     responder
                 )

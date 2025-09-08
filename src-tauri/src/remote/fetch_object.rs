@@ -13,8 +13,8 @@ pub async fn fetch_object_wrapper(request: http::Request<Vec<u8>>, responder: Ur
     match fetch_object(request).await {
         Ok(r) => responder.respond(r),
         Err(e) => {
-            warn!("Cache error: {}", e);
-            responder.respond(Response::new(Vec::new()));
+            warn!("Cache error: {e}");
+            responder.respond(Response::builder().status(500).body(Vec::new()).expect("Failed to build error response"));
         }
     };
 }
@@ -36,7 +36,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
     let url = format!("{}api/v1/client/object/{object_id}", DB.fetch_base_url());
     let response = client.get(url).header("Authorization", header).send().await;
 
-    match response {
+    return match response {
         Ok(r) => {
             let resp_builder = ResponseBuilder::new().header(
                 CONTENT_TYPE,
@@ -48,8 +48,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
                 Ok(data) => Vec::from(data),
                 Err(e) => {
                     warn!(
-                        "Could not get data from cache object {} with error {}",
-                        object_id, e
+                        "Could not get data from cache object {object_id} with error {e}",
                     );
                     Vec::new()
                 }
@@ -60,11 +59,11 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
                     .expect("Failed to create cached object");
             }
 
-            return Ok(resp.into());
+            Ok(resp.into())
         }
         Err(e) => {
             debug!("Object fetch failed with error {}. Attempting to download from cache", e);
-            return match cache_result {
+            match cache_result {
                 Ok(cache_result) => Ok(cache_result.into()),
                 Err(e) => {
                     warn!("{e}");

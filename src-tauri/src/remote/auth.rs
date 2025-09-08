@@ -9,7 +9,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    database::{
+    app_emit, database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
     }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
@@ -83,7 +83,7 @@ pub async fn fetch_user() -> Result<User, RemoteAccessError> {
 async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
     let path_chunks: Vec<&str> = path.split('/').collect();
     if path_chunks.len() != 3 {
-        app.emit("auth/failed", ()).unwrap();
+        app_emit!(app, "auth/failed", ());
         return Err(RemoteAccessError::HandshakeFailed(
             "failed to parse token".to_string(),
         ));
@@ -141,12 +141,12 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
 
 pub async fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
-    app.emit("auth/processing", ()).unwrap();
+    app_emit!(app, "auth/processing", ());
 
     let handshake_result = recieve_handshake_logic(&app, path).await;
     if let Err(e) = handshake_result {
         warn!("error with authentication: {e}");
-        app.emit("auth/failed", e.to_string()).unwrap();
+        app_emit!(app, "auth/failed", e.to_string());
         return;
     }
 
@@ -161,7 +161,7 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     drop(state_lock);
 
-    app.emit("auth/finished", ()).unwrap();
+    app_emit!(app, "auth/finished", ());
 }
 
 pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {

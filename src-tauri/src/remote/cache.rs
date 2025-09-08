@@ -10,7 +10,7 @@ use crate::{
     error::{cache_error::CacheError, remote_access_error::RemoteAccessError},
 };
 use bitcode::{Decode, DecodeOwned, Encode};
-use http::{header::{ToStrError, CONTENT_TYPE}, response::Builder as ResponseBuilder, Response};
+use http::{header::{CONTENT_TYPE}, response::Builder as ResponseBuilder, Response};
 
 #[macro_export]
 macro_rules! offline {
