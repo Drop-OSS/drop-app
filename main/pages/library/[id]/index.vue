@@ -548,10 +548,14 @@ const configureModalOpen = ref(false);
 const { 
   getGamePlaytime, 
   setupGameEventListeners,
-  activeSessions 
+  activeSessions,
+  playtimeStats 
 } = usePlaytime();
 
-const gamePlaytime = ref(await getGamePlaytime(id));
+// Initialize playtime data
+await getGamePlaytime(id);
+
+const gamePlaytime = computed(() => playtimeStats.value[id] || null);
 const isPlaytimeActive = computed(() => activeSessions.value.has(id));
 
 // Setup playtime event listeners for this game

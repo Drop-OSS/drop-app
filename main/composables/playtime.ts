@@ -148,9 +148,12 @@ export const usePlaytime = () => {
     });
 
     // Listen for session end events
-    listen<PlaytimeSessionEndEvent>("playtime_session_end", (event) => {
+    listen<PlaytimeSessionEndEvent>("playtime_session_end", async (event) => {
       const { gameId } = event.payload;
       activeSessions.value.delete(gameId);
+      
+      // Refresh the game's playtime stats after session ends
+      await fetchGamePlaytime(gameId);
     });
   };
 
@@ -171,8 +174,11 @@ export const usePlaytime = () => {
       activeSessions.value.add(gameId);
     });
 
-    listen<PlaytimeSessionEndEvent>(`playtime_session_end/${gameId}`, () => {
+    listen<PlaytimeSessionEndEvent>(`playtime_session_end/${gameId}`, async () => {
       activeSessions.value.delete(gameId);
+      
+      // Refresh the game's playtime stats after session ends
+      await fetchGamePlaytime(gameId);
     });
   };
 
