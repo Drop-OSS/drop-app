@@ -367,8 +367,8 @@ pub mod data {
         use std::{collections::HashMap, path::PathBuf, time::SystemTime};
 
         use super::{
-            DatabaseApplications, DatabaseAuth, DatabaseCompatInfo, Deserialize, Serialize,
-            Settings, native_model, v3,
+            DatabaseApplications, DatabaseAuth, Deserialize, Serialize,
+            Settings, native_model, v3, v2::DatabaseCompatInfo,
         };
 
         #[native_model(id = 1, version = 4, with = native_model::rmp_serde_1_3::RmpSerde)]
