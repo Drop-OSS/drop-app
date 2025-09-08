@@ -5,6 +5,7 @@ use std::fmt;
 use log::{debug, warn};
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use chrono;
 
 use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
 use crate::database::models::data::{GamePlaytimeStats, PlaytimeSession};
@@ -43,10 +44,33 @@ pub struct PlaytimeStats {
     pub game_id: String,
     pub total_playtime_seconds: u64,
     pub session_count: u32,
+    #[serde(serialize_with = "serialize_system_time")]
     pub first_played: SystemTime,
+    #[serde(serialize_with = "serialize_system_time")]
     pub last_played: SystemTime,
     pub average_session_length: u64,
     pub current_session_duration: Option<u64>,
+}
+
+fn serialize_system_time<S>(time: &SystemTime, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use std::time::UNIX_EPOCH;
+    match time.duration_since(UNIX_EPOCH) {
+        Ok(duration) => {
+            let timestamp_ms = duration.as_millis() as u64;
+            // Convert to JavaScript-compatible ISO 8601 string
+            let datetime = chrono::DateTime::from_timestamp_millis(timestamp_ms as i64)
+                .unwrap_or_else(|| chrono::DateTime::from_timestamp(0, 0).unwrap());
+            serializer.serialize_str(&datetime.to_rfc3339())
+        }
+        Err(_) => {
+            // Fallback for times before UNIX_EPOCH
+            let datetime = chrono::DateTime::from_timestamp(0, 0).unwrap();
+            serializer.serialize_str(&datetime.to_rfc3339())
+        }
+    }
 }
 
 impl From<GamePlaytimeStats> for PlaytimeStats {
