@@ -331,7 +331,7 @@ impl ProcessManager<'_> {
             args.clone(),
             game_version,
             install_dir,
-        );
+        )?;
 
         let format_args = DropFormatArgs::new(
             launch_string,
@@ -468,7 +468,7 @@ pub trait ProcessHandler: Send + 'static {
         args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
-    ) -> String;
+    ) -> Result<String, ProcessError>;
 
     fn valid_for_platform(&self, db: &Database, state: &AppState, target: &Platform) -> bool;
 }

@@ -10,6 +10,7 @@ use log::{debug, info};
 use crate::{
     AppState,
     database::models::data::{Database, DownloadableMetadata, GameVersion},
+    error::process_error::ProcessError,
     process::process_manager::{Platform, ProcessHandler},
 };
 
@@ -22,8 +23,8 @@ impl ProcessHandler for NativeGameLauncher {
         args: Vec<String>,
         _game_version: &GameVersion,
         _current_dir: &str,
-    ) -> String {
-        format!("\"{}\" {}", launch_command, args.join(" "))
+    ) -> Result<String, ProcessError> {
+        Ok(format!("\"{}\" {}", launch_command, args.join(" ")))
     }
 
     fn valid_for_platform(&self, _db: &Database, _state: &AppState, _target: &Platform) -> bool {
@@ -65,7 +66,7 @@ impl ProcessHandler for UMULauncher {
         args: Vec<String>,
         game_version: &GameVersion,
         _current_dir: &str,
-    ) -> String {
+    ) -> Result<String, ProcessError> {
         debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
         let game_id = match &game_version.umu_id_override {
             Some(game_override) => {
@@ -77,12 +78,12 @@ impl ProcessHandler for UMULauncher {
             }
             None => game_version.game_id.clone(),
         };
-        format!(
+        Ok(format!(
             "GAMEID={game_id} {umu:?} \"{launch}\" {args}",
-            umu = UMU_LAUNCHER_EXECUTABLE.as_ref().unwrap(),
+            umu = UMU_LAUNCHER_EXECUTABLE.as_ref().expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
             launch = launch_command,
             args = args.join(" ")
-        )
+        ))
     }
 
     fn valid_for_platform(&self, _db: &Database, state: &AppState, _target: &Platform) -> bool {
@@ -102,7 +103,7 @@ impl ProcessHandler for AsahiMuvmLauncher {
         args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
-    ) -> String {
+    ) -> Result<String, ProcessError> {
         let umu_launcher = UMULauncher {};
         let umu_string = umu_launcher.create_launch_process(
             meta,
@@ -110,15 +111,18 @@ impl ProcessHandler for AsahiMuvmLauncher {
             args,
             game_version,
             current_dir,
-        );
+        )?;
         let mut args_cmd = umu_string
             .split("umu-run")
             .collect::<Vec<&str>>()
             .into_iter();
-        let args = args_cmd.next().unwrap().trim();
-        let cmd = format!("umu-run{}", args_cmd.next().unwrap());
+        let args = args_cmd
+            .next()
+            .ok_or(ProcessError::InvalidArguments(umu_string.clone()))?
+            .trim();
+        let cmd = format!("umu-run{}", args_cmd.next().ok_or(ProcessError::InvalidArguments(umu_string.clone()))?);
 
-        format!("{args} muvm -- {cmd}")
+        Ok(format!("{args} muvm -- {cmd}"))
     }
 
     #[allow(unreachable_code)]

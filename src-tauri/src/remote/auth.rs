@@ -134,7 +134,7 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
         private: response_struct.private,
         cert: response_struct.certificate,
         client_id: response_struct.id,
-        web_token: Some(web_token), // gets created later
+        web_token: Some(web_token),
     });
 
     Ok(())
