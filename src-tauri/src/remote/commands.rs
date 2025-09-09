@@ -12,7 +12,7 @@ use crate::{
         auth::generate_authorization_header,
         requests::generate_url,
         utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
-    }, AppState, AppStatus
+    }, state_lock, utils::webbrowser_open::webbrowser_open, AppState, AppStatus
 };
 
 use super::{
@@ -37,7 +37,7 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
         Url::parse(&handle.base_url).map_err(RemoteAccessError::ParsingError)?
     };
 
-    let url = base_url.join(&path).unwrap();
+    let url = base_url.join(&path)?;
 
     Ok(url.to_string())
 }
@@ -74,7 +74,7 @@ pub fn sign_out(app: AppHandle) {
     // Update app state
     {
         let app_state = app.state::<Mutex<AppState>>();
-        let mut app_state_handle = app_state.lock().unwrap();
+        let mut app_state_handle = state_lock!(app_state);
         app_state_handle.status = AppStatus::SignedOut;
         app_state_handle.user = None;
     }
@@ -87,7 +87,7 @@ pub fn sign_out(app: AppHandle) {
 pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
     let (app_status, user) = setup().await;
 
-    let mut guard = state.lock().unwrap();
+    let mut guard = state_lock!(state);
     guard.status = app_status;
     guard.user = user;
     drop(guard);
@@ -106,7 +106,7 @@ pub fn auth_initiate() -> Result<(), RemoteAccessError> {
     let complete_redir_url = base_url.join(&redir_url)?;
 
     debug!("opening web browser to continue authentication");
-    webbrowser::open(complete_redir_url.as_ref()).unwrap();
+    webbrowser_open(complete_redir_url.as_ref());
     Ok(())
 }
 
@@ -123,6 +123,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
         let db_lock = borrow_db_checked();
         Url::parse(&db_lock.base_url.clone())?
     };
+    
 
     let code = auth_initiate_logic("code".to_string())?;
     let header_code = code.clone();

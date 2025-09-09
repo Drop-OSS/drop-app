@@ -36,7 +36,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
     let url = format!("{}api/v1/client/object/{object_id}", DB.fetch_base_url());
     let response = client.get(url).header("Authorization", header).send().await;
 
-    return match response {
+    match response {
         Ok(r) => {
             let resp_builder = ResponseBuilder::new().header(
                 CONTENT_TYPE,
@@ -59,10 +59,10 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
                     .expect("Failed to create cached object");
             }
 
-            Ok(resp.into())
+            Ok(resp)
         }
         Err(e) => {
-            debug!("Object fetch failed with error {}. Attempting to download from cache", e);
+            debug!("Object fetch failed with error {e}. Attempting to download from cache");
             match cache_result {
                 Ok(cache_result) => Ok(cache_result.into()),
                 Err(e) => {

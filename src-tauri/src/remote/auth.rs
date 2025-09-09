@@ -12,7 +12,10 @@ use crate::{
     app_emit, database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{
+        requests::make_authenticated_get,
+        utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
+    }, state_lock, AppState, AppStatus, User
 };
 
 use super::{
@@ -51,12 +54,13 @@ struct HandshakeResponse {
 pub fn generate_authorization_header() -> String {
     let certs = {
         let db = borrow_db_checked();
-        db.auth.clone().unwrap()
+        db.auth.clone().expect("Authorisation not initialised")
     };
 
     let nonce = Utc::now().timestamp_millis().to_string();
 
-    let signature = sign_nonce(certs.private, nonce.clone()).unwrap();
+    let signature =
+        sign_nonce(certs.private, nonce.clone()).expect("Failed to generate authorisation header");
 
     format!("Nonce {} {} {}", certs.client_id, nonce, signature)
 }
@@ -94,11 +98,15 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
         Url::parse(handle.base_url.as_str())?
     };
 
-    let client_id = path_chunks.get(1).unwrap();
-    let token = path_chunks.get(2).unwrap();
+    let client_id = path_chunks
+        .get(1)
+        .expect("Failed to get client id from path chunks");
+    let token = path_chunks
+        .get(2)
+        .expect("Failed to get token from path chunks");
     let body = HandshakeRequestBody {
-        client_id: (*client_id).to_string(),
-        token: (*token).to_string(),
+        client_id: (client_id).to_string(),
+        token: (token).to_string(),
     };
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
@@ -110,31 +118,24 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
     }
     let response_struct: HandshakeResponse = response.json().await?;
 
-    {
-        let mut handle = borrow_db_mut_checked();
-        handle.auth = Some(DatabaseAuth {
-            private: response_struct.private,
-            cert: response_struct.certificate,
-            client_id: response_struct.id,
-            web_token: None, // gets created later
-        });
-    }
-
     let web_token = {
         let header = generate_authorization_header();
         let token = client
-            .post(base_url.join("/api/v1/client/user/webtoken").unwrap())
+            .post(base_url.join("/api/v1/client/user/webtoken")?)
             .header("Authorization", header)
             .send()
-            .await
-            .unwrap();
+            .await?;
 
-        token.text().await.unwrap()
+        token.text().await?
     };
 
     let mut handle = borrow_db_mut_checked();
-    let mut_auth = handle.auth.as_mut().unwrap();
-    mut_auth.web_token = Some(web_token);
+    handle.auth = Some(DatabaseAuth {
+        private: response_struct.private,
+        cert: response_struct.certificate,
+        client_id: response_struct.id,
+        web_token: Some(web_token), // gets created later
+    });
 
     Ok(())
 }
@@ -154,7 +155,7 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     let (app_status, user) = setup().await;
 
-    let mut state_lock = app_state.lock().unwrap();
+    let mut state_lock = state_lock!(app_state);
 
     state_lock.status = app_status;
     state_lock.user = user;
@@ -174,7 +175,7 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
 
     let endpoint = base_url.join("/api/v1/client/auth/initiate")?;
     let body = InitiateRequestBody {
-        name: format!("{} (Desktop)", hostname.into_string().unwrap()),
+        name: format!("{} (Desktop)", hostname.display()),
         platform: env::consts::OS.to_string(),
         capabilities: HashMap::from([
             ("peerAPI".to_owned(), CapabilityConfiguration {}),
@@ -208,12 +209,14 @@ pub async fn setup() -> (AppStatus, Option<User>) {
         let user_result = match fetch_user().await {
             Ok(data) => data,
             Err(RemoteAccessError::FetchError(_)) => {
-                let user = get_cached_object::<User>("user").unwrap();
-                return (AppStatus::Offline, Some(user));
+                let user = get_cached_object::<User>("user").ok();
+                return (AppStatus::Offline, user);
             }
             Err(_) => return (AppStatus::SignedInNeedsReauth, None),
         };
-        cache_object("user", &user_result).unwrap();
+        if let Err(e) = cache_object("user", &user_result) {
+            warn!("Could not cache user object with error {e}");
+        }
         return (AppStatus::SignedIn, Some(user_result));
     }
 

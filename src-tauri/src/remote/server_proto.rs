@@ -1,15 +1,15 @@
 use std::str::FromStr;
 
 use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
-use log::warn;
+use log::{error, warn};
 use tauri::UriSchemeResponder;
 
-use crate::{database::db::borrow_db_checked, remote::utils::DROP_CLIENT_SYNC};
+use crate::{database::db::borrow_db_checked, remote::utils::DROP_CLIENT_SYNC, utils::webbrowser_open::webbrowser_open};
 
 pub async fn handle_server_proto_offline_wrapper(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     responder.respond(match handle_server_proto_offline(request).await {
         Ok(res) => res,
-        Err(e) => unreachable!()
+        Err(_) => unreachable!()
     });
 }
 
@@ -33,9 +33,16 @@ pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: U
 
 async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, StatusCode> {
     let db_handle = borrow_db_checked();
-    let web_token = match &db_handle.auth.as_ref().unwrap().web_token {
-        Some(e) => e,
-        None => return Err(StatusCode::BAD_REQUEST),
+    let auth = match db_handle.auth.as_ref() {
+        Some(auth) => auth,
+        None => {
+            error!("Could not find auth in database");
+            return Err(StatusCode::UNAUTHORIZED)
+        }
+    };
+    let web_token = match &auth.web_token {
+        Some(token) => token,
+        None => return Err(StatusCode::UNAUTHORIZED),
     };
     let remote_uri = db_handle.base_url.parse::<Uri>().expect("Failed to parse base url");
 
@@ -46,18 +53,14 @@ async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u
         Some(PathAndQuery::from_str(&format!("{path}?noWrapper=true")).expect("Failed to parse request path in proto"));
     new_uri.authority = remote_uri.authority().cloned();
     new_uri.scheme = remote_uri.scheme().cloned();
-    let new_uri = Uri::from_parts(new_uri).expect(&format!("Failed to build new uri from parts"));
+    let err_msg = &format!("Failed to build new uri from parts {new_uri:?}");
+    let new_uri = Uri::from_parts(new_uri).expect(err_msg);
 
     let whitelist_prefix = ["/store", "/api", "/_", "/fonts"];
 
     if whitelist_prefix.iter().all(|f| !path.starts_with(f)) {
-        return match webbrowser::open(&new_uri.to_string()) {
-            Ok(_) => Ok(Response::new(Vec::new())),
-            Err(e) => {
-                warn!("Could not open web browser to link {new_uri} with error {e}");
-                Ok(Response::new(Vec::new()))
-            }
-        }
+        webbrowser_open(new_uri.to_string());
+        return Ok(Response::new(Vec::new()))
     }
 
     let client = DROP_CLIENT_SYNC.clone();
