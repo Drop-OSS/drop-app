@@ -346,18 +346,23 @@ impl ProcessManager<'_> {
             .to_string();
 
         #[cfg(target_os = "windows")]
-        use std::os::windows::process::CommandExt;
-        #[cfg(target_os = "windows")]
-        let mut command = Command::new("cmd");
-        #[cfg(target_os = "windows")]
-        command.raw_arg(format!("/C \"{}\"", &launch_string));
+        let mut command = {
+            use std::os::windows::process::CommandExt;
+            let mut command = Command::new("cmd");
+            command.raw_arg(format!("/C \"{}\"", &launch_string));
+            command.creation_flags(0x08000000);
+
+            command
+        };
+        #[cfg(unix)]
+        let mut command = {
+            let mut command: Command = Command::new("sh");
+            command.args(vec!["-c", &launch_string]);
+
+            command
+        };
 
         info!("launching (in {install_dir}): {launch_string}",);
-
-        #[cfg(unix)]
-        let mut command: Command = Command::new("sh");
-        #[cfg(unix)]
-        command.args(vec!["-c", &launch_string]);
 
         debug!("final launch string:\n\n{launch_string}\n");
 
