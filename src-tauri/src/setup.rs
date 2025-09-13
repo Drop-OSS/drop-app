@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::Path, str::FromStr as _, sync::{Arc, Mutex}};
+use std::{env, path::Path, str::FromStr as _, sync::{Arc, Mutex}};
 
 use drop_database::{borrow_db_checked, borrow_db_mut_checked, db::{DatabaseImpls as _, DATA_ROOT_DIR}, models::data::GameDownloadStatus, DB};
 use drop_downloads::download_manager_builder::DownloadManagerBuilder;

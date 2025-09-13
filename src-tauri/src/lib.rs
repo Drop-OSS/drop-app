@@ -4,7 +4,6 @@
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
 #![deny(clippy::all)]
-#![warn(unused_extern_crates)]
 
 mod auth;
 mod client;
@@ -16,7 +15,7 @@ mod remote;
 mod setup;
 
 use crate::auth::recieve_handshake;
-use crate::native_library::collection_commands::fetch_collections;
+use crate::native_library::collection_commands::{add_game_to_collection, create_collection, delete_collection, delete_game_in_collection, fetch_collection, fetch_collections};
 use crate::native_library::commands::{
     fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
 };
@@ -152,11 +151,11 @@ pub fn run() {
             update_game_configuration,
             // Collections
             fetch_collections,
-            // fetch_collection,
-            // create_collection,
-            // add_game_to_collection,
-            // delete_collection,
-            // delete_game_in_collection,
+            fetch_collection,
+            create_collection,
+            add_game_to_collection,
+            delete_collection,
+            delete_game_in_collection,
             // Downloads
             download_game,
             resume_download,

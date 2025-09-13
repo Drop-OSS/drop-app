@@ -6,7 +6,6 @@ edition = "2024"
 [dependencies]
 bitcode = "0.6.7"
 drop-database = { path = "../drop-database" }
-drop-downloads = { path = "../drop-downloads" }
 drop-errors = { path = "../drop-errors" }
 drop-remote = { path = "../drop-remote" }
 log = "0.4.28"

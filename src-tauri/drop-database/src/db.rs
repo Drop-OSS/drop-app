@@ -39,7 +39,7 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     fn deserialize<R: std::io::Read>(&self, mut s: R) -> rustbreak::error::DeSerResult<T> {
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
-            .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
+            .map_err(|e| rustbreak::error::DeSerError::Internal(e.to_string()))?;
         let (val, _version) = native_model::decode(buf)
             .map_err(|e| DeSerError::Internal(e.to_string()))?;
         Ok(val)
