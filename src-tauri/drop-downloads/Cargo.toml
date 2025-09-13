@@ -1,0 +1,16 @@
+[package]
+name = "drop-downloads"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+atomic-instant-full = "0.1.0"
+drop-database = { path = "../drop-database" }
+drop-errors = { path = "../drop-errors" }
+# can't depend, cycle
+# drop-native-library = { path = "../drop-native-library" }
+log = "0.4.22"
+parking_lot = "0.12.4"
+serde = "1.0.219"
+tauri = { version = "2.7.0" }
+throttle_my_fn = "0.2.6"

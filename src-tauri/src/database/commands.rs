@@ -4,17 +4,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use drop_database::{borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, debug::SystemData, models::data::Settings};
+use drop_errors::download_manager_error::DownloadManagerError;
 use serde_json::Value;
 
-use crate::{
-    database::{db::borrow_db_mut_checked, scan::scan_install_dirs}, error::download_manager_error::DownloadManagerError,
-};
+use crate::database::scan::scan_install_dirs;
 
-use super::{
-    db::{borrow_db_checked, DATA_ROOT_DIR},
-    debug::SystemData,
-    models::data::Settings,
-};
 
 // Will, in future, return disk/remaining size
 // Just returns the directories that have been set up

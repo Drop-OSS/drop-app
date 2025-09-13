@@ -1,0 +1,20 @@
+[package]
+name = "drop-database"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bitcode = "0.6.7"
+chrono = "0.4.42"
+dirs = "6.0.0"
+log = "0.4.28"
+native_model = { git = "https://github.com/Drop-OSS/native_model.git", version = "0.6.4", features = [
+  "rmp_serde_1_3",
+] }
+rustbreak = "2.0.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+serde_with = "3.14.0"
+url = "2.5.7"
+whoami = "1.6.1"
+

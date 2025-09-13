@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 
-use crate::{database::models::data::DownloadableMetadata, AppState};
+use drop_database::models::data::DownloadableMetadata;
+
+use crate::AppState;
 
 #[tauri::command]
 pub fn pause_downloads(state: tauri::State<'_, Mutex<AppState>>) {

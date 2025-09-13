@@ -1,0 +1,14 @@
+[package]
+name = "drop-native-library"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bitcode = "0.6.7"
+drop-database = { path = "../drop-database" }
+drop-downloads = { path = "../drop-downloads" }
+drop-errors = { path = "../drop-errors" }
+drop-remote = { path = "../drop-remote" }
+log = "0.4.28"
+serde = { version = "1.0.219", features = ["derive"] }
+tauri = "2.8.5"

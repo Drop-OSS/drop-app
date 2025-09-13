@@ -1,4 +1,4 @@
-use crate::database::db::{borrow_db_checked, borrow_db_mut_checked};
+use drop_database::{borrow_db_checked, borrow_db_mut_checked};
 use log::debug;
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;

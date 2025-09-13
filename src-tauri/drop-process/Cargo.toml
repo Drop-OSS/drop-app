@@ -1,0 +1,19 @@
+[package]
+name = "drop-process"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.42"
+drop-database = { path = "../drop-database" }
+drop-errors = { path = "../drop-errors" }
+drop-native-library = { path = "../drop-native-library" }
+dynfmt = "0.1.5"
+log = "0.4.28"
+page_size = "0.6.0"
+serde = "1.0.220"
+shared_child = "1.1.1"
+sysinfo = "0.37.0"
+tauri = "2.8.5"
+tauri-plugin-opener = "2.5.0"
+

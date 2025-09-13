@@ -1,9 +1,8 @@
 use std::str::FromStr;
 
+use drop_database::borrow_db_checked;
 use http::{uri::PathAndQuery, Request, Response, StatusCode, Uri};
 use tauri::UriSchemeResponder;
-
-use crate::{database::db::borrow_db_checked, remote::utils::DROP_CLIENT_SYNC};
 
 pub async fn handle_server_proto_offline(_request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     let four_oh_four = Response::builder()
@@ -37,7 +36,7 @@ pub async fn handle_server_proto(request: Request<Vec<u8>>, responder: UriScheme
         return;
     }
 
-    let client = DROP_CLIENT_SYNC.clone();
+    let client = drop_remote::utils::DROP_CLIENT_SYNC.clone();
     let response = client
         .request(request.method().clone(), new_uri.to_string())
         .header("Authorization", format!("Bearer {web_token}"))

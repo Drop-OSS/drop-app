@@ -1,0 +1,14 @@
+[package]
+name = "drop-errors"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+http = "1.3.1"
+humansize = "2.1.3"
+reqwest = "0.12.23"
+reqwest-websocket = "0.5.1"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_with = "3.14.0"
+tauri-plugin-opener = "2.5.0"
+url = "2.5.7"
