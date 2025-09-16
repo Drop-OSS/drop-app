@@ -9,9 +9,10 @@ use drop_database::models::data::DownloadableMetadata;
 use drop_database::models::data::GameDownloadStatus;
 use drop_database::models::data::GameVersion;
 use drop_database::runtime_models::Game;
-use drop_errors::drop_server_error::DropServerError;
+use drop_errors::drop_server_error::ServerError;
 use drop_errors::library_error::LibraryError;
 use drop_errors::remote_access_error::RemoteAccessError;
+use drop_remote::DropRemoteContext;
 use drop_remote::auth::generate_authorization_header;
 use drop_remote::cache::cache_object;
 use drop_remote::cache::cache_object_db;
@@ -36,22 +37,25 @@ pub struct FetchGameStruct {
     version: Option<GameVersion>,
 }
 
-pub async fn fetch_library_logic(hard_fresh: Option<bool>) -> Result<Vec<Game>, RemoteAccessError> {
+pub async fn fetch_library_logic(
+    context: &DropRemoteContext,
+    hard_fresh: Option<bool>,
+) -> Result<Vec<Game>, RemoteAccessError> {
     let do_hard_refresh = hard_fresh.unwrap_or(false);
     if !do_hard_refresh && let Ok(library) = get_cached_object("library") {
         return Ok(library);
     }
 
     let client = DROP_CLIENT_ASYNC.clone();
-    let response = generate_url(&["/api/v1/client/user/library"], &[])?;
+    let response = generate_url(context, &["/api/v1/client/user/library"], &[])?;
     let response = client
         .get(response)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(context))
         .send()
         .await?;
 
     if response.status() != 200 {
-        let err = response.json().await.unwrap_or(DropServerError {
+        let err = response.json().await.unwrap_or(ServerError {
             status_code: 500,
             status_message: "Invalid response from server.".to_owned(),
         });
@@ -64,7 +68,10 @@ pub async fn fetch_library_logic(hard_fresh: Option<bool>) -> Result<Vec<Game>, 
     let mut db_handle = borrow_db_mut_checked();
 
     for game in &games {
-        db_handle.applications.games.insert(game.id.clone(), game.clone());
+        db_handle
+            .applications
+            .games
+            .insert(game.id.clone(), game.clone());
         if !db_handle.applications.game_statuses.contains_key(&game.id) {
             db_handle
                 .applications
@@ -80,7 +87,7 @@ pub async fn fetch_library_logic(hard_fresh: Option<bool>) -> Result<Vec<Game>, 
         }
         // We should always have a cache of the object
         // Pass db_handle because otherwise we get a gridlock
-        let game = match get_cached_object_db::<Game>(&meta.id.clone(), &db_handle) {
+        let game = match get_cached_object_db::<Game>(&meta.id.clone()) {
             Ok(game) => game,
             Err(err) => {
                 warn!(
@@ -118,7 +125,10 @@ pub async fn fetch_library_logic_offline(
 
     Ok(games)
 }
-pub async fn fetch_game_logic(id: String) -> Result<FetchGameStruct, RemoteAccessError> {
+pub async fn fetch_game_logic(
+    context: &DropRemoteContext,
+    id: String,
+) -> Result<FetchGameStruct, RemoteAccessError> {
     let version = {
         let db_lock = borrow_db_checked();
 
@@ -152,10 +162,10 @@ pub async fn fetch_game_logic(id: String) -> Result<FetchGameStruct, RemoteAcces
     };
 
     let client = DROP_CLIENT_ASYNC.clone();
-    let response = generate_url(&["/api/v1/client/game/", &id], &[])?;
+    let response = generate_url(context, &["/api/v1/client/game/", &id], &[])?;
     let response = client
         .get(response)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(context))
         .send()
         .await?;
 
@@ -228,14 +238,19 @@ pub async fn fetch_game_logic_offline(id: String) -> Result<FetchGameStruct, Rem
 }
 
 pub async fn fetch_game_version_options_logic(
+    context: &DropRemoteContext,
     game_id: String,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
     let client = DROP_CLIENT_ASYNC.clone();
 
-    let response = generate_url(&["/api/v1/client/game/versions"], &[("id", &game_id)])?;
+    let response = generate_url(
+        context,
+        &["/api/v1/client/game/versions"],
+        &[("id", &game_id)],
+    )?;
     let response = client
         .get(response)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(context))
         .send()
         .await?;
 
@@ -379,6 +394,7 @@ pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
 }
 
 pub fn on_game_complete(
+    context: &DropRemoteContext,
     meta: &DownloadableMetadata,
     install_dir: String,
     app_handle: &AppHandle,
@@ -390,6 +406,7 @@ pub fn on_game_complete(
 
     let client = DROP_CLIENT_SYNC.clone();
     let response = generate_url(
+        context,
         &["/api/v1/client/game/version"],
         &[
             ("id", &meta.id),
@@ -398,7 +415,7 @@ pub fn on_game_complete(
     )?;
     let response = client
         .get(response)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(context))
         .send()?;
 
     let game_version: GameVersion = response.json()?;

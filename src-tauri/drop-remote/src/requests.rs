@@ -1,14 +1,14 @@
-use drop_database::{db::DatabaseImpls as _, DB};
 use drop_errors::remote_access_error::RemoteAccessError;
 use url::Url;
 
-use crate::{auth::generate_authorization_header, utils::DROP_CLIENT_ASYNC};
+use crate::{auth::generate_authorization_header, utils::DROP_CLIENT_ASYNC, DropRemoteContext};
 
 pub fn generate_url<T: AsRef<str>>(
+    context: &DropRemoteContext,
     path_components: &[T],
     query: &[(T, T)],
 ) -> Result<Url, RemoteAccessError> {
-    let mut base_url = DB.fetch_base_url();
+    let mut base_url = context.base_url.clone();
     for endpoint in path_components {
         base_url = base_url.join(endpoint.as_ref())?;
     }
@@ -21,10 +21,10 @@ pub fn generate_url<T: AsRef<str>>(
     Ok(base_url)
 }
 
-pub async fn make_authenticated_get(url: Url) -> Result<reqwest::Response, reqwest::Error> {
+pub async fn make_authenticated_get(context: &DropRemoteContext, url: Url) -> Result<reqwest::Response, reqwest::Error> {
     DROP_CLIENT_ASYNC
         .get(url)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(context))
         .send()
         .await
 }

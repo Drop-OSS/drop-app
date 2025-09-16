@@ -6,7 +6,7 @@ use std::{
 };
 
 use bitcode::{Decode, DecodeOwned, Encode};
-use drop_database::{borrow_db_checked, models::data::Database};
+use drop_consts::CACHE_DIR;
 use drop_errors::remote_access_error::RemoteAccessError;
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 
@@ -57,36 +57,33 @@ fn delete_sync(base: &Path, key: &str) -> io::Result<()> {
 }
 
 pub fn cache_object<D: Encode>(key: &str, data: &D) -> Result<(), RemoteAccessError> {
-    cache_object_db(key, data, &borrow_db_checked())
+    cache_object_db(key, data)
 }
 pub fn cache_object_db<D: Encode>(
     key: &str,
     data: &D,
-    database: &Database,
 ) -> Result<(), RemoteAccessError> {
     let bytes = bitcode::encode(data);
-    write_sync(&database.cache_dir, key, bytes).map_err(RemoteAccessError::Cache)
+    write_sync(&CACHE_DIR, key, bytes).map_err(RemoteAccessError::Cache)
 }
 pub fn get_cached_object<D: Encode + DecodeOwned>(key: &str) -> Result<D, RemoteAccessError> {
-    get_cached_object_db::<D>(key, &borrow_db_checked())
+    get_cached_object_db::<D>(key)
 }
 pub fn get_cached_object_db<D: DecodeOwned>(
     key: &str,
-    db: &Database,
 ) -> Result<D, RemoteAccessError> {
-    let bytes = read_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
+    let bytes = read_sync(&CACHE_DIR, key).map_err(RemoteAccessError::Cache)?;
     let data =
         bitcode::decode::<D>(&bytes).map_err(|e| RemoteAccessError::Cache(io::Error::other(e)))?;
     Ok(data)
 }
 pub fn clear_cached_object(key: &str) -> Result<(), RemoteAccessError> {
-    clear_cached_object_db(key, &borrow_db_checked())
+    clear_cached_object_db(key)
 }
 pub fn clear_cached_object_db(
     key: &str,
-    db: &Database,
 ) -> Result<(), RemoteAccessError> {
-    delete_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
+    delete_sync(&CACHE_DIR, key).map_err(RemoteAccessError::Cache)?;
     Ok(())
 }
 

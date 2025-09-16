@@ -8,7 +8,7 @@ pub mod data {
     // Declare it using the actual version that it is from, i.e. v1::Settings rather than just Settings from here
 
     pub type GameVersion = v1::GameVersion;
-    pub type Database = v3::Database;
+    pub type Database = v4::Database;
     pub type Settings = v1::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
@@ -19,7 +19,7 @@ pub mod data {
      */
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
-    pub type DatabaseApplications = v2::DatabaseApplications;
+    pub type DatabaseApplications = v4::DatabaseApplications;
     // pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
 
     use std::collections::HashMap;
@@ -275,8 +275,6 @@ pub mod data {
         #[native_model(id = 3, version = 2, with = native_model::rmp_serde_1_3::RmpSerde, from=v1::DatabaseApplications)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
-            #[serde(skip)]
-            pub games: HashMap<String, Game>,
             pub game_statuses: HashMap<String, GameDownloadStatus>,
             pub game_versions: HashMap<String, HashMap<String, v1::GameVersion>>,
             pub installed_game_version: HashMap<String, v1::DownloadableMetadata>,
@@ -293,7 +291,6 @@ pub mod data {
                         .into_iter()
                         .map(|x| (x.0, x.1.into()))
                         .collect::<HashMap<String, GameDownloadStatus>>(),
-                    games: HashMap::new(),
                     install_dirs: value.install_dirs,
                     game_versions: value.game_versions,
                     installed_game_version: value.installed_game_version,
@@ -335,27 +332,72 @@ pub mod data {
         }
     }
 
+    mod v4 {
+        use std::{collections::HashMap, path::PathBuf};
+        use drop_library::libraries::LibraryProviderIdentifier;
+        use drop_native_library::impls::DropNativeLibraryProvider;
+        use serde_with::serde_as;
+        use crate::models::data::v3;
+        use super::{Deserialize, Serialize, native_model, v1, v2};
+
+        #[derive(Serialize, Deserialize, Clone)]
+        pub enum Library {
+            NativeLibrary(DropNativeLibraryProvider),
+        }
+
+        #[serde_as]
+        #[derive(Serialize, Deserialize, Default, Clone)]
+        #[serde(rename_all = "camelCase")]
+        #[native_model(id = 3, version = 4, with = native_model::rmp_serde_1_3::RmpSerde, from=v2::DatabaseApplications)]
+        pub struct DatabaseApplications {
+            pub install_dirs: Vec<PathBuf>,
+            pub libraries: HashMap<LibraryProviderIdentifier, Library>,
+
+            #[serde(skip)]
+            pub transient_statuses:
+                HashMap<v1::DownloadableMetadata, v1::ApplicationTransientStatus>,
+        }
+
+        impl From<v2::DatabaseApplications> for DatabaseApplications {
+            fn from(value: v2::DatabaseApplications) -> Self {
+                todo!()
+            }
+        }
+
+        #[native_model(id = 1, version = 4, with = native_model::rmp_serde_1_3::RmpSerde, from = v3::Database)]
+        #[derive(Serialize, Deserialize, Default, Clone)]
+        pub struct Database {
+            #[serde(default)]
+            pub settings: v1::Settings,
+            pub drop_applications: DatabaseApplications,
+            #[serde(skip)]
+            pub prev_database: Option<PathBuf>,
+        }
+
+        impl From<v3::Database> for Database {
+            fn from(value: v3::Database) -> Self {
+                Database {
+                    settings: value.settings,
+                    drop_applications: value.applications.into(),
+                    prev_database: value.prev_database,
+                }
+            }
+        }
+    }
+
     impl Database {
         pub fn new<T: Into<PathBuf>>(
             games_base_dir: T,
             prev_database: Option<PathBuf>,
-            cache_dir: PathBuf,
         ) -> Self {
             Self {
-                applications: DatabaseApplications {
+                drop_applications: DatabaseApplications {
                     install_dirs: vec![games_base_dir.into()],
-                    games: HashMap::new(),
-                    game_statuses: HashMap::new(),
-                    game_versions: HashMap::new(),
-                    installed_game_version: HashMap::new(),
+                    libraries: HashMap::new(),
                     transient_statuses: HashMap::new(),
                 },
                 prev_database,
-                base_url: String::new(),
-                auth: None,
                 settings: Settings::default(),
-                cache_dir,
-                compat_info: None,
             }
         }
     }

@@ -8,7 +8,7 @@ use http::StatusCode;
 use serde_with::SerializeDisplay;
 use url::ParseError;
 
-use super::drop_server_error::DropServerError;
+use super::drop_server_error::ServerError;
 
 #[derive(Debug, SerializeDisplay)]
 pub enum RemoteAccessError {
@@ -18,7 +18,7 @@ pub enum RemoteAccessError {
     InvalidEndpoint,
     HandshakeFailed(String),
     GameNotFound(String),
-    InvalidResponse(DropServerError),
+    InvalidResponse(ServerError),
     UnparseableResponse(String),
     ManifestDownloadFailed(StatusCode, String),
     OutOfSync,

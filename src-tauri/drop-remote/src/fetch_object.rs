@@ -1,17 +1,16 @@
-use drop_database::{db::DatabaseImpls as _, DB};
-use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder};
+use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Request};
 use log::warn;
 use tauri::UriSchemeResponder;
 
 
-use crate::utils::DROP_CLIENT_ASYNC;
+use crate::{requests::generate_url, utils::DROP_CLIENT_ASYNC, DropRemoteContext};
 
 use super::{
     auth::generate_authorization_header,
     cache::{ObjectCache, cache_object, get_cached_object},
 };
 
-pub async fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeResponder) {
+pub async fn fetch_object(context: &DropRemoteContext, request: Request<Vec<u8>>, responder: UriSchemeResponder) {
     // Drop leading /
     let object_id = &request.uri().path()[1..];
 
@@ -23,9 +22,9 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>, responder: UriSchemeR
         return;
     }
 
-    let header = generate_authorization_header();
+    let header = generate_authorization_header(context);
     let client = DROP_CLIENT_ASYNC.clone();
-    let url = format!("{}api/v1/client/object/{object_id}", DB.fetch_base_url());
+    let url = generate_url(context, &["/api/v1/client/object", object_id], &[]).expect("failed to generated object url");
     let response = client.get(url).header("Authorization", header).send().await;
 
     if response.is_err() {

@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 bitcode = "0.6.7"
 chrono = "0.4.42"
-drop-database = { path = "../drop-database" }
+drop-consts = { path = "../drop-consts" }
 drop-errors = { path = "../drop-errors" }
 droplet-rs = "0.7.3"
 gethostname = "1.0.2"

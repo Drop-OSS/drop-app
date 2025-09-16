@@ -1,4 +1,4 @@
-use drop_database::models::data::{ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus};
+// use drop_database::models::data::{ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus};
 
 pub type GameStatusWithTransient = (
     Option<GameDownloadStatus>,

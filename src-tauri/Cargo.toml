@@ -7,10 +7,10 @@ description = "The client application for the open-source, self-hosted game dist
 
 [workspace]
 resolver = "3"
-members = [
+members = ["drop-consts",
   "drop-database",
   "drop-downloads",
-  "drop-errors",
+  "drop-errors", "drop-library",
   "drop-native-library",
   "drop-process",
   "drop-remote",

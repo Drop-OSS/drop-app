@@ -4,10 +4,9 @@ use std::{
     sync::LazyLock,
 };
 
-use drop_database::db::DATA_ROOT_DIR;
+use drop_consts::DATA_ROOT_DIR;
 use log::{debug, info};
 use reqwest::Certificate;
-use serde::Deserialize;
 
 static DROP_CERT_BUNDLE: LazyLock<Vec<Certificate>> = LazyLock::new(fetch_certificates);
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> = LazyLock::new(get_client_sync);

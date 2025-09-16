@@ -1,7 +1,7 @@
 use drop_downloads::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
 use drop_downloads::util::progress_object::ProgressHandle;
 use drop_errors::application_download_error::ApplicationDownloadError;
-use drop_errors::drop_server_error::DropServerError;
+use drop_errors::drop_server_error::ServerError;
 use drop_errors::remote_access_error::RemoteAccessError;
 use drop_remote::auth::generate_authorization_header;
 use drop_remote::requests::generate_url;
@@ -197,7 +197,7 @@ pub fn download_game_bucket(
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
         info!("{raw_res}");
-        if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
+        if let Ok(err) = serde_json::from_str::<ServerError>(&raw_res) {
             return Err(ApplicationDownloadError::Communication(
                 RemoteAccessError::InvalidResponse(err),
             ));

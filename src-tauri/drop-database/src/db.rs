@@ -7,22 +7,14 @@ use std::{
 };
 
 use chrono::Utc;
+use drop_consts::DATA_ROOT_DIR;
 use log::{debug, error, info, warn};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{Serialize, de::DeserializeOwned};
-use url::Url;
 
 use crate::DB;
 
 use super::models::data::Database;
-
-#[cfg(not(debug_assertions))]
-static DATA_ROOT_PREFIX: &'static str = "drop";
-#[cfg(debug_assertions)]
-static DATA_ROOT_PREFIX: &str = "drop-debug";
-
-pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> =
-    LazyLock::new(|| Arc::new(dirs::data_dir().unwrap().join(DATA_ROOT_PREFIX)));
 
 // Custom JSON serializer to support everything we need
 #[derive(Debug, Default, Clone)]
@@ -32,16 +24,15 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     for DropDatabaseSerializer
 {
     fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
-        native_model::encode(val)
-            .map_err(|e| DeSerError::Internal(e.to_string()))
+        native_model::encode(val).map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
     fn deserialize<R: std::io::Read>(&self, mut s: R) -> rustbreak::error::DeSerResult<T> {
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
             .map_err(|e| rustbreak::error::DeSerError::Internal(e.to_string()))?;
-        let (val, _version) = native_model::decode(buf)
-            .map_err(|e| DeSerError::Internal(e.to_string()))?;
+        let (val, _version) =
+            native_model::decode(buf).map_err(|e| DeSerError::Internal(e.to_string()))?;
         Ok(val)
     }
 }
@@ -51,8 +42,6 @@ pub type DatabaseInterface =
 
 pub trait DatabaseImpls {
     fn set_up_database() -> DatabaseInterface;
-    fn database_is_set_up(&self) -> bool;
-    fn fetch_base_url(&self) -> Url;
 }
 impl DatabaseImpls for DatabaseInterface {
     fn set_up_database() -> DatabaseInterface {
@@ -77,22 +66,13 @@ impl DatabaseImpls for DatabaseInterface {
                 Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
             }
         } else {
-            let default = Database::new(games_base_dir, None, cache_dir);
+            let default = Database::new(games_base_dir, None);
             debug!(
                 "Creating database at path {}",
                 db_path.as_os_str().to_str().unwrap()
             );
             PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
         }
-    }
-
-    fn database_is_set_up(&self) -> bool {
-        !self.borrow_data().unwrap().base_url.is_empty()
-    }
-
-    fn fetch_base_url(&self) -> Url {
-        let handle = self.borrow_data().unwrap();
-        Url::parse(&handle.base_url).unwrap()
     }
 }
 
@@ -116,7 +96,6 @@ fn handle_invalid_database(
     let db = Database::new(
         games_base_dir.into_os_string().into_string().unwrap(),
         Some(new_path),
-        cache_dir,
     );
 
     PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
