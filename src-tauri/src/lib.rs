@@ -5,77 +5,59 @@
 #![feature(iterator_try_collect)]
 #![deny(clippy::all)]
 
-mod database;
-mod games;
-
+mod auth;
 mod client;
+mod database;
 mod download_manager;
-mod error;
+mod native_library;
 mod process;
 mod remote;
+mod setup;
 
-use crate::database::scan::scan_install_dirs;
-use crate::process::commands::open_process_logs;
-use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
+use crate::auth::recieve_handshake;
+use crate::native_library::collection_commands::{add_game_to_collection, create_collection, delete_collection, delete_game_in_collection, fetch_collection, fetch_collections};
+use crate::native_library::commands::{
+    fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
+};
+use crate::native_library::downloads::commands::{download_game, resume_download};
+use crate::process::commands::{open_process_logs, update_game_configuration};
 use crate::remote::commands::auth_initiate_code;
-use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
-use bitcode::{Decode, Encode};
+use crate::remote::server_proto::{handle_server_proto, handle_server_proto_offline};
 use client::commands::fetch_state;
 use client::{
-    autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
+    autostart::{get_autostart_enabled, toggle_autostart},
     cleanup::{cleanup_and_exit, quit},
 };
 use database::commands::{
     add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
     fetch_system_data, update_settings,
 };
-use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
-use database::models::data::GameDownloadStatus;
 use download_manager::commands::{
     cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
 };
-use download_manager::download_manager_builder::DownloadManagerBuilder;
-use download_manager::download_manager_frontend::DownloadManager;
-use games::collections::commands::{
-    add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
-    fetch_collection, fetch_collections,
-};
-use games::commands::{
-    fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
-};
-use games::downloads::commands::download_game;
-use games::library::{Game, update_game_configuration};
-use log::{LevelFilter, debug, info, warn};
-use log4rs::Config;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
+use drop_database::borrow_db_mut_checked;
+use drop_database::db::DATA_ROOT_DIR;
+use drop_database::runtime_models::User;
+use drop_downloads::download_manager_frontend::DownloadManager;
+use drop_process::process_manager::ProcessManager;
+use drop_remote::{fetch_object::fetch_object, offline};
+use log::{debug, info, warn};
 use process::commands::{kill_game, launch_game};
-use process::process_manager::ProcessManager;
-use remote::auth::{self, recieve_handshake};
 use remote::commands::{
     auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
     sign_out, use_remote,
 };
-use remote::fetch_object::fetch_object;
-use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::fs::File;
 use std::io::Write;
 use std::panic::PanicHookInfo;
-use std::path::Path;
-use std::str::FromStr;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::SystemTime;
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
 use std::{env, panic};
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 
@@ -90,164 +72,17 @@ pub enum AppStatus {
     ServerUnavailable,
 }
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode)]
-#[serde(rename_all = "camelCase")]
-pub struct User {
-    id: String,
-    username: String,
-    admin: bool,
-    display_name: String,
-    profile_picture_object_id: String,
-}
-
-#[derive(Clone)]
-pub struct CompatInfo {
-    umu_installed: bool,
-}
-
-fn create_new_compat_info() -> Option<CompatInfo> {
-    #[cfg(target_os = "windows")]
-    return None;
-
-    let has_umu_installed = UMU_LAUNCHER_EXECUTABLE.is_some();
-    Some(CompatInfo {
-        umu_installed: has_umu_installed,
-    })
-}
-
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState<'a> {
+pub struct AppState {
     status: AppStatus,
     user: Option<User>,
-    games: HashMap<String, Game>,
 
     #[serde(skip_serializing)]
     download_manager: Arc<DownloadManager>,
     #[serde(skip_serializing)]
-    process_manager: Arc<Mutex<ProcessManager<'a>>>,
-    #[serde(skip_serializing)]
-    compat_info: Option<CompatInfo>,
+    process_manager: &'static Mutex<ProcessManager<'static>>,
 }
-
-async fn setup(handle: AppHandle) -> AppState<'static> {
-    let logfile = FileAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(
-            "{d} | {l} | {f}:{L} - {m}{n}",
-        )))
-        .append(false)
-        .build(DATA_ROOT_DIR.join("./drop.log"))
-        .unwrap();
-
-    let console = ConsoleAppender::builder()
-        .encoder(Box::new(PatternEncoder::new(
-            "{d} | {l} | {f}:{L} - {m}{n}",
-        )))
-        .build();
-
-    let log_level = env::var("RUST_LOG").unwrap_or(String::from("Info"));
-
-    let config = Config::builder()
-        .appenders(vec![
-            Appender::builder().build("logfile", Box::new(logfile)),
-            Appender::builder().build("console", Box::new(console)),
-        ])
-        .build(
-            Root::builder()
-                .appenders(vec!["logfile", "console"])
-                .build(LevelFilter::from_str(&log_level).expect("Invalid log level")),
-        )
-        .unwrap();
-
-    log4rs::init_config(config).unwrap();
-
-    let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
-    let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
-    let compat_info = create_new_compat_info();
-
-    debug!("checking if database is set up");
-    let is_set_up = DB.database_is_set_up();
-
-    scan_install_dirs();
-
-    if !is_set_up {
-        return AppState {
-            status: AppStatus::NotConfigured,
-            user: None,
-            games,
-            download_manager,
-            process_manager,
-            compat_info,
-        };
-    }
-
-    debug!("database is set up");
-
-    // TODO: Account for possible failure
-    let (app_status, user) = auth::setup().await;
-
-    let db_handle = borrow_db_checked();
-    let mut missing_games = Vec::new();
-    let statuses = db_handle.applications.game_statuses.clone();
-    drop(db_handle);
-
-    for (game_id, status) in statuses {
-        match status {
-            GameDownloadStatus::Remote {} => {}
-            GameDownloadStatus::PartiallyInstalled { .. } => {}
-            GameDownloadStatus::SetupRequired {
-                version_name: _,
-                install_dir,
-            } => {
-                let install_dir_path = Path::new(&install_dir);
-                if !install_dir_path.exists() {
-                    missing_games.push(game_id);
-                }
-            }
-            GameDownloadStatus::Installed {
-                version_name: _,
-                install_dir,
-            } => {
-                let install_dir_path = Path::new(&install_dir);
-                if !install_dir_path.exists() {
-                    missing_games.push(game_id);
-                }
-            }
-        }
-    }
-
-    info!("detected games missing: {missing_games:?}");
-
-    let mut db_handle = borrow_db_mut_checked();
-    for game_id in missing_games {
-        db_handle
-            .applications
-            .game_statuses
-            .entry(game_id)
-            .and_modify(|v| *v = GameDownloadStatus::Remote {});
-    }
-
-    drop(db_handle);
-
-    debug!("finished setup!");
-
-    // Sync autostart state
-    if let Err(e) = sync_autostart_on_startup(&handle) {
-        warn!("failed to sync autostart state: {e}");
-    }
-
-    AppState {
-        status: app_status,
-        user,
-        games,
-        download_manager,
-        process_manager,
-        compat_info,
-    }
-}
-
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
     let crash_file = DATA_ROOT_DIR.join(format!(
@@ -346,7 +181,7 @@ pub fn run() {
             let handle = app.handle().clone();
 
             tauri::async_runtime::block_on(async move {
-                let state = setup(handle).await;
+                let state = setup::setup(handle).await;
                 info!("initialized drop client");
                 app.manage(Mutex::new(state));
 

@@ -1,17 +1,8 @@
 use std::fs;
 
+use drop_database::{borrow_db_mut_checked, drop_data::{DropData, DROP_DATA_PATH}, models::data::{DownloadType, DownloadableMetadata}};
+use drop_native_library::library::set_partially_installed_db;
 use log::warn;
-
-use crate::{
-    database::{
-        db::borrow_db_mut_checked,
-        models::data::{DownloadType, DownloadableMetadata},
-    },
-    games::{
-        downloads::drop_data::{DropData, DROP_DATA_PATH},
-        library::set_partially_installed_db,
-    },
-};
 
 pub fn scan_install_dirs() {
     let mut db_lock = borrow_db_mut_checked();
