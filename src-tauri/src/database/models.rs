@@ -8,7 +8,7 @@ pub mod data {
     // Declare it using the actual version that it is from, i.e. v1::Settings rather than just Settings from here
 
     pub type GameVersion = v1::GameVersion;
-    pub type Database = v3::Database;
+    pub type Database = v4::Database;
     pub type Settings = v1::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
@@ -20,7 +20,10 @@ pub mod data {
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
     pub type DatabaseApplications = v2::DatabaseApplications;
-    // pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
+    //pub type DatabaseCompatInfo = v2::DatabaseCompatInfo;
+    pub type PlaytimeData = v4::PlaytimeData;
+    pub type GamePlaytimeStats = v4::GamePlaytimeStats;
+    pub type PlaytimeSession = v4::PlaytimeSession;
 
     use std::collections::HashMap;
 
@@ -355,6 +358,108 @@ pub mod data {
                 settings: Settings::default(),
                 cache_dir,
                 compat_info: None,
+                playtime_data: PlaytimeData::default(),
+            }
+        }
+    }
+
+    mod v4 {
+        use std::{collections::HashMap, path::PathBuf, time::SystemTime};
+
+        use super::{
+            DatabaseApplications, DatabaseAuth, Deserialize, Serialize,
+            Settings, native_model, v3, v2::DatabaseCompatInfo,
+        };
+
+        #[native_model(id = 1, version = 4, with = native_model::rmp_serde_1_3::RmpSerde)]
+        #[derive(Serialize, Deserialize, Clone, Default)]
+        pub struct Database {
+            #[serde(default)]
+            pub settings: Settings,
+            pub auth: Option<DatabaseAuth>,
+            pub base_url: String,
+            pub applications: DatabaseApplications,
+            #[serde(skip)]
+            pub prev_database: Option<PathBuf>,
+            pub cache_dir: PathBuf,
+            pub compat_info: Option<DatabaseCompatInfo>,
+            #[serde(default)]
+            pub playtime_data: PlaytimeData,
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Default)]
+        #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        pub struct PlaytimeData {
+            pub game_sessions: HashMap<String, GamePlaytimeStats>,
+            #[serde(skip)]
+            pub active_sessions: HashMap<String, PlaytimeSession>,
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[native_model(id = 10, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        pub struct GamePlaytimeStats {
+            pub game_id: String,
+            pub total_playtime_seconds: u64,
+            pub session_count: u32,
+            pub first_played: SystemTime,
+            pub last_played: SystemTime,
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Debug)]
+        #[native_model(id = 11, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
+        pub struct PlaytimeSession {
+            pub game_id: String,
+            pub start_time: SystemTime,
+            pub session_id: String,
+        }
+
+        impl GamePlaytimeStats {
+            pub fn new(game_id: String) -> Self {
+                let now = SystemTime::now();
+                Self {
+                    game_id,
+                    total_playtime_seconds: 0,
+                    session_count: 0,
+                    first_played: now,
+                    last_played: now,
+                }
+            }
+
+            pub fn average_session_length(&self) -> u64 {
+                if self.session_count == 0 {
+                    0
+                } else {
+                    self.total_playtime_seconds / self.session_count as u64
+                }
+            }
+        }
+
+        impl PlaytimeSession {
+            pub fn new(game_id: String) -> Self {
+                Self {
+                    game_id,
+                    start_time: SystemTime::now(),
+                    session_id: uuid::Uuid::new_v4().to_string(),
+                }
+            }
+
+            pub fn duration(&self) -> std::time::Duration {
+                self.start_time.elapsed().unwrap_or_default()
+            }
+        }
+
+        impl From<v3::Database> for Database {
+            fn from(value: v3::Database) -> Self {
+                Self {
+                    settings: value.settings,
+                    auth: value.auth,
+                    base_url: value.base_url,
+                    applications: value.applications,
+                    prev_database: value.prev_database,
+                    cache_dir: value.cache_dir,
+                    compat_info: value.compat_info,
+                    playtime_data: PlaytimeData::default(),
+                }
             }
         }
 

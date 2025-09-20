@@ -13,9 +13,13 @@
       </div>
       <div class="absolute inset-0 h-full flex flex-row items-end justify-end space-x-[1px]">
         <div
-          v-for="bar in speedHistory"
-          :style="{ height: `${(bar / speedMax) * 100}%` }"
-          class="w-[3px] bg-blue-600 rounded-t-full"
+          v-for="(bar, index) in speedHistory"
+          :key="index"
+          :style="{ height: `${(bar.speed / speedMax) * 100}%` }"
+          :class="[
+            'w-[3px] rounded-t-full transition-colors duration-500',
+            bar.isValidating ? 'bg-green-600' : 'bg-blue-600'
+          ]"
         />
       </div>
     </div>
@@ -54,7 +58,10 @@
                 class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
               >
                 <div
-                  class="h-2 bg-blue-600"
+                  :class="[
+                    'h-2 transition-colors duration-500',
+                    element.status === 'Validating' ? 'bg-green-600' : 'bg-blue-600'
+                  ]"
                   :style="{ width: `${element.progress * 100}%` }"
                 />
               </div>
@@ -92,6 +99,7 @@
 import { ServerIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { type DownloadableMetadata, type Game, type GameStatus } from "~/types";
+import type { SpeedHistoryEntry } from "~/composables/downloads";
 
 // const actionNames = {
 //   [GameStatusEnum.Downloading]: "downloading",
@@ -107,14 +115,21 @@ const queue = useQueueState();
 const stats = useStatsState();
 const speedHistory = useDownloadHistory();
 const speedHistoryMax = computed(() => windowWidth.value / 4);
-const speedMax = computed(
-  () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.1
-);
+const speedMax = computed(() => {
+  if (speedHistory.value.length === 0) return 1;
+  return speedHistory.value.reduce((a, b) => (a.speed > b.speed ? a : b)).speed * 1.1;
+});
 const previousGameId = useState<string | undefined>('previous_game');
 
 const games: Ref<{
   [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
 }> = ref({});
+
+// Check if the current download is validating
+const isCurrentlyValidating = computed(() => {
+  const currentItem = queue.value.queue.at(0);
+  return currentItem?.status === 'Validating';
+});
 
 function resetHistoryGraph() {
   speedHistory.value = [];
@@ -151,7 +166,11 @@ watch(queue, (v) => {
 
 watch(stats, (v) => {
   if(v.speed == 0) return;
-  const newLength = speedHistory.value.push(v.speed);
+  const historyEntry = {
+    speed: v.speed,
+    isValidating: isCurrentlyValidating.value
+  };
+  const newLength = speedHistory.value.push(historyEntry);
   if (newLength > speedHistoryMax.value) {
     speedHistory.value.splice(0, newLength - speedHistoryMax.value);
   }

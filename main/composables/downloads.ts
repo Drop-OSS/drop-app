@@ -33,4 +33,9 @@ listen("update_stats", (event) => {
   stats.value = event.payload as StatsState;
 });
 
-export const useDownloadHistory = () => useState<Array<number>>('history', () => []);
+export type SpeedHistoryEntry = {
+  speed: number;
+  isValidating: boolean;
+};
+
+export const useDownloadHistory = () => useState<Array<SpeedHistoryEntry>>('history', () => []);

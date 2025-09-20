@@ -19,7 +19,10 @@ const props = defineProps<{ object?: QueueState["queue"][0] }>();
     />
     <div
       v-if="props.object?.progress"
-      class="transition-all absolute left-0 top-0 bottom-0 bg-blue-600 z-10"
+      :class="[
+        'transition-all duration-500 absolute left-0 top-0 bottom-0 z-10',
+        props.object.status === 'Validating' ? 'bg-green-600' : 'bg-blue-600'
+      ]"
       :style="{ width: `${props.object.progress * 99 + 1}%` }"
     />
   </NuxtLink>
