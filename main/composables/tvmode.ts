@@ -14,9 +14,11 @@ interface NavigationJump {
   id: string;
 }
 
+type Position = [number, number, number, number];
+
 class TVModeNavigator {
   private rootNode: Ref<HTMLElement | undefined>;
-  private navigationNodes: Map<string, Array<Element>> = new Map();
+  private navigationNodes: Map<string, Array<HTMLElement>> = new Map();
 
   constructor(rootNode: Ref<HTMLElement | undefined>) {
     this.rootNode = rootNode;
@@ -29,9 +31,110 @@ class TVModeNavigator {
       childList: true,
       subtree: true,
     });
+
+    document.addEventListener("keydown", (ev) => {
+      switch (ev.code) {
+        case "KeyW":
+          return this.moveUp();
+        case "KeyS":
+          return this.moveDown();
+        case "KeyD":
+          return this.moveRight();
+        case "KeyA":
+          return this.moveLeft();
+      }
+    });
   }
 
-  recursivelyFindInteractable(element: Element): Array<Element> {
+  private getCurrentPosition(element?: HTMLElement): Position {
+    const el = element || document.activeElement;
+    if (!el) throw "No active position";
+    const rect = el.getBoundingClientRect();
+    return [rect.left, rect.right, rect.top, rect.bottom];
+  }
+
+  private isSamePosition(a: Position, b: Position) {
+    return a.map((v, i) => v === b[i]).every((v) => v);
+  }
+
+  private findElementWithPredicate(
+    distanceCalculator: (current: Position, target: Position) => number,
+    check: (current: Position, target: Position) => boolean
+  ) {
+    const current = this.getCurrentPosition();
+    // We want things in the x direction, with a limit on the y
+    let distance = Math.max(window.innerWidth, window.innerHeight);
+    let element = null;
+    for (const newElement of this.navigationNodes.values().toArray().flat()) {
+      const target = this.getCurrentPosition(newElement);
+      if(this.isSamePosition(current, target)) continue;
+      const newDistance = distanceCalculator(current, target);
+      // If we're the wrong way, or further than the current option
+      if (newDistance < 0 || newDistance > distance) continue;
+      if (check(current, target)) continue;
+      distance = newDistance;
+      element = newElement;
+    }
+    return element;
+  }
+
+  moveUp() {
+    const leeway = 20; // 20px
+    const element = this.findElementWithPredicate(
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        ytop - ebottom,
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        xleft - leeway > eright && xright + leeway < eleft
+    );
+
+    if (element) {
+      element.focus();
+    }
+  }
+
+  moveDown() {
+    const leeway = 20; // 20px
+    const element = this.findElementWithPredicate(
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        etop - ybottom,
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        xleft - leeway > eright && xright + leeway < eleft
+    );
+
+    if (element) {
+      element.focus();
+    }
+  }
+
+  moveRight() {
+    const leeway = 20; // 20px
+    const element = this.findElementWithPredicate(
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        eleft - xright,
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        etop - leeway > ytop && ebottom + leeway < etop
+    );
+
+    if (element) {
+      element.focus();
+    }
+  }
+
+  moveLeft() {
+    const leeway = 20; // 20px
+    const element = this.findElementWithPredicate(
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        xleft - eright,
+      ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
+        etop - leeway > ytop && ebottom + leeway < etop
+    );
+
+    if (element) {
+      element.focus();
+    }
+  }
+
+  recursivelyFindInteractable(element: Element): Array<HTMLElement> {
     const elements = [];
     for (const child of element.children) {
       if (!child) continue;
@@ -40,6 +143,10 @@ class TVModeNavigator {
         continue;
       }
       if (child instanceof HTMLButtonElement) {
+        elements.push(child);
+        continue;
+      }
+      if(child instanceof HTMLInputElement) {
         elements.push(child);
         continue;
       }
@@ -124,49 +231,12 @@ class TVModeNavigator {
     }
 
     const interactiveElements = this.navigationNodes.values().toArray().flat();
-    for (const element of interactiveElements) {
-      const currentId = self.getInteractionId(element);
-      const directionJumps: Map<Direction, NavigationJump> = new Map();
-      for (const direction of Directions) {
-        const jump = self.getNavJump(element, direction);
-        if (jump) {
-          directionJumps.set(direction, jump);
-        }
-      }
 
-      const lowerX = element.clientLeft;
-      const upperX = element.clientLeft + element.clientWidth;
-      const lowerY = element.clientTop;
-      const upperY = element.clientTop + element.clientHeight;
-
-      for (const otherElement of interactiveElements) {
-        const otherId = self.getInteractionId(otherElement);
-        if (otherId == currentId) continue; // Skip us
-
-        const otherLowerX = otherElement.clientLeft;
-        const otherUpperX = otherElement.clientLeft + otherElement.clientWidth;
-        const otherLowerY = otherElement.clientTop;
-        const otherUpperY = otherElement.clientTop + otherElement.clientHeight;
-
-        for (const direction of Directions) {
-          let jump;
-          switch (direction) {
-            case "down":
-              const leeway =
-                0.1 * (element.clientWidth + otherElement.clientWidth);
-              if (
-                lowerX - leeway < otherUpperX ||
-                upperX + leeway > otherLowerX
-              )
-                break;
-              jump = {
-                id: otherId,
-                distance: upperY - otherUpperY,
-              } satisfies NavigationJump;
-              console.log(jump);
-              break;
-          }
-        }
+    // Set focus so we aren't confused
+    if (!document.activeElement || document.activeElement.tagName === "BODY") {
+      const active = interactiveElements.at(0);
+      if (active) {
+        active.focus();
       }
     }
   }

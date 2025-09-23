@@ -17,5 +17,9 @@ export default defineNuxtConfig({
 
   app: {
     baseURL: "/main",
-  }
+  },
+
+  devtools: {
+    enabled: false,
+  },
 });

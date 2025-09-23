@@ -43,9 +43,7 @@ router.beforeEach(async () => {
 });
 
 const rootNode = ref<HTMLElement>();
-onMounted(() => {
-  const navigator = createTVNavigator(rootNode);
-});
+const navigator = createTVNavigator(rootNode);
 
 setupHooks();
 initialNavigation(state);
