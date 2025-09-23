@@ -1,5 +1,6 @@
 const NAVIGATE_MODIFIED_PROP = "tvnav-id";
 const NAVIGATE_INTERACT_ID = "tvnav-iid";
+const NAVIGATE_DEBUG_TAG = "tvnavdebug";
 
 const Directions = ["left", "right", "up", "down"] as const;
 type Direction = (typeof Directions)[number];
@@ -9,7 +10,7 @@ interface NavigationJump {
   id: string;
 }
 
-type Position = [number, number, number, number];
+type Position = [number, number, number, number, string];
 
 class TVModeNavigator {
   private navigationNodes: Map<string, HTMLElement> = new Map();
@@ -42,7 +43,8 @@ class TVModeNavigator {
     const el = element || document.activeElement;
     if (!el) throw "No active position";
     const rect = el.getBoundingClientRect();
-    return [rect.left, rect.right, rect.top, rect.bottom];
+    const debugName = el.getAttribute(NAVIGATE_DEBUG_TAG);
+    return [rect.left, rect.right, rect.top, rect.bottom, debugName ?? ""];
   }
 
   private isSamePosition(a: Position, b: Position) {
@@ -51,30 +53,72 @@ class TVModeNavigator {
 
   private getUniqueNavNodes() {
     const hasSeen = new Map<string, boolean>();
-    return this.navigationNodes
-      .values()
-      .filter((v) => {
-        const id = this.getInteractionId(v);
-        if (hasSeen.get(id)) return false;
-        hasSeen.set(id, true);
-        return true;
-      });
+    return this.navigationNodes.values().filter((v) => {
+      const id = this.getInteractionId(v);
+      if (hasSeen.get(id)) return false;
+      hasSeen.set(id, true);
+      return true;
+    });
+  }
+
+  /*
+    let left = current[0] - target[1]; // Our left edge vs their right left (they're to our left)
+    if (left < 0) {
+      left = target[0] - current[1];
+      console.log("to the right");
+    } // If we're less, it's our right edge vs their left edge
+    
+    let top = current[2] - target[3]; // Our top edge vs their bottom edge
+    if (top < 0) {
+      top = target[2] - current[3];
+      console.log("undernearth");
+    } // Our bottom edge vs their top edge
+    console.log(top);
+  */
+
+  private getCenter(position: Position) {
+    return [
+      position[0] + 0.5 * (position[1] - position[0]),
+      position[2] + 0.5 * (position[3] - position[2]),
+    ];
+  }
+
+  private findOuterDistance(
+    current: Position,
+    target: Position,
+    bias: Direction
+  ) {
+    const centerCurrent = this.getCenter(current);
+    const centerTarget = this.getCenter(target);
+
+    return Math.sqrt(
+      Math.pow(
+        centerCurrent[0] - centerTarget[0],
+        ["left", "right"].includes(bias) ? 2 : 4
+      ) +
+        Math.pow(
+          centerCurrent[1] - centerTarget[1],
+          ["up", "down"].includes(bias) ? 2 : 4
+        )
+    );
   }
 
   private findElementWithPredicate(
-    check: (current: Position, target: Position) => boolean
+    check: (current: Position, target: Position) => boolean,
+    direction: Direction
   ) {
     const current = this.getCurrentPosition();
     // We want things in the x direction, with a limit on the y
-    let distance = Math.max(window.innerWidth, window.innerHeight);
+    let distance = Infinity;
     let element = null;
     const nodes = this.getUniqueNavNodes();
     for (const newElement of nodes) {
       const target = this.getCurrentPosition(newElement);
       if (this.isSamePosition(current, target)) continue;
-      const newDistance = Math.sqrt(
-        Math.pow(current[0] - target[0], 2) +
-          Math.pow(current[2] - target[2], 2)
+      if (target.every((v) => v == 0)) continue; // This element doesn't exist
+      const newDistance = this.findOuterDistance(current, target, direction);
+      console.log(
+        `distance of ${newDistance} between ${current[4]} and ${target[4]}`
       );
       // If we're the wrong way, or further than the current option
       if (newDistance < 0 || newDistance > distance) {
@@ -94,7 +138,8 @@ class TVModeNavigator {
     const leeway = 100; // 20px
     const element = this.findElementWithPredicate(
       ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
-        xleft - leeway < eright && xright + leeway > eleft && ytop >= ebottom
+        xleft - leeway < eright && xright + leeway > eleft && ytop >= ebottom,
+      "up"
     );
 
     if (element) {
@@ -106,7 +151,8 @@ class TVModeNavigator {
     const leeway = 20; // 20px
     const element = this.findElementWithPredicate(
       ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
-        xleft - leeway < eright && xright + leeway > eleft && ytop <= ebottom
+        xleft - leeway < eright && xright + leeway > eleft && ytop <= ebottom,
+      "down"
     );
 
     if (element) {
@@ -118,7 +164,8 @@ class TVModeNavigator {
     const leeway = 0; // 20px
     const element = this.findElementWithPredicate(
       ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
-        ytop - leeway < ebottom && ybottom + leeway > etop && xright <= eleft
+        ytop - leeway < ebottom && ybottom + leeway > etop && xright <= eleft,
+      "right"
     );
 
     if (element) {
@@ -130,7 +177,8 @@ class TVModeNavigator {
     const leeway = 20; // 20px
     const element = this.findElementWithPredicate(
       ([xleft, xright, ytop, ybottom], [eleft, eright, etop, ebottom]) =>
-        ytop - leeway < ebottom && ybottom + leeway > etop && xleft >= eright
+        ytop - leeway < ebottom && ybottom + leeway > etop && xleft >= eright,
+      "left"
     );
 
     if (element) {

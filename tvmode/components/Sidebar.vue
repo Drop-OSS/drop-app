@@ -12,6 +12,7 @@
                   : 'text-zinc-400 hover:text-zinc-200',
               ]"
               :href="nav.route"
+              :tvnavDebug="`nav-link-${nav.label}`"
             >
               {{ nav.label }}
             </NuxtLink>
