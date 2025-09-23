@@ -10,8 +10,15 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
-    "nuxt": "^4.1.2",
-    "vue": "^3.5.21",
-    "vue-router": "^4.5.1"
+    "@headlessui/vue": "^1.7.23",
+    "@heroicons/vue": "^2.1.5",
+    "@nuxtjs/tailwindcss": "^6.12.2",
+    "@tauri-apps/api": "^2.7.0",
+    "markdown-it": "^14.1.0",
+    "micromark": "^4.0.1",
+    "nuxt": "^3.16.0",
+    "sass-embedded": "^1.93.1",
+    "scss": "^0.2.4",
+    "vue-router": "latest"
   }
 }

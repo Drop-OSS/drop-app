@@ -361,7 +361,7 @@ pub fn run() {
                 let _main_window = tauri::WebviewWindowBuilder::new(
                     &handle,
                     "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
-                    tauri::WebviewUrl::App("main".into()),
+                    tauri::WebviewUrl::App("tvmode".into()),
                 )
                 .title("Drop Desktop App")
                 .min_inner_size(1000.0, 500.0)

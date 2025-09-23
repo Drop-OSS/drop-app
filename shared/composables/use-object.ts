@@ -1,5 +1,5 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 
-export const useObject = async (id: string) => {
+export const useObject = (id: string) => {
   return convertFileSrc(id, "object");
 };

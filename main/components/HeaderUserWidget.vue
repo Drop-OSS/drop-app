@@ -76,7 +76,6 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { ChevronDownIcon } from "@heroicons/vue/16/solid";
 import type { NavigationItem } from "../types";
 import HeaderWidget from "./HeaderWidget.vue";
-import { useAppState } from "~/composables/app-state";
 import { invoke } from "@tauri-apps/api/core";
 
 const open = ref(false);

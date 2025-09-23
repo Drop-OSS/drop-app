@@ -7,7 +7,8 @@ export default {
     "./plugins/**/*.{js,ts}",
     "./app.vue",
     "./error.vue",
-    "../shared/components/**/*.vue"
+    "../shared/components/**/*.vue",
+    "../shared/error.vue",
   ],
   theme: {
     extend: {
@@ -17,5 +18,5 @@ export default {
       },
     },
   },
-  plugins: [require("@tailwindcss/forms"), require('@tailwindcss/typography')],
+  plugins: [],
 };
