@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard},
 };
 
-use crate::database::models::data::DownloadableMetadata;
+use crate::{database::models::data::DownloadableMetadata, lock};
 
 #[derive(Clone)]
 pub struct Queue {
@@ -24,10 +24,10 @@ impl Queue {
         }
     }
     pub fn read(&self) -> VecDeque<DownloadableMetadata> {
-        self.inner.lock().unwrap().clone()
+        lock!(self.inner).clone()
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<DownloadableMetadata>> {
-        self.inner.lock().unwrap()
+        lock!(self.inner)
     }
     pub fn pop_front(&self) -> Option<DownloadableMetadata> {
         self.edit().pop_front()

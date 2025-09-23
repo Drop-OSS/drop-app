@@ -1,3 +1,4 @@
 mod app_emit;
-mod state_lock;
+mod download_manager_send;
+mod lock;
 pub mod webbrowser_open;

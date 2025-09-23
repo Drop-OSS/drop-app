@@ -18,7 +18,7 @@ pub enum ApplicationDownloadError {
     Checksum,
     Lock,
     IoError(Arc<io::Error>),
-    DownloadError,
+    DownloadError(RemoteAccessError),
 }
 
 impl Display for ApplicationDownloadError {
@@ -40,10 +40,16 @@ impl Display for ApplicationDownloadError {
                 write!(f, "checksum failed to validate for download")
             }
             ApplicationDownloadError::IoError(error) => write!(f, "io error: {error}"),
-            ApplicationDownloadError::DownloadError => write!(
+            ApplicationDownloadError::DownloadError(error) => write!(
                 f,
-                "Download failed. See Download Manager status for specific error"
+                "Download failed with error {error}"
             ),
         }
+    }
+}
+
+impl From<io::Error> for ApplicationDownloadError {
+    fn from(value: io::Error) -> Self {
+        ApplicationDownloadError::IoError(Arc::new(value))
     }
 }

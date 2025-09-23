@@ -24,11 +24,11 @@ pub fn scan_install_dirs() {
             if !drop_data_file.exists() {
                 continue;
             }
-            let game_id = game.file_name().into_string().unwrap();
+            let game_id = game.file_name().display().to_string();
             let Ok(drop_data) = DropData::read(&game.path()) else {
                 warn!(
                     ".dropdata exists for {}, but couldn't read it. is it corrupted?",
-                    game.file_name().into_string().unwrap()
+                    game.file_name().display()
                 );
                 continue;
             };

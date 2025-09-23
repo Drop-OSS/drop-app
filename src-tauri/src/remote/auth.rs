@@ -9,13 +9,17 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    app_emit, database::{
+    AppState, AppStatus, User, app_emit,
+    database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, remote::{
+    },
+    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
+    lock,
+    remote::{
         requests::make_authenticated_get,
         utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
-    }, state_lock, AppState, AppStatus, User
+    },
 };
 
 use super::{
@@ -118,6 +122,16 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
     }
     let response_struct: HandshakeResponse = response.json().await?;
 
+    {
+        let mut handle = borrow_db_mut_checked();
+        handle.auth = Some(DatabaseAuth {
+            private: response_struct.private,
+            cert: response_struct.certificate,
+            client_id: response_struct.id,
+            web_token: None,
+        });
+    }
+
     let web_token = {
         let header = generate_authorization_header();
         let token = client
@@ -128,14 +142,8 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
 
         token.text().await?
     };
-
     let mut handle = borrow_db_mut_checked();
-    handle.auth = Some(DatabaseAuth {
-        private: response_struct.private,
-        cert: response_struct.certificate,
-        client_id: response_struct.id,
-        web_token: Some(web_token),
-    });
+    handle.auth.as_mut().unwrap().web_token = Some(web_token);
 
     Ok(())
 }
@@ -155,7 +163,7 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     let (app_status, user) = setup().await;
 
-    let mut state_lock = state_lock!(app_state);
+    let mut state_lock = lock!(app_state);
 
     state_lock.status = app_status;
     state_lock.user = user;

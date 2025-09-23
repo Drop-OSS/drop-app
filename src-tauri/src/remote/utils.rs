@@ -11,7 +11,7 @@ use serde::Deserialize;
 use url::Url;
 
 use crate::{
-    database::db::{borrow_db_mut_checked, DATA_ROOT_DIR}, error::remote_access_error::RemoteAccessError, state_lock, AppState, AppStatus
+    database::db::{borrow_db_mut_checked, DATA_ROOT_DIR}, error::remote_access_error::RemoteAccessError, lock, AppState, AppStatus
 };
 
 #[derive(Deserialize)]
@@ -134,7 +134,7 @@ pub async fn use_remote_logic(
         return Err(RemoteAccessError::InvalidEndpoint);
     }
 
-    let mut app_state = state_lock!(state);
+    let mut app_state = lock!(state);
     app_state.status = AppStatus::SignedOut;
     drop(app_state);
 

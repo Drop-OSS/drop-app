@@ -8,11 +8,16 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    app_emit, database::db::{borrow_db_checked, borrow_db_mut_checked}, error::remote_access_error::RemoteAccessError, remote::{
+    AppState, AppStatus, app_emit,
+    database::db::{borrow_db_checked, borrow_db_mut_checked},
+    error::remote_access_error::RemoteAccessError,
+    lock,
+    remote::{
         auth::generate_authorization_header,
         requests::generate_url,
         utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
-    }, state_lock, utils::webbrowser_open::webbrowser_open, AppState, AppStatus
+    },
+    utils::webbrowser_open::webbrowser_open,
 };
 
 use super::{
@@ -74,7 +79,7 @@ pub fn sign_out(app: AppHandle) {
     // Update app state
     {
         let app_state = app.state::<Mutex<AppState>>();
-        let mut app_state_handle = state_lock!(app_state);
+        let mut app_state_handle = lock!(app_state);
         app_state_handle.status = AppStatus::SignedOut;
         app_state_handle.user = None;
     }
@@ -87,7 +92,7 @@ pub fn sign_out(app: AppHandle) {
 pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
     let (app_status, user) = setup().await;
 
-    let mut guard = state_lock!(state);
+    let mut guard = lock!(state);
     guard.status = app_status;
     guard.user = user;
     drop(guard);
@@ -121,9 +126,8 @@ struct CodeWebsocketResponse {
 pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
     let base_url = {
         let db_lock = borrow_db_checked();
-        Url::parse(&db_lock.base_url.clone())?
+        Url::parse(&db_lock.base_url.clone())?.clone()
     };
-    
 
     let code = auth_initiate_logic("code".to_string())?;
     let header_code = code.clone();
@@ -149,14 +153,13 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
                     match response.response_type.as_str() {
                         "token" => {
                             let recieve_app = app.clone();
-                            manual_recieve_handshake(recieve_app, response.value).await.unwrap();
+                            manual_recieve_handshake(recieve_app, response.value).await;
                             return Ok(());
                         }
                         _ => return Err(RemoteAccessError::HandshakeFailed(response.value)),
                     }
                 }
             }
-
             Err(RemoteAccessError::HandshakeFailed(
                 "Failed to connect to websocket".to_string(),
             ))
@@ -173,8 +176,6 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
 }
 
 #[tauri::command]
-pub async fn manual_recieve_handshake(app: AppHandle, token: String) -> Result<(), ()> {
+pub async fn manual_recieve_handshake(app: AppHandle, token: String) {
     recieve_handshake(app, format!("handshake/{token}")).await;
-
-    Ok(())
 }

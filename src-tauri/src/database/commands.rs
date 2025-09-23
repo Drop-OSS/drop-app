@@ -67,11 +67,15 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), DownloadManagerError<()>
 #[tauri::command]
 pub fn update_settings(new_settings: Value) {
     let mut db_lock = borrow_db_mut_checked();
-    let mut current_settings = serde_json::to_value(db_lock.settings.clone()).unwrap();
-    for (key, value) in new_settings.as_object().unwrap() {
+    let mut current_settings = serde_json::to_value(db_lock.settings.clone()).expect("Failed to parse existing settings");
+    let values = match new_settings.as_object() {
+        Some(values) => values,
+        None => { panic!("Could not parse settings values"); },
+    };
+    for (key, value) in values {
         current_settings[key] = value.clone();
     }
-    let new_settings: Settings = serde_json::from_value(current_settings).unwrap();
+    let new_settings: Settings = serde_json::from_value(current_settings).unwrap_or_else(|e| panic!("Failed to parse settings with error {}", e));
     db_lock.settings = new_settings;
 }
 #[tauri::command]

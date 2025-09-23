@@ -3,8 +3,8 @@ use std::{
     collections::VecDeque,
     fmt::Debug,
     sync::{
-        mpsc::{SendError, Sender},
         Mutex, MutexGuard,
+        mpsc::{SendError, Sender},
     },
     thread::JoinHandle,
 };
@@ -14,7 +14,7 @@ use serde::Serialize;
 
 use crate::{
     database::models::data::DownloadableMetadata,
-    error::application_download_error::ApplicationDownloadError,
+    error::application_download_error::ApplicationDownloadError, lock, send,
 };
 
 use super::{
@@ -119,22 +119,18 @@ impl DownloadManager {
         self.download_queue.read()
     }
     pub fn get_current_download_progress(&self) -> Option<f64> {
-        let progress_object = (*self.progress.lock().unwrap()).clone()?;
+        let progress_object = (*lock!(self.progress)).clone()?;
         Some(progress_object.get_progress())
     }
     pub fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
         let mut queue = self.edit();
-        let current_index = get_index_from_id(&mut queue, meta).unwrap();
-        let to_move = queue.remove(current_index).unwrap();
+        let current_index = get_index_from_id(&mut queue, meta).expect("Failed to get meta index from id");
+        let to_move = queue.remove(current_index).expect("Failed to remove meta at index from queue");
         queue.insert(new_index, to_move);
-        self.command_sender
-            .send(DownloadManagerSignal::UpdateUIQueue)
-            .unwrap();
+        send!(self.command_sender, DownloadManagerSignal::UpdateUIQueue);
     }
     pub fn cancel(&self, meta: DownloadableMetadata) {
-        self.command_sender
-            .send(DownloadManagerSignal::Cancel(meta))
-            .unwrap();
+        send!(self.command_sender, DownloadManagerSignal::Cancel(meta));
     }
     pub fn rearrange(&self, current_index: usize, new_index: usize) {
         if current_index == new_index {
@@ -143,39 +139,31 @@ impl DownloadManager {
 
         let needs_pause = current_index == 0 || new_index == 0;
         if needs_pause {
-            self.command_sender
-                .send(DownloadManagerSignal::Stop)
-                .unwrap();
+            send!(self.command_sender, DownloadManagerSignal::Stop);
         }
 
         debug!("moving download at index {current_index} to index {new_index}");
 
         let mut queue = self.edit();
-        let to_move = queue.remove(current_index).unwrap();
+        let to_move = queue.remove(current_index).expect("Failed to get");
         queue.insert(new_index, to_move);
         drop(queue);
 
         if needs_pause {
-            self.command_sender.send(DownloadManagerSignal::Go).unwrap();
+            send!(self.command_sender, DownloadManagerSignal::Go);
         }
-        self.command_sender
-            .send(DownloadManagerSignal::UpdateUIQueue)
-            .unwrap();
-        self.command_sender.send(DownloadManagerSignal::Go).unwrap();
+        send!(self.command_sender, DownloadManagerSignal::UpdateUIQueue);
+        send!(self.command_sender, DownloadManagerSignal::Go);
     }
     pub fn pause_downloads(&self) {
-        self.command_sender
-            .send(DownloadManagerSignal::Stop)
-            .unwrap();
+        send!(self.command_sender, DownloadManagerSignal::Stop);
     }
     pub fn resume_downloads(&self) {
-        self.command_sender.send(DownloadManagerSignal::Go).unwrap();
+        send!(self.command_sender, DownloadManagerSignal::Go);
     }
     pub fn ensure_terminated(&self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
-        self.command_sender
-            .send(DownloadManagerSignal::Finish)
-            .unwrap();
-        let terminator = self.terminator.lock().unwrap().take();
+        send!(self.command_sender, DownloadManagerSignal::Finish);
+        let terminator = lock!(self.terminator).take();
         terminator.unwrap().join()
     }
     pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {

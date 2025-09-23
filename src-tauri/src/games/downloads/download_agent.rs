@@ -20,15 +20,18 @@ use crate::games::state::GameStatusManager;
 use crate::process::utils::get_disk_available;
 use crate::remote::requests::generate_url;
 use crate::remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
+use crate::{app_emit, lock, send};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use std::collections::{HashMap, HashSet};
-use std::fs::{create_dir_all, OpenOptions};
+use std::fs::{OpenOptions, create_dir_all};
+use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter};
+use tauri::{App, AppHandle, Emitter};
+use uuid::timestamp::context;
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{FallocateFlags, fallocate};
@@ -98,10 +101,8 @@ impl GameDownloadAgent {
 
         result.ensure_manifest_exists().await?;
 
-        let required_space = result
-            .manifest
-            .lock()
-            .unwrap()
+        let required_space = lock!(result
+            .manifest)
             .as_ref()
             .unwrap()
             .values()
@@ -162,11 +163,11 @@ impl GameDownloadAgent {
     }
 
     pub fn check_manifest_exists(&self) -> bool {
-        self.manifest.lock().unwrap().is_some()
+        lock!(self.manifest).is_some()
     }
 
     pub async fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
-        if self.manifest.lock().unwrap().is_some() {
+        if lock!(self.manifest).is_some() {
             return Ok(());
         }
 
@@ -197,7 +198,10 @@ impl GameDownloadAgent {
             ));
         }
 
-        let manifest_download: DropManifest = response.json().await.unwrap();
+        let manifest_download: DropManifest = response
+            .json()
+            .await
+            .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
         if let Ok(mut manifest) = self.manifest.lock() {
             *manifest = Some(manifest_download);
@@ -209,7 +213,7 @@ impl GameDownloadAgent {
 
     // Sets it up for both download and validate
     fn setup_progress(&self) {
-        let buckets = self.buckets.lock().unwrap();
+        let buckets = lock!(self.buckets);
 
         let chunk_count = buckets.iter().map(|e| e.drops.len()).sum();
 
@@ -224,21 +228,23 @@ impl GameDownloadAgent {
     }
 
     pub fn ensure_buckets(&self) -> Result<(), ApplicationDownloadError> {
-        if self.buckets.lock().unwrap().is_empty() {
+        if lock!(self.buckets).is_empty() {
             self.generate_buckets()?;
         }
 
-        *self.context_map.lock().unwrap() = self.dropdata.get_contexts();
+        *lock!(self.context_map) = self.dropdata.get_contexts();
 
         Ok(())
     }
 
     pub fn generate_buckets(&self) -> Result<(), ApplicationDownloadError> {
-        let manifest = self.manifest.lock().unwrap().clone().unwrap();
+        let manifest = lock!(self.manifest)
+            .clone()
+            .ok_or(ApplicationDownloadError::NotInitialized)?;
         let game_id = self.id.clone();
 
         let base_path = Path::new(&self.dropdata.base_path);
-        create_dir_all(base_path).unwrap();
+        create_dir_all(base_path)?;
 
         let mut buckets = Vec::new();
 
@@ -248,8 +254,13 @@ impl GameDownloadAgent {
         for (raw_path, chunk) in manifest {
             let path = base_path.join(Path::new(&raw_path));
 
-            let container = path.parent().unwrap();
-            create_dir_all(container).unwrap();
+            let container = path
+                .parent()
+                .ok_or(ApplicationDownloadError::IoError(Arc::new(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    "no parent directory",
+                ))))?;
+            create_dir_all(container)?;
 
             let already_exists = path.exists();
             let file = OpenOptions::new()
@@ -257,8 +268,7 @@ impl GameDownloadAgent {
                 .write(true)
                 .create(true)
                 .truncate(false)
-                .open(path.clone())
-                .unwrap();
+                .open(&path)?;
             let mut file_running_offset = 0;
 
             for (index, length) in chunk.lengths.iter().enumerate() {
@@ -341,7 +351,7 @@ impl GameDownloadAgent {
                 .collect::<Vec<(String, bool)>>(),
         );
 
-        *self.buckets.lock().unwrap() = buckets;
+        *lock!(self.buckets) = buckets;
 
         Ok(())
     }
@@ -357,9 +367,11 @@ impl GameDownloadAgent {
         let pool = ThreadPoolBuilder::new()
             .num_threads(max_download_threads)
             .build()
-            .unwrap();
+            .unwrap_or_else(|_| {
+                panic!("failed to build thread pool with {max_download_threads} threads")
+            });
 
-        let buckets = self.buckets.lock().unwrap();
+        let buckets = lock!(self.buckets);
 
         let mut download_contexts = HashMap::<String, DownloadContext>::new();
 
@@ -367,7 +379,8 @@ impl GameDownloadAgent {
             .iter()
             .map(|e| &e.version)
             .collect::<HashSet<_>>()
-            .into_iter().cloned()
+            .into_iter()
+            .cloned()
             .collect::<Vec<String>>();
 
         info!("downloading across these versions: {versions:?}");
@@ -377,7 +390,7 @@ impl GameDownloadAgent {
 
         for version in versions {
             let download_context = DROP_CLIENT_SYNC
-                .post(generate_url(&["/api/v2/client/context"], &[]).unwrap())
+                .post(generate_url(&["/api/v2/client/context"], &[])?)
                 .json(&ManifestBody {
                     game: self.id.clone(),
                     version: version.clone(),
@@ -400,7 +413,7 @@ impl GameDownloadAgent {
         let download_contexts = &download_contexts;
 
         pool.scope(|scope| {
-            let context_map = self.context_map.lock().unwrap();
+            let context_map = lock!(self.context_map);
             for (index, bucket) in buckets.iter().enumerate() {
                 let mut bucket = (*bucket).clone();
                 let completed_contexts = completed_indexes_loop_arc.clone();
@@ -430,10 +443,23 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let download_context = download_contexts
+                let download_context = match download_contexts
                     .get(&bucket.version)
                     .ok_or(RemoteAccessError::CorruptedState)
-                    .unwrap();
+                {
+                    Ok(context) => context,
+                    Err(e) => {
+                        error!("Could not get download context with error {e}");
+
+                        send!(
+                            sender,
+                            DownloadManagerSignal::Error(ApplicationDownloadError::DownloadError(
+                                e
+                            ))
+                        );
+                        return;
+                    }
+                };
 
                 scope.spawn(move |_| {
                     // 3 attempts
@@ -464,7 +490,7 @@ impl GameDownloadAgent {
 
                                 if i == RETRY_COUNT - 1 || !retry {
                                     warn!("retry logic failed, not re-attempting.");
-                                    sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                                    send!(sender, DownloadManagerSignal::Error(e));
                                     return;
                                 }
                             }
@@ -477,7 +503,7 @@ impl GameDownloadAgent {
         let newly_completed = completed_contexts.clone();
 
         let completed_lock_len = {
-            let mut context_map_lock = self.context_map.lock().unwrap();
+            let mut context_map_lock = lock!(self.context_map);
             for (_, item) in newly_completed.iter() {
                 context_map_lock.insert(item.clone(), true);
             }
@@ -485,7 +511,7 @@ impl GameDownloadAgent {
             context_map_lock.values().filter(|x| **x).count()
         };
 
-        let context_map_lock = self.context_map.lock().unwrap();
+        let context_map_lock = lock!(self.context_map);
         let contexts = buckets
             .iter()
             .flat_map(|x| x.drops.iter().map(|e| e.checksum.clone()))
@@ -534,7 +560,7 @@ impl GameDownloadAgent {
     pub fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
         self.setup_validate(app_handle);
 
-        let buckets = self.buckets.lock().unwrap();
+        let buckets = lock!(self.buckets);
         let contexts: Vec<DropValidateContext> = buckets
             .clone()
             .into_iter()
@@ -546,7 +572,9 @@ impl GameDownloadAgent {
         let pool = ThreadPoolBuilder::new()
             .num_threads(max_download_threads)
             .build()
-            .unwrap();
+            .unwrap_or_else(|_| {
+                panic!("failed to build thread pool with {max_download_threads} threads")
+            });
 
         let invalid_chunks = Arc::new(boxcar::Vec::new());
         pool.scope(|scope| {
@@ -564,7 +592,7 @@ impl GameDownloadAgent {
                         }
                         Err(e) => {
                             error!("{e}");
-                            sender.send(DownloadManagerSignal::Error(e)).unwrap();
+                            send!(sender, DownloadManagerSignal::Error(e));
                         }
                     }
                 });
@@ -591,7 +619,7 @@ impl GameDownloadAgent {
         // See docs on usage
         set_partially_installed(
             &self.metadata(),
-            self.dropdata.base_path.to_str().unwrap().to_string(),
+            self.dropdata.base_path.display().to_string(),
             Some(app_handle),
         );
 
@@ -601,12 +629,12 @@ impl GameDownloadAgent {
 
 impl Downloadable for GameDownloadAgent {
     fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
-        *self.status.lock().unwrap() = DownloadStatus::Downloading;
+        *lock!(self.status) = DownloadStatus::Downloading;
         self.download(app_handle)
     }
 
     fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
-        *self.status.lock().unwrap() = DownloadStatus::Validating;
+        *lock!(self.status) = DownloadStatus::Validating;
         self.validate(app_handle)
     }
 
@@ -627,14 +655,12 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
-        *self.status.lock().unwrap() = DownloadStatus::Queued;
+        *lock!(self.status) = DownloadStatus::Queued;
     }
 
     fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
-        *self.status.lock().unwrap() = DownloadStatus::Error;
-        app_handle
-            .emit("download_error", error.to_string())
-            .unwrap();
+        *lock!(self.status) = DownloadStatus::Error;
+        app_emit!(app_handle, "download_error", error.to_string());
 
         error!("error while managing download: {error}");
 
@@ -653,12 +679,17 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_complete(&self, app_handle: &tauri::AppHandle) {
-        on_game_complete(
+        match on_game_complete(
             &self.metadata(),
             self.dropdata.base_path.to_string_lossy().to_string(),
             app_handle,
-        )
-        .unwrap();
+        ) {
+            Ok(_) => {}
+            Err(e) => {
+                error!("could not mark game as complete: {e}");
+                self.on_error(app_handle, &ApplicationDownloadError::DownloadError(e));
+            }
+        }
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
@@ -674,6 +705,6 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn status(&self) -> DownloadStatus {
-        self.status.lock().unwrap().clone()
+        lock!(self.status).clone()
     }
 }

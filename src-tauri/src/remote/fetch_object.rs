@@ -28,7 +28,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
     if let Ok(cache_result) = &cache_result
         && !cache_result.has_expired()
     {
-        return Ok(cache_result.into());
+        return cache_result.try_into();
     }
 
     let header = generate_authorization_header();
@@ -64,7 +64,7 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
         Err(e) => {
             debug!("Object fetch failed with error {e}. Attempting to download from cache");
             match cache_result {
-                Ok(cache_result) => Ok(cache_result.into()),
+                Ok(cache_result) => cache_result.try_into(),
                 Err(e) => {
                     warn!("{e}");
                     Err(CacheError::Remote(e))

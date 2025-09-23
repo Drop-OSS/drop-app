@@ -1,14 +1,14 @@
 use std::sync::Mutex;
 
-use crate::{error::process_error::ProcessError, AppState};
+use crate::{error::process_error::ProcessError, lock, AppState};
 
 #[tauri::command]
 pub fn launch_game(
     id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = state.lock().unwrap();
-    let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
+    let state_lock = lock!(state);
+    let mut process_manager_lock = lock!(state_lock.process_manager);
 
     //let meta = DownloadableMetadata {
     //    id,
@@ -32,8 +32,8 @@ pub fn kill_game(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = state.lock().unwrap();
-    let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
+    let state_lock = lock!(state);
+    let mut process_manager_lock = lock!(state_lock.process_manager);
     process_manager_lock
         .kill_game(game_id)
         .map_err(ProcessError::IOError)
@@ -44,7 +44,7 @@ pub fn open_process_logs(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = state.lock().unwrap();
-    let mut process_manager_lock = state_lock.process_manager.lock().unwrap();
+    let state_lock = lock!(state);
+    let mut process_manager_lock = lock!(state_lock.process_manager);
     process_manager_lock.open_process_logs(game_id)
 }

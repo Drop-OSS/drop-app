@@ -5,13 +5,10 @@ use std::{
 
 
 use crate::{
-    AppState,
     database::{
         db::borrow_db_checked,
         models::data::GameDownloadStatus,
-    },
-    download_manager::downloadable::Downloadable,
-    error::application_download_error::ApplicationDownloadError,
+    }, download_manager::downloadable::Downloadable, error::application_download_error::ApplicationDownloadError, lock, AppState
 };
 
 use super::download_agent::GameDownloadAgent;
@@ -23,16 +20,14 @@ pub async fn download_game(
     install_dir: usize,
     state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), ApplicationDownloadError> {
-    let sender = { state.lock().unwrap().download_manager.get_sender().clone() };
+    let sender = { lock!(state).download_manager.get_sender().clone() };
 
     let game_download_agent =
         GameDownloadAgent::new_from_index(game_id.clone(), game_version.clone(), install_dir, sender).await?;
 
     let game_download_agent =
         Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
-    state
-        .lock()
-        .unwrap()
+    lock!(state)
         .download_manager
         .queue_download(game_download_agent.clone())
         .unwrap();
@@ -62,22 +57,20 @@ pub async fn resume_download(
         } => (version_name, install_dir),
     };
 
-    let sender = state.lock().unwrap().download_manager.get_sender();
+    let sender = lock!(state).download_manager.get_sender();
     let parent_dir: PathBuf = install_dir.into();
 
     let game_download_agent = Arc::new(Box::new(
         GameDownloadAgent::new(
             game_id,
             version_name.clone(),
-            parent_dir.parent().unwrap().to_path_buf(),
+            parent_dir.parent().unwrap_or_else(|| panic!("Failed to get parent directry of {}", parent_dir.display())).to_path_buf(),
             sender,
         )
         .await?,
     ) as Box<dyn Downloadable + Send + Sync>);
 
-    state
-        .lock()
-        .unwrap()
+    lock!(state)
         .download_manager
         .queue_download(game_download_agent)
         .unwrap();

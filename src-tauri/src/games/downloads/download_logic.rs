@@ -105,11 +105,10 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             let destination = self
                 .destination
                 .get_mut(index)
-                .ok_or(io::Error::other("no destination"))
-                .unwrap();
+                .ok_or(io::Error::other("no destination"))?;
             let mut remaining = drop.length;
             if drop.start != 0 {
-                destination.seek(SeekFrom::Start(drop.start.try_into().unwrap()))?;
+                destination.seek(SeekFrom::Start(drop.start as u64))?;
             }
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
@@ -190,22 +189,39 @@ pub fn download_game_bucket(
             RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
         ))?
         .to_str()
-        .unwrap();
+        .map_err(|e| {
+            ApplicationDownloadError::Communication(RemoteAccessError::UnparseableResponse(
+                e.to_string(),
+            ))
+        })?;
 
     for (i, raw_length) in lengths.split(",").enumerate() {
         let length = raw_length.parse::<usize>().unwrap_or(0);
         let Some(drop) = bucket.drops.get(i) else {
-            warn!(
-                "invalid number of Content-Lengths recieved: {i}, {lengths}"
-            );
-            return Err(ApplicationDownloadError::DownloadError);
+            warn!("invalid number of Content-Lengths recieved: {i}, {lengths}");
+            return Err(ApplicationDownloadError::DownloadError(
+                RemoteAccessError::InvalidResponse(DropServerError {
+                    status_code: 400,
+                    status_message: format!(
+                        "invalid number of Content-Lengths recieved: {i}, {lengths}"
+                    ),
+                }),
+            ));
         };
         if drop.length != length {
             warn!(
                 "for {}, expected {}, got {} ({})",
                 drop.filename, drop.length, raw_length, length
             );
-            return Err(ApplicationDownloadError::DownloadError);
+            return Err(ApplicationDownloadError::DownloadError(
+                RemoteAccessError::InvalidResponse(DropServerError {
+                    status_code: 400,
+                    status_message: format!(
+                        "for {}, expected {}, got {} ({})",
+                        drop.filename, drop.length, raw_length, length
+                    ),
+                }),
+            ));
         }
     }
 

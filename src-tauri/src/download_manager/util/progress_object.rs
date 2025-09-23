@@ -10,7 +10,7 @@ use std::{
 use atomic_instant_full::AtomicInstant;
 use throttle_my_fn::throttle;
 
-use crate::download_manager::download_manager_frontend::DownloadManagerSignal;
+use crate::{download_manager::download_manager_frontend::DownloadManagerSignal, lock, send};
 
 use super::rolling_progress_updates::RollingProgressWindow;
 
@@ -74,12 +74,10 @@ impl ProgressObject {
     }
 
     pub fn set_time_now(&self) {
-        *self.start.lock().unwrap() = Instant::now();
+        *lock!(self.start) = Instant::now();
     }
     pub fn sum(&self) -> usize {
-        self.progress_instances
-            .lock()
-            .unwrap()
+        lock!(self.progress_instances)
             .iter()
             .map(|instance| instance.load(Ordering::Acquire))
             .sum()
@@ -88,27 +86,25 @@ impl ProgressObject {
         self.set_time_now();
         self.bytes_last_update.store(0, Ordering::Release);
         self.rolling.reset();
-        self.progress_instances
-            .lock()
-            .unwrap()
+        lock!(self.progress_instances)
             .iter()
             .for_each(|x| x.store(0, Ordering::SeqCst));
     }
     pub fn get_max(&self) -> usize {
-        *self.max.lock().unwrap()
+        *lock!(self.max)
     }
     pub fn set_max(&self, new_max: usize) {
-        *self.max.lock().unwrap() = new_max;
+        *lock!(self.max) = new_max;
     }
     pub fn set_size(&self, length: usize) {
-        *self.progress_instances.lock().unwrap() =
+        *lock!(self.progress_instances) =
             (0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect();
     }
     pub fn get_progress(&self) -> f64 {
         self.sum() as f64 / self.get_max() as f64
     }
     pub fn get(&self, index: usize) -> Arc<AtomicUsize> {
-        self.progress_instances.lock().unwrap()[index].clone()
+        lock!(self.progress_instances)[index].clone()
     }
     fn update_window(&self, kilobytes_per_second: usize) {
         self.rolling.update(kilobytes_per_second);
@@ -148,18 +144,12 @@ pub fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
 }
 
 fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
-    progress_object
-        .sender
-        .send(DownloadManagerSignal::UpdateUIStats(
-            kilobytes_per_second,
-            time_remaining,
-        ))
-        .unwrap();
+    send!(
+        progress_object.sender,
+        DownloadManagerSignal::UpdateUIStats(kilobytes_per_second, time_remaining)
+    );
 }
 
 fn update_queue(progress: &ProgressObject) {
-    progress
-        .sender
-        .send(DownloadManagerSignal::UpdateUIQueue)
-        .unwrap();
+    send!(progress.sender, DownloadManagerSignal::UpdateUIQueue)
 }

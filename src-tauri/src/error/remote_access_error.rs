@@ -44,8 +44,7 @@ impl Display for RemoteAccessError {
                     error
                         .source()
                         .map(std::string::ToString::to_string)
-                        .or_else(|| Some("Unknown error".to_string()))
-                        .unwrap()
+                        .unwrap_or("Unknown error".to_string())
                 )
             }
             RemoteAccessError::FetchErrorWS(error) => write!(
@@ -54,9 +53,8 @@ impl Display for RemoteAccessError {
                 error,
                 error
                     .source()
-                    .map(|e| e.to_string())
-                    .or_else(|| Some("Unknown error".to_string()))
-                    .unwrap()
+                    .map(std::string::ToString::to_string)
+                    .unwrap_or("Unknown error".to_string())
             ),
             RemoteAccessError::ParsingError(parse_error) => {
                 write!(f, "{parse_error}")

@@ -19,7 +19,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::{
-    AppState, DB,
+    AppState,
     database::{
         db::{DATA_ROOT_DIR, borrow_db_checked, borrow_db_mut_checked},
         models::data::{
@@ -33,6 +33,7 @@ use crate::{
         format::DropFormatArgs,
         process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
     },
+    lock,
 };
 
 pub struct RunningProcess {
@@ -118,7 +119,7 @@ impl ProcessManager<'_> {
         let dir = self.get_log_dir(game_id);
         self.app_handle
             .opener()
-            .open_path(dir.to_str().unwrap(), None::<&str>)
+            .open_path(dir.display().to_string(), None::<&str>)
             .map_err(ProcessError::OpenerError)?;
         Ok(())
     }
@@ -133,7 +134,13 @@ impl ProcessManager<'_> {
 
         debug!("process for {:?} exited with {:?}", &game_id, result);
 
-        let process = self.processes.remove(&game_id).unwrap();
+        let process = match self.processes.remove(&game_id) {
+            Some(process) => process,
+            None => {
+                info!("Attempted to stop process {game_id} which didn't exist");
+                return;
+            }
+        };
 
         let mut db_handle = borrow_db_mut_checked();
         let meta = db_handle
@@ -141,7 +148,7 @@ impl ProcessManager<'_> {
             .installed_game_version
             .get(&game_id)
             .cloned()
-            .unwrap();
+            .unwrap_or_else(|| panic!("Could not get installed version of {}", &game_id));
         db_handle.applications.transient_statuses.remove(&meta);
 
         let current_state = db_handle.applications.game_statuses.get(&game_id).cloned();
@@ -166,20 +173,17 @@ impl ProcessManager<'_> {
         // Or if the status isn't 0
         // Or if it's an error
         if !process.manually_killed
-            && (elapsed.as_secs() <= 2 || result.is_err() || !result.unwrap().success())
+            && (elapsed.as_secs() <= 2 || result.map_or(true, |r| !r.success()))
         {
             warn!("drop detected that the game {game_id} may have failed to launch properly");
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        // This is too many unwraps for me to be comfortable
-        let version_data = db_handle
-            .applications
-            .game_versions
-            .get(&game_id)
-            .unwrap()
-            .get(&meta.version.unwrap())
-            .unwrap();
+        let version_data = match db_handle.applications.game_versions.get(&game_id) {
+            // This unwrap here should be resolved by just making the hashmap accept an option rather than just a String
+            Some(res) => res.get(&meta.version.unwrap()).expect("Failed to get game version from installed game versions. Is the database corrupted?"),
+            None => todo!(),
+        };
 
         let status = GameStatusManager::fetch_state(&game_id, &db_handle);
 
@@ -210,10 +214,10 @@ impl ProcessManager<'_> {
             .1)
     }
 
-    pub fn valid_platform(&self, platform: &Platform, state: &AppState) -> Result<bool, String> {
+    pub fn valid_platform(&self, platform: &Platform, state: &AppState) -> bool {
         let db_lock = borrow_db_checked();
         let process_handler = self.fetch_process_handler(&db_lock, state, platform);
-        Ok(process_handler.is_ok())
+        process_handler.is_ok()
     }
 
     pub fn launch_process(
@@ -225,9 +229,7 @@ impl ProcessManager<'_> {
             return Err(ProcessError::AlreadyRunning);
         }
 
-        let version = match DB
-            .borrow_data()
-            .unwrap()
+        let version = match borrow_db_checked()
             .applications
             .game_statuses
             .get(&game_id)
@@ -266,7 +268,7 @@ impl ProcessManager<'_> {
         debug!(
             "Launching process {:?} with version {:?}",
             &game_id,
-            db_lock.applications.game_versions.get(&game_id).unwrap()
+            db_lock.applications.game_versions.get(&game_id)
         );
 
         let game_version = db_lock
@@ -322,8 +324,9 @@ impl ProcessManager<'_> {
             GameDownloadStatus::Remote {} => unreachable!("Game registered as 'Remote'"),
         };
 
+        #[allow(clippy::unwrap_used)]
         let launch = PathBuf::from_str(install_dir).unwrap().join(launch);
-        let launch = launch.to_str().unwrap();
+        let launch = launch.display().to_string();
 
         let launch_string = process_handler.create_launch_process(
             &meta,
@@ -392,9 +395,12 @@ impl ProcessManager<'_> {
             let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
 
             let app_state = wait_thread_apphandle.state::<Mutex<AppState>>();
-            let app_state_handle = app_state.lock().unwrap();
+            let app_state_handle = lock!(app_state);
 
-            let mut process_manager_handle = app_state_handle.process_manager.lock().unwrap();
+            let mut process_manager_handle = app_state_handle
+                .process_manager
+                .lock()
+                .expect("Failed to lock onto process manager");
             process_manager_handle.on_process_finish(wait_thread_game_id.id, result);
 
             // As everything goes out of scope, they should get dropped

@@ -36,14 +36,14 @@ pub fn validate_game_chunk(
 
     if ctx.offset != 0 {
         source
-            .seek(SeekFrom::Start(ctx.offset.try_into().unwrap()))
+            .seek(SeekFrom::Start(ctx.offset as u64))
             .expect("Failed to seek to file offset");
     }
 
     let mut hasher = md5::Context::new();
 
     let completed =
-        validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress).unwrap();
+        validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress)?;
     if !completed {
         return Ok(false);
     }
