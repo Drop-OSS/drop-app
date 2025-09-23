@@ -1,6 +1,6 @@
 <template>
-    <NuxtLoadingIndicator color="#2563eb" />
-  <NuxtLayout class="select-none w-screen h-screen">
+  <NuxtLoadingIndicator color="#2563eb" />
+  <NuxtLayout ref="rootNode" class="select-none w-screen h-screen">
     <NuxtPage />
     <ModalStack />
   </NuxtLayout>
@@ -15,6 +15,7 @@ import {
   initialNavigation,
   setupHooks,
 } from "./composables/state-navigation.js";
+import { createTVNavigator } from "./composables/tvmode.js";
 
 const router = useRouter();
 
@@ -39,6 +40,11 @@ await fetchState();
 // This is inefficient but apparently we do it lol
 router.beforeEach(async () => {
   await fetchState();
+});
+
+const rootNode = ref<HTMLElement>();
+onMounted(() => {
+  const navigator = createTVNavigator(rootNode);
 });
 
 setupHooks();
