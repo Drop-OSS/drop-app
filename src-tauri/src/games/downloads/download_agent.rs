@@ -30,8 +30,7 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{App, AppHandle, Emitter};
-use uuid::timestamp::context;
+use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{FallocateFlags, fallocate};
