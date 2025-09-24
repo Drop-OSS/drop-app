@@ -8,7 +8,6 @@ use std::{
 
 use chrono::Utc;
 use log::{debug, error, info, warn};
-use native_model::{Decode, Encode};
 use rustbreak::{DeSerError, DeSerializer, PathDatabase, RustbreakError};
 use serde::{Serialize, de::DeserializeOwned};
 use url::Url;
@@ -17,11 +16,16 @@ use crate::DB;
 
 use super::models::data::Database;
 
+#[cfg(not(debug_assertions))]
+static DATA_ROOT_PREFIX: &'static str = "drop";
+#[cfg(debug_assertions)]
+static DATA_ROOT_PREFIX: &str = "drop-debug";
+
 pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> = LazyLock::new(|| {
     Arc::new(
         dirs::data_dir()
             .expect("Failed to get data dir")
-            .join("drop"),
+            .join(DATA_ROOT_PREFIX),
     )
 });
 
@@ -33,7 +37,7 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
     for DropDatabaseSerializer
 {
     fn serialize(&self, val: &T) -> rustbreak::error::DeSerResult<Vec<u8>> {
-        native_model::rmp_serde_1_3::RmpSerde::encode(val)
+        native_model::encode(val)
             .map_err(|e| DeSerError::Internal(e.to_string()))
     }
 
@@ -41,7 +45,7 @@ impl<T: native_model::Model + Serialize + DeserializeOwned> DeSerializer<T>
         let mut buf = Vec::new();
         s.read_to_end(&mut buf)
             .map_err(|e| rustbreak::error::DeSerError::Other(e.into()))?;
-        let val = native_model::rmp_serde_1_3::RmpSerde::decode(buf)
+        let (val, _version) = native_model::decode(buf)
             .map_err(|e| DeSerError::Internal(e.to_string()))?;
         Ok(val)
     }

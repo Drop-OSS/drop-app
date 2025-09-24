@@ -42,6 +42,7 @@ use super::drop_data::DropData;
 static RETRY_COUNT: usize = 3;
 
 const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
+const MAX_FILES_PER_BUCKET: usize = (1024 / 4) - 1;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -86,6 +87,8 @@ impl GameDownloadAgent {
         let stored_manifest =
             DropData::generate(id.clone(), version.clone(), data_base_dir_path.clone());
 
+        let context_lock = stored_manifest.contexts.lock().unwrap().clone();
+
         let result = Self {
             id,
             version,
@@ -106,7 +109,14 @@ impl GameDownloadAgent {
             .as_ref()
             .unwrap()
             .values()
-            .map(|e| e.lengths.iter().sum::<usize>())
+            .map(|e| {
+                e.lengths
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, _)| *context_lock.get(&e.checksums[*i]).unwrap_or(&false))
+                    .map(|(_, v)| v)
+                    .sum::<usize>()
+            })
             .sum::<usize>() as u64;
 
         let available_space = get_disk_available(data_base_dir_path)? as u64;
@@ -308,7 +318,8 @@ impl GameDownloadAgent {
                         drops: vec![],
                     });
 
-                if *current_bucket_size + length >= TARGET_BUCKET_SIZE
+                if (*current_bucket_size + length >= TARGET_BUCKET_SIZE
+                    || current_bucket.drops.len() >= MAX_FILES_PER_BUCKET)
                     && !current_bucket.drops.is_empty()
                 {
                     // Move current bucket into list and make a new one
@@ -486,6 +497,7 @@ impl GameDownloadAgent {
                                     ApplicationDownloadError::Communication(_)
                                         | ApplicationDownloadError::Checksum
                                         | ApplicationDownloadError::Lock
+                                        | ApplicationDownloadError::IoError(_)
                                 );
 
                                 if i == RETRY_COUNT - 1 || !retry {
@@ -654,15 +666,24 @@ impl Downloadable for GameDownloadAgent {
         }
     }
 
-    fn on_initialised(&self, _app_handle: &tauri::AppHandle) {
-        *lock!(self.status) = DownloadStatus::Queued;
+    fn on_queued(&self, app_handle: &tauri::AppHandle) {
+        *self.status.lock().unwrap() = DownloadStatus::Queued;
+        let mut db_lock = borrow_db_mut_checked();
+        let status = ApplicationTransientStatus::Queued {
+            version_name: self.version.clone(),
+        };
+        db_lock
+            .applications
+            .transient_statuses
+            .insert(self.metadata(), status.clone());
+        push_game_update(app_handle, &self.id, None, (None, Some(status)));
     }
 
     fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
         *lock!(self.status) = DownloadStatus::Error;
         app_emit!(app_handle, "download_error", error.to_string());
 
-        error!("error while managing download: {error}");
+        error!("error while managing download: {error:?}");
 
         let mut handle = borrow_db_mut_checked();
         handle
@@ -693,15 +714,8 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
+        info!("cancelled {}", self.id);
         self.cancel(app_handle);
-        /*
-           on_game_incomplete(
-               &self.metadata(),
-               self.dropdata.base_path.to_string_lossy().to_string(),
-               app_handle,
-           )
-           .unwrap();
-        */
     }
 
     fn status(&self) -> DownloadStatus {

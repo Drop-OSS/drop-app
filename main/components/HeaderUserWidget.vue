@@ -37,7 +37,7 @@
           </NuxtLink>
           <div class="h-0.5 rounded-full w-full bg-zinc-800" />
           <div class="flex flex-col mb-1">
-            <MenuItem v-slot="{ active }">
+            <MenuItem v-if="state.user.admin" v-slot="{ active }">
               <a
                 :href="adminUrl"
                 target="_blank"

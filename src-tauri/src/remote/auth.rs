@@ -9,17 +9,10 @@ use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
 
 use crate::{
-    AppState, AppStatus, User, app_emit,
-    database::{
+    app_emit, database::{
         db::{borrow_db_checked, borrow_db_mut_checked},
         models::data::DatabaseAuth,
-    },
-    error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError},
-    lock,
-    remote::{
-        requests::make_authenticated_get,
-        utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
-    },
+    }, error::{drop_server_error::DropServerError, remote_access_error::RemoteAccessError}, lock, remote::{cache::clear_cached_object, requests::make_authenticated_get, utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC}}, AppState, AppStatus, User
 };
 
 use super::{
@@ -167,6 +160,9 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     state_lock.status = app_status;
     state_lock.user = user;
+
+    let _ = clear_cached_object("collections");
+    let _ = clear_cached_object("library");
 
     drop(state_lock);
 

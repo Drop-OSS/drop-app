@@ -21,6 +21,13 @@ async function spawn(exec, opts) {
   });
 }
 
+const expectedLibs = ["drop-base/package.json"];
+
+for (const lib of expectedLibs) {
+  const path = `./libs/${lib}`;
+  if (!fs.existsSync(path)) throw `Missing "${expectedLibs}". Run "git submodule update --init --recursive"`;
+}
+
 const views = fs.readdirSync(".").filter((view) => {
   const expectedPath = `./${view}/package.json`;
   return fs.existsSync(expectedPath);
