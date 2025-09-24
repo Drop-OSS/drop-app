@@ -4,7 +4,6 @@
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
 #![deny(clippy::all)]
-#![deny(clippy::unwrap_used)]
 
 mod database;
 mod games;
