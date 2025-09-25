@@ -1,10 +1,11 @@
+use bitcode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
 use crate::games::library::Game;
 
 pub type Collections = Vec<Collection>;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct Collection {
     id: String,
@@ -14,7 +15,7 @@ pub struct Collection {
     entries: Vec<CollectionObject>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionObject {
     collection_id: String,

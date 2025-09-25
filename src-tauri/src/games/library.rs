@@ -14,13 +14,15 @@ use crate::database::models::data::{
     ApplicationTransientStatus, DownloadableMetadata, GameDownloadStatus, GameVersion,
 };
 use crate::download_manager::download_manager_frontend::DownloadStatus;
+use crate::error::drop_server_error::DropServerError;
 use crate::error::library_error::LibraryError;
 use crate::error::remote_access_error::RemoteAccessError;
 use crate::games::state::{GameStatusManager, GameStatusWithTransient};
 use crate::remote::auth::generate_authorization_header;
 use crate::remote::cache::cache_object_db;
 use crate::remote::cache::{cache_object, get_cached_object, get_cached_object_db};
-use crate::remote::requests::make_request;
+use crate::remote::requests::generate_url;
+use crate::remote::utils::DROP_CLIENT_ASYNC;
 use crate::remote::utils::DROP_CLIENT_SYNC;
 use bitcode::{Decode, Encode};
 
@@ -76,24 +78,33 @@ pub struct StatsUpdateEvent {
     pub time: usize,
 }
 
-pub fn fetch_library_logic(
-    state: tauri::State<'_, Mutex<AppState>>,
+pub async fn fetch_library_logic(
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    hard_fresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
-    let header = generate_authorization_header();
+    let do_hard_refresh = hard_fresh.unwrap_or(false);
+    if !do_hard_refresh && let Ok(library) = get_cached_object("library") {
+        return Ok(library);
+    }
 
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(&client, &["/api/v1/client/user/library"], &[], |f| {
-        f.header("Authorization", header)
-    })?
-    .send()?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = generate_url(&["/api/v1/client/user/library"], &[])?;
+    let response = client
+        .get(response)
+        .header("Authorization", generate_authorization_header())
+        .send()
+        .await?;
 
     if response.status() != 200 {
-        let err = response.json().unwrap();
+        let err = response.json().await.unwrap_or(DropServerError {
+            status_code: 500,
+            status_message: "Invalid response from server.".to_owned(),
+        });
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let mut games: Vec<Game> = response.json()?;
+    let mut games: Vec<Game> = response.json().await?;
 
     let mut handle = state.lock().unwrap();
 
@@ -135,73 +146,90 @@ pub fn fetch_library_logic(
 
     Ok(games)
 }
-pub fn fetch_library_logic_offline(
-    _state: tauri::State<'_, Mutex<AppState>>,
+pub async fn fetch_library_logic_offline(
+    _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
 
     let db_handle = borrow_db_checked();
 
     games.retain(|game| {
-        db_handle
-            .applications
-            .installed_game_version
-            .contains_key(&game.id)
+        matches!(
+            &db_handle
+                .applications
+                .game_statuses
+                .get(&game.id)
+                .unwrap_or(&GameDownloadStatus::Remote {}),
+            GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
+        )
     });
 
     Ok(games)
 }
-pub fn fetch_game_logic(
+pub async fn fetch_game_logic(
     id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
-    let mut state_handle = state.lock().unwrap();
+    let version = {
+        let state_handle = state.lock().unwrap();
 
-    let db_lock = borrow_db_checked();
+        let db_lock = borrow_db_checked();
 
-    let metadata_option = db_lock.applications.installed_game_version.get(&id);
-    let version = match metadata_option {
-        None => None,
-        Some(metadata) => db_lock
-            .applications
-            .game_versions
-            .get(&metadata.id)
-            .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
-            .cloned(),
-    };
-
-    let game = state_handle.games.get(&id);
-    if let Some(game) = game {
-        let status = GameStatusManager::fetch_state(&id, &db_lock);
-
-        let data = FetchGameStruct {
-            game: game.clone(),
-            status,
-            version,
+        let metadata_option = db_lock.applications.installed_game_version.get(&id);
+        let version = match metadata_option {
+            None => None,
+            Some(metadata) => db_lock
+                .applications
+                .game_versions
+                .get(&metadata.id)
+                .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+                .cloned(),
         };
 
-        cache_object_db(&id, game, &db_lock)?;
+        let game = state_handle.games.get(&id);
+        if let Some(game) = game {
+            let status = GameStatusManager::fetch_state(&id, &db_lock);
 
-        return Ok(data);
-    }
-    drop(db_lock);
+            let data = FetchGameStruct {
+                game: game.clone(),
+                status,
+                version,
+            };
 
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(&client, &["/api/v1/client/game/", &id], &[], |r| {
-        r.header("Authorization", generate_authorization_header())
-    })?
-    .send()?;
+            cache_object_db(&id, game, &db_lock)?;
+
+            return Ok(data);
+        }
+
+        version
+    };
+
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = generate_url(&["/api/v1/client/game/", &id], &[])?;
+    let response = client
+        .get(response)
+        .header("Authorization", generate_authorization_header())
+        .send()
+        .await?;
 
     if response.status() == 404 {
+        let offline_fetch = fetch_game_logic_offline(id.clone(), state).await;
+        if let Ok(fetch_data) = offline_fetch {
+            return Ok(fetch_data);
+        }
+
         return Err(RemoteAccessError::GameNotFound(id));
     }
     if response.status() != 200 {
-        let err = response.json().unwrap();
+        let err = response.json().await.unwrap();
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let game: Game = response.json()?;
+    let game: Game = response.json().await?;
+
+    let mut state_handle = state.lock().unwrap();
     state_handle.games.insert(id.clone(), game.clone());
 
     let mut db_handle = borrow_db_mut_checked();
@@ -227,24 +255,20 @@ pub fn fetch_game_logic(
     Ok(data)
 }
 
-pub fn fetch_game_logic_offline(
+pub async fn fetch_game_logic_offline(
     id: String,
-    _state: tauri::State<'_, Mutex<AppState>>,
+    _state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let db_handle = borrow_db_checked();
     let metadata_option = db_handle.applications.installed_game_version.get(&id);
     let version = match metadata_option {
         None => None,
-        Some(metadata) => Some(
-            db_handle
-                .applications
-                .game_versions
-                .get(&metadata.id)
-                .unwrap()
-                .get(metadata.version.as_ref().unwrap())
-                .unwrap()
-                .clone(),
-        ),
+        Some(metadata) => db_handle
+            .applications
+            .game_versions
+            .get(&metadata.id)
+            .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+            .cloned(),
     };
 
     let status = GameStatusManager::fetch_state(&id, &db_handle);
@@ -259,27 +283,26 @@ pub fn fetch_game_logic_offline(
     })
 }
 
-pub fn fetch_game_verion_options_logic(
+pub async fn fetch_game_version_options_logic(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
-    let client = DROP_CLIENT_SYNC.clone();
+    let client = DROP_CLIENT_ASYNC.clone();
 
-    let response = make_request(
-        &client,
-        &["/api/v1/client/game/versions"],
-        &[("id", &game_id)],
-        |r| r.header("Authorization", generate_authorization_header()),
-    )?
-    .send()?;
+    let response = generate_url(&["/api/v1/client/game/versions"], &[("id", &game_id)])?;
+    let response = client
+        .get(response)
+        .header("Authorization", generate_authorization_header())
+        .send()
+        .await?;
 
     if response.status() != 200 {
-        let err = response.json().unwrap();
+        let err = response.json().await.unwrap();
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let data: Vec<GameVersion> = response.json()?;
+    let data: Vec<GameVersion> = response.json().await?;
 
     let state_lock = state.lock().unwrap();
     let process_manager_lock = state_lock.process_manager.lock().unwrap();
@@ -346,8 +369,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
     db_handle
         .applications
         .transient_statuses
-        .entry(meta.clone())
-        .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+        .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
     push_game_update(
         app_handle,
@@ -381,8 +403,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         db_handle
             .applications
             .transient_statuses
-            .entry(meta.clone())
-            .and_modify(|v| *v = ApplicationTransientStatus::Uninstalling {});
+            .insert(meta.clone(), ApplicationTransientStatus::Uninstalling {});
 
         drop(db_handle);
 
@@ -400,8 +421,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 db_handle
                     .applications
                     .game_statuses
-                    .entry(meta.id.clone())
-                    .and_modify(|e| *e = GameDownloadStatus::Remote {});
+                    .insert(meta.id.clone(), GameDownloadStatus::Remote {});
                 let _ = db_handle.applications.transient_statuses.remove(&meta);
 
                 push_game_update(
@@ -413,8 +433,6 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
                 debug!("uninstalled game id {}", &meta.id);
                 app_handle.emit("update_library", ()).unwrap();
-
-                drop(db_handle);
             }
         });
     } else {
@@ -440,19 +458,18 @@ pub fn on_game_complete(
         return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
     }
 
-    let header = generate_authorization_header();
-
     let client = DROP_CLIENT_SYNC.clone();
-    let response = make_request(
-        &client,
+    let response = generate_url(
         &["/api/v1/client/game/version"],
         &[
             ("id", &meta.id),
             ("version", meta.version.as_ref().unwrap()),
         ],
-        |f| f.header("Authorization", header),
-    )?
-    .send()?;
+    )?;
+    let response = client
+        .get(response)
+        .header("Authorization", generate_authorization_header())
+        .send()?;
 
     let game_version: GameVersion = response.json()?;
 
@@ -488,6 +505,7 @@ pub fn on_game_complete(
         .game_statuses
         .insert(meta.id.clone(), status.clone());
     drop(db_handle);
+
     app_handle
         .emit(
             &format!("update_game/{}", meta.id),
@@ -508,6 +526,13 @@ pub fn push_game_update(
     version: Option<GameVersion>,
     status: GameStatusWithTransient,
 ) {
+    if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
+        &status.0
+        && version.is_none()
+    {
+        panic!("pushed game for installed game that doesn't have version information");
+    }
+
     app_handle
         .emit(
             &format!("update_game/{game_id}"),

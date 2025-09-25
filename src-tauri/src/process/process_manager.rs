@@ -172,10 +172,23 @@ impl ProcessManager<'_> {
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        let status = GameStatusManager::fetch_state(&game_id, &db_handle);
-        drop(db_handle);
+        // This is too many unwraps for me to be comfortable
+        let version_data = db_handle
+            .applications
+            .game_versions
+            .get(&game_id)
+            .unwrap()
+            .get(&meta.version.unwrap())
+            .unwrap();
 
-        push_game_update(&self.app_handle, &game_id, None, status);
+        let status = GameStatusManager::fetch_state(&game_id, &db_handle);
+
+        push_game_update(
+            &self.app_handle,
+            &game_id,
+            Some(version_data.clone()),
+            status,
+        );
     }
 
     fn fetch_process_handler(
@@ -334,11 +347,10 @@ impl ProcessManager<'_> {
 
         #[cfg(target_os = "windows")]
         use std::os::windows::process::CommandExt;
-
         #[cfg(target_os = "windows")]
-        let mut command = Command::new("start");
+        let mut command = Command::new("cmd");
         #[cfg(target_os = "windows")]
-        command.raw_arg(format!("/min cmd /C \"{}\"", &launch_string));
+        command.raw_arg(format!("/C \"{}\"", &launch_string));
 
         info!("launching (in {install_dir}): {launch_string}",);
 

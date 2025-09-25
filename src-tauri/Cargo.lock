@@ -1284,11 +1284,12 @@ dependencies = [
 
 [[package]]
 name = "drop-app"
-version = "0.3.1"
+version = "0.3.3"
 dependencies = [
  "atomic-instant-full",
  "bitcode",
  "boxcar",
+ "bytes",
  "cacache 13.1.0",
  "chrono",
  "deranged",
@@ -1296,6 +1297,7 @@ dependencies = [
  "droplet-rs",
  "dynfmt",
  "filetime",
+ "futures-core",
  "futures-lite",
  "gethostname",
  "hex 0.4.3",
@@ -1312,7 +1314,7 @@ dependencies = [
  "rand 0.9.1",
  "rayon",
  "regex",
- "reqwest 0.12.16",
+ "reqwest 0.12.22",
  "reqwest-middleware 0.4.2",
  "reqwest-middleware-cache",
  "reqwest-websocket",
@@ -1339,6 +1341,7 @@ dependencies = [
  "tempfile",
  "throttle_my_fn",
  "tokio",
+ "tokio-util",
  "umu-wrapper-lib",
  "url",
  "urlencoding",
@@ -2381,6 +2384,7 @@ dependencies = [
  "hyper 1.6.0",
  "hyper-util",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
@@ -3110,20 +3114,20 @@ dependencies = [
  "openssl-probe",
  "openssl-sys",
  "schannel",
- "security-framework",
+ "security-framework 2.11.1",
  "security-framework-sys",
  "tempfile",
 ]
 
 [[package]]
 name = "native_model"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7050d759e3da6673361dddda4f4a743492279dd2c6484a21fbee0a8278620df0"
+version = "0.6.4"
+source = "git+https://github.com/Drop-OSS/native_model.git#a91b422cbd53116df1f20b2459fb3d8257458bfd"
 dependencies = [
  "anyhow",
  "bincode",
  "doc-comment",
+ "log",
  "native_model_macro",
  "rmp-serde",
  "serde",
@@ -3133,10 +3137,10 @@ dependencies = [
 
 [[package]]
 name = "native_model_macro"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1577a0bebf5ed1754e240baf5d9b1845f51e598b20600aa894f55e11cd20cc6c"
+version = "0.6.4"
+source = "git+https://github.com/Drop-OSS/native_model.git#a91b422cbd53116df1f20b2459fb3d8257458bfd"
 dependencies = [
+ "log",
  "proc-macro2",
  "quote",
  "syn 2.0.101",
@@ -4419,9 +4423,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.16"
+version = "0.12.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2bf597b113be201cb2269b4c39b39a804d01b99ee95a4278f0ed04e45cff1c71"
+checksum = "cbc931937e6ca3a06e3b6c0aa7841849b160a90351d6ab467a8b9b9959767531"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4436,16 +4440,14 @@ dependencies = [
  "hyper-rustls",
  "hyper-tls",
  "hyper-util",
- "ipnet",
  "js-sys",
  "log",
- "mime",
  "native-tls",
- "once_cell",
  "percent-encoding",
  "pin-project-lite",
  "quinn",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -4491,7 +4493,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "http 1.3.1",
- "reqwest 0.12.16",
+ "reqwest 0.12.22",
  "serde",
  "thiserror 1.0.69",
  "tower-service",
@@ -4526,7 +4528,7 @@ dependencies = [
  "async-tungstenite",
  "bytes",
  "futures-util",
- "reqwest 0.12.16",
+ "reqwest 0.12.22",
  "thiserror 2.0.12",
  "tokio",
  "tokio-util",
@@ -4690,6 +4692,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-native-certs"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fcff2dd52b58a8d98a70243663a0d234c4e2b79235637849d15913394a247d3"
+dependencies = [
+ "openssl-probe",
+ "rustls-pki-types",
+ "schannel",
+ "security-framework 3.2.0",
+]
+
+[[package]]
 name = "rustls-pki-types"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4781,6 +4795,19 @@ checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
 dependencies = [
  "bitflags 2.9.1",
  "core-foundation 0.9.4",
+ "core-foundation-sys",
+ "libc",
+ "security-framework-sys",
+]
+
+[[package]]
+name = "security-framework"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "271720403f46ca04f7ba6f55d438f8bd878d6b8ca0a1046e8228c4145bcbb316"
+dependencies = [
+ "bitflags 2.9.1",
+ "core-foundation 0.10.1",
  "core-foundation-sys",
  "libc",
  "security-framework-sys",
@@ -5506,7 +5533,7 @@ dependencies = [
  "percent-encoding",
  "plist",
  "raw-window-handle",
- "reqwest 0.12.16",
+ "reqwest 0.12.22",
  "serde",
  "serde_json",
  "serde_repr",
@@ -6059,9 +6086,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-util"
-version = "0.7.15"
+version = "0.7.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66a539a9ad6d5d281510d5bd368c973d636c02dbf8a67300bfb6b950696ad7df"
+checksum = "14307c986784f72ef81c89db7d9e28d6ac26d16213b109ea501696195e6e3ce5"
 dependencies = [
  "bytes",
  "futures-core",
@@ -6151,9 +6178,9 @@ dependencies = [
 
 [[package]]
 name = "tower-http"
-version = "0.6.4"
+version = "0.6.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fdb0c213ca27a9f57ab69ddb290fd80d970922355b83ae380b395d3986b8a2e"
+checksum = "adc82fd73de2a9722ac5da747f12383d2bfdb93591ee6c58486e0097890f05f2"
 dependencies = [
  "bitflags 2.9.1",
  "bytes",

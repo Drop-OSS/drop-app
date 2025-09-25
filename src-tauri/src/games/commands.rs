@@ -18,28 +18,30 @@ use crate::{
 
 use super::{
     library::{
-        FetchGameStruct, Game, fetch_game_logic, fetch_game_verion_options_logic,
+        FetchGameStruct, Game, fetch_game_logic, fetch_game_version_options_logic,
         fetch_library_logic,
     },
     state::{GameStatusManager, GameStatusWithTransient},
 };
 
 #[tauri::command]
-pub fn fetch_library(
-    state: tauri::State<'_, Mutex<AppState>>,
+pub async fn fetch_library(
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     offline!(
         state,
         fetch_library_logic,
         fetch_library_logic_offline,
-        state
-    )
+        state,
+        hard_refresh
+    ).await
 }
 
 #[tauri::command]
-pub fn fetch_game(
+pub async fn fetch_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     offline!(
         state,
@@ -47,7 +49,7 @@ pub fn fetch_game(
         fetch_game_logic_offline,
         game_id,
         state
-    )
+    ).await
 }
 
 #[tauri::command]
@@ -68,9 +70,9 @@ pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), Libr
 }
 
 #[tauri::command]
-pub fn fetch_game_verion_options(
+pub async fn fetch_game_version_options(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
-    fetch_game_verion_options_logic(game_id, state)
+    fetch_game_version_options_logic(game_id, state).await
 }

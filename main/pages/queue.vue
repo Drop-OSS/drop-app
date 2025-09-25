@@ -4,18 +4,18 @@
       class="h-16 overflow-hidden relative rounded-xl flex flex-row border border-zinc-900"
     >
       <div
-        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 text-blue-400 font-display items-left justify-center pl-2"
+        class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 font-display items-left justify-center pl-2"
       >
-        <span class="font-semibold">{{ formatKilobytes(stats.speed) }}/s</span>
-        <span v-if="stats.time > 0" class="text-sm"
+        <span class="font-bold text-zinc-100">{{ formatKilobytes(stats.speed) }}B/s</span>
+        <span v-if="stats.time > 0" class="text-xs text-zinc-400"
           >{{ formatTime(stats.time) }} left</span
         >
       </div>
-      <div class="absolute inset-0 h-full flex flex-row items-end justify-end">
+      <div class="absolute inset-0 h-full flex flex-row items-end justify-end space-x-[1px]">
         <div
           v-for="bar in speedHistory"
           :style="{ height: `${(bar / speedMax) * 100}%` }"
-          class="w-[8px] bg-blue-600/40"
+          class="w-[3px] bg-blue-600 rounded-t-full"
         />
       </div>
     </div>
@@ -62,9 +62,9 @@
                 class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"
                 ><span class="text-zinc-300">{{
                   formatKilobytes(element.current / 1000)
-                }}</span>
+                }}B</span>
                 /
-                <span class="">{{ formatKilobytes(element.max / 1000) }}</span
+                <span class="">{{ formatKilobytes(element.max / 1000) }}B</span
                 ><ServerIcon class="size-5"
               /></span>
             </div>
@@ -91,7 +91,7 @@
 <script setup lang="ts">
 import { ServerIcon, XMarkIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
-import { GameStatusEnum, type DownloadableMetadata, type Game, type GameStatus } from "~/types";
+import { type DownloadableMetadata, type Game, type GameStatus } from "~/types";
 
 // const actionNames = {
 //   [GameStatusEnum.Downloading]: "downloading",
@@ -105,12 +105,12 @@ window.addEventListener("resize", (event) => {
 
 const queue = useQueueState();
 const stats = useStatsState();
-const speedHistory = useState<Array<number>>(() => []);
-const speedHistoryMax = computed(() => windowWidth.value / 8);
+const speedHistory = useDownloadHistory();
+const speedHistoryMax = computed(() => windowWidth.value / 4);
 const speedMax = computed(
-  () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.3
+  () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.1
 );
-const previousGameId = ref<string | undefined>();
+const previousGameId = useState<string | undefined>('previous_game');
 
 const games: Ref<{
   [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
@@ -122,14 +122,15 @@ function resetHistoryGraph() {
 }
 function checkReset(v: QueueState) {
   const currentGame = v.queue.at(0)?.meta.id;
+    // If we don't have a game
+  if (!currentGame) return;
+
   // If we're finished
   if (!currentGame && previousGameId.value) {
     previousGameId.value = undefined;
     resetHistoryGraph();
     return;
   }
-  // If we don't have a game
-  if (!currentGame) return;
   // If we started a new download
   if (currentGame && !previousGameId.value) {
     previousGameId.value = currentGame;
@@ -149,9 +150,10 @@ watch(queue, (v) => {
 });
 
 watch(stats, (v) => {
+  if(v.speed == 0) return;
   const newLength = speedHistory.value.push(v.speed);
   if (newLength > speedHistoryMax.value) {
-    speedHistory.value.splice(0, 1);
+    speedHistory.value.splice(0, newLength - speedHistoryMax.value);
   }
   checkReset(queue.value);
 });
@@ -183,7 +185,7 @@ async function cancelGame(meta: DownloadableMetadata) {
 }
 
 function formatKilobytes(bytes: number): string {
-  const units = ["KB", "MB", "GB", "TB", "PB"];
+  const units = ["K", "M", "G", "T", "P"];
   let value = bytes;
   let unitIndex = 0;
   const scalar = 1000;

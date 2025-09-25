@@ -5,10 +5,10 @@ use log::warn;
 use crate::{
     database::{
         db::borrow_db_mut_checked,
-        models::data::v1::{DownloadType, DownloadableMetadata},
+        models::data::{DownloadType, DownloadableMetadata},
     },
     games::{
-        downloads::drop_data::{v1::DropData, DROP_DATA_PATH},
+        downloads::drop_data::{DropData, DROP_DATA_PATH},
         library::set_partially_installed_db,
     },
 };

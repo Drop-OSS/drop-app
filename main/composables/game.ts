@@ -43,6 +43,7 @@ export const useGame = async (gameId: string) => {
       gameStatusRegistry[gameId] = ref(parseStatus(data.status));
 
       listen(`update_game/${gameId}`, (event) => {
+        console.log(event);
         const payload: {
           status: SerializedGameStatus;
           version?: GameVersion;
