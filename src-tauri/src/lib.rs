@@ -486,6 +486,9 @@ fn run_on_tray<T: FnOnce()>(f: T) {
     if match std::env::var("NO_TRAY_ICON") {
         Ok(s) => s.to_lowercase() != "true",
         Err(_) => true,
+    } || match option_env!("NO_TRAY_ICON") {
+        Some(s) => s.to_lowercase() != "true",
+        None => true,
     } {
         (f)();
     }
