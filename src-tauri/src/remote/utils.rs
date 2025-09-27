@@ -1,6 +1,6 @@
 use std::{
     fs::{self, File},
-    io::Read,
+    io::{self, Read},
     sync::{LazyLock, Mutex},
     time::Duration,
 };
@@ -22,33 +22,48 @@ struct DropHealthcheck {
     app_name: String,
 }
 
-static DROP_CERT_BUNDLE: LazyLock<Vec<Certificate>> = LazyLock::new(fetch_certificates);
+static DROP_CERT_BUNDLE: LazyLock<Vec<Certificate>> = LazyLock::new(|| {
+    fetch_certificates().unwrap_or_else(|e| panic!("Failed to fetch certificates with error {}", e))
+});
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> = LazyLock::new(get_client_sync);
 pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(get_client_async);
 pub static DROP_CLIENT_WS_CLIENT: LazyLock<reqwest::Client> = LazyLock::new(get_client_ws);
 
-fn fetch_certificates() -> Vec<Certificate> {
+fn fetch_certificates() -> Result<Vec<Certificate>, io::Error> {
     let certificate_dir = DATA_ROOT_DIR.join("certificates");
 
     let mut certs = Vec::new();
-    match fs::read_dir(certificate_dir) {
+    match fs::read_dir(&certificate_dir) {
         Ok(c) => {
             for entry in c {
                 match entry {
                     Ok(c) => {
                         let mut buf = Vec::new();
-                        File::open(c.path()).unwrap().read_to_end(&mut buf).unwrap();
+                        File::open(c.path())?.read_to_end(&mut buf)?;
 
-                        for cert in Certificate::from_pem_bundle(&buf).unwrap() {
+                        for cert in match Certificate::from_pem_bundle(&buf) {
+                            Ok(certificates) => certificates,
+                            Err(e) => {
+                                warn!("Could not parse pem bundle with error {}. Skipping", e);
+                                continue;
+                            }
+                        } {
                             certs.push(cert);
                         }
                         info!(
                             "added {} certificate(s) from {}",
                             certs.len(),
-                            c.file_name().into_string().unwrap()
+                            c.file_name().display().to_string()
                         );
                     }
-                    Err(_) => todo!(),
+                    Err(e) => {
+                        warn!(
+                            "Could not open directory entry {} in certificates with error {}",
+                            certificate_dir.display(),
+                            e
+                        );
+                        continue;
+                    }
                 }
             }
         }
@@ -56,7 +71,7 @@ fn fetch_certificates() -> Vec<Certificate> {
             debug!("not loading certificates due to error: {e}");
         }
     };
-    certs
+    Ok(certs)
 }
 
 pub fn get_client_sync() -> reqwest::blocking::Client {
