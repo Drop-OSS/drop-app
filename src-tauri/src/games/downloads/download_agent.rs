@@ -707,7 +707,7 @@ impl Downloadable for GameDownloadAgent {
             Ok(_) => {}
             Err(e) => {
                 error!("could not mark game as complete: {e}");
-                self.on_error(app_handle, &ApplicationDownloadError::DownloadError(e));
+                send!(self.sender, DownloadManagerSignal::Error(ApplicationDownloadError::DownloadError(e)));
             }
         }
     }
