@@ -453,23 +453,9 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let download_context = match download_contexts
+                let download_context = download_contexts
                     .get(&bucket.version)
-                    .ok_or(RemoteAccessError::CorruptedState)
-                {
-                    Ok(context) => context,
-                    Err(e) => {
-                        error!("Could not get download context with error {e}");
-
-                        send!(
-                            sender,
-                            DownloadManagerSignal::Error(ApplicationDownloadError::DownloadError(
-                                e
-                            ))
-                        );
-                        return;
-                    }
-                };
+                    .unwrap_or_else(|| panic!("Could not get bucket version {}. Corrupted state.", bucket.version));
 
                 scope.spawn(move |_| {
                     // 3 attempts
