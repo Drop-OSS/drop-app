@@ -24,8 +24,8 @@ impl Display for ProcessError {
             ProcessError::InvalidVersion => "Invalid game version",
             ProcessError::IOError(error) => &error.to_string(),
             ProcessError::InvalidPlatform => "This game cannot be played on the current platform",
-            ProcessError::FormatError(e) => &format!("Could not format template: {e}"),
-            ProcessError::OpenerError(error) => &format!("Could not open directory: {error}"),
+            ProcessError::FormatError(error) => &format!("Could not format template: {error:?}"),
+            ProcessError::OpenerError(error) => &format!("Could not open directory: {error:?}"),
             ProcessError::InvalidArguments(arguments) => &format!("Invalid arguments in command {arguments}"),
                     };
         write!(f, "{s}")

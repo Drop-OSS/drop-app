@@ -42,7 +42,7 @@ impl Display for ApplicationDownloadError {
             ApplicationDownloadError::IoError(error) => write!(f, "io error: {error}"),
             ApplicationDownloadError::DownloadError(error) => write!(
                 f,
-                "Download failed with error {error}"
+                "Download failed with error {error:?}"
             ),
         }
     }
