@@ -4,14 +4,16 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use log::error;
 use serde_json::Value;
 
 use crate::{
-    database::{db::borrow_db_mut_checked, scan::scan_install_dirs}, error::download_manager_error::DownloadManagerError,
+    database::{db::borrow_db_mut_checked, scan::scan_install_dirs},
+    error::download_manager_error::DownloadManagerError,
 };
 
 use super::{
-    db::{borrow_db_checked, DATA_ROOT_DIR},
+    db::{DATA_ROOT_DIR, borrow_db_checked},
     debug::SystemData,
     models::data::Settings,
 };
@@ -67,15 +69,25 @@ pub fn add_download_dir(new_dir: PathBuf) -> Result<(), DownloadManagerError<()>
 #[tauri::command]
 pub fn update_settings(new_settings: Value) {
     let mut db_lock = borrow_db_mut_checked();
-    let mut current_settings = serde_json::to_value(db_lock.settings.clone()).expect("Failed to parse existing settings");
+    let mut current_settings =
+        serde_json::to_value(db_lock.settings.clone()).expect("Failed to parse existing settings");
     let values = match new_settings.as_object() {
         Some(values) => values,
-        None => { panic!("Could not parse settings values"); },
+        None => {
+            error!("Could not parse settings values into object");
+            return;
+        }
     };
     for (key, value) in values {
         current_settings[key] = value.clone();
     }
-    let new_settings: Settings = serde_json::from_value(current_settings).unwrap_or_else(|e| panic!("Failed to parse settings with error {}", e));
+    let new_settings: Settings = match serde_json::from_value(current_settings) {
+        Ok(settings) => settings,
+        Err(e) => {
+            error!("Could not parse settings with error {}", e);
+            return;
+        }
+    };
     db_lock.settings = new_settings;
 }
 #[tauri::command]
