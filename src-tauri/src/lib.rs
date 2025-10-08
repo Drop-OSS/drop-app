@@ -5,117 +5,13 @@
 #![feature(iterator_try_collect)]
 #![deny(clippy::all)]
 
-mod database;
 mod games;
 
 mod client;
-mod download_manager;
 mod error;
 mod process;
 mod remote;
-mod utils;
 
-use crate::database::scan::scan_install_dirs;
-use crate::process::commands::open_process_logs;
-use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
-use crate::remote::commands::auth_initiate_code;
-use crate::remote::fetch_object::fetch_object_wrapper;
-use crate::remote::server_proto::handle_server_proto_wrapper;
-use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
-use bitcode::{Decode, Encode};
-use client::commands::fetch_state;
-use client::{
-    autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
-    cleanup::{cleanup_and_exit, quit},
-};
-use database::commands::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
-    fetch_system_data, update_settings,
-};
-use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
-use database::models::data::GameDownloadStatus;
-use download_manager::commands::{
-    cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
-};
-use download_manager::download_manager_builder::DownloadManagerBuilder;
-use download_manager::download_manager_frontend::DownloadManager;
-use games::collections::commands::{
-    add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
-    fetch_collection, fetch_collections,
-};
-use games::commands::{
-    fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
-};
-use games::downloads::commands::download_game;
-use games::library::{Game, update_game_configuration};
-use log::{LevelFilter, debug, info, warn};
-use log4rs::Config;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use process::commands::{kill_game, launch_game};
-use process::process_manager::ProcessManager;
-use remote::auth::{self, recieve_handshake};
-use remote::commands::{
-    auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
-    sign_out, use_remote,
-};
-use remote::server_proto::handle_server_proto_offline_wrapper;
-use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Write;
-use std::panic::PanicHookInfo;
-use std::path::Path;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::SystemTime;
-use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
-};
-use std::{env, panic};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
-use tauri_plugin_deep_link::DeepLinkExt;
-use tauri_plugin_dialog::DialogExt;
-
-#[derive(Clone, Copy, Serialize, Eq, PartialEq)]
-pub enum AppStatus {
-    NotConfigured,
-    Offline,
-    ServerError,
-    SignedOut,
-    SignedIn,
-    SignedInNeedsReauth,
-    ServerUnavailable,
-}
-
-#[derive(Clone, Serialize, Deserialize, Encode, Decode)]
-#[serde(rename_all = "camelCase")]
-pub struct User {
-    id: String,
-    username: String,
-    admin: bool,
-    display_name: String,
-    profile_picture_object_id: String,
-}
-
-#[derive(Clone)]
-pub struct CompatInfo {
-    umu_installed: bool,
-}
-
-fn create_new_compat_info() -> Option<CompatInfo> {
-    #[cfg(target_os = "windows")]
-    return None;
-
-    let has_umu_installed = UMU_LAUNCHER_EXECUTABLE.is_some();
-    Some(CompatInfo {
-        umu_installed: has_umu_installed,
-    })
-}
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -164,7 +60,7 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
     log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone())); 
+    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
     let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
     let compat_info = create_new_compat_info();
 
@@ -248,8 +144,6 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
         compat_info,
     }
 }
-
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
     let crash_file = DATA_ROOT_DIR.join(format!(
@@ -385,17 +279,20 @@ pub fn run() {
                         }
                     };
                     if let Some("handshake") = url.host_str() {
-                            tauri::async_runtime::spawn(recieve_handshake(
-                                handle.clone(),
-                                url.path().to_string(),
-                            ));
+                        tauri::async_runtime::spawn(recieve_handshake(
+                            handle.clone(),
+                            url.path().to_string(),
+                        ));
                     }
                 });
-                let open_menu_item = MenuItem::with_id(app, "open", "Open", true, None::<&str>).expect("Failed to generate open menu item");
-                
-                let sep = PredefinedMenuItem::separator(app).expect("Failed to generate menu separator item");
+                let open_menu_item = MenuItem::with_id(app, "open", "Open", true, None::<&str>)
+                    .expect("Failed to generate open menu item");
 
-                let quit_menu_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).expect("Failed to generate quit menu item");
+                let sep = PredefinedMenuItem::separator(app)
+                    .expect("Failed to generate menu separator item");
+
+                let quit_menu_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
+                    .expect("Failed to generate quit menu item");
 
                 let menu = Menu::with_items(
                     app,
@@ -414,7 +311,11 @@ pub fn run() {
 
                 run_on_tray(|| {
                     TrayIconBuilder::new()
-                        .icon(app.default_window_icon().expect("Failed to get default window icon").clone())
+                        .icon(
+                            app.default_window_icon()
+                                .expect("Failed to get default window icon")
+                                .clone(),
+                        )
                         .menu(&menu)
                         .on_menu_event(|app, event| match event.id.as_ref() {
                             "open" => {
@@ -511,3 +412,94 @@ fn run_on_tray<T: FnOnce()>(f: T) {
         (f)();
     }
 }
+
+// TODO: Refactor
+pub async fn recieve_handshake(app: AppHandle, path: String) {
+    // Tell the app we're processing
+    app_emit!(app, "auth/processing", ());
+
+    let handshake_result = recieve_handshake_logic(&app, path).await;
+    if let Err(e) = handshake_result {
+        warn!("error with authentication: {e}");
+        app_emit!(app, "auth/failed", e.to_string());
+        return;
+    }
+
+    let app_state = app.state::<Mutex<AppState>>();
+
+    let (app_status, user) = remote::setup().await;
+
+    let mut state_lock = lock!(app_state);
+
+    state_lock.status = app_status;
+    state_lock.user = user;
+
+    let _ = clear_cached_object("collections");
+    let _ = clear_cached_object("library");
+
+    drop(state_lock);
+
+    app_emit!(app, "auth/finished", ());
+}
+
+// TODO: Refactor
+async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
+    let path_chunks: Vec<&str> = path.split('/').collect();
+    if path_chunks.len() != 3 {
+        app_emit!(app, "auth/failed", ());
+        return Err(RemoteAccessError::HandshakeFailed(
+            "failed to parse token".to_string(),
+        ));
+    }
+
+    let base_url = {
+        let handle = borrow_db_checked();
+        Url::parse(handle.base_url.as_str())?
+    };
+
+    let client_id = path_chunks
+        .get(1)
+        .expect("Failed to get client id from path chunks");
+    let token = path_chunks
+        .get(2)
+        .expect("Failed to get token from path chunks");
+    let body = HandshakeRequestBody {
+        client_id: (client_id).to_string(),
+        token: (token).to_string(),
+    };
+
+    let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = client.post(endpoint).json(&body).send().await?;
+    debug!("handshake responsded with {}", response.status().as_u16());
+    if !response.status().is_success() {
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
+    }
+    let response_struct: HandshakeResponse = response.json().await?;
+
+    {
+        let mut handle = borrow_db_mut_checked();
+        handle.auth = Some(DatabaseAuth {
+            private: response_struct.private,
+            cert: response_struct.certificate,
+            client_id: response_struct.id,
+            web_token: None,
+        });
+    }
+
+    let web_token = {
+        let header = generate_authorization_header();
+        let token = client
+            .post(base_url.join("/api/v1/client/user/webtoken")?)
+            .header("Authorization", header)
+            .send()
+            .await?;
+
+        token.text().await?
+    };
+    let mut handle = borrow_db_mut_checked();
+    handle.auth.as_mut().unwrap().web_token = Some(web_token);
+
+    Ok(())
+}
+

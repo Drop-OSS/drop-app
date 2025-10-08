@@ -78,6 +78,14 @@ futures-core = "0.3.31"
 bytes = "1.10.1"
 # tailscale = { path = "./tailscale" }
 
+
+# Workspaces
+client = { path = "../client" }
+database = { path = "../database" }
+process = { path = "../process" }
+remote = { path = "../remote" }
+utils = { path = "../utils" }
+
 [dependencies.dynfmt]
 version = "0.1.5"
 features = ["curly"]

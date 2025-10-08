@@ -7,7 +7,7 @@
     "beforeDevCommand": "yarn --cwd main dev --port 1432",
     "devUrl": "http://localhost:1432/",
     "beforeBuildCommand": "yarn build",
-    "frontendDist": "../.output"
+    "frontendDist": "../../.output"
   },
   "app": {
     "security": {

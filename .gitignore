@@ -30,3 +30,5 @@ src-tauri/perf*
 
 /*.AppImage
 /squashfs-root
+
+/target/

@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "client",
+    "database",
+    "src-tauri",
+    "process",
+    "remote",
+    "utils",
+    "cloud_saves",
+    "download_manager",
+    "games",
+]
+
+resolver = "3"

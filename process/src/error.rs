@@ -1,0 +1,39 @@
+use std::{fmt::Display, io::Error};
+
+use serde_with::SerializeDisplay;
+
+#[derive(SerializeDisplay)]
+pub enum ProcessError {
+    NotInstalled,
+    AlreadyRunning,
+    InvalidID,
+    InvalidVersion,
+    IOError(Error),
+    FormatError(String), // String errors supremacy
+    InvalidPlatform,
+    OpenerError(tauri_plugin_opener::Error),
+    InvalidArguments(String),
+    FailedLaunch(String),
+}
+
+impl Display for ProcessError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            ProcessError::NotInstalled => "Game not installed",
+            ProcessError::AlreadyRunning => "Game already running",
+            ProcessError::InvalidID => "Invalid game ID",
+            ProcessError::InvalidVersion => "Invalid game version",
+            ProcessError::IOError(error) => &error.to_string(),
+            ProcessError::InvalidPlatform => "This game cannot be played on the current platform",
+            ProcessError::FormatError(error) => &format!("Could not format template: {error:?}"),
+            ProcessError::OpenerError(error) => &format!("Could not open directory: {error:?}"),
+            ProcessError::InvalidArguments(arguments) => {
+                &format!("Invalid arguments in command {arguments}")
+            }
+            ProcessError::FailedLaunch(game_id) => {
+                &format!("Drop detected that the game {game_id} may have failed to launch properly")
+            }
+        };
+        write!(f, "{s}")
+    }
+}
