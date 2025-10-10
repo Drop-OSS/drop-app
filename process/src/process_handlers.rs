@@ -1,13 +1,6 @@
-use std::{
-    ffi::OsStr,
-    path::PathBuf,
-    process::{Command, Stdio},
-    sync::LazyLock,
-};
-
 use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
 use database::{platform::Platform, Database, DownloadableMetadata, GameVersion};
-use log::{debug, info};
+use log::debug;
 
 
 use crate::{error::ProcessError, process_manager::ProcessHandler};

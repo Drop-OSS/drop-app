@@ -4286,7 +4286,6 @@ dependencies = [
  "serde",
  "serde_with",
  "shared_child",
- "tauri",
  "tauri-plugin-opener",
  "utils",
 ]

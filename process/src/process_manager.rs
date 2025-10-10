@@ -1,28 +1,31 @@
 use std::{
     collections::HashMap,
     fs::{OpenOptions, create_dir_all},
-    io::{self},
+    io,
     path::PathBuf,
     process::{Command, ExitStatus},
     str::FromStr,
-    sync::{Arc, Mutex},
-    thread::spawn,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
-use database::{borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, platform::Platform, ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus, GameVersion};
+use database::{
+    ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus,
+    GameVersion, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, platform::Platform,
+};
 use dynfmt::Format;
 use dynfmt::SimpleCurlyFormat;
-use games::{library::push_game_update, state::GameStatusManager};
+use games::state::GameStatusManager;
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
-use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_opener::OpenerExt;
-use utils::lock;
 
-use crate::{error::ProcessError, format::DropFormatArgs, process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher}, PROCESS_MANAGER};
-
+use crate::{
+    PROCESS_MANAGER,
+    error::ProcessError,
+    format::DropFormatArgs,
+    process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
+};
 
 pub struct RunningProcess {
     handle: Arc<SharedChild>,
@@ -101,7 +104,11 @@ impl ProcessManager<'_> {
         self.log_output_dir.join(game_id)
     }
 
-    fn on_process_finish(&mut self, game_id: String, result: Result<ExitStatus, std::io::Error>) -> Result<(), ProcessError> {
+    fn on_process_finish(
+        &mut self,
+        game_id: String,
+        result: Result<ExitStatus, std::io::Error>,
+    ) -> Result<(), ProcessError> {
         if !self.processes.contains_key(&game_id) {
             warn!(
                 "process on_finish was called, but game_id is no longer valid. finished with result: {result:?}"
@@ -199,10 +206,8 @@ impl ProcessManager<'_> {
         process_handler.is_ok()
     }
 
-    pub fn launch_process(
-        &mut self,
-        game_id: String,
-    ) -> Result<(), ProcessError> {
+    /// Must be called through spawn as it is currently blocking
+    pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
         if self.processes.contains_key(&game_id) {
             return Err(ProcessError::AlreadyRunning);
         }
@@ -369,13 +374,6 @@ impl ProcessManager<'_> {
         let wait_thread_handle = launch_process_handle.clone();
         let wait_thread_game_id = meta.clone();
 
-        spawn(move || {
-            let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
-
-
-            PROCESS_MANAGER.lock().on_process_finish(wait_thread_game_id.id, result);
-        });
-
         self.processes.insert(
             meta.id,
             RunningProcess {
@@ -384,7 +382,12 @@ impl ProcessManager<'_> {
                 manually_killed: false,
             },
         );
-        Ok(())
+
+        let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
+
+        PROCESS_MANAGER
+            .lock()
+            .on_process_finish(wait_thread_game_id.id, result)
     }
 }
 
