@@ -86,6 +86,7 @@ process = { path = "../process" }
 remote = { version = "0.1.0", path = "../remote" }
 utils = { path = "../utils" }
 games = { version = "0.1.0", path = "../games" }
+download_manager = { version = "0.1.0", path = "../download_manager" }
 
 [dependencies.dynfmt]
 version = "0.1.5"

@@ -1,4 +1,7 @@
+use std::sync::nonpoison::Mutex;
+
 use database::{borrow_db_checked, borrow_db_mut_checked};
+use download_manager::DOWNLOAD_MANAGER;
 use log::{debug, error};
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
@@ -8,23 +11,22 @@ use crate::{AppState};
 
 #[tauri::command]
 pub fn fetch_state(
-    state: tauri::State<'_, std::sync::Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<String, String> {
-    let guard = lock!(state);
+    let guard = state.lock();
     let cloned_state = serde_json::to_string(&guard.clone()).map_err(|e| e.to_string())?;
     drop(guard);
     Ok(cloned_state)
 }
 
 #[tauri::command]
-pub fn quit(app: tauri::AppHandle, state: tauri::State<'_, std::sync::Mutex<AppState<'_>>>) {
-    cleanup_and_exit(&app, &state);
+pub fn quit(app: tauri::AppHandle, state: tauri::State<'_, std::sync::Mutex<AppState>>) {
+    cleanup_and_exit(&app);
 }
 
-pub fn cleanup_and_exit(app: &AppHandle, state: &tauri::State<'_, std::sync::Mutex<AppState<'_>>>) {
+pub fn cleanup_and_exit(app: &AppHandle) {
     debug!("cleaning up and exiting application");
-    let download_manager = lock!(state).download_manager.clone();
-    match download_manager.ensure_terminated() {
+    match DOWNLOAD_MANAGER.ensure_terminated() {
         Ok(res) => match res {
             Ok(()) => debug!("download manager terminated correctly"),
             Err(()) => error!("download manager failed to terminate correctly"),

@@ -80,6 +80,7 @@ pub enum DownloadStatus {
 /// The actual download queue may be accessed through the .`edit()` function,
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
+#[derive(Debug)]
 pub struct DownloadManager {
     terminator: Mutex<Option<JoinHandle<Result<(), ()>>>>,
     download_queue: Queue,

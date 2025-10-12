@@ -358,6 +358,15 @@ pub mod data {
                 compat_info: None,
             }
         }
-
+    }
+    impl DatabaseAuth {
+        pub fn new(private: String, cert: String, client_id: String, web_token: Option<String>) -> Self {
+            Self {
+                private,
+                cert,
+                client_id,
+                web_token,
+            }
+        }
     }
 }

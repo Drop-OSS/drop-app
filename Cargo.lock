@@ -381,9 +381,9 @@ dependencies = [
 
 [[package]]
 name = "atomic-instant-full"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db6541700e074cda41b1c6f98c2cae6cde819967bf142078f069cad85387cdbe"
+checksum = "83148e838612d8d701ce16b9f64b8674c097e1b4a14037b294baec03d9072228"
 
 [[package]]
 name = "atomic-waker"
@@ -1375,6 +1375,7 @@ dependencies = [
  "database",
  "deranged 0.4.0",
  "dirs 6.0.0",
+ "download_manager",
  "droplet-rs",
  "dynfmt",
  "filetime",

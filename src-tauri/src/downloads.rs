@@ -3,32 +3,32 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-
-use crate::{
-    database::{
-        db::borrow_db_checked,
-        models::data::GameDownloadStatus,
-    }, download_manager::downloadable::Downloadable, error::application_download_error::ApplicationDownloadError, lock, AppState
+use database::{borrow_db_checked, GameDownloadStatus};
+use download_manager::{
+    DOWNLOAD_MANAGER, downloadable::Downloadable, error::ApplicationDownloadError,
 };
-
-use super::download_agent::GameDownloadAgent;
+use games::downloads::download_agent::GameDownloadAgent;
 
 #[tauri::command]
 pub async fn download_game(
     game_id: String,
     game_version: String,
     install_dir: usize,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
 ) -> Result<(), ApplicationDownloadError> {
-    let sender = { lock!(state).download_manager.get_sender().clone() };
+    let sender = { DOWNLOAD_MANAGER.get_sender().clone() };
 
-    let game_download_agent =
-        GameDownloadAgent::new_from_index(game_id.clone(), game_version.clone(), install_dir, sender).await?;
+    let game_download_agent = GameDownloadAgent::new_from_index(
+        game_id.clone(),
+        game_version.clone(),
+        install_dir,
+        sender,
+    )
+    .await?;
 
     let game_download_agent =
         Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
-    lock!(state)
-        .download_manager
+
+    DOWNLOAD_MANAGER
         .queue_download(game_download_agent.clone())
         .unwrap();
 
@@ -36,10 +36,7 @@ pub async fn download_game(
 }
 
 #[tauri::command]
-pub async fn resume_download(
-    game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
-) -> Result<(), ApplicationDownloadError> {
+pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadError> {
     let s = borrow_db_checked()
         .applications
         .game_statuses
@@ -57,21 +54,25 @@ pub async fn resume_download(
         } => (version_name, install_dir),
     };
 
-    let sender = lock!(state).download_manager.get_sender();
+    let sender = DOWNLOAD_MANAGER.get_sender();
     let parent_dir: PathBuf = install_dir.into();
 
     let game_download_agent = Arc::new(Box::new(
         GameDownloadAgent::new(
             game_id,
             version_name.clone(),
-            parent_dir.parent().unwrap_or_else(|| panic!("Failed to get parent directry of {}", parent_dir.display())).to_path_buf(),
+            parent_dir
+                .parent()
+                .unwrap_or_else(|| {
+                    panic!("Failed to get parent directry of {}", parent_dir.display())
+                })
+                .to_path_buf(),
             sender,
         )
         .await?,
     ) as Box<dyn Downloadable + Send + Sync>);
 
-    lock!(state)
-        .download_manager
+    DOWNLOAD_MANAGER
         .queue_download(game_download_agent)
         .unwrap();
     Ok(())

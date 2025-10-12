@@ -168,7 +168,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
                 );
 
                 debug!("uninstalled game id {}", &meta.id);
-                app_emit!(app_handle, "update_library", ());
+                app_emit!(&app_handle, "update_library", ());
             }
         });
     } else {
@@ -284,41 +284,8 @@ pub struct FrontendGameOptions {
     launch_string: String,
 }
 
-#[tauri::command]
-pub fn update_game_configuration(
-    game_id: String,
-    options: FrontendGameOptions,
-) -> Result<(), LibraryError> {
-    let mut handle = borrow_db_mut_checked();
-    let installed_version = handle
-        .applications
-        .installed_game_version
-        .get(&game_id)
-        .ok_or(LibraryError::MetaNotFound(game_id))?;
-
-    let id = installed_version.id.clone();
-    let version = installed_version.version.clone().ok_or(LibraryError::VersionNotFound(id.clone()))?;
-
-    let mut existing_configuration = handle
-        .applications
-        .game_versions
-        .get(&id)
-        .unwrap()
-        .get(&version)
-        .unwrap()
-        .clone();
-
-    // Add more options in here
-    existing_configuration.launch_command_template = options.launch_string;
-
-    // Add no more options past here
-
-    handle
-        .applications
-        .game_versions
-        .get_mut(&id)
-        .unwrap()
-        .insert(version.to_string(), existing_configuration);
-
-    Ok(())
+impl FrontendGameOptions {
+    pub fn launch_string(&self) -> &String {
+        &self.launch_string
+    }
 }

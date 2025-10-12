@@ -1,4 +1,4 @@
-use std::{sync::Mutex, time::Duration};
+use std::{sync::nonpoison::Mutex, time::Duration};
 
 use client::app_status::AppStatus;
 use database::{borrow_db_checked, borrow_db_mut_checked};
@@ -16,7 +16,7 @@ use crate::{recieve_handshake, AppState};
 #[tauri::command]
 pub async fn use_remote(
     url: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), RemoteAccessError> {
     debug!("connecting to url {url}");
     let base_url = Url::parse(&url)?;
@@ -37,7 +37,7 @@ pub async fn use_remote(
         return Err(RemoteAccessError::InvalidEndpoint);
     }
 
-    let mut app_state = lock!(state);
+    let mut app_state = state.lock();
     app_state.status = AppStatus::SignedOut;
     drop(app_state);
 
@@ -91,21 +91,21 @@ pub fn sign_out(app: AppHandle) {
 
     // Update app state
     {
-        let app_state = app.state::<Mutex<AppState>>();
-        let mut app_state_handle = lock!(app_state);
+        let state = app.state::<Mutex<AppState>>();
+        let mut app_state_handle = state.lock();
         app_state_handle.status = AppStatus::SignedOut;
         app_state_handle.user = None;
     }
 
     // Emit event for frontend
-    app_emit!(app, "auth/signedout", ());
+    app_emit!(&app, "auth/signedout", ());
 }
 
 #[tauri::command]
-pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState<'_>>>) -> Result<(), ()> {
+pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
     let (app_status, user) = setup().await;
 
-    let mut guard = lock!(state);
+    let mut guard = state.lock();
     guard.status = app_status;
     guard.user = user;
     drop(guard);
@@ -181,7 +181,7 @@ pub fn auth_initiate_code(app: AppHandle) -> Result<String, RemoteAccessError> {
         let result = load().await;
         if let Err(err) = result {
             warn!("{err}");
-            app_emit!(app, "auth/failed", err.to_string());
+            app_emit!(&app, "auth/failed", err.to_string());
         }
     });
 

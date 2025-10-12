@@ -2,7 +2,7 @@ use std::{collections::HashMap, env};
 
 use chrono::Utc;
 use client::{app_status::AppStatus, user::User};
-use database::interface::borrow_db_checked;
+use database::{interface::borrow_db_checked, DatabaseAuth};
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
 use log::{error, warn};
@@ -31,17 +31,29 @@ struct InitiateRequestBody {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct HandshakeRequestBody {
+pub struct HandshakeRequestBody {
     client_id: String,
     token: String,
 }
 
+impl HandshakeRequestBody {
+    pub fn new(client_id: String, token: String) -> Self {
+        Self { client_id, token }
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct HandshakeResponse {
+pub struct HandshakeResponse {
     private: String,
     certificate: String,
     id: String,
+}
+
+impl From<HandshakeResponse> for DatabaseAuth {
+    fn from(value: HandshakeResponse) -> Self {
+        DatabaseAuth::new(value.private, value.certificate, value.id, None)
+    }
 }
 
 pub fn generate_authorization_header() -> String {

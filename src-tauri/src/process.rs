@@ -12,15 +12,15 @@ pub fn launch_game(
     id: String,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = lock!(state);
-    let process_manager_lock = PROCESS_MANAGER.lock();
+    let state_lock = state.lock();
+    let mut process_manager_lock = PROCESS_MANAGER.lock();
     //let meta = DownloadableMetadata {
     //    id,
     //    version: Some(version),
     //    download_type: DownloadType::Game,
     //};
 
-    match process_manager_lock.launch_process(id, &state_lock) {
+    match process_manager_lock.launch_process(id) {
         Ok(()) => {}
         Err(e) => return Err(e),
     }

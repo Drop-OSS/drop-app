@@ -4,33 +4,86 @@
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
 #![feature(nonpoison_mutex)]
+#![feature(sync_nonpoison)]
 #![deny(clippy::all)]
 
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    env,
+    fs::File,
+    io::Write,
+    panic::PanicHookInfo,
+    path::Path,
+    str::FromStr,
+    sync::nonpoison::Mutex,
+    time::SystemTime,
+};
 
-use ::client::{app_status::AppStatus, compat::CompatInfo, user::User};
-use database::{borrow_db_checked, GameDownloadStatus};
-use ::games::library::Game;
-use ::remote::auth;
+use ::client::{
+    app_status::AppStatus, autostart::sync_autostart_on_startup, compat::CompatInfo, user::User,
+};
+use ::games::{library::Game, scan::scan_install_dirs};
+use ::remote::{
+    auth::{self, generate_authorization_header, HandshakeRequestBody, HandshakeResponse},
+    cache::clear_cached_object,
+    error::RemoteAccessError,
+    fetch_object::fetch_object_wrapper,
+    offline,
+    server_proto::{handle_server_proto_offline_wrapper, handle_server_proto_wrapper},
+    utils::DROP_CLIENT_ASYNC,
+};
+use database::{
+    DB, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR,
+    interface::DatabaseImpls,
+};
+use log::{LevelFilter, debug, info, warn};
+use log4rs::{
+    Config,
+    append::{console::ConsoleAppender, file::FileAppender},
+    config::{Appender, Root},
+    encode::pattern::PatternEncoder,
+};
 use serde::Serialize;
-use tauri::AppHandle;
+use tauri::{
+    AppHandle, Manager, RunEvent, WindowEvent,
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+};
+use tauri_plugin_deep_link::DeepLinkExt;
+use tauri_plugin_dialog::DialogExt;
+use url::Url;
+use utils::{app_emit, lock};
+
+use crate::client::cleanup_and_exit;
 
 mod games;
-
 mod client;
 mod process;
 mod remote;
+mod collections;
+mod download_manager;
+mod downloads;
+mod settings;
+
+use client::*;
+use collections::*;
+use download_manager::*;
+use downloads::*;
+use games::*;
+use process::*;
+use remote::*;
+use settings::*;
 
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState<'a> {
+pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
 }
 
-async fn setup(handle: AppHandle) -> AppState<'static> {
+async fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d} | {l} | {f}:{L} - {m}{n}",
@@ -62,9 +115,6 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
     log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
-    let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
-    let compat_info = create_new_compat_info();
 
     debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -76,9 +126,6 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
             status: AppStatus::NotConfigured,
             user: None,
             games,
-            download_manager,
-            process_manager,
-            compat_info,
         };
     }
 
@@ -141,9 +188,6 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
         status: app_status,
         user,
         games,
-        download_manager,
-        process_manager,
-        compat_info,
     }
 }
 
@@ -165,7 +209,7 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    panic::set_hook(Box::new(|e| {
+    std::panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
         println!("{e}");
     }));
@@ -281,6 +325,7 @@ pub fn run() {
                         }
                     };
                     if let Some("handshake") = url.host_str() {
+                        
                         tauri::async_runtime::spawn(recieve_handshake(
                             handle.clone(),
                             url.path().to_string(),
@@ -328,7 +373,7 @@ pub fn run() {
                                     .expect("Failed to show window");
                             }
                             "quit" => {
-                                cleanup_and_exit(app, &app.state());
+                                cleanup_and_exit(app);
                             }
 
                             _ => {
@@ -418,20 +463,20 @@ fn run_on_tray<T: FnOnce()>(f: T) {
 // TODO: Refactor
 pub async fn recieve_handshake(app: AppHandle, path: String) {
     // Tell the app we're processing
-    app_emit!(app, "auth/processing", ());
+    app_emit!(&app, "auth/processing", ());
 
     let handshake_result = recieve_handshake_logic(&app, path).await;
     if let Err(e) = handshake_result {
         warn!("error with authentication: {e}");
-        app_emit!(app, "auth/failed", e.to_string());
+        app_emit!(&app, "auth/failed", e.to_string());
         return;
     }
 
     let app_state = app.state::<Mutex<AppState>>();
 
-    let (app_status, user) = remote::setup().await;
+    let (app_status, user) = auth::setup().await;
 
-    let mut state_lock = lock!(app_state);
+    let mut state_lock = app_state.lock();
 
     state_lock.status = app_status;
     state_lock.user = user;
@@ -441,7 +486,7 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     drop(state_lock);
 
-    app_emit!(app, "auth/finished", ());
+    app_emit!(&app, "auth/finished", ());
 }
 
 // TODO: Refactor
@@ -465,10 +510,7 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
     let token = path_chunks
         .get(2)
         .expect("Failed to get token from path chunks");
-    let body = HandshakeRequestBody {
-        client_id: (client_id).to_string(),
-        token: (token).to_string(),
-    };
+    let body = HandshakeRequestBody::new((client_id).to_string(), (token).to_string());
 
     let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
     let client = DROP_CLIENT_ASYNC.clone();
@@ -481,12 +523,7 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
 
     {
         let mut handle = borrow_db_mut_checked();
-        handle.auth = Some(DatabaseAuth {
-            private: response_struct.private,
-            cert: response_struct.certificate,
-            client_id: response_struct.id,
-            web_token: None,
-        });
+        handle.auth = Some(response_struct.into());
     }
 
     let web_token = {
@@ -504,4 +541,3 @@ async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), Re
 
     Ok(())
 }
-

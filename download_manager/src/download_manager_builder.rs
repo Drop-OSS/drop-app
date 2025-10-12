@@ -370,7 +370,7 @@ impl DownloadManagerBuilder {
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
         let event_data = StatsUpdateEvent { speed: kbs, time };
 
-        app_emit!(self.app_handle, "update_stats", event_data);
+        app_emit!(&self.app_handle, "update_stats", event_data);
     }
     fn push_ui_queue_update(&self) {
         let queue = &self.download_queue.read();
@@ -389,6 +389,6 @@ impl DownloadManagerBuilder {
             .collect();
 
         let event_data = QueueUpdateEvent { queue: queue_objs };
-        app_emit!(self.app_handle, "update_queue", event_data);
+        app_emit!(&self.app_handle, "update_queue", event_data);
     }
 }

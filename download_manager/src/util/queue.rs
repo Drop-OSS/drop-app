@@ -6,7 +6,7 @@ use std::{
 use database::DownloadableMetadata;
 use utils::lock;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Queue {
     inner: Arc<Mutex<VecDeque<DownloadableMetadata>>>,
 }

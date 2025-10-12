@@ -1,16 +1,7 @@
+use games::collections::collection::{Collection, Collections};
+use remote::{auth::generate_authorization_header, cache::{cache_object, get_cached_object}, error::RemoteAccessError, requests::{generate_url, make_authenticated_get}, utils::DROP_CLIENT_ASYNC};
 use serde_json::json;
 
-use crate::{
-    error::remote_access_error::RemoteAccessError,
-    remote::{
-        auth::generate_authorization_header,
-        cache::{cache_object, get_cached_object},
-        requests::{generate_url, make_authenticated_get},
-        utils::DROP_CLIENT_ASYNC,
-    },
-};
-
-use super::collection::{Collection, Collections};
 
 #[tauri::command]
 pub async fn fetch_collections(

@@ -1,7 +1,7 @@
-use std::sync::Mutex;
+use std::sync::nonpoison::Mutex;
 
 use database::{borrow_db_checked, borrow_db_mut_checked, GameDownloadStatus, GameVersion};
-use games::{downloads::error::LibraryError, library::{get_current_meta, uninstall_game_logic, FetchGameStruct, Game}, state::{GameStatusManager, GameStatusWithTransient}};
+use games::{downloads::error::LibraryError, library::{get_current_meta, uninstall_game_logic, FetchGameStruct, FrontendGameOptions, Game}, state::{GameStatusManager, GameStatusWithTransient}};
 use log::warn;
 use process::PROCESS_MANAGER;
 use remote::{auth::generate_authorization_header, cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db}, error::{DropServerError, RemoteAccessError}, offline, requests::generate_url, utils::DROP_CLIENT_ASYNC};
@@ -13,7 +13,7 @@ use crate::AppState;
 
 #[tauri::command]
 pub async fn fetch_library(
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
     hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     offline!(
@@ -27,7 +27,7 @@ pub async fn fetch_library(
 
 
 pub async fn fetch_library_logic(
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
     hard_fresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let do_hard_refresh = hard_fresh.unwrap_or(false);
@@ -54,7 +54,7 @@ pub async fn fetch_library_logic(
 
     let mut games: Vec<Game> = response.json().await?;
 
-    let mut handle = lock!(state);
+    let mut handle = state.lock();
 
     let mut db_handle = borrow_db_mut_checked();
 
@@ -95,7 +95,7 @@ pub async fn fetch_library_logic(
     Ok(games)
 }
 pub async fn fetch_library_logic_offline(
-    _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _state: tauri::State<'_, Mutex<AppState>>,
     _hard_refresh: Option<bool>,
 ) -> Result<Vec<Game>, RemoteAccessError> {
     let mut games: Vec<Game> = get_cached_object("library")?;
@@ -117,10 +117,10 @@ pub async fn fetch_library_logic_offline(
 }
 pub async fn fetch_game_logic(
     id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let version = {
-        let state_handle = lock!(state);
+        let state_handle = state.lock();
 
         let db_lock = borrow_db_checked();
 
@@ -173,7 +173,7 @@ pub async fn fetch_game_logic(
 
     let game: Game = response.json().await?;
 
-    let mut state_handle = lock!(state);
+    let mut state_handle = state.lock();
     state_handle.games.insert(id.clone(), game.clone());
 
     let mut db_handle = borrow_db_mut_checked();
@@ -197,7 +197,7 @@ pub async fn fetch_game_logic(
 
 pub async fn fetch_game_version_options_logic(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
     let client = DROP_CLIENT_ASYNC.clone();
 
@@ -216,7 +216,7 @@ pub async fn fetch_game_version_options_logic(
 
     let data: Vec<GameVersion> = response.json().await?;
 
-    let state_lock = lock!(state);
+    let state_lock = state.lock();
     let process_manager_lock = PROCESS_MANAGER.lock();
     let data: Vec<GameVersion> = data
         .into_iter()
@@ -231,7 +231,7 @@ pub async fn fetch_game_version_options_logic(
 
 pub async fn fetch_game_logic_offline(
     id: String,
-    _state: tauri::State<'_, Mutex<AppState<'_>>>,
+    _state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let db_handle = borrow_db_checked();
     let metadata_option = db_handle.applications.installed_game_version.get(&id);
@@ -256,7 +256,7 @@ pub async fn fetch_game_logic_offline(
 #[tauri::command]
 pub async fn fetch_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     offline!(
         state,
@@ -287,7 +287,46 @@ pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), Libr
 #[tauri::command]
 pub async fn fetch_game_version_options(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState<'_>>>,
+    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<Vec<GameVersion>, RemoteAccessError> {
     fetch_game_version_options_logic(game_id, state).await
+}
+
+#[tauri::command]
+pub fn update_game_configuration(
+    game_id: String,
+    options: FrontendGameOptions,
+) -> Result<(), LibraryError> {
+    let mut handle = borrow_db_mut_checked();
+    let installed_version = handle
+        .applications
+        .installed_game_version
+        .get(&game_id)
+        .ok_or(LibraryError::MetaNotFound(game_id))?;
+
+    let id = installed_version.id.clone();
+    let version = installed_version.version.clone().ok_or(LibraryError::VersionNotFound(id.clone()))?;
+
+    let mut existing_configuration = handle
+        .applications
+        .game_versions
+        .get(&id)
+        .unwrap()
+        .get(&version)
+        .unwrap()
+        .clone();
+
+    // Add more options in here
+    existing_configuration.launch_command_template = options.launch_string().clone();
+
+    // Add no more options past here
+
+    handle
+        .applications
+        .game_versions
+        .get_mut(&id)
+        .unwrap()
+        .insert(version.to_string(), existing_configuration);
+
+    Ok(())
 }

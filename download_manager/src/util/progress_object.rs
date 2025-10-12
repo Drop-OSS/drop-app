@@ -15,7 +15,7 @@ use crate::download_manager_frontend::DownloadManagerSignal;
 
 use super::rolling_progress_updates::RollingProgressWindow;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ProgressObject {
     max: Arc<Mutex<usize>>,
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,

@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct RollingProgressWindow<const S: usize> {
     window: Arc<[AtomicUsize; S]>,
     current: Arc<AtomicUsize>,

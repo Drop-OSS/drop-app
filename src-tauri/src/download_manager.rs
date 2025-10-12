@@ -1,27 +1,25 @@
-use std::sync::Mutex;
+use database::DownloadableMetadata;
+use download_manager::DOWNLOAD_MANAGER;
 
 #[tauri::command]
-pub fn pause_downloads(state: tauri::State<'_, Mutex<AppState>>) {
-    lock!(state).download_manager.pause_downloads();
+pub fn pause_downloads() {
+    DOWNLOAD_MANAGER.pause_downloads();
 }
 
 #[tauri::command]
-pub fn resume_downloads(state: tauri::State<'_, Mutex<AppState>>) {
-    lock!(state).download_manager.resume_downloads();
+pub fn resume_downloads() {
+    DOWNLOAD_MANAGER.resume_downloads();
 }
 
 #[tauri::command]
 pub fn move_download_in_queue(
-    state: tauri::State<'_, Mutex<AppState>>,
     old_index: usize,
     new_index: usize,
 ) {
-    lock!(state)
-        .download_manager
-        .rearrange(old_index, new_index);
+    DOWNLOAD_MANAGER.rearrange(old_index, new_index);
 }
 
 #[tauri::command]
-pub fn cancel_game(state: tauri::State<'_, Mutex<AppState>>, meta: DownloadableMetadata) {
-    lock!(state).download_manager.cancel(meta);
+pub fn cancel_game(meta: DownloadableMetadata) {
+    DOWNLOAD_MANAGER.cancel(meta);
 }

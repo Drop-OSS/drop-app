@@ -1,16 +1,11 @@
 use std::fs;
 
+use database::{DownloadType, DownloadableMetadata, borrow_db_mut_checked};
 use log::warn;
 
 use crate::{
-    database::{
-        db::borrow_db_mut_checked,
-        models::data::{DownloadType, DownloadableMetadata},
-    },
-    games::{
-        downloads::drop_data::{DropData, DROP_DATA_PATH},
-        library::set_partially_installed_db,
-    },
+    downloads::drop_data::{DROP_DATA_PATH, DropData},
+    library::set_partially_installed_db,
 };
 
 pub fn scan_install_dirs() {
