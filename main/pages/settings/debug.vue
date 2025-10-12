@@ -116,7 +116,7 @@ platformInfo.value = currentPlatform;
 async function openDataDir() {
   if (!dataDir.value) return;
   try {
-    await open(dataDir.value);
+    await invoke("open_fs", { path: dataDir.value });
   } catch (error) {
     console.error("Failed to open data dir:", error);
   }
@@ -126,7 +126,7 @@ async function openLogFile() {
   if (!dataDir.value) return;
   try {
     const logPath = `${dataDir.value}/drop.log`;
-    await open(logPath);
+    await invoke("open_fs", { path: logPath });
   } catch (error) {
     console.error("Failed to open log file:", error);
   }

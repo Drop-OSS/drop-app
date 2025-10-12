@@ -229,6 +229,7 @@ pub fn run() {
             fetch_state,
             quit,
             fetch_system_data,
+            open_fs,
             // User utils
             update_settings,
             fetch_settings,
