@@ -175,118 +175,130 @@ pub fn download_game_bucket(
         return Ok(false);
     }
 
-    let start = Instant::now();
+    const MAX_CHUNKS: usize = 256;
 
-    let header = generate_authorization_header();
+    let mut all_completed = true;
 
-    let url = generate_url(&["/api/v2/client/chunk"], &[])
-        .map_err(ApplicationDownloadError::Communication)?;
+    for chunk in bucket.drops.chunks(MAX_CHUNKS) {
+        let start = Instant::now();
 
-    let body = ChunkBody::create(ctx, &bucket.drops);
+        let header = generate_authorization_header();
 
-    let response = DROP_CLIENT_SYNC
-        .post(url)
-        .json(&body)
-        .header("Authorization", header)
-        .send()
-        .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
+        let url = generate_url(&["/api/v2/client/chunk"], &[])
+            .map_err(ApplicationDownloadError::Communication)?;
 
-    if response.status() != 200 {
-        info!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().map_err(|e| {
-            ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
-        })?;
-        info!("{raw_res}");
-        if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
+        let body = ChunkBody::create(ctx, chunk);
+
+        let response = DROP_CLIENT_SYNC
+            .post(url)
+            .json(&body)
+            .header("Authorization", header)
+            .send()
+            .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
+
+        if response.status() != 200 {
+            info!("chunk request got status code: {}", response.status());
+            let raw_res = response.text().map_err(|e| {
+                ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
+            })?;
+            info!("{raw_res}");
+            if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {
+                return Err(ApplicationDownloadError::Communication(
+                    RemoteAccessError::InvalidResponse(err),
+                ));
+            }
             return Err(ApplicationDownloadError::Communication(
-                RemoteAccessError::InvalidResponse(err),
+                RemoteAccessError::UnparseableResponse(raw_res),
             ));
         }
-        return Err(ApplicationDownloadError::Communication(
-            RemoteAccessError::UnparseableResponse(raw_res),
-        ));
-    }
 
-    let lengths = response
-        .headers()
-        .get("Content-Lengths")
-        .ok_or(ApplicationDownloadError::Communication(
-            RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
-        ))?
-        .to_str()
-        .map_err(|e| {
-            ApplicationDownloadError::Communication(RemoteAccessError::UnparseableResponse(
-                e.to_string(),
-            ))
-        })?;
+        let lengths = response
+            .headers()
+            .get("Content-Lengths")
+            .ok_or(ApplicationDownloadError::Communication(
+                RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
+            ))?
+            .to_str()
+            .map_err(|e| {
+                ApplicationDownloadError::Communication(RemoteAccessError::UnparseableResponse(
+                    e.to_string(),
+                ))
+            })?;
 
-    for (i, raw_length) in lengths.split(",").enumerate() {
-        let length = raw_length.parse::<usize>().unwrap_or(0);
-        let Some(drop) = bucket.drops.get(i) else {
-            warn!("invalid number of Content-Lengths recieved: {i}, {lengths}");
-            return Err(ApplicationDownloadError::DownloadError(
-                RemoteAccessError::InvalidResponse(DropServerError {
-                    status_code: 400,
-                    status_message: format!(
-                        "invalid number of Content-Lengths recieved: {i}, {lengths}"
-                    ),
-                }),
-            ));
-        };
-        if drop.length != length {
-            warn!(
-                "for {}, expected {}, got {} ({})",
-                drop.filename, drop.length, raw_length, length
-            );
-            return Err(ApplicationDownloadError::DownloadError(
-                RemoteAccessError::InvalidResponse(DropServerError {
-                    status_code: 400,
-                    status_message: format!(
-                        "for {}, expected {}, got {} ({})",
-                        drop.filename, drop.length, raw_length, length
-                    ),
-                }),
-            ));
+        for (i, raw_length) in lengths.split(',').enumerate() {
+            let length = raw_length.parse::<usize>().unwrap_or(0);
+            let Some(drop) = chunk.get(i) else {
+                warn!("invalid number of Content-Lengths received: {i}, {lengths}");
+                return Err(ApplicationDownloadError::DownloadError(
+                    RemoteAccessError::InvalidResponse(DropServerError {
+                        status_code: 400,
+                        status_message: format!(
+                            "invalid number of Content-Lengths received: {i}, {lengths}"
+                        ),
+                    }),
+                ));
+            };
+            if drop.length != length {
+                warn!(
+                    "for {}, expected {}, got {} ({})",
+                    drop.filename, drop.length, raw_length, length
+                );
+                return Err(ApplicationDownloadError::DownloadError(
+                    RemoteAccessError::InvalidResponse(DropServerError {
+                        status_code: 400,
+                        status_message: format!(
+                            "for {}, expected {}, got {} ({})",
+                            drop.filename, drop.length, raw_length, length
+                        ),
+                    }),
+                ));
+            }
         }
-    }
 
-    let timestep = start.elapsed().as_millis();
+        let timestep = start.elapsed().as_millis();
+        debug!("took {}ms to start downloading", timestep);
 
-    debug!("took {}ms to start downloading", timestep);
+        let mut pipeline = DropDownloadPipeline::new(
+            response,
+            chunk.to_vec(), // clone the chunk
+            control_flag,
+            progress.clone(),
+        )
+        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
-    let mut pipeline =
-        DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
+        let completed = pipeline
+            .copy()
+            .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
+        if !completed {
+            all_completed = false;
+            break;
+        }
+        // If we complete the file, set the permissions (if on Linux)
+        #[cfg(unix)]
+        {
+            for drop in chunk.iter() {
+                let permissions = Permissions::from_mode(drop.permissions);
+                set_permissions(drop.path.clone(), permissions)
+                    .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
+            }
+        }
+
+        let checksums = pipeline
+            .finish()
             .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
-    let completed = pipeline
-        .copy()
-        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
-    if !completed {
-        return Ok(false);
-    }
-
-    // If we complete the file, set the permissions (if on Linux)
-    #[cfg(unix)]
-    {
-        for drop in bucket.drops.iter() {
-            let permissions = Permissions::from_mode(drop.permissions);
-            set_permissions(drop.path.clone(), permissions)
-                .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
+        for (index, drop) in chunk.iter().enumerate() {
+            let res = hex::encode(**checksums.get(index).unwrap());
+            if res != drop.checksum {
+                warn!(
+                    "Checksum mismatch for {}. Got: {}, expected: {}",
+                    drop.filename, res, drop.checksum
+                );
+                // Allow to continue but flag false
+                all_completed = false;
+            }
         }
     }
 
-    let checksums = pipeline
-        .finish()
-        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
-
-    for (index, drop) in bucket.drops.iter().enumerate() {
-        let res = hex::encode(**checksums.get(index).unwrap());
-        if res != drop.checksum {
-            warn!("context didn't match... doing nothing because we will validate later.");
-            // return Ok(false);
-            // return Err(ApplicationDownloadError::Checksum);
-        }
-    }
-
-    Ok(true)
+    Ok(all_completed)
 }
