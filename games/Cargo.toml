@@ -1,0 +1,26 @@
+[package]
+name = "games"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+atomic-instant-full = "0.1.0"
+bitcode = "0.6.7"
+boxcar = "0.2.14"
+database = { version = "0.1.0", path = "../database" }
+download_manager = { version = "0.1.0", path = "../download_manager" }
+hex = "0.4.3"
+log = "0.4.28"
+md5 = "0.8.0"
+rayon = "1.11.0"
+remote = { version = "0.1.0", path = "../remote" }
+reqwest = "0.12.23"
+rustix = "1.1.2"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_with = "3.15.0"
+sysinfo = "0.37.2"
+tauri = "2.8.5"
+throttle_my_fn = "0.2.6"
+utils = { version = "0.1.0", path = "../utils" }
+native_model = { version = "0.6.4", features = ["rmp_serde_1_3"], git = "https://github.com/Drop-OSS/native_model.git"}
+serde_json = "1.0.145"
