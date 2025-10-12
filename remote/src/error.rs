@@ -4,7 +4,7 @@ use std::{
     sync::Arc,
 };
 
-use http::{header::ToStrError, HeaderName, StatusCode};
+use http::{HeaderName, StatusCode, header::ToStrError};
 use serde_with::SerializeDisplay;
 use url::ParseError;
 
@@ -18,7 +18,6 @@ pub struct DropServerError {
     // pub message: String,
     // pub url: String,
 }
-
 
 #[derive(Debug, SerializeDisplay)]
 pub enum RemoteAccessError {
@@ -120,16 +119,24 @@ pub enum CacheError {
     HeaderNotFound(HeaderName),
     ParseError(ToStrError),
     Remote(RemoteAccessError),
-    ConstructionError(http::Error)
+    ConstructionError(http::Error),
 }
 
 impl Display for CacheError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            CacheError::HeaderNotFound(header_name) => format!("Could not find header {header_name} in cache"),
-            CacheError::ParseError(to_str_error) => format!("Could not parse cache with error {to_str_error}"),
-            CacheError::Remote(remote_access_error) => format!("Cache got remote access error: {remote_access_error}"),
-            CacheError::ConstructionError(error) => format!("Could not construct cache body with error {error}"),
+            CacheError::HeaderNotFound(header_name) => {
+                format!("Could not find header {header_name} in cache")
+            }
+            CacheError::ParseError(to_str_error) => {
+                format!("Could not parse cache with error {to_str_error}")
+            }
+            CacheError::Remote(remote_access_error) => {
+                format!("Cache got remote access error: {remote_access_error}")
+            }
+            CacheError::ConstructionError(error) => {
+                format!("Could not construct cache body with error {error}")
+            }
         };
         write!(f, "{s}")
     }

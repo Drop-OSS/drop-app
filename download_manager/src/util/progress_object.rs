@@ -117,7 +117,9 @@ pub fn calculate_update(progress: &ProgressObject) {
     let last_update_time = progress
         .last_update_time
         .swap(Instant::now(), Ordering::SeqCst);
-    let time_since_last_update = Instant::now().duration_since(last_update_time).as_millis_f64();
+    let time_since_last_update = Instant::now()
+        .duration_since(last_update_time)
+        .as_millis_f64();
 
     let current_bytes_downloaded = progress.sum();
     let max = progress.get_max();
@@ -125,7 +127,8 @@ pub fn calculate_update(progress: &ProgressObject) {
         .bytes_last_update
         .swap(current_bytes_downloaded, Ordering::Acquire);
 
-    let bytes_since_last_update = current_bytes_downloaded.saturating_sub(bytes_at_last_update) as f64;
+    let bytes_since_last_update =
+        current_bytes_downloaded.saturating_sub(bytes_at_last_update) as f64;
 
     let kilobytes_per_second = bytes_since_last_update / time_since_last_update;
 

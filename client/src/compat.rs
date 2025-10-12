@@ -1,4 +1,9 @@
-use std::{ffi::OsStr, path::PathBuf, process::{Command, Stdio}, sync::LazyLock};
+use std::{
+    ffi::OsStr,
+    path::PathBuf,
+    process::{Command, Stdio},
+    sync::LazyLock,
+};
 
 use log::info;
 

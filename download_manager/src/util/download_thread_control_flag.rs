@@ -1,6 +1,6 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
@@ -22,7 +22,11 @@ impl From<DownloadThreadControlFlag> for bool {
 /// false => Stop
 impl From<bool> for DownloadThreadControlFlag {
     fn from(value: bool) -> Self {
-        if value { DownloadThreadControlFlag::Go } else { DownloadThreadControlFlag::Stop }
+        if value {
+            DownloadThreadControlFlag::Go
+        } else {
+            DownloadThreadControlFlag::Stop
+        }
     }
 }
 

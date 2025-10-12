@@ -8,7 +8,12 @@ pub struct DropFormatArgs {
 }
 
 impl DropFormatArgs {
-    pub fn new(launch_string: String, working_dir: &String, executable_name: &String, absolute_executable_name: String) -> Self {
+    pub fn new(
+        launch_string: String,
+        working_dir: &String,
+        executable_name: &String,
+        absolute_executable_name: String,
+    ) -> Self {
         let mut positional = Vec::new();
         let mut map: HashMap<&'static str, String> = HashMap::new();
 

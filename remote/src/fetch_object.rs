@@ -1,5 +1,5 @@
-use database::{interface::DatabaseImpls, DB};
-use http::{header::CONTENT_TYPE, response::Builder as ResponseBuilder, Response};
+use database::{DB, interface::DatabaseImpls};
+use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::{debug, warn};
 use tauri::UriSchemeResponder;
 
@@ -15,13 +15,19 @@ pub async fn fetch_object_wrapper(request: http::Request<Vec<u8>>, responder: Ur
         Ok(r) => responder.respond(r),
         Err(e) => {
             warn!("Cache error: {e}");
-            responder.respond(Response::builder().status(500).body(Vec::new()).expect("Failed to build error response"));
+            responder.respond(
+                Response::builder()
+                    .status(500)
+                    .body(Vec::new())
+                    .expect("Failed to build error response"),
+            );
         }
     };
 }
 
-pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Vec<u8>>, CacheError>
-{
+pub async fn fetch_object(
+    request: http::Request<Vec<u8>>,
+) -> Result<Response<Vec<u8>>, CacheError> {
     // Drop leading /
     let object_id = &request.uri().path()[1..];
 
@@ -48,13 +54,13 @@ pub async fn fetch_object(request: http::Request<Vec<u8>>) -> Result<Response<Ve
             let data = match r.bytes().await {
                 Ok(data) => Vec::from(data),
                 Err(e) => {
-                    warn!(
-                        "Could not get data from cache object {object_id} with error {e}",
-                    );
+                    warn!("Could not get data from cache object {object_id} with error {e}",);
                     Vec::new()
                 }
             };
-            let resp = resp_builder.body(data).expect("Failed to build object cache response body");
+            let resp = resp_builder
+                .body(data)
+                .expect("Failed to build object cache response body");
             if cache_result.map_or(true, |x| x.has_expired()) {
                 cache_object::<ObjectCache>(object_id, &resp.clone().try_into()?)
                     .expect("Failed to create cached object");

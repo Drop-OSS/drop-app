@@ -1,7 +1,6 @@
 use database::GameVersion;
 
-use super::conditions::{Condition};
-
+use super::conditions::Condition;
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CloudSaveMetadata {
@@ -16,15 +15,17 @@ pub struct GameFile {
     pub id: Option<String>,
     pub data_type: DataType,
     pub tags: Vec<Tag>,
-    pub conditions: Vec<Condition>
+    pub conditions: Vec<Condition>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub enum DataType {
     Registry,
     File,
-    Other
+    Other,
 }
-#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "camelCase")]
 pub enum Tag {
     Config,

@@ -1,8 +1,13 @@
-use database::{borrow_db_checked, borrow_db_mut_checked, ApplicationTransientStatus, DownloadType, DownloadableMetadata};
+use database::{
+    ApplicationTransientStatus, DownloadType, DownloadableMetadata, borrow_db_checked,
+    borrow_db_mut_checked,
+};
 use download_manager::download_manager_frontend::{DownloadManagerSignal, DownloadStatus};
 use download_manager::downloadable::Downloadable;
 use download_manager::error::ApplicationDownloadError;
-use download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use download_manager::util::download_thread_control_flag::{
+    DownloadThreadControl, DownloadThreadControlFlag,
+};
 use download_manager::util::progress_object::{ProgressHandle, ProgressObject};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
@@ -10,7 +15,6 @@ use remote::auth::generate_authorization_header;
 use remote::error::RemoteAccessError;
 use remote::requests::generate_url;
 use remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
-use utils::{app_emit, lock, send};
 use std::collections::{HashMap, HashSet};
 use std::fs::{OpenOptions, create_dir_all};
 use std::io;
@@ -18,12 +22,15 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
+use utils::{app_emit, lock, send};
 
 #[cfg(target_os = "linux")]
 use rustix::fs::{FallocateFlags, fallocate};
 
-use crate::downloads::manifest::{DownloadBucket, DownloadContext, DownloadDrop, DropManifest, DropValidateContext, ManifestBody};
+use crate::downloads::manifest::{
+    DownloadBucket, DownloadContext, DownloadDrop, DropManifest, DropValidateContext, ManifestBody,
+};
 use crate::downloads::utils::get_disk_available;
 use crate::downloads::validate::validate_game_chunk;
 use crate::library::{on_game_complete, push_game_update, set_partially_installed};
@@ -97,8 +104,7 @@ impl GameDownloadAgent {
 
         result.ensure_manifest_exists().await?;
 
-        let required_space = lock!(result
-            .manifest)
+        let required_space = lock!(result.manifest)
             .as_ref()
             .unwrap()
             .values()
@@ -447,9 +453,13 @@ impl GameDownloadAgent {
 
                 let sender = self.sender.clone();
 
-                let download_context = download_contexts
-                    .get(&bucket.version)
-                    .unwrap_or_else(|| panic!("Could not get bucket version {}. Corrupted state.", bucket.version));
+                let download_context =
+                    download_contexts.get(&bucket.version).unwrap_or_else(|| {
+                        panic!(
+                            "Could not get bucket version {}. Corrupted state.",
+                            bucket.version
+                        )
+                    });
 
                 scope.spawn(move |_| {
                     // 3 attempts
@@ -687,7 +697,10 @@ impl Downloadable for GameDownloadAgent {
             Ok(_) => {}
             Err(e) => {
                 error!("could not mark game as complete: {e}");
-                send!(self.sender, DownloadManagerSignal::Error(ApplicationDownloadError::DownloadError(e)));
+                send!(
+                    self.sender,
+                    DownloadManagerSignal::Error(ApplicationDownloadError::DownloadError(e))
+                );
             }
         }
     }

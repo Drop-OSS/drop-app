@@ -12,10 +12,7 @@ pub fn resume_downloads() {
 }
 
 #[tauri::command]
-pub fn move_download_in_queue(
-    old_index: usize,
-    new_index: usize,
-) {
+pub fn move_download_in_queue(old_index: usize, new_index: usize) {
     DOWNLOAD_MANAGER.rearrange(old_index, new_index);
 }
 

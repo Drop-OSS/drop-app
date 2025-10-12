@@ -9,11 +9,14 @@ use std::{
 
 use database::DownloadableMetadata;
 use log::{debug, error, info, warn};
-use tauri::{AppHandle, Emitter};
+use tauri::AppHandle;
 use utils::{app_emit, lock, send};
 
-
-use crate::{download_manager_frontend::DownloadStatus, error::ApplicationDownloadError, frontend_updates::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent}};
+use crate::{
+    download_manager_frontend::DownloadStatus,
+    error::ApplicationDownloadError,
+    frontend_updates::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
+};
 
 use super::{
     download_manager_frontend::{DownloadManager, DownloadManagerSignal, DownloadManagerStatus},
@@ -289,7 +292,10 @@ impl DownloadManagerBuilder {
 
                 if validate_result {
                     download_agent.on_complete(&app_handle);
-                    send!(sender, DownloadManagerSignal::Completed(download_agent.metadata()));
+                    send!(
+                        sender,
+                        DownloadManagerSignal::Completed(download_agent.metadata())
+                    );
                     send!(sender, DownloadManagerSignal::UpdateUIQueue);
                     return;
                 }

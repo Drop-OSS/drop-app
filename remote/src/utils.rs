@@ -15,7 +15,7 @@ pub struct DropHealthcheck {
     app_name: String,
 }
 impl DropHealthcheck {
-    pub fn app_name(&self) -> &String{
+    pub fn app_name(&self) -> &String {
         &self.app_name
     }
 }
@@ -46,11 +46,13 @@ fn fetch_certificates() -> Vec<Certificate> {
                             }
                         }
                         .read_to_end(&mut buf)
-                        .unwrap_or_else(|e| panic!(
-                            "Failed to read to end of certificate file {} with error {}",
-                            c.path().display(),
-                            e
-                        ));
+                        .unwrap_or_else(|e| {
+                            panic!(
+                                "Failed to read to end of certificate file {} with error {}",
+                                c.path().display(),
+                                e
+                            )
+                        });
 
                         match Certificate::from_pem_bundle(&buf) {
                             Ok(certificates) => {
@@ -87,7 +89,10 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
     for cert in DROP_CERT_BUNDLE.iter() {
         client = client.add_root_certificate(cert.clone());
     }
-    client.use_rustls_tls().build().expect("Failed to build synchronous client")
+    client
+        .use_rustls_tls()
+        .build()
+        .expect("Failed to build synchronous client")
 }
 pub fn get_client_async() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
@@ -95,7 +100,10 @@ pub fn get_client_async() -> reqwest::Client {
     for cert in DROP_CERT_BUNDLE.iter() {
         client = client.add_root_certificate(cert.clone());
     }
-    client.use_rustls_tls().build().expect("Failed to build asynchronous client")
+    client
+        .use_rustls_tls()
+        .build()
+        .expect("Failed to build asynchronous client")
 }
 pub fn get_client_ws() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();

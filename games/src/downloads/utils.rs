@@ -19,7 +19,7 @@ pub fn get_disk_available(mount_point: PathBuf) -> Result<u64, ApplicationDownlo
             return Ok(disk.available_space());
         }
     }
-    Err(ApplicationDownloadError::IoError(Arc::new(io::Error::other(
-        "could not find disk of path",
-    ))))
+    Err(ApplicationDownloadError::IoError(Arc::new(
+        io::Error::other("could not find disk of path"),
+    )))
 }

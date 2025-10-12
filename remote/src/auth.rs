@@ -2,14 +2,18 @@ use std::{collections::HashMap, env};
 
 use chrono::Utc;
 use client::{app_status::AppStatus, user::User};
-use database::{interface::borrow_db_checked, DatabaseAuth};
+use database::{DatabaseAuth, interface::borrow_db_checked};
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
-use crate::{error::{DropServerError, RemoteAccessError}, requests::make_authenticated_get, utils::DROP_CLIENT_SYNC};
+use crate::{
+    error::{DropServerError, RemoteAccessError},
+    requests::make_authenticated_get,
+    utils::DROP_CLIENT_SYNC,
+};
 
 use super::{
     cache::{cache_object, get_cached_object},

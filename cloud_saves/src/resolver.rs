@@ -1,17 +1,13 @@
 use std::{
-    fs::{self, create_dir_all, File},
-    io::{self, ErrorKind, Read, Write},
+    fs::{self, File, create_dir_all},
+    io::{self, Read, Write},
     path::{Path, PathBuf},
-    thread::sleep,
-    time::Duration,
 };
 
 use crate::error::BackupError;
 
-use super::{
-    backup_manager::BackupHandler, conditions::Condition, metadata::GameFile, placeholder::*,
-};
-use database::{platform::Platform, GameVersion};
+use super::{backup_manager::BackupHandler, placeholder::*};
+use database::GameVersion;
 use log::{debug, warn};
 use rustix::path::Arg;
 use tempfile::tempfile;
@@ -30,7 +26,7 @@ pub fn resolve(meta: &mut CloudSaveMetadata) -> File {
             .iter()
             .find_map(|p| match p {
                 super::conditions::Condition::Os(os) => Some(os),
-                _ => None,
+                _ => None
             })
             .cloned()
         {
@@ -63,7 +59,7 @@ pub fn resolve(meta: &mut CloudSaveMetadata) -> File {
     let binding = serde_json::to_string(meta).unwrap();
     let serialized = binding.as_bytes();
     let mut file = tempfile().unwrap();
-    file.write(serialized).unwrap();
+    file.write_all(serialized).unwrap();
     tarball.append_file("metadata", &mut file).unwrap();
     tarball.into_inner().unwrap().finish().unwrap()
 }
@@ -96,7 +92,7 @@ pub fn extract(file: PathBuf) -> Result<(), BackupError> {
             .iter()
             .find_map(|p| match p {
                 super::conditions::Condition::Os(os) => Some(os),
-                _ => None,
+                _ => None
             })
             .cloned()
         {
@@ -115,7 +111,7 @@ pub fn extract(file: PathBuf) -> Result<(), BackupError> {
         };
 
         let new_path = parse_path(file.path.into(), handler, &manifest.game_version)?;
-        create_dir_all(&new_path.parent().unwrap()).unwrap();
+        create_dir_all(new_path.parent().unwrap()).unwrap();
 
         println!(
             "Current path {:?} copying to {:?}",
@@ -132,23 +128,22 @@ pub fn copy_item<P: AsRef<Path>>(src: P, dest: P) -> io::Result<()> {
     let src_path = src.as_ref();
     let dest_path = dest.as_ref();
 
-    let metadata = fs::metadata(&src_path)?;
+    let metadata = fs::metadata(src_path)?;
 
     if metadata.is_file() {
         // Ensure the parent directory of the destination exists for a file copy
         if let Some(parent) = dest_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        fs::copy(&src_path, &dest_path)?;
+        fs::copy(src_path, dest_path)?;
     } else if metadata.is_dir() {
         // For directories, we call the recursive helper function.
         // The destination for the recursive copy is the `dest_path` itself.
-        copy_dir_recursive(&src_path, &dest_path)?;
+        copy_dir_recursive(src_path, dest_path)?;
     } else {
         // Handle other file types like symlinks if necessary,
         // for now, return an error or skip.
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
+        return Err(io::Error::other(
             format!("Source {:?} is neither a file nor a directory", src_path),
         ));
     }
@@ -157,7 +152,7 @@ pub fn copy_item<P: AsRef<Path>>(src: P, dest: P) -> io::Result<()> {
 }
 
 fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
-    fs::create_dir_all(&dest)?;
+    fs::create_dir_all(dest)?;
 
     for entry in fs::read_dir(src)? {
         let entry = entry?;
@@ -218,44 +213,4 @@ pub fn parse_path(
 
     println!("Final line: {:?}", &s);
     Ok(s)
-}
-
-pub fn test() {
-    let mut meta = CloudSaveMetadata {
-        files: vec![
-            GameFile {
-                path: String::from("<home>/favicon.png"),
-                id: None,
-                data_type: super::metadata::DataType::File,
-                tags: Vec::new(),
-                conditions: vec![Condition::Os(Platform::Linux)],
-            },
-            GameFile {
-                path: String::from("<home>/Documents/Pixel Art"),
-                id: None,
-                data_type: super::metadata::DataType::File,
-                tags: Vec::new(),
-                conditions: vec![Condition::Os(Platform::Linux)],
-            },
-        ],
-        game_version: GameVersion {
-            game_id: String::new(),
-            version_name: String::new(),
-            platform: Platform::Linux,
-            launch_command: String::new(),
-            launch_args: Vec::new(),
-            launch_command_template: String::new(),
-            setup_command: String::new(),
-            setup_args: Vec::new(),
-            setup_command_template: String::new(),
-            only_setup: true,
-            version_index: 0,
-            delta: false,
-            umu_id_override: None,
-        },
-        save_id: String::from("aaaaaaa"),
-    };
-    //resolve(&mut meta);
-
-    extract("save".into()).unwrap();
 }

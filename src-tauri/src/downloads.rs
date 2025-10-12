@@ -1,9 +1,6 @@
-use std::{
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{path::PathBuf, sync::Arc};
 
-use database::{borrow_db_checked, GameDownloadStatus};
+use database::{GameDownloadStatus, borrow_db_checked};
 use download_manager::{
     DOWNLOAD_MANAGER, downloadable::Downloadable, error::ApplicationDownloadError,
 };

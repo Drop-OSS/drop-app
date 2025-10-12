@@ -3,7 +3,7 @@
 
 use std::{
     ops::Deref,
-    sync::{LazyLock, OnceLock, nonpoison::Mutex},
+    sync::{OnceLock, nonpoison::Mutex},
 };
 
 use tauri::AppHandle;

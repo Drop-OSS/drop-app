@@ -13,12 +13,12 @@ pub enum CommonPath {
 
 impl CommonPath {
     pub fn get(&self) -> Option<PathBuf> {
-        static CONFIG: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::config_dir());
-        static DATA: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::data_dir());
-        static DATA_LOCAL: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::data_local_dir());
-        static DOCUMENT: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::document_dir());
-        static HOME: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::home_dir());
-        static PUBLIC: LazyLock<Option<PathBuf>> = LazyLock::new(|| dirs::public_dir());
+        static CONFIG: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::config_dir);
+        static DATA: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::data_dir);
+        static DATA_LOCAL: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::data_local_dir);
+        static DOCUMENT: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::document_dir);
+        static HOME: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::home_dir);
+        static PUBLIC: LazyLock<Option<PathBuf>> = LazyLock::new(dirs::public_dir);
 
         #[cfg(windows)]
         static DATA_LOCAL_LOW: LazyLock<Option<PathBuf>> = LazyLock::new(|| {

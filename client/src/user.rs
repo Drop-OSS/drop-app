@@ -10,4 +10,3 @@ pub struct User {
     display_name: String,
     profile_picture_object_id: String,
 }
-

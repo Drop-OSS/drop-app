@@ -8,25 +8,16 @@
 #![deny(clippy::all)]
 
 use std::{
-    collections::HashMap,
-    env,
-    fs::File,
-    io::Write,
-    panic::PanicHookInfo,
-    path::Path,
-    str::FromStr,
-    sync::nonpoison::Mutex,
-    time::SystemTime,
+    collections::HashMap, env, fs::File, io::Write, panic::PanicHookInfo, path::Path, str::FromStr,
+    sync::nonpoison::Mutex, time::SystemTime,
 };
 
-use ::client::{
-    app_status::AppStatus, autostart::sync_autostart_on_startup, compat::CompatInfo, user::User,
-};
+use ::client::{app_status::AppStatus, autostart::sync_autostart_on_startup, user::User};
 use ::download_manager::DownloadManagerWrapper;
 use ::games::{library::Game, scan::scan_install_dirs};
 use ::process::ProcessManagerWrapper;
 use ::remote::{
-    auth::{self, generate_authorization_header, HandshakeRequestBody, HandshakeResponse},
+    auth::{self, HandshakeRequestBody, HandshakeResponse, generate_authorization_header},
     cache::clear_cached_object,
     error::RemoteAccessError,
     fetch_object::fetch_object_wrapper,
@@ -54,17 +45,17 @@ use tauri::{
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 use url::Url;
-use utils::{app_emit, lock};
+use utils::app_emit;
 
 use crate::client::cleanup_and_exit;
 
-mod games;
 mod client;
-mod process;
-mod remote;
 mod collections;
 mod download_manager;
 mod downloads;
+mod games;
+mod process;
+mod remote;
 mod settings;
 
 use client::*;
@@ -75,7 +66,6 @@ use games::*;
 use process::*;
 use remote::*;
 use settings::*;
-
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -330,7 +320,6 @@ pub fn run() {
                         }
                     };
                     if let Some("handshake") = url.host_str() {
-                        
                         tauri::async_runtime::spawn(recieve_handshake(
                             handle.clone(),
                             url.path().to_string(),

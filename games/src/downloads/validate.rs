@@ -3,7 +3,13 @@ use std::{
     io::{self, BufWriter, Read, Seek, SeekFrom, Write},
 };
 
-use download_manager::{error::ApplicationDownloadError, util::{download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag}, progress_object::ProgressHandle}};
+use download_manager::{
+    error::ApplicationDownloadError,
+    util::{
+        download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag},
+        progress_object::ProgressHandle,
+    },
+};
 use log::debug;
 use md5::Context;
 
@@ -16,7 +22,10 @@ pub fn validate_game_chunk(
 ) -> Result<bool, ApplicationDownloadError> {
     debug!(
         "Starting chunk validation {}, {}, {} #{}",
-        ctx.path.display(), ctx.index, ctx.offset, ctx.checksum
+        ctx.path.display(),
+        ctx.index,
+        ctx.offset,
+        ctx.checksum
     );
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
@@ -36,13 +45,12 @@ pub fn validate_game_chunk(
 
     let mut hasher = md5::Context::new();
 
-    let completed =
-        validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress)?;
+    let completed = validate_copy(&mut source, &mut hasher, ctx.length, control_flag, progress)?;
     if !completed {
         return Ok(false);
     }
 
-    let res = hex::encode(hasher.compute().0);
+    let res = hex::encode(hasher.finalize().0);
     if res != ctx.checksum {
         return Ok(false);
     }

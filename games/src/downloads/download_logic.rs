@@ -11,7 +11,9 @@ use std::{
 };
 
 use download_manager::error::ApplicationDownloadError;
-use download_manager::util::download_thread_control_flag::{DownloadThreadControl, DownloadThreadControlFlag};
+use download_manager::util::download_thread_control_flag::{
+    DownloadThreadControl, DownloadThreadControlFlag,
+};
 use download_manager::util::progress_object::ProgressHandle;
 use log::{debug, info, warn};
 use md5::{Context, Digest};
@@ -47,7 +49,7 @@ impl DropWriter<File> {
 
     fn finish(mut self) -> io::Result<Digest> {
         self.flush()?;
-        Ok(self.hasher.compute())
+        Ok(self.hasher.finalize())
     }
 }
 // Write automatically pushes to file and hasher
@@ -116,9 +118,12 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             let mut last_bump = 0;
             loop {
                 let size = MAX_PACKET_LENGTH.min(remaining);
-                let size = self.source.read(&mut copy_buffer[0..size]).inspect_err(|_| {
-                    info!("got error from {}", drop.filename);
-                })?;
+                let size = self
+                    .source
+                    .read(&mut copy_buffer[0..size])
+                    .inspect_err(|_| {
+                        info!("got error from {}", drop.filename);
+                    })?;
                 remaining -= size;
                 last_bump += size;
 

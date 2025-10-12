@@ -1,5 +1,9 @@
-use std::{fmt::{Display, Formatter}, io, sync::{mpsc::SendError, Arc}};
-use humansize::{format_size, BINARY};
+use humansize::{BINARY, format_size};
+use std::{
+    fmt::{Display, Formatter},
+    io,
+    sync::{Arc, mpsc::SendError},
+};
 
 use remote::error::RemoteAccessError;
 use serde_with::SerializeDisplay;
@@ -44,7 +48,9 @@ pub enum ApplicationDownloadError {
 impl Display for ApplicationDownloadError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            ApplicationDownloadError::NotInitialized => write!(f, "Download not initalized, did something go wrong?"),
+            ApplicationDownloadError::NotInitialized => {
+                write!(f, "Download not initalized, did something go wrong?")
+            }
             ApplicationDownloadError::DiskFull(required, available) => write!(
                 f,
                 "Game requires {}, {} remaining left on disk.",
@@ -60,10 +66,9 @@ impl Display for ApplicationDownloadError {
                 write!(f, "checksum failed to validate for download")
             }
             ApplicationDownloadError::IoError(error) => write!(f, "io error: {error}"),
-            ApplicationDownloadError::DownloadError(error) => write!(
-                f,
-                "Download failed with error {error:?}"
-            ),
+            ApplicationDownloadError::DownloadError(error) => {
+                write!(f, "Download failed with error {error:?}")
+            }
         }
     }
 }

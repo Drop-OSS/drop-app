@@ -4,14 +4,21 @@ use client::app_status::AppStatus;
 use database::{borrow_db_checked, borrow_db_mut_checked};
 use futures_lite::StreamExt;
 use log::{debug, warn};
-use remote::{auth::{auth_initiate_logic, generate_authorization_header}, cache::{cache_object, get_cached_object}, error::RemoteAccessError, requests::generate_url, setup, utils::{DropHealthcheck, DROP_CLIENT_ASYNC, DROP_CLIENT_WS_CLIENT}};
+use remote::{
+    auth::{auth_initiate_logic, generate_authorization_header},
+    cache::{cache_object, get_cached_object},
+    error::RemoteAccessError,
+    requests::generate_url,
+    setup,
+    utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_WS_CLIENT, DropHealthcheck},
+};
 use reqwest_websocket::{Message, RequestBuilderExt};
 use serde::Deserialize;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Manager};
 use url::Url;
-use utils::{app_emit, lock, webbrowser_open::webbrowser_open};
+use utils::{app_emit, webbrowser_open::webbrowser_open};
 
-use crate::{recieve_handshake, AppState};
+use crate::{AppState, recieve_handshake};
 
 #[tauri::command]
 pub async fn use_remote(

@@ -15,8 +15,8 @@ use crate::error::{CacheError, RemoteAccessError};
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        async move { 
-            if ::database::borrow_db_checked().settings.force_offline 
+        async move {
+            if ::database::borrow_db_checked().settings.force_offline
             || $var.lock().status == ::client::app_status::AppStatus::Offline {
             $func2( $( $arg ), *).await
         } else {

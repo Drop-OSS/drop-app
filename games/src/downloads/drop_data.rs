@@ -1,5 +1,8 @@
 use std::{
-    collections::HashMap, fs::File, io::{self, Read, Write}, path::{Path, PathBuf}
+    collections::HashMap,
+    fs::File,
+    io::{self, Read, Write},
+    path::{Path, PathBuf},
 };
 
 use log::error;
@@ -77,7 +80,10 @@ impl DropData {
         }
     }
     pub fn set_contexts(&self, completed_contexts: &[(String, bool)]) {
-        *lock!(self.contexts) = completed_contexts.iter().map(|s| (s.0.clone(), s.1)).collect();
+        *lock!(self.contexts) = completed_contexts
+            .iter()
+            .map(|s| (s.0.clone(), s.1))
+            .collect();
     }
     pub fn set_context(&self, context: String, state: bool) {
         lock!(self.contexts).entry(context).insert_entry(state);

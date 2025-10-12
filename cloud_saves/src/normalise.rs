@@ -5,7 +5,6 @@ use regex::Regex;
 
 use super::placeholder::*;
 
-
 pub fn normalize(path: &str, os: Platform) -> String {
     let mut path = path.trim().trim_end_matches(['/', '\\']).replace('\\', "/");
 
@@ -14,18 +13,25 @@ pub fn normalize(path: &str, os: Platform) -> String {
     }
 
     static CONSECUTIVE_SLASHES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"/{2,}").unwrap());
-    static UNNECESSARY_DOUBLE_STAR_1: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"([^/*])\*{2,}").unwrap());
-    static UNNECESSARY_DOUBLE_STAR_2: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\*{2,}([^/*])").unwrap());
+    static UNNECESSARY_DOUBLE_STAR_1: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"([^/*])\*{2,}").unwrap());
+    static UNNECESSARY_DOUBLE_STAR_2: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\*{2,}([^/*])").unwrap());
     static ENDING_WILDCARD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(/\*)+$").unwrap());
     static ENDING_DOT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(/\.)$").unwrap());
     static INTERMEDIATE_DOT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(/\./)").unwrap());
     static BLANK_SEGMENT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(/\s+/)").unwrap());
     static APP_DATA: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%appdata%").unwrap());
-    static APP_DATA_ROAMING: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%userprofile%/AppData/Roaming").unwrap());
-    static APP_DATA_LOCAL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%localappdata%").unwrap());
-    static APP_DATA_LOCAL_2: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%userprofile%/AppData/Local/").unwrap());
-    static USER_PROFILE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%userprofile%").unwrap());
-    static DOCUMENTS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)%userprofile%/Documents").unwrap());
+    static APP_DATA_ROAMING: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)%userprofile%/AppData/Roaming").unwrap());
+    static APP_DATA_LOCAL: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)%localappdata%").unwrap());
+    static APP_DATA_LOCAL_2: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)%userprofile%/AppData/Local/").unwrap());
+    static USER_PROFILE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)%userprofile%").unwrap());
+    static DOCUMENTS: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"(?i)%userprofile%/Documents").unwrap());
 
     for (pattern, replacement) in [
         (&CONSECUTIVE_SLASHES, "/"),
@@ -66,7 +72,9 @@ pub fn normalize(path: &str, os: Platform) -> String {
 
 fn too_broad(path: &str) -> bool {
     println!("Path: {}", path);
-    use {BASE, HOME, ROOT, STORE_USER_ID, WIN_APP_DATA, WIN_DIR, WIN_DOCUMENTS, XDG_CONFIG, XDG_DATA};
+    use {
+        BASE, HOME, ROOT, STORE_USER_ID, WIN_APP_DATA, WIN_DIR, WIN_DOCUMENTS, XDG_CONFIG, XDG_DATA,
+    };
 
     let path_lower = path.to_lowercase();
 
@@ -77,7 +85,9 @@ fn too_broad(path: &str) -> bool {
     }
 
     for item in AVOID_WILDCARDS {
-        if path.starts_with(&format!("{}/*", item)) || path.starts_with(&format!("{}/{}", item, STORE_USER_ID)) {
+        if path.starts_with(&format!("{}/*", item))
+            || path.starts_with(&format!("{}/{}", item, STORE_USER_ID))
+        {
             return true;
         }
     }
@@ -124,7 +134,6 @@ fn too_broad(path: &str) -> bool {
             return true;
         }
     }
-    
 
     // Drive letters:
     let drives: Regex = Regex::new(r"^[a-zA-Z]:$").unwrap();

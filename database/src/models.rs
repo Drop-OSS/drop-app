@@ -4,7 +4,7 @@ pub mod data {
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
-    // NOTE: Within each version, you should NEVER use these types. 
+    // NOTE: Within each version, you should NEVER use these types.
     // Declare it using the actual version that it is from, i.e. v1::Settings rather than just Settings from here
 
     pub type GameVersion = v1::GameVersion;
@@ -191,9 +191,7 @@ pub mod data {
 
         use serde_with::serde_as;
 
-        use super::{
-            Deserialize, Serialize, native_model, v1,
-        };
+        use super::{Deserialize, Serialize, native_model, v1};
 
         #[native_model(id = 1, version = 2, with = native_model::rmp_serde_1_3::RmpSerde, from = v1::Database)]
         #[derive(Serialize, Deserialize, Clone, Default)]
@@ -277,12 +275,13 @@ pub mod data {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
             pub game_statuses: HashMap<String, GameDownloadStatus>,
-            
+
             pub game_versions: HashMap<String, HashMap<String, v1::GameVersion>>,
             pub installed_game_version: HashMap<String, v1::DownloadableMetadata>,
 
             #[serde(skip)]
-            pub transient_statuses: HashMap<v1::DownloadableMetadata, v1::ApplicationTransientStatus>,
+            pub transient_statuses:
+                HashMap<v1::DownloadableMetadata, v1::ApplicationTransientStatus>,
         }
         impl From<v1::DatabaseApplications> for DatabaseApplications {
             fn from(value: v1::DatabaseApplications) -> Self {
@@ -303,10 +302,7 @@ pub mod data {
     mod v3 {
         use std::path::PathBuf;
 
-        use super::{
-            Deserialize, Serialize,
-            native_model, v2, v1,
-        };
+        use super::{Deserialize, Serialize, native_model, v1, v2};
         #[native_model(id = 1, version = 3, with = native_model::rmp_serde_1_3::RmpSerde, from = v2::Database)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
@@ -360,7 +356,12 @@ pub mod data {
         }
     }
     impl DatabaseAuth {
-        pub fn new(private: String, cert: String, client_id: String, web_token: Option<String>) -> Self {
+        pub fn new(
+            private: String,
+            cert: String,
+            client_id: String,
+            web_token: Option<String>,
+        ) -> Self {
             Self {
                 private,
                 cert,

@@ -8,6 +8,12 @@ pub struct RollingProgressWindow<const S: usize> {
     window: Arc<[AtomicUsize; S]>,
     current: Arc<AtomicUsize>,
 }
+impl<const S: usize> Default for RollingProgressWindow<S> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<const S: usize> RollingProgressWindow<S> {
     pub fn new() -> Self {
         Self {
@@ -31,7 +37,7 @@ impl<const S: usize> RollingProgressWindow<S> {
             .collect::<Vec<usize>>();
         let amount = valid.len();
         let sum = valid.into_iter().sum::<usize>();
-        
+
         sum / amount
     }
     pub fn reset(&self) {

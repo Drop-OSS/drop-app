@@ -14,7 +14,6 @@ use log::{debug, info};
 use serde::Serialize;
 use utils::{lock, send};
 
-
 use crate::error::ApplicationDownloadError;
 
 use super::{
@@ -125,8 +124,11 @@ impl DownloadManager {
     }
     pub fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
         let mut queue = self.edit();
-        let current_index = get_index_from_id(&mut queue, meta).expect("Failed to get meta index from id");
-        let to_move = queue.remove(current_index).expect("Failed to remove meta at index from queue");
+        let current_index =
+            get_index_from_id(&mut queue, meta).expect("Failed to get meta index from id");
+        let to_move = queue
+            .remove(current_index)
+            .expect("Failed to remove meta at index from queue");
         queue.insert(new_index, to_move);
         send!(self.command_sender, DownloadManagerSignal::UpdateUIQueue);
     }

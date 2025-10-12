@@ -1,11 +1,20 @@
-use std::{fs::{self, create_dir_all}, mem::ManuallyDrop, ops::{Deref, DerefMut}, path::PathBuf, sync::{RwLockReadGuard, RwLockWriteGuard}};
+use std::{
+    fs::{self, create_dir_all},
+    mem::ManuallyDrop,
+    ops::{Deref, DerefMut},
+    path::PathBuf,
+    sync::{RwLockReadGuard, RwLockWriteGuard},
+};
 
 use chrono::Utc;
 use log::{debug, error, info, warn};
 use rustbreak::{PathDatabase, RustbreakError};
 use url::Url;
 
-use crate::{db::{DropDatabaseSerializer, DATA_ROOT_DIR, DB}, models::data::Database};
+use crate::{
+    db::{DATA_ROOT_DIR, DB, DropDatabaseSerializer},
+    models::data::Database,
+};
 
 pub type DatabaseInterface =
     rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;

@@ -1,7 +1,6 @@
 use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
-use database::{platform::Platform, Database, DownloadableMetadata, GameVersion};
+use database::{Database, DownloadableMetadata, GameVersion, platform::Platform};
 use log::debug;
-
 
 use crate::{error::ProcessError, process_manager::ProcessHandler};
 
@@ -46,7 +45,9 @@ impl ProcessHandler for UMULauncher {
         };
         Ok(format!(
             "GAMEID={game_id} {umu:?} \"{launch}\" {args}",
-            umu = UMU_LAUNCHER_EXECUTABLE.as_ref().expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
+            umu = UMU_LAUNCHER_EXECUTABLE
+                .as_ref()
+                .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
             launch = launch_command,
             args = args.join(" ")
         ))
@@ -86,7 +87,12 @@ impl ProcessHandler for AsahiMuvmLauncher {
             .next()
             .ok_or(ProcessError::InvalidArguments(umu_string.clone()))?
             .trim();
-        let cmd = format!("umu-run{}", args_cmd.next().ok_or(ProcessError::InvalidArguments(umu_string.clone()))?);
+        let cmd = format!(
+            "umu-run{}",
+            args_cmd
+                .next()
+                .ok_or(ProcessError::InvalidArguments(umu_string.clone()))?
+        );
 
         Ok(format!("{args} muvm -- {cmd}"))
     }

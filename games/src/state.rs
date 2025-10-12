@@ -19,7 +19,7 @@ impl GameStatusManager {
                 version: None,
             })
             .cloned();
-        
+
         let offline_state = database.applications.game_statuses.get(game_id).cloned();
 
         if online_state.is_some() {

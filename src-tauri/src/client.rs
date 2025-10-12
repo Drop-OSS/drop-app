@@ -5,14 +5,11 @@ use download_manager::DOWNLOAD_MANAGER;
 use log::{debug, error};
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
-use utils::lock;
 
-use crate::{AppState};
+use crate::AppState;
 
 #[tauri::command]
-pub fn fetch_state(
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<String, String> {
+pub fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<String, String> {
     let guard = state.lock();
     let cloned_state = serde_json::to_string(&guard.clone()).map_err(|e| e.to_string())?;
     drop(guard);
@@ -20,7 +17,7 @@ pub fn fetch_state(
 }
 
 #[tauri::command]
-pub fn quit(app: tauri::AppHandle, state: tauri::State<'_, std::sync::Mutex<AppState>>) {
+pub fn quit(app: tauri::AppHandle) {
     cleanup_and_exit(&app);
 }
 

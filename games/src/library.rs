@@ -1,15 +1,20 @@
-use std::fs::remove_dir_all;
-use std::sync::Mutex;
-use std::thread::spawn;
 use bitcode::{Decode, Encode};
-use database::{borrow_db_checked, borrow_db_mut_checked, ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion};
+use database::{
+    ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion,
+    borrow_db_checked, borrow_db_mut_checked,
+};
 use log::{debug, error, warn};
-use remote::{auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url, utils::DROP_CLIENT_SYNC};
+use remote::{
+    auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url,
+    utils::DROP_CLIENT_SYNC,
+};
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use std::fs::remove_dir_all;
+use std::thread::spawn;
+use tauri::AppHandle;
 use utils::app_emit;
 
-use crate::{downloads::error::LibraryError, state::{GameStatusManager, GameStatusWithTransient}};
+use crate::state::{GameStatusManager, GameStatusWithTransient};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FetchGameStruct {
@@ -20,7 +25,11 @@ pub struct FetchGameStruct {
 
 impl FetchGameStruct {
     pub fn new(game: Game, status: GameStatusWithTransient, version: Option<GameVersion>) -> Self {
-        Self { game, status, version }
+        Self {
+            game,
+            status,
+            version,
+        }
     }
 }
 

@@ -1,8 +1,8 @@
+pub mod backup_manager;
 pub mod conditions;
+pub mod error;
 pub mod metadata;
-pub mod resolver;
-pub mod placeholder;
 pub mod normalise;
 pub mod path;
-pub mod backup_manager;
-pub mod error;
+pub mod placeholder;
+pub mod resolver;

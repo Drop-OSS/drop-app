@@ -2,20 +2,13 @@
 
 pub mod db;
 pub mod debug;
+pub mod interface;
 pub mod models;
 pub mod platform;
-pub mod interface;
 
-pub use models::data::{
-    ApplicationTransientStatus,
-    Database,
-    DatabaseApplications,
-    DatabaseAuth,
-    DownloadType,
-    DownloadableMetadata,
-    GameDownloadStatus,
-    GameVersion,
-    Settings
-};
 pub use db::DB;
 pub use interface::{borrow_db_checked, borrow_db_mut_checked};
+pub use models::data::{
+    ApplicationTransientStatus, Database, DatabaseApplications, DatabaseAuth, DownloadType,
+    DownloadableMetadata, GameDownloadStatus, GameVersion, Settings,
+};

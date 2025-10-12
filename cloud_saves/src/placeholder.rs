@@ -48,4 +48,4 @@ pub const XDG_DATA: &str = "<xdgData>"; // %WINDIR% on Windows
 pub const XDG_CONFIG: &str = "<xdgConfig>"; // $XDG_DATA_HOME on Linux
 pub const SKIP: &str = "<skip>"; // $XDG_CONFIG_HOME on Linux
 
-pub static OS_USERNAME: LazyLock<String> = LazyLock::new(|| whoami::username());
+pub static OS_USERNAME: LazyLock<String> = LazyLock::new(whoami::username);

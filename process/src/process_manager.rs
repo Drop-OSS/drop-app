@@ -18,7 +18,6 @@ use dynfmt::Format;
 use dynfmt::SimpleCurlyFormat;
 use games::{library::push_game_update, state::GameStatusManager};
 use log::{debug, info, warn};
-use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
 use tauri::AppHandle;
 

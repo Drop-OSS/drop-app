@@ -2,18 +2,20 @@
 #![feature(nonpoison_mutex)]
 #![feature(sync_nonpoison)]
 
-use std::{ops::Deref, sync::{nonpoison::Mutex, LazyLock, OnceLock}};
+use std::{ops::Deref, sync::OnceLock};
 
 use tauri::AppHandle;
 
-use crate::{download_manager_builder::DownloadManagerBuilder, download_manager_frontend::DownloadManager};
+use crate::{
+    download_manager_builder::DownloadManagerBuilder, download_manager_frontend::DownloadManager,
+};
 
 pub mod download_manager_builder;
 pub mod download_manager_frontend;
 pub mod downloadable;
-pub mod util;
 pub mod error;
 pub mod frontend_updates;
+pub mod util;
 
 pub static DOWNLOAD_MANAGER: DownloadManagerWrapper = DownloadManagerWrapper::new();
 
@@ -23,7 +25,10 @@ impl DownloadManagerWrapper {
         DownloadManagerWrapper(OnceLock::new())
     }
     pub fn init(app_handle: AppHandle) {
-        DOWNLOAD_MANAGER.0.set(DownloadManagerBuilder::build(app_handle)).expect("Failed to initialise download manager");
+        DOWNLOAD_MANAGER
+            .0
+            .set(DownloadManagerBuilder::build(app_handle))
+            .expect("Failed to initialise download manager");
     }
 }
 

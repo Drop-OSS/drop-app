@@ -1,15 +1,24 @@
 use std::sync::nonpoison::Mutex;
 
-use database::{borrow_db_checked, borrow_db_mut_checked, GameDownloadStatus, GameVersion};
-use games::{downloads::error::LibraryError, library::{get_current_meta, uninstall_game_logic, FetchGameStruct, FrontendGameOptions, Game}, state::{GameStatusManager, GameStatusWithTransient}};
+use database::{GameDownloadStatus, GameVersion, borrow_db_checked, borrow_db_mut_checked};
+use games::{
+    downloads::error::LibraryError,
+    library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
+    state::{GameStatusManager, GameStatusWithTransient},
+};
 use log::warn;
 use process::PROCESS_MANAGER;
-use remote::{auth::generate_authorization_header, cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db}, error::{DropServerError, RemoteAccessError}, offline, requests::generate_url, utils::DROP_CLIENT_ASYNC};
+use remote::{
+    auth::generate_authorization_header,
+    cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db},
+    error::{DropServerError, RemoteAccessError},
+    offline,
+    requests::generate_url,
+    utils::DROP_CLIENT_ASYNC,
+};
 use tauri::AppHandle;
-use utils::lock;
 
 use crate::AppState;
-
 
 #[tauri::command]
 pub async fn fetch_library(
@@ -22,9 +31,9 @@ pub async fn fetch_library(
         fetch_library_logic_offline,
         state,
         hard_refresh
-    ).await
+    )
+    .await
 }
-
 
 pub async fn fetch_library_logic(
     state: tauri::State<'_, Mutex<AppState>>,
@@ -228,7 +237,6 @@ pub async fn fetch_game_version_options_logic(
     Ok(data)
 }
 
-
 pub async fn fetch_game_logic_offline(
     id: String,
     _state: tauri::State<'_, Mutex<AppState>>,
@@ -264,7 +272,8 @@ pub async fn fetch_game(
         fetch_game_logic_offline,
         game_id,
         state
-    ).await
+    )
+    .await
 }
 
 #[tauri::command]
@@ -305,7 +314,10 @@ pub fn update_game_configuration(
         .ok_or(LibraryError::MetaNotFound(game_id))?;
 
     let id = installed_version.id.clone();
-    let version = installed_version.version.clone().ok_or(LibraryError::VersionNotFound(id.clone()))?;
+    let version = installed_version
+        .version
+        .clone()
+        .ok_or(LibraryError::VersionNotFound(id.clone()))?;
 
     let mut existing_configuration = handle
         .applications

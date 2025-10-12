@@ -4,7 +4,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use database::{borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, debug::SystemData, Settings};
+use database::{
+    Settings, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, debug::SystemData,
+};
 use download_manager::error::DownloadManagerError;
 use games::scan::scan_install_dirs;
 use log::error;

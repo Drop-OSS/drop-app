@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-
 #[derive(Eq, Hash, PartialEq, Serialize, Deserialize, Clone, Copy, Debug)]
 pub enum Platform {
     Windows,
