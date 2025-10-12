@@ -1,6 +1,11 @@
 use std::sync::Mutex;
 
-use crate::{AppState, error::process_error::ProcessError, lock};
+use process::{error::ProcessError, PROCESS_MANAGER};
+use tauri::AppHandle;
+use tauri_plugin_opener::OpenerExt;
+use utils::lock;
+
+use crate::AppState;
 
 #[tauri::command]
 pub fn launch_game(
@@ -8,8 +13,7 @@ pub fn launch_game(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
     let state_lock = lock!(state);
-    let mut process_manager_lock = lock!(state_lock.process_manager);
-
+    let process_manager_lock = PROCESS_MANAGER.lock();
     //let meta = DownloadableMetadata {
     //    id,
     //    version: Some(version),
@@ -30,11 +34,9 @@ pub fn launch_game(
 #[tauri::command]
 pub fn kill_game(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = lock!(state);
-    let mut process_manager_lock = lock!(state_lock.process_manager);
-    process_manager_lock
+    PROCESS_MANAGER
+        .lock()
         .kill_game(game_id)
         .map_err(ProcessError::IOError)
 }
@@ -42,17 +44,13 @@ pub fn kill_game(
 #[tauri::command]
 pub fn open_process_logs(
     game_id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
+    app_handle: AppHandle
 ) -> Result<(), ProcessError> {
-    let state_lock = lock!(state);
-    let mut process_manager_lock = lock!(state_lock.process_manager);
+    let process_manager_lock = PROCESS_MANAGER.lock();
 
     let dir = process_manager_lock.get_log_dir(game_id);
-    state
-        .handle()
+    app_handle
         .opener()
         .open_path(dir.display().to_string(), None::<&str>)
-        .map_err(ProcessError::OpenerError)?;
-
-    process_manager_lock.open_process_logs(game_id)
+        .map_err(ProcessError::OpenerError)
 }

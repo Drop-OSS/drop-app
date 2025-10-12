@@ -18,6 +18,12 @@ pub struct FetchGameStruct {
     version: Option<GameVersion>,
 }
 
+impl FetchGameStruct {
+    pub fn new(game: Game, status: GameStatusWithTransient, version: Option<GameVersion>) -> Self {
+        Self { game, status, version }
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
@@ -32,6 +38,11 @@ pub struct Game {
     m_cover_object_id: String,
     m_image_library_object_ids: Vec<String>,
     m_image_carousel_object_ids: Vec<String>,
+}
+impl Game {
+    pub fn id(&self) -> &String {
+        &self.id
+    }
 }
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {

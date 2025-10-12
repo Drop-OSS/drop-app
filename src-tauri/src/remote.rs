@@ -1,30 +1,17 @@
-use std::sync::Mutex;
+use std::{sync::Mutex, time::Duration};
 
+use client::app_status::AppStatus;
+use database::{borrow_db_checked, borrow_db_mut_checked};
 use futures_lite::StreamExt;
 use log::{debug, warn};
+use remote::{auth::{auth_initiate_logic, generate_authorization_header}, cache::{cache_object, get_cached_object}, error::RemoteAccessError, requests::generate_url, setup, utils::{DropHealthcheck, DROP_CLIENT_ASYNC, DROP_CLIENT_WS_CLIENT}};
 use reqwest_websocket::{Message, RequestBuilderExt};
 use serde::Deserialize;
 use tauri::{AppHandle, Emitter, Manager};
 use url::Url;
+use utils::{app_emit, lock, webbrowser_open::webbrowser_open};
 
-use crate::{
-    AppState, AppStatus, app_emit,
-    database::db::{borrow_db_checked, borrow_db_mut_checked},
-    error::remote_access_error::RemoteAccessError,
-    lock,
-    remote::{
-        auth::generate_authorization_header,
-        requests::generate_url,
-        utils::{DROP_CLIENT_SYNC, DROP_CLIENT_WS_CLIENT},
-    },
-    utils::webbrowser_open::webbrowser_open,
-};
-
-use super::{
-    auth::{auth_initiate_logic, recieve_handshake, setup},
-    cache::{cache_object, get_cached_object},
-    utils::use_remote_logic,
-};
+use crate::{recieve_handshake, AppState};
 
 #[tauri::command]
 pub async fn use_remote(
@@ -45,7 +32,7 @@ pub async fn use_remote(
 
     let result: DropHealthcheck = response.json().await?;
 
-    if result.app_name != "Drop" {
+    if result.app_name() != "Drop" {
         warn!("user entered drop endpoint that connected, but wasn't identified as Drop");
         return Err(RemoteAccessError::InvalidEndpoint);
     }
@@ -77,7 +64,7 @@ pub fn gen_drop_url(path: String) -> Result<String, RemoteAccessError> {
 pub fn fetch_drop_object(path: String) -> Result<Vec<u8>, RemoteAccessError> {
     let _drop_url = gen_drop_url(path.clone())?;
     let req = generate_url(&[&path], &[])?;
-    let req = DROP_CLIENT_SYNC
+    let req = remote::utils::DROP_CLIENT_SYNC
         .get(req)
         .header("Authorization", generate_authorization_header())
         .send();

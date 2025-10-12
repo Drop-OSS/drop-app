@@ -100,7 +100,7 @@ impl ProcessManager<'_> {
         }
     }
 
-    fn get_log_dir(&self, game_id: String) -> PathBuf {
+    pub fn get_log_dir(&self, game_id: String) -> PathBuf {
         self.log_output_dir.join(game_id)
     }
 

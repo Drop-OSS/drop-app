@@ -6,8 +6,8 @@ use std::{
 };
 
 use bitcode::{Decode, DecodeOwned, Encode};
-use database::{borrow_db_checked, Database};
-use http::{header::{CONTENT_TYPE}, response::Builder as ResponseBuilder, Response};
+use database::{Database, borrow_db_checked};
+use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 
 use crate::error::{CacheError, RemoteAccessError};
 
@@ -15,7 +15,9 @@ use crate::error::{CacheError, RemoteAccessError};
 macro_rules! offline {
     ($var:expr, $func1:expr, $func2:expr, $( $arg:expr ),* ) => {
 
-        async move { if $crate::borrow_db_checked().settings.force_offline || $crate::lock!($var).status == $crate::AppStatus::Offline {
+        async move { 
+            if ::database::borrow_db_checked().settings.force_offline 
+            || ::utils::lock!($var).status == ::client::app_status::AppStatus::Offline {
             $func2( $( $arg ), *).await
         } else {
             $func1( $( $arg ), *).await
@@ -81,10 +83,7 @@ pub fn get_cached_object_db<D: DecodeOwned>(
 pub fn clear_cached_object(key: &str) -> Result<(), RemoteAccessError> {
     clear_cached_object_db(key, &borrow_db_checked())
 }
-pub fn clear_cached_object_db(
-    key: &str,
-    db: &Database,
-) -> Result<(), RemoteAccessError> {
+pub fn clear_cached_object_db(key: &str, db: &Database) -> Result<(), RemoteAccessError> {
     delete_sync(&db.cache_dir, key).map_err(RemoteAccessError::Cache)?;
     Ok(())
 }
@@ -103,9 +102,9 @@ impl ObjectCache {
     }
 }
 
-impl TryFrom<Response<Vec<u8>>> for ObjectCache {    
+impl TryFrom<Response<Vec<u8>>> for ObjectCache {
     type Error = CacheError;
-    
+
     fn try_from(value: Response<Vec<u8>>) -> Result<Self, Self::Error> {
         Ok(ObjectCache {
             content_type: value
@@ -118,14 +117,15 @@ impl TryFrom<Response<Vec<u8>>> for ObjectCache {
             body: value.body().clone(),
             expiry: get_sys_time_in_secs() + 60 * 60 * 24,
         })
-
     }
 }
 impl TryFrom<ObjectCache> for Response<Vec<u8>> {
     type Error = CacheError;
     fn try_from(value: ObjectCache) -> Result<Self, Self::Error> {
         let resp_builder = ResponseBuilder::new().header(CONTENT_TYPE, value.content_type);
-        resp_builder.body(value.body).map_err(CacheError::ConstructionError)
+        resp_builder
+            .body(value.body)
+            .map_err(CacheError::ConstructionError)
     }
 }
 impl TryFrom<&ObjectCache> for Response<Vec<u8>> {
@@ -133,6 +133,8 @@ impl TryFrom<&ObjectCache> for Response<Vec<u8>> {
 
     fn try_from(value: &ObjectCache) -> Result<Self, Self::Error> {
         let resp_builder = ResponseBuilder::new().header(CONTENT_TYPE, value.content_type.clone());
-        resp_builder.body(value.body.clone()).map_err(CacheError::ConstructionError)
+        resp_builder
+            .body(value.body.clone())
+            .map_err(CacheError::ConstructionError)
     }
 }

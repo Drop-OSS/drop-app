@@ -1,28 +1,15 @@
 use std::sync::Mutex;
 
+use database::{borrow_db_checked, borrow_db_mut_checked, GameDownloadStatus, GameVersion};
+use games::{downloads::error::LibraryError, library::{get_current_meta, uninstall_game_logic, FetchGameStruct, Game}, state::{GameStatusManager, GameStatusWithTransient}};
+use log::warn;
+use process::PROCESS_MANAGER;
+use remote::{auth::generate_authorization_header, cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db}, error::{DropServerError, RemoteAccessError}, offline, requests::generate_url, utils::DROP_CLIENT_ASYNC};
 use tauri::AppHandle;
+use utils::lock;
 
-use crate::{
-    AppState,
-    database::{
-        db::borrow_db_checked,
-        models::data::GameVersion,
-    },
-    error::{library_error::LibraryError, remote_access_error::RemoteAccessError},
-    games::library::{
-        fetch_game_logic_offline, fetch_library_logic_offline, get_current_meta,
-        uninstall_game_logic,
-    },
-    offline,
-};
+use crate::AppState;
 
-use super::{
-    library::{
-        FetchGameStruct, Game, fetch_game_logic, fetch_game_version_options_logic,
-        fetch_library_logic,
-    },
-    state::{GameStatusManager, GameStatusWithTransient},
-};
 
 #[tauri::command]
 pub async fn fetch_library(
@@ -72,18 +59,18 @@ pub async fn fetch_library_logic(
     let mut db_handle = borrow_db_mut_checked();
 
     for game in &games {
-        handle.games.insert(game.id.clone(), game.clone());
-        if !db_handle.applications.game_statuses.contains_key(&game.id) {
+        handle.games.insert(game.id().clone(), game.clone());
+        if !db_handle.applications.game_statuses.contains_key(game.id()) {
             db_handle
                 .applications
                 .game_statuses
-                .insert(game.id.clone(), GameDownloadStatus::Remote {});
+                .insert(game.id().clone(), GameDownloadStatus::Remote {});
         }
     }
 
     // Add games that are installed but no longer in library
     for meta in db_handle.applications.installed_game_version.values() {
-        if games.iter().any(|e| e.id == meta.id) {
+        if games.iter().any(|e| *e.id() == meta.id) {
             continue;
         }
         // We should always have a cache of the object
@@ -120,7 +107,7 @@ pub async fn fetch_library_logic_offline(
             &db_handle
                 .applications
                 .game_statuses
-                .get(&game.id)
+                .get(game.id())
                 .unwrap_or(&GameDownloadStatus::Remote {}),
             GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
         )
@@ -152,11 +139,7 @@ pub async fn fetch_game_logic(
         if let Some(game) = game {
             let status = GameStatusManager::fetch_state(&id, &db_lock);
 
-            let data = FetchGameStruct {
-                game: game.clone(),
-                status,
-                version,
-            };
+            let data = FetchGameStruct::new(game.clone(), status, version);
 
             cache_object_db(&id, game, &db_lock)?;
 
@@ -205,11 +188,7 @@ pub async fn fetch_game_logic(
 
     drop(db_handle);
 
-    let data = FetchGameStruct {
-        game: game.clone(),
-        status,
-        version,
-    };
+    let data = FetchGameStruct::new(game.clone(), status, version);
 
     cache_object(&id, &game)?;
 
@@ -238,10 +217,10 @@ pub async fn fetch_game_version_options_logic(
     let data: Vec<GameVersion> = response.json().await?;
 
     let state_lock = lock!(state);
-    let process_manager_lock = lock!(state_lock.process_manager);
+    let process_manager_lock = PROCESS_MANAGER.lock();
     let data: Vec<GameVersion> = data
         .into_iter()
-        .filter(|v| process_manager_lock.valid_platform(&v.platform, &state_lock))
+        .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();
     drop(process_manager_lock);
     drop(state_lock);
@@ -271,11 +250,7 @@ pub async fn fetch_game_logic_offline(
 
     drop(db_handle);
 
-    Ok(FetchGameStruct {
-        game,
-        status,
-        version,
-    })
+    Ok(FetchGameStruct::new(game, status, version))
 }
 
 #[tauri::command]

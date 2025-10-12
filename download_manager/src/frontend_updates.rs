@@ -17,7 +17,7 @@ pub struct QueueUpdateEvent {
     pub queue: Vec<QueueUpdateEventQueueData>,
 }
 
-#[derive(serde::Serialize, Clone)]
+#[derive(Serialize, Clone)]
 pub struct StatsUpdateEvent {
     pub speed: usize,
     pub time: usize,

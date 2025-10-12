@@ -3,12 +3,21 @@
 #![feature(duration_constructors)]
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
+#![feature(nonpoison_mutex)]
 #![deny(clippy::all)]
+
+use std::collections::HashMap;
+
+use ::client::{app_status::AppStatus, compat::CompatInfo, user::User};
+use database::{borrow_db_checked, GameDownloadStatus};
+use ::games::library::Game;
+use ::remote::auth;
+use serde::Serialize;
+use tauri::AppHandle;
 
 mod games;
 
 mod client;
-mod error;
 mod process;
 mod remote;
 
@@ -19,13 +28,6 @@ pub struct AppState<'a> {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
-
-    #[serde(skip_serializing)]
-    download_manager: Arc<DownloadManager>,
-    #[serde(skip_serializing)]
-    process_manager: Arc<Mutex<ProcessManager<'a>>>,
-    #[serde(skip_serializing)]
-    compat_info: Option<CompatInfo>,
 }
 
 async fn setup(handle: AppHandle) -> AppState<'static> {

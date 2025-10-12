@@ -11,10 +11,14 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct DropHealthcheck {
+pub struct DropHealthcheck {
     app_name: String,
 }
-
+impl DropHealthcheck {
+    pub fn app_name(&self) -> &String{
+        &self.app_name
+    }
+}
 static DROP_CERT_BUNDLE: LazyLock<Vec<Certificate>> = LazyLock::new(fetch_certificates);
 pub static DROP_CLIENT_SYNC: LazyLock<reqwest::blocking::Client> = LazyLock::new(get_client_sync);
 pub static DROP_CLIENT_ASYNC: LazyLock<reqwest::Client> = LazyLock::new(get_client_async);
