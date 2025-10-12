@@ -6,6 +6,7 @@ use std::{
     process::{Command, ExitStatus},
     str::FromStr,
     sync::Arc,
+    thread::spawn,
     time::{Duration, SystemTime},
 };
 
@@ -15,10 +16,11 @@ use database::{
 };
 use dynfmt::Format;
 use dynfmt::SimpleCurlyFormat;
-use games::state::GameStatusManager;
+use games::{library::push_game_update, state::GameStatusManager};
 use log::{debug, info, warn};
 use serde::{Deserialize, Serialize};
 use shared_child::SharedChild;
+use tauri::AppHandle;
 
 use crate::{
     PROCESS_MANAGER,
@@ -41,10 +43,11 @@ pub struct ProcessManager<'a> {
         (Platform, Platform),
         &'a (dyn ProcessHandler + Sync + Send + 'static),
     )>,
+    app_handle: AppHandle,
 }
 
 impl ProcessManager<'_> {
-    pub fn new() -> Self {
+    pub fn new(app_handle: AppHandle) -> Self {
         let log_output_dir = DATA_ROOT_DIR.join("logs");
 
         ProcessManager {
@@ -82,6 +85,7 @@ impl ProcessManager<'_> {
                     &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
             ],
+            app_handle,
         }
     }
 
@@ -172,13 +176,12 @@ impl ProcessManager<'_> {
 
         let status = GameStatusManager::fetch_state(&game_id, &db_handle);
 
-        // TODO
-        // push_game_update(
-        //     &self.app_handle,
-        //     &game_id,
-        //     Some(version_data.clone()),
-        //     status,
-        // );
+        push_game_update(
+            &self.app_handle,
+            &game_id,
+            Some(version_data.clone()),
+            status,
+        );
         Ok(())
     }
 
@@ -363,13 +366,12 @@ impl ProcessManager<'_> {
             .transient_statuses
             .insert(meta.clone(), ApplicationTransientStatus::Running {});
 
-        // TODO
-        // push_game_update(
-        //     &self.app_handle,
-        //     &meta.id,
-        //     None,
-        //     (None, Some(ApplicationTransientStatus::Running {})),
-        // );
+        push_game_update(
+            &self.app_handle,
+            &meta.id,
+            None,
+            (None, Some(ApplicationTransientStatus::Running {})),
+        );
 
         let wait_thread_handle = launch_process_handle.clone();
         let wait_thread_game_id = meta.clone();
@@ -382,12 +384,14 @@ impl ProcessManager<'_> {
                 manually_killed: false,
             },
         );
+        spawn(move || {
+            let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
 
-        let result: Result<ExitStatus, std::io::Error> = launch_process_handle.wait();
-
-        PROCESS_MANAGER
-            .lock()
-            .on_process_finish(wait_thread_game_id.id, result)
+            PROCESS_MANAGER
+                .lock()
+                .on_process_finish(wait_thread_game_id.id, result)
+        });
+        Ok(())
     }
 }
 

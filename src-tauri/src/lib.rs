@@ -22,7 +22,9 @@ use std::{
 use ::client::{
     app_status::AppStatus, autostart::sync_autostart_on_startup, compat::CompatInfo, user::User,
 };
+use ::download_manager::DownloadManagerWrapper;
 use ::games::{library::Game, scan::scan_install_dirs};
+use ::process::ProcessManagerWrapper;
 use ::remote::{
     auth::{self, generate_authorization_header, HandshakeRequestBody, HandshakeResponse},
     cache::clear_cached_object,
@@ -115,6 +117,9 @@ async fn setup(handle: AppHandle) -> AppState {
     log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
+
+    ProcessManagerWrapper::init(handle.clone());
+    DownloadManagerWrapper::init(handle.clone());
 
     debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();

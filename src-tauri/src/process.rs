@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::nonpoison::Mutex;
 
 use process::{error::ProcessError, PROCESS_MANAGER};
 use tauri::AppHandle;
