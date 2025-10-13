@@ -80,13 +80,13 @@ bytes = "1.10.1"
 
 
 # Workspaces
-client = { version = "0.1.0", path = "../client" }
-database = { path = "../database" }
-process = { path = "../process" }
-remote = { version = "0.1.0", path = "../remote" }
-utils = { path = "../utils" }
-games = { version = "0.1.0", path = "../games" }
-download_manager = { version = "0.1.0", path = "../download_manager" }
+client = { version = "0.1.0", path = "./client" }
+database = { path = "./database" }
+process = { path = "./process" }
+remote = { version = "0.1.0", path = "./remote" }
+utils = { path = "./utils" }
+games = { version = "0.1.0", path = "./games" }
+download_manager = { version = "0.1.0", path = "./download_manager" }
 
 [dependencies.dynfmt]
 version = "0.1.5"
@@ -138,11 +138,11 @@ lto = true
 codegen-units = 1
 panic = 'abort'
 
+
 [workspace]
 members = [
     "client",
     "database",
-    "src-tauri",
     "process",
     "remote",
     "utils",
