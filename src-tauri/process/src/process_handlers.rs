@@ -1,0 +1,120 @@
+use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
+use database::{Database, DownloadableMetadata, GameVersion, platform::Platform};
+use log::debug;
+
+use crate::{error::ProcessError, process_manager::ProcessHandler};
+
+pub struct NativeGameLauncher;
+impl ProcessHandler for NativeGameLauncher {
+    fn create_launch_process(
+        &self,
+        _meta: &DownloadableMetadata,
+        launch_command: String,
+        args: Vec<String>,
+        _game_version: &GameVersion,
+        _current_dir: &str,
+    ) -> Result<String, ProcessError> {
+        Ok(format!("\"{}\" {}", launch_command, args.join(" ")))
+    }
+
+    fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
+        true
+    }
+}
+
+pub struct UMULauncher;
+impl ProcessHandler for UMULauncher {
+    fn create_launch_process(
+        &self,
+        _meta: &DownloadableMetadata,
+        launch_command: String,
+        args: Vec<String>,
+        game_version: &GameVersion,
+        _current_dir: &str,
+    ) -> Result<String, ProcessError> {
+        debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
+        let game_id = match &game_version.umu_id_override {
+            Some(game_override) => {
+                if game_override.is_empty() {
+                    game_version.game_id.clone()
+                } else {
+                    game_override.clone()
+                }
+            }
+            None => game_version.game_id.clone(),
+        };
+        Ok(format!(
+            "GAMEID={game_id} {umu:?} \"{launch}\" {args}",
+            umu = UMU_LAUNCHER_EXECUTABLE
+                .as_ref()
+                .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
+            launch = launch_command,
+            args = args.join(" ")
+        ))
+    }
+
+    fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
+        let Some(compat_info) = &*COMPAT_INFO else {
+            return false;
+        };
+        compat_info.umu_installed
+    }
+}
+
+pub struct AsahiMuvmLauncher;
+impl ProcessHandler for AsahiMuvmLauncher {
+    fn create_launch_process(
+        &self,
+        meta: &DownloadableMetadata,
+        launch_command: String,
+        args: Vec<String>,
+        game_version: &GameVersion,
+        current_dir: &str,
+    ) -> Result<String, ProcessError> {
+        let umu_launcher = UMULauncher {};
+        let umu_string = umu_launcher.create_launch_process(
+            meta,
+            launch_command,
+            args,
+            game_version,
+            current_dir,
+        )?;
+        let mut args_cmd = umu_string
+            .split("umu-run")
+            .collect::<Vec<&str>>()
+            .into_iter();
+        let args = args_cmd
+            .next()
+            .ok_or(ProcessError::InvalidArguments(umu_string.clone()))?
+            .trim();
+        let cmd = format!(
+            "umu-run{}",
+            args_cmd
+                .next()
+                .ok_or(ProcessError::InvalidArguments(umu_string.clone()))?
+        );
+
+        Ok(format!("{args} muvm -- {cmd}"))
+    }
+
+    #[allow(unreachable_code)]
+    #[allow(unused_variables)]
+    fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
+        #[cfg(not(target_os = "linux"))]
+        return false;
+
+        #[cfg(not(target_arch = "aarch64"))]
+        return false;
+
+        let page_size = page_size::get();
+        if page_size != 16384 {
+            return false;
+        }
+
+        let Some(compat_info) = &*COMPAT_INFO else {
+            return false;
+        };
+
+        compat_info.umu_installed
+    }
+}

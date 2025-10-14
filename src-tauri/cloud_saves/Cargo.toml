@@ -1,0 +1,19 @@
+[package]
+name = "cloud_saves"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+database = { version = "0.1.0", path = "../database" }
+dirs = "6.0.0"
+log = "0.4.28"
+regex = "1.11.3"
+rustix = "1.1.2"
+serde = "1.0.228"
+serde_json = "1.0.145"
+serde_with = "3.15.0"
+tar = "0.4.44"
+tempfile = "3.23.0"
+uuid = "1.18.1"
+whoami = "1.6.1"
+zstd = "0.13.3"

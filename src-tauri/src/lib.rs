@@ -3,141 +3,86 @@
 #![feature(duration_constructors)]
 #![feature(duration_millis_float)]
 #![feature(iterator_try_collect)]
+#![feature(nonpoison_mutex)]
+#![feature(sync_nonpoison)]
 #![deny(clippy::all)]
 
-mod database;
-mod games;
-
-mod client;
-mod download_manager;
-mod error;
-mod process;
-mod remote;
-
-use crate::database::scan::scan_install_dirs;
-use crate::process::commands::open_process_logs;
-use crate::process::process_handlers::UMU_LAUNCHER_EXECUTABLE;
-use crate::remote::commands::auth_initiate_code;
-use crate::{database::db::DatabaseImpls, games::downloads::commands::resume_download};
-use bitcode::{Decode, Encode};
-use client::commands::fetch_state;
-use client::{
-    autostart::{get_autostart_enabled, sync_autostart_on_startup, toggle_autostart},
-    cleanup::{cleanup_and_exit, quit},
-};
-use database::commands::{
-    add_download_dir, delete_download_dir, fetch_download_dir_stats, fetch_settings,
-    fetch_system_data, update_settings,
-};
-use database::db::{DATA_ROOT_DIR, DatabaseInterface, borrow_db_checked, borrow_db_mut_checked};
-use database::models::data::GameDownloadStatus;
-use download_manager::commands::{
-    cancel_game, move_download_in_queue, pause_downloads, resume_downloads,
-};
-use download_manager::download_manager_builder::DownloadManagerBuilder;
-use download_manager::download_manager_frontend::DownloadManager;
-use games::collections::commands::{
-    add_game_to_collection, create_collection, delete_collection, delete_game_in_collection,
-    fetch_collection, fetch_collections,
-};
-use games::commands::{
-    fetch_game, fetch_game_status, fetch_game_version_options, fetch_library, uninstall_game,
-};
-use games::downloads::commands::download_game;
-use games::library::{Game, update_game_configuration};
-use log::{LevelFilter, debug, info, warn};
-use log4rs::Config;
-use log4rs::append::console::ConsoleAppender;
-use log4rs::append::file::FileAppender;
-use log4rs::config::{Appender, Root};
-use log4rs::encode::pattern::PatternEncoder;
-use process::commands::{kill_game, launch_game};
-use process::process_manager::ProcessManager;
-use remote::auth::{self, recieve_handshake};
-use remote::commands::{
-    auth_initiate, fetch_drop_object, gen_drop_url, manual_recieve_handshake, retry_connect,
-    sign_out, use_remote,
-};
-use remote::fetch_object::fetch_object;
-use remote::server_proto::{handle_server_proto, handle_server_proto_offline};
-use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::Write;
-use std::panic::PanicHookInfo;
-use std::path::Path;
-use std::str::FromStr;
-use std::sync::Arc;
-use std::time::SystemTime;
 use std::{
-    collections::HashMap,
-    sync::{LazyLock, Mutex},
+    collections::HashMap, env, fs::File, io::Write, panic::PanicHookInfo, path::Path, str::FromStr,
+    sync::nonpoison::Mutex, time::SystemTime,
 };
-use std::{env, panic};
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
-use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Manager, RunEvent, WindowEvent};
+
+use ::client::{app_status::AppStatus, autostart::sync_autostart_on_startup, user::User};
+use ::download_manager::DownloadManagerWrapper;
+use ::games::{library::Game, scan::scan_install_dirs};
+use ::process::ProcessManagerWrapper;
+use ::remote::{
+    auth::{self, HandshakeRequestBody, HandshakeResponse, generate_authorization_header},
+    cache::clear_cached_object,
+    error::RemoteAccessError,
+    fetch_object::fetch_object_wrapper,
+    offline,
+    server_proto::{handle_server_proto_offline_wrapper, handle_server_proto_wrapper},
+    utils::DROP_CLIENT_ASYNC,
+};
+use database::{
+    DB, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR,
+    interface::DatabaseImpls,
+};
+use log::{LevelFilter, debug, info, warn};
+use log4rs::{
+    Config,
+    append::{console::ConsoleAppender, file::FileAppender},
+    config::{Appender, Root},
+    encode::pattern::PatternEncoder,
+};
+use serde::Serialize;
+use tauri::{
+    AppHandle, Manager, RunEvent, WindowEvent,
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+};
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use url::Url;
+use utils::app_emit;
 
-#[derive(Clone, Copy, Serialize, Eq, PartialEq)]
-pub enum AppStatus {
-    NotConfigured,
-    Offline,
-    ServerError,
-    SignedOut,
-    SignedIn,
-    SignedInNeedsReauth,
-    ServerUnavailable,
-}
+use crate::client::cleanup_and_exit;
 
-#[derive(Clone, Serialize, Deserialize, Encode, Decode)]
-#[serde(rename_all = "camelCase")]
-pub struct User {
-    id: String,
-    username: String,
-    admin: bool,
-    display_name: String,
-    profile_picture_object_id: String,
-}
+mod client;
+mod collections;
+mod download_manager;
+mod downloads;
+mod games;
+mod process;
+mod remote;
+mod settings;
 
-#[derive(Clone)]
-pub struct CompatInfo {
-    umu_installed: bool,
-}
-
-fn create_new_compat_info() -> Option<CompatInfo> {
-    #[cfg(target_os = "windows")]
-    return None;
-
-    let has_umu_installed = UMU_LAUNCHER_EXECUTABLE.is_some();
-    Some(CompatInfo {
-        umu_installed: has_umu_installed,
-    })
-}
+use client::*;
+use collections::*;
+use download_manager::*;
+use downloads::*;
+use games::*;
+use process::*;
+use remote::*;
+use settings::*;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AppState<'a> {
+pub struct AppState {
     status: AppStatus,
     user: Option<User>,
     games: HashMap<String, Game>,
-
-    #[serde(skip_serializing)]
-    download_manager: Arc<DownloadManager>,
-    #[serde(skip_serializing)]
-    process_manager: Arc<Mutex<ProcessManager<'a>>>,
-    #[serde(skip_serializing)]
-    compat_info: Option<CompatInfo>,
 }
 
-async fn setup(handle: AppHandle) -> AppState<'static> {
+async fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d} | {l} | {f}:{L} - {m}{n}",
         )))
         .append(false)
         .build(DATA_ROOT_DIR.join("./drop.log"))
-        .unwrap();
+        .expect("Failed to setup logfile");
 
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
@@ -157,14 +102,14 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
                 .appenders(vec!["logfile", "console"])
                 .build(LevelFilter::from_str(&log_level).expect("Invalid log level")),
         )
-        .unwrap();
+        .expect("Failed to build config");
 
-    log4rs::init_config(config).unwrap();
+    log4rs::init_config(config).expect("Failed to initialise log4rs");
 
     let games = HashMap::new();
-    let download_manager = Arc::new(DownloadManagerBuilder::build(handle.clone()));
-    let process_manager = Arc::new(Mutex::new(ProcessManager::new(handle.clone())));
-    let compat_info = create_new_compat_info();
+
+    ProcessManagerWrapper::init(handle.clone());
+    DownloadManagerWrapper::init(handle.clone());
 
     debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();
@@ -176,9 +121,6 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
             status: AppStatus::NotConfigured,
             user: None,
             games,
-            download_manager,
-            process_manager,
-            compat_info,
         };
     }
 
@@ -241,13 +183,8 @@ async fn setup(handle: AppHandle) -> AppState<'static> {
         status: app_status,
         user,
         games,
-        download_manager,
-        process_manager,
-        compat_info,
     }
 }
-
-pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
     let crash_file = DATA_ROOT_DIR.join(format!(
@@ -267,7 +204,7 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    panic::set_hook(Box::new(|e| {
+    std::panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
         println!("{e}");
     }));
@@ -370,45 +307,67 @@ pub fn run() {
                 .shadow(false)
                 .data_directory(DATA_ROOT_DIR.join(".webview"))
                 .build()
-                .unwrap();
+                .expect("Failed to build main window");
 
                 app.deep_link().on_open_url(move |event| {
                     debug!("handling drop:// url");
                     let binding = event.urls();
-                    let url = binding.first().unwrap();
-                    if url.host_str().unwrap() == "handshake" {
+                    let url = match binding.first() {
+                        Some(url) => url,
+                        None => {
+                            warn!("No value recieved from deep link. Is this a drop server?");
+                            return;
+                        }
+                    };
+                    if let Some("handshake") = url.host_str() {
                         tauri::async_runtime::spawn(recieve_handshake(
                             handle.clone(),
                             url.path().to_string(),
                         ));
                     }
                 });
+                let open_menu_item = MenuItem::with_id(app, "open", "Open", true, None::<&str>)
+                    .expect("Failed to generate open menu item");
+
+                let sep = PredefinedMenuItem::separator(app)
+                    .expect("Failed to generate menu separator item");
+
+                let quit_menu_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
+                    .expect("Failed to generate quit menu item");
 
                 let menu = Menu::with_items(
                     app,
                     &[
-                        &MenuItem::with_id(app, "open", "Open", true, None::<&str>).unwrap(),
-                        &PredefinedMenuItem::separator(app).unwrap(),
+                        &open_menu_item,
+                        &sep,
                         /*
                         &MenuItem::with_id(app, "show_library", "Library", true, None::<&str>)?,
                         &MenuItem::with_id(app, "show_settings", "Settings", true, None::<&str>)?,
                         &PredefinedMenuItem::separator(app)?,
                          */
-                        &MenuItem::with_id(app, "quit", "Quit", true, None::<&str>).unwrap(),
+                        &quit_menu_item,
                     ],
                 )
-                .unwrap();
+                .expect("Failed to generate menu");
 
                 run_on_tray(|| {
                     TrayIconBuilder::new()
-                        .icon(app.default_window_icon().unwrap().clone())
+                        .icon(
+                            app.default_window_icon()
+                                .expect("Failed to get default window icon")
+                                .clone(),
+                        )
                         .menu(&menu)
                         .on_menu_event(|app, event| match event.id.as_ref() {
                             "open" => {
-                                app.webview_windows().get("main").unwrap().show().unwrap();
+                                app.webview_windows()
+                                    .get("main")
+                                    .expect("Failed to get webview")
+                                    .show()
+                                    .expect("Failed to show window");
                             }
                             "quit" => {
-                                cleanup_and_exit(app, &app.state());
+                                cleanup_and_exit(app);
                             }
 
                             _ => {
@@ -422,15 +381,19 @@ pub fn run() {
                 {
                     let mut db_handle = borrow_db_mut_checked();
                     if let Some(original) = db_handle.prev_database.take() {
+                        let canonicalised = match original.canonicalize() {
+                            Ok(o) => o,
+                            Err(_) => original,
+                        };
                         warn!(
                             "Database corrupted. Original file at {}",
-                            original.canonicalize().unwrap().to_string_lossy()
+                            canonicalised.display()
                         );
                         app.dialog()
-                            .message(
-                                "Database corrupted. A copy has been saved at: ".to_string()
-                                    + original.to_str().unwrap(),
-                            )
+                            .message(format!(
+                                "Database corrupted. A copy has been saved at: {}",
+                                canonicalised.display()
+                            ))
                             .title("Database corrupted")
                             .show(|_| {});
                     }
@@ -441,7 +404,7 @@ pub fn run() {
         })
         .register_asynchronous_uri_scheme_protocol("object", move |_ctx, request, responder| {
             tauri::async_runtime::spawn(async move {
-                fetch_object(request, responder).await;
+                fetch_object_wrapper(request, responder).await;
             });
         })
         .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {
@@ -452,8 +415,8 @@ pub fn run() {
 
                 offline!(
                     state,
-                    handle_server_proto,
-                    handle_server_proto_offline,
+                    handle_server_proto_wrapper,
+                    handle_server_proto_offline_wrapper,
                     request,
                     responder
                 )
@@ -463,7 +426,7 @@ pub fn run() {
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 run_on_tray(|| {
-                    window.hide().unwrap();
+                    window.hide().expect("Failed to close window in tray");
                     api.prevent_close();
                 });
             }
@@ -489,4 +452,86 @@ fn run_on_tray<T: FnOnce()>(f: T) {
     } {
         (f)();
     }
+}
+
+// TODO: Refactor
+pub async fn recieve_handshake(app: AppHandle, path: String) {
+    // Tell the app we're processing
+    app_emit!(&app, "auth/processing", ());
+
+    let handshake_result = recieve_handshake_logic(&app, path).await;
+    if let Err(e) = handshake_result {
+        warn!("error with authentication: {e}");
+        app_emit!(&app, "auth/failed", e.to_string());
+        return;
+    }
+
+    let app_state = app.state::<Mutex<AppState>>();
+
+    let (app_status, user) = auth::setup().await;
+
+    let mut state_lock = app_state.lock();
+
+    state_lock.status = app_status;
+    state_lock.user = user;
+
+    let _ = clear_cached_object("collections");
+    let _ = clear_cached_object("library");
+
+    drop(state_lock);
+
+    app_emit!(&app, "auth/finished", ());
+}
+
+// TODO: Refactor
+async fn recieve_handshake_logic(app: &AppHandle, path: String) -> Result<(), RemoteAccessError> {
+    let path_chunks: Vec<&str> = path.split('/').collect();
+    if path_chunks.len() != 3 {
+        app_emit!(app, "auth/failed", ());
+        return Err(RemoteAccessError::HandshakeFailed(
+            "failed to parse token".to_string(),
+        ));
+    }
+
+    let base_url = {
+        let handle = borrow_db_checked();
+        Url::parse(handle.base_url.as_str())?
+    };
+
+    let client_id = path_chunks
+        .get(1)
+        .expect("Failed to get client id from path chunks");
+    let token = path_chunks
+        .get(2)
+        .expect("Failed to get token from path chunks");
+    let body = HandshakeRequestBody::new((client_id).to_string(), (token).to_string());
+
+    let endpoint = base_url.join("/api/v1/client/auth/handshake")?;
+    let client = DROP_CLIENT_ASYNC.clone();
+    let response = client.post(endpoint).json(&body).send().await?;
+    debug!("handshake responsded with {}", response.status().as_u16());
+    if !response.status().is_success() {
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
+    }
+    let response_struct: HandshakeResponse = response.json().await?;
+
+    {
+        let mut handle = borrow_db_mut_checked();
+        handle.auth = Some(response_struct.into());
+    }
+
+    let web_token = {
+        let header = generate_authorization_header();
+        let token = client
+            .post(base_url.join("/api/v1/client/user/webtoken")?)
+            .header("Authorization", header)
+            .send()
+            .await?;
+
+        token.text().await?
+    };
+    let mut handle = borrow_db_mut_checked();
+    handle.auth.as_mut().unwrap().web_token = Some(web_token);
+
+    Ok(())
 }

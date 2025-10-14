@@ -1,0 +1,15 @@
+[package]
+name = "database"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = "0.4.42"
+dirs = "6.0.0"
+log = "0.4.28"
+native_model = { version = "0.6.4", features = ["rmp_serde_1_3"], git = "https://github.com/Drop-OSS/native_model.git"}
+rustbreak = "2.0.0"
+serde = "1.0.228"
+serde_with = "3.15.0"
+url = "2.5.7"
+whoami = "1.6.1"

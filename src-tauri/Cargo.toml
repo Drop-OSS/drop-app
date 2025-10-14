@@ -78,6 +78,16 @@ futures-core = "0.3.31"
 bytes = "1.10.1"
 # tailscale = { path = "./tailscale" }
 
+
+# Workspaces
+client = { version = "0.1.0", path = "./client" }
+database = { path = "./database" }
+process = { path = "./process" }
+remote = { version = "0.1.0", path = "./remote" }
+utils = { path = "./utils" }
+games = { version = "0.1.0", path = "./games" }
+download_manager = { version = "0.1.0", path = "./download_manager" }
+
 [dependencies.dynfmt]
 version = "0.1.5"
 features = ["curly"]
@@ -127,3 +137,18 @@ features = ["derive", "rc"]
 lto = true
 codegen-units = 1
 panic = 'abort'
+
+
+[workspace]
+members = [
+    "client",
+    "database",
+    "process",
+    "remote",
+    "utils",
+    "cloud_saves",
+    "download_manager",
+    "games",
+]
+
+resolver = "3"
