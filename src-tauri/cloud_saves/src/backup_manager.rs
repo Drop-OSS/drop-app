@@ -27,7 +27,7 @@ impl BackupManager<'_> {
             current_platform: Platform::Windows,
 
             #[cfg(target_os = "macos")]
-            current_platform: Platform::MacOs,
+            current_platform: Platform::macOS,
 
             #[cfg(target_os = "linux")]
             current_platform: Platform::Linux,
@@ -43,7 +43,7 @@ impl BackupManager<'_> {
                     &LinuxBackupManager {} as &(dyn BackupHandler + Sync + Send),
                 ),
                 (
-                    (Platform::MacOs, Platform::MacOs),
+                    (Platform::macOS, Platform::macOS),
                     &MacBackupManager {} as &(dyn BackupHandler + Sync + Send),
                 ),
             ]),
