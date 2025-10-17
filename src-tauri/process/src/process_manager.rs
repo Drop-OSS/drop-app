@@ -54,7 +54,7 @@ impl ProcessManager<'_> {
             current_platform: Platform::Windows,
 
             #[cfg(target_os = "macos")]
-            current_platform: Platform::MacOs,
+            current_platform: Platform::macOS,
 
             #[cfg(target_os = "linux")]
             current_platform: Platform::Linux,
@@ -72,7 +72,7 @@ impl ProcessManager<'_> {
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
-                    (Platform::MacOs, Platform::MacOs),
+                    (Platform::macOS, Platform::macOS),
                     &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
