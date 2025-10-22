@@ -22,5 +22,8 @@ sysinfo = "0.37.2"
 tauri = "2.8.5"
 throttle_my_fn = "0.2.6"
 utils = { version = "0.1.0", path = "../utils" }
-native_model = { version = "0.6.4", features = ["rmp_serde_1_3"], git = "https://github.com/Drop-OSS/native_model.git"}
+native_model = { version = "0.6.4", features = [
+    "rmp_serde_1_3",
+], git = "https://github.com/Drop-OSS/native_model.git" }
 serde_json = "1.0.145"
+drop-consts = { version = "0.1.0", path = "../drop-consts" }

@@ -1,4 +1,4 @@
-use database::{DB, interface::DatabaseImpls};
+use database::{DB, DatabaseAuth, interface::DatabaseImpls};
 use url::Url;
 
 use crate::{
@@ -8,8 +8,9 @@ use crate::{
 pub fn generate_url<T: AsRef<str>>(
     path_components: &[T],
     query: &[(T, T)],
+    base_url: Url
 ) -> Result<Url, RemoteAccessError> {
-    let mut base_url = DB.fetch_base_url();
+    let mut base_url = base_url.clone();
     for endpoint in path_components {
         base_url = base_url.join(endpoint.as_ref())?;
     }
@@ -22,10 +23,10 @@ pub fn generate_url<T: AsRef<str>>(
     Ok(base_url)
 }
 
-pub async fn make_authenticated_get(url: Url) -> Result<reqwest::Response, reqwest::Error> {
+pub async fn make_authenticated_get(url: Url, auth: DatabaseAuth) -> Result<reqwest::Response, reqwest::Error> {
     DROP_CLIENT_ASYNC
         .get(url)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", generate_authorization_header(auth))
         .send()
         .await
 }

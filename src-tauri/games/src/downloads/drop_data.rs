@@ -5,13 +5,12 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use drop_consts::DROP_DATA_PATH;
 use log::error;
 use native_model::{Decode, Encode};
 use utils::lock;
 
 pub type DropData = v1::DropData;
-
-pub static DROP_DATA_PATH: &str = ".dropdata";
 
 pub mod v1 {
     use std::{collections::HashMap, path::PathBuf, sync::Mutex};

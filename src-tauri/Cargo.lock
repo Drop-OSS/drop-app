@@ -785,6 +785,7 @@ version = "0.1.0"
 dependencies = [
  "bitcode",
  "database",
+ "drop-consts",
  "log",
  "serde",
  "tauri",
@@ -797,6 +798,7 @@ version = "0.1.0"
 dependencies = [
  "database",
  "dirs 6.0.0",
+ "drop-consts",
  "log",
  "regex",
  "rustix 1.1.2",
@@ -1065,8 +1067,10 @@ checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
 name = "database"
 version = "0.1.0"
 dependencies = [
+ "bitcode",
  "chrono",
  "dirs 6.0.0",
+ "drop-consts",
  "log",
  "native_model",
  "rustbreak",
@@ -1412,6 +1416,13 @@ dependencies = [
  "webbrowser",
  "whoami",
  "zstd",
+]
+
+[[package]]
+name = "drop-consts"
+version = "0.1.0"
+dependencies = [
+ "dirs 6.0.0",
 ]
 
 [[package]]
@@ -1841,6 +1852,7 @@ dependencies = [
  "boxcar",
  "database",
  "download_manager",
+ "drop-consts",
  "hex 0.4.3",
  "log",
  "md5 0.8.0",
@@ -2740,6 +2752,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2934,6 +2955,23 @@ name = "libm"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f9fbbcab51052fe104eb5e5d351cf728d30a5be1fe14d9be8a3b097481fb97de"
+
+[[package]]
+name = "library"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "client",
+ "database",
+ "futures",
+ "itertools",
+ "log",
+ "remote",
+ "serde",
+ "serde_with",
+ "tauri",
+ "url",
+]
 
 [[package]]
 name = "libredox"

@@ -60,22 +60,17 @@ impl From<HandshakeResponse> for DatabaseAuth {
     }
 }
 
-pub fn generate_authorization_header() -> String {
-    let certs = {
-        let db = borrow_db_checked();
-        db.auth.clone().expect("Authorisation not initialised")
-    };
-
+pub fn generate_authorization_header(auth: DatabaseAuth) -> String {
     let nonce = Utc::now().timestamp_millis().to_string();
 
     let signature =
-        sign_nonce(certs.private, nonce.clone()).expect("Failed to generate authorisation header");
+        sign_nonce(auth.private, nonce.clone()).expect("Failed to generate authorisation header");
 
-    format!("Nonce {} {} {}", certs.client_id, nonce, signature)
+    format!("Nonce {} {} {}", auth.client_id, nonce, signature)
 }
 
-pub async fn fetch_user() -> Result<User, RemoteAccessError> {
-    let response = make_authenticated_get(generate_url(&["/api/v1/client/user"], &[])?).await?;
+pub async fn fetch_user(auth: DatabaseAuth, base_url: Url) -> Result<User, RemoteAccessError> {
+    let response = make_authenticated_get(generate_url(&["/api/v1/client/user"], &[], base_url)?, auth).await?;
     if response.status() != 200 {
         let err: DropServerError = response.json().await?;
         warn!("{err:?}");
@@ -93,12 +88,7 @@ pub async fn fetch_user() -> Result<User, RemoteAccessError> {
         .map_err(std::convert::Into::into)
 }
 
-pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
-    let base_url = {
-        let db_lock = borrow_db_checked();
-        Url::parse(&db_lock.base_url.clone())?
-    };
-
+pub fn auth_initiate_logic(mode: String, base_url: Url) -> Result<String, RemoteAccessError> {
     let hostname = gethostname();
 
     let endpoint = base_url.join("/api/v1/client/auth/initiate")?;
@@ -127,26 +117,17 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
     Ok(response)
 }
 
-pub async fn setup() -> (AppStatus, Option<User>) {
-    let auth = {
-        let data = borrow_db_checked();
-        data.auth.clone()
-    };
-
-    if auth.is_some() {
-        let user_result = match fetch_user().await {
-            Ok(data) => data,
-            Err(RemoteAccessError::FetchError(_)) => {
-                let user = get_cached_object::<User>("user").ok();
-                return (AppStatus::Offline, user);
-            }
-            Err(_) => return (AppStatus::SignedInNeedsReauth, None),
-        };
-        if let Err(e) = cache_object("user", &user_result) {
-            warn!("Could not cache user object with error {e}");
+pub async fn setup(auth: DatabaseAuth, base_url: Url) -> (AppStatus, Option<User>) {
+    let user_result = match fetch_user(auth, base_url).await {
+        Ok(data) => data,
+        Err(RemoteAccessError::FetchError(_)) => {
+            let user = get_cached_object::<User>("user").ok();
+            return (AppStatus::Offline, user);
         }
-        return (AppStatus::SignedIn, Some(user_result));
+        Err(_) => return (AppStatus::SignedInNeedsReauth, None),
+    };
+    if let Err(e) = cache_object("user", &user_result) {
+        warn!("Could not cache user object with error {e}");
     }
-
-    (AppStatus::SignedOut, None)
+    return (AppStatus::SignedIn, Some(user_result));
 }

@@ -1,10 +1,11 @@
 use std::fs;
 
 use database::{DownloadType, DownloadableMetadata, borrow_db_mut_checked};
+use drop_consts::DROP_DATA_PATH;
 use log::warn;
 
 use crate::{
-    downloads::drop_data::{DROP_DATA_PATH, DropData},
+    downloads::drop_data::DropData,
     library::set_partially_installed_db,
 };
 

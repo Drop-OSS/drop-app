@@ -9,6 +9,7 @@ use download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
 use download_manager::util::progress_object::{ProgressHandle, ProgressObject};
+use drop_consts::{MAX_FILES_PER_BUCKET, RETRY_COUNT, TARGET_BUCKET_SIZE};
 use log::{debug, error, info, warn};
 use rayon::ThreadPoolBuilder;
 use remote::auth::generate_authorization_header;
@@ -38,11 +39,6 @@ use crate::state::GameStatusManager;
 
 use super::download_logic::download_game_bucket;
 use super::drop_data::DropData;
-
-static RETRY_COUNT: usize = 3;
-
-const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
-const MAX_FILES_PER_BUCKET: usize = (1024 / 4) - 1;
 
 pub struct GameDownloadAgent {
     pub id: String,

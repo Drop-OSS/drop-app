@@ -1,9 +1,10 @@
 use std::str::FromStr;
 
-use database::borrow_db_checked;
+use database::{DatabaseAuth, borrow_db_checked};
 use http::{Request, Response, StatusCode, Uri, uri::PathAndQuery};
-use log::{error, warn};
+use log::warn;
 use tauri::UriSchemeResponder;
+use url::Url;
 use utils::webbrowser_open::webbrowser_open;
 
 use crate::utils::DROP_CLIENT_SYNC;
@@ -27,8 +28,8 @@ pub async fn handle_server_proto_offline(
         .expect("Failed to build error response for proto offline"))
 }
 
-pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
-    match handle_server_proto(request).await {
+pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: UriSchemeResponder, auth: DatabaseAuth, base_url: Url) {
+    match handle_server_proto(request, auth, base_url).await {
         Ok(r) => responder.respond(r),
         Err(e) => {
             warn!("Cache error: {e}");
@@ -42,23 +43,16 @@ pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: U
     }
 }
 
-async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, StatusCode> {
-    let db_handle = borrow_db_checked();
-    let auth = match db_handle.auth.as_ref() {
-        Some(auth) => auth,
-        None => {
-            error!("Could not find auth in database");
-            return Err(StatusCode::UNAUTHORIZED);
-        }
-    };
+async fn handle_server_proto(
+    request: Request<Vec<u8>>,
+    auth: DatabaseAuth,
+    base_url: Url,
+) -> Result<Response<Vec<u8>>, StatusCode> {
     let web_token = match &auth.web_token {
         Some(token) => token,
         None => return Err(StatusCode::UNAUTHORIZED),
     };
-    let remote_uri = db_handle
-        .base_url
-        .parse::<Uri>()
-        .expect("Failed to parse base url");
+    let remote_uri = base_url.as_str().parse::<Uri>().expect("Failed to parse base url");
 
     let path = request.uri().path();
 

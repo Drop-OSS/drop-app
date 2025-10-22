@@ -1,17 +1,11 @@
-use std::sync::nonpoison::Mutex;
-
 use process::{PROCESS_MANAGER, error::ProcessError};
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::AppState;
-
 #[tauri::command]
 pub fn launch_game(
     id: String,
-    state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
-    let state_lock = state.lock();
     let mut process_manager_lock = PROCESS_MANAGER.lock();
     //let meta = DownloadableMetadata {
     //    id,
@@ -23,9 +17,6 @@ pub fn launch_game(
         Ok(()) => {}
         Err(e) => return Err(e),
     }
-
-    drop(process_manager_lock);
-    drop(state_lock);
 
     Ok(())
 }

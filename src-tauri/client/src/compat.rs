@@ -5,6 +5,7 @@ use std::{
     sync::LazyLock,
 };
 
+use drop_consts::{UMU_BASE_LAUNCHER_EXECUTABLE, UMU_INSTALL_DIRS};
 use log::info;
 
 pub static COMPAT_INFO: LazyLock<Option<CompatInfo>> = LazyLock::new(create_new_compat_info);
@@ -29,9 +30,6 @@ fn create_new_compat_info() -> Option<CompatInfo> {
         umu_installed: has_umu_installed,
     })
 }
-
-const UMU_BASE_LAUNCHER_EXECUTABLE: &str = "umu-run";
-const UMU_INSTALL_DIRS: [&str; 4] = ["/app/share", "/use/local/share", "/usr/share", "/opt"];
 
 fn get_umu_executable() -> Option<PathBuf> {
     if check_executable_exists(UMU_BASE_LAUNCHER_EXECUTABLE) {

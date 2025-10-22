@@ -12,9 +12,11 @@ use std::{
     sync::nonpoison::Mutex, time::SystemTime,
 };
 
-use ::client::{app_status::AppStatus, autostart::sync_autostart_on_startup, user::User};
+use ::client::{
+    app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup,
+};
 use ::download_manager::DownloadManagerWrapper;
-use ::games::{library::Game, scan::scan_install_dirs};
+use ::games::scan::scan_install_dirs;
 use ::process::ProcessManagerWrapper;
 use ::remote::{
     auth::{self, HandshakeRequestBody, HandshakeResponse, generate_authorization_header},
@@ -36,7 +38,6 @@ use log4rs::{
     config::{Appender, Root},
     encode::pattern::PatternEncoder,
 };
-use serde::Serialize;
 use tauri::{
     AppHandle, Manager, RunEvent, WindowEvent,
     menu::{Menu, MenuItem, PredefinedMenuItem},
@@ -66,14 +67,6 @@ use games::*;
 use process::*;
 use remote::*;
 use settings::*;
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppState {
-    status: AppStatus,
-    user: Option<User>,
-    games: HashMap<String, Game>,
-}
 
 async fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
@@ -117,11 +110,7 @@ async fn setup(handle: AppHandle) -> AppState {
     scan_install_dirs();
 
     if !is_set_up {
-        return AppState {
-            status: AppStatus::NotConfigured,
-            user: None,
-            games,
-        };
+        return AppState::new(AppStatus::NotConfigured, None, games);
     }
 
     debug!("database is set up");
@@ -179,11 +168,7 @@ async fn setup(handle: AppHandle) -> AppState {
         warn!("failed to sync autostart state: {e}");
     }
 
-    AppState {
-        status: app_status,
-        user,
-        games,
-    }
+    AppState::new(app_status, user, games)
 }
 
 pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
@@ -473,13 +458,11 @@ pub async fn recieve_handshake(app: AppHandle, path: String) {
 
     let mut state_lock = app_state.lock();
 
-    state_lock.status = app_status;
-    state_lock.user = user;
+    *state_lock.status_mut() = app_status;
+    *state_lock.user_mut() = user;
 
     let _ = clear_cached_object("collections");
     let _ = clear_cached_object("library");
-
-    drop(state_lock);
 
     app_emit!(&app, "auth/finished", ());
 }

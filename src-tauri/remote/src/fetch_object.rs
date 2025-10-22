@@ -1,7 +1,8 @@
-use database::{DB, interface::DatabaseImpls};
+use database::{DB, DatabaseAuth, interface::DatabaseImpls};
 use http::{Response, header::CONTENT_TYPE, response::Builder as ResponseBuilder};
 use log::{debug, warn};
 use tauri::UriSchemeResponder;
+use url::Url;
 
 use crate::{error::CacheError, utils::DROP_CLIENT_ASYNC};
 
@@ -10,8 +11,8 @@ use super::{
     cache::{ObjectCache, cache_object, get_cached_object},
 };
 
-pub async fn fetch_object_wrapper(request: http::Request<Vec<u8>>, responder: UriSchemeResponder) {
-    match fetch_object(request).await {
+pub async fn fetch_object_wrapper(request: http::Request<Vec<u8>>, responder: UriSchemeResponder, auth: DatabaseAuth, base_url: Url) {
+    match fetch_object(request, auth, base_url).await {
         Ok(r) => responder.respond(r),
         Err(e) => {
             warn!("Cache error: {e}");
@@ -27,6 +28,8 @@ pub async fn fetch_object_wrapper(request: http::Request<Vec<u8>>, responder: Ur
 
 pub async fn fetch_object(
     request: http::Request<Vec<u8>>,
+    auth: DatabaseAuth,
+    base_url: Url
 ) -> Result<Response<Vec<u8>>, CacheError> {
     // Drop leading /
     let object_id = &request.uri().path()[1..];
@@ -38,9 +41,9 @@ pub async fn fetch_object(
         return cache_result.try_into();
     }
 
-    let header = generate_authorization_header();
+    let header = generate_authorization_header(auth);
     let client = DROP_CLIENT_ASYNC.clone();
-    let url = format!("{}api/v1/client/object/{object_id}", DB.fetch_base_url());
+    let url = format!("{}api/v1/client/object/{object_id}", base_url);
     let response = client.get(url).header("Authorization", header).send().await;
 
     match response {

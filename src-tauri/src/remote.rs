@@ -1,6 +1,6 @@
 use std::{sync::nonpoison::Mutex, time::Duration};
 
-use client::app_status::AppStatus;
+use client::{app_state::AppState, app_status::AppStatus};
 use database::{borrow_db_checked, borrow_db_mut_checked};
 use futures_lite::StreamExt;
 use log::{debug, warn};
@@ -18,7 +18,7 @@ use tauri::{AppHandle, Manager};
 use url::Url;
 use utils::{app_emit, webbrowser_open::webbrowser_open};
 
-use crate::{AppState, recieve_handshake};
+use crate::{recieve_handshake};
 
 #[tauri::command]
 pub async fn use_remote(
@@ -45,7 +45,7 @@ pub async fn use_remote(
     }
 
     let mut app_state = state.lock();
-    app_state.status = AppStatus::SignedOut;
+    *app_state.status_mut() = AppStatus::SignedOut;
     drop(app_state);
 
     let mut db_state = borrow_db_mut_checked();
@@ -100,8 +100,8 @@ pub fn sign_out(app: AppHandle) {
     {
         let state = app.state::<Mutex<AppState>>();
         let mut app_state_handle = state.lock();
-        app_state_handle.status = AppStatus::SignedOut;
-        app_state_handle.user = None;
+        *app_state_handle.status_mut() = AppStatus::SignedOut;
+        *app_state_handle.user_mut() = None;
     }
 
     // Emit event for frontend
@@ -112,10 +112,9 @@ pub fn sign_out(app: AppHandle) {
 pub async fn retry_connect(state: tauri::State<'_, Mutex<AppState>>) -> Result<(), ()> {
     let (app_status, user) = setup().await;
 
-    let mut guard = state.lock();
-    guard.status = app_status;
-    guard.user = user;
-    drop(guard);
+    let mut state_lock = state.lock();
+    *state_lock.status_mut() = app_status;
+    *state_lock.user_mut() = user;
 
     Ok(())
 }

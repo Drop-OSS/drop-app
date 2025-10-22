@@ -8,7 +8,7 @@ pub mod platform;
 
 pub use db::DB;
 pub use interface::{borrow_db_checked, borrow_db_mut_checked};
-pub use models::data::{
+pub use models::{
     ApplicationTransientStatus, Database, DatabaseApplications, DatabaseAuth, DownloadType,
     DownloadableMetadata, GameDownloadStatus, GameVersion, Settings,
 };

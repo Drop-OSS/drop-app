@@ -2,7 +2,7 @@ use std::{collections::HashMap, path::PathBuf, str::FromStr};
 
 #[cfg(target_os = "linux")]
 use database::platform::Platform;
-use database::{GameVersion, db::DATA_ROOT_DIR};
+use database::{db::DATA_ROOT_DIR, GameVersion};
 use log::warn;
 
 use crate::error::BackupError;

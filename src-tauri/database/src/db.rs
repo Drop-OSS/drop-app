@@ -3,24 +3,18 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
+use drop_consts::DATA_ROOT_PREFIX;
 use rustbreak::{DeSerError, DeSerializer};
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::interface::{DatabaseImpls, DatabaseInterface};
+use crate::{interface::DatabaseImpls, models::DatabaseInterface};
 
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
-#[cfg(not(debug_assertions))]
-static DATA_ROOT_PREFIX: &str = "drop";
-#[cfg(debug_assertions)]
-static DATA_ROOT_PREFIX: &str = "drop-debug";
-
-pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> = LazyLock::new(|| {
-    Arc::new(
+pub static DATA_ROOT_DIR: LazyLock<PathBuf> = LazyLock::new(|| {
         dirs::data_dir()
             .expect("Failed to get data dir")
-            .join(DATA_ROOT_PREFIX),
-    )
+            .join(DATA_ROOT_PREFIX)
 });
 
 // Custom JSON serializer to support everything we need

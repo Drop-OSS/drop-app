@@ -1,13 +1,12 @@
 use std::sync::nonpoison::Mutex;
 
+use client::app_state::AppState;
 use database::{borrow_db_checked, borrow_db_mut_checked};
 use download_manager::DOWNLOAD_MANAGER;
 use log::{debug, error};
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
-
-use crate::AppState;
 
 #[tauri::command]
 pub fn fetch_state(state: tauri::State<'_, Mutex<AppState>>) -> Result<String, String> {

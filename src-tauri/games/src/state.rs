@@ -1,4 +1,4 @@
-use database::models::data::{
+use database::{
     ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus,
 };
 

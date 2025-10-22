@@ -17,7 +17,7 @@ macro_rules! offline {
 
         async move {
             if ::database::borrow_db_checked().settings.force_offline
-            || $var.lock().status == ::client::app_status::AppStatus::Offline {
+            || *$var.lock().status() == ::client::app_status::AppStatus::Offline {
             $func2( $( $arg ), *).await
         } else {
             $func1( $( $arg ), *).await

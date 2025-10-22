@@ -9,20 +9,14 @@ use std::{
 use chrono::Utc;
 use log::{debug, error, info, warn};
 use rustbreak::{PathDatabase, RustbreakError};
-use url::Url;
 
 use crate::{
-    db::{DATA_ROOT_DIR, DB, DropDatabaseSerializer},
-    models::data::Database,
+    db::{DropDatabaseSerializer, DATA_ROOT_DIR, DB},
+    models::{Database, DatabaseInterface},
 };
-
-pub type DatabaseInterface =
-    rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;
 
 pub trait DatabaseImpls {
     fn set_up_database() -> DatabaseInterface;
-    fn database_is_set_up(&self) -> bool;
-    fn fetch_base_url(&self) -> Url;
 }
 impl DatabaseImpls for DatabaseInterface {
     fn set_up_database() -> DatabaseInterface {
@@ -87,16 +81,6 @@ impl DatabaseImpls for DatabaseInterface {
             debug!("Creating database at path {}", db_path.display());
             PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
         }
-    }
-
-    fn database_is_set_up(&self) -> bool {
-        !borrow_db_checked().base_url.is_empty()
-    }
-
-    fn fetch_base_url(&self) -> Url {
-        let handle = borrow_db_checked();
-        Url::parse(&handle.base_url)
-            .unwrap_or_else(|_| panic!("Failed to parse base url {}", handle.base_url))
     }
 }
 

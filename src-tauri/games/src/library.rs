@@ -1,7 +1,5 @@
-use bitcode::{Decode, Encode};
 use database::{
-    ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion,
-    borrow_db_checked, borrow_db_mut_checked,
+    borrow_db_checked, borrow_db_mut_checked, models::Game, ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion
 };
 use log::{debug, error, warn};
 use remote::{
@@ -33,26 +31,6 @@ impl FetchGameStruct {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, Encode, Decode)]
-#[serde(rename_all = "camelCase")]
-pub struct Game {
-    id: String,
-    m_name: String,
-    m_short_description: String,
-    m_description: String,
-    // mDevelopers
-    // mPublishers
-    m_icon_object_id: String,
-    m_banner_object_id: String,
-    m_cover_object_id: String,
-    m_image_library_object_ids: Vec<String>,
-    m_image_carousel_object_ids: Vec<String>,
-}
-impl Game {
-    pub fn id(&self) -> &String {
-        &self.id
-    }
-}
 #[derive(serde::Serialize, Clone)]
 pub struct GameUpdateEvent {
     pub game_id: String,

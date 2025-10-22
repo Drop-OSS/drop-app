@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 database = { version = "0.1.0", path = "../database" }
 dirs = "6.0.0"
+drop-consts = { version = "0.1.0", path = "../drop-consts" }
 log = "0.4.28"
 regex = "1.11.3"
 rustix = "1.1.2"
