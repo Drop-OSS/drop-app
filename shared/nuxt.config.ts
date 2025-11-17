@@ -9,9 +9,11 @@ export default defineNuxtConfig({
     },
   },
 
+  css: ["~/assets/main.scss"],
+
   ssr: false,
 
-  extends: ["../shared", "../libs/drop-base"],
+  extends: [["../libs/drop-base"]],
 
   app: {
     baseURL: "/main",
@@ -20,6 +22,4 @@ export default defineNuxtConfig({
   devtools: {
     enabled: false,
   },
-
-  
 });

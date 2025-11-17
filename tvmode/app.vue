@@ -1,13 +1,13 @@
 <template>
   <NuxtLoadingIndicator color="#2563eb" />
-  <NuxtLayout class="select-none w-screen h-screen">
+  <NuxtLayout class="select-none">
     <NuxtPage />
     <ModalStack />
   </NuxtLayout>
 </template>
 
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from '@tauri-apps/api/core';
 
 const router = useRouter();
 
@@ -36,8 +36,5 @@ router.beforeEach(async () => {
 
 setupHooks();
 initialNavigation(state);
-
-useHead({
-  title: "Drop",
-});
+const navigator = createTVNavigator();
 </script>

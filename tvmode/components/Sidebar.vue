@@ -1,53 +1,29 @@
 <template>
-  <div class="h-16 bg-zinc-950 flex flex-row justify-between">
-    <div class="flex flex-row grow items-center pl-5 pr-2 py-3">
-      <div class="inline-flex items-center gap-x-10">
+    <div class="bg-zinc-950 flex flex-col items-center pl-5 px-10 py-8">
+      <div class="flex flex-col items-center gap-y-10">
         <Wordmark class="h-8 mb-0.5" />
-        <nav class="inline-flex items-center mt-0.5">
-          <ol class="inline-flex items-center gap-x-6">
+          <ol class="flex flex-col gap-y-2">
             <NuxtLink
               v-for="(nav, navIdx) in navigation"
               :class="[
-                'transition  uppercase font-display font-semibold text-md',
+                'transition rounded focus:ring-2 ring-blue-600 px-2 uppercase font-display font-semibold text-xl',
                 navIdx === currentNavigation
                   ? 'text-zinc-100'
                   : 'text-zinc-400 hover:text-zinc-200',
               ]"
               :href="nav.route"
+              :tvnavDebug="`nav-link-${nav.label}`"
             >
               {{ nav.label }}
             </NuxtLink>
           </ol>
-        </nav>
-      </div>
-      <div
-        @mousedown="() => window.startDragging()"
-        class="flex cursor-pointer grow h-full"
-      />
-      <div class="inline-flex items-center">
-        <ol class="inline-flex gap-3">
-          <HeaderQueueWidget :object="currentQueueObject" />
-          <li v-for="(item, itemIdx) in quickActions">
-            <HeaderWidget
-              @click="item.action"
-              :notifications="item.notifications"
-            >
-              <component class="h-5" :is="item.icon" />
-            </HeaderWidget>
-          </li>
-          <OfflineHeaderWidget v-if="state?.status === AppStatus.Offline" />
-          <HeaderUserWidget />
-        </ol>
       </div>
     </div>
-    <WindowControl />
-  </div>
 </template>
 
 <script setup lang="ts">
 import { BellIcon, UserGroupIcon } from "@heroicons/vue/16/solid";
 import { AppStatus, type NavigationItem, type QuickActionNav } from "../types";
-import HeaderWidget from "./HeaderWidget.vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
 const window = getCurrentWindow();
@@ -64,6 +40,7 @@ const navigation: Array<NavigationItem> = [
     route: "/library",
     label: "Library",
   },
+  /*
   {
     prefix: "/community",
     route: "/community",
@@ -74,6 +51,7 @@ const navigation: Array<NavigationItem> = [
     route: "/news",
     label: "News",
   },
+  */
 ];
 
 const { currentNavigation } = useCurrentNavigationIndex(navigation);

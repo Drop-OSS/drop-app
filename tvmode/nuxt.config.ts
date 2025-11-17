@@ -14,7 +14,7 @@ export default defineNuxtConfig({
   extends: ["../shared", "../libs/drop-base"],
 
   app: {
-    baseURL: "/main",
+    baseURL: "/tvmode",
   },
 
   devtools: {

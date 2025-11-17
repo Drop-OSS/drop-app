@@ -7,7 +7,14 @@
 </template>
 
 <script setup lang="ts">
+import "~/composables/downloads.js";
+
 import { invoke } from "@tauri-apps/api/core";
+import { useAppState } from "./composables/app-state.js";
+import {
+  initialNavigation,
+  setupHooks,
+} from "./composables/state-navigation.js";
 
 const router = useRouter();
 
