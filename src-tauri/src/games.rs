@@ -6,7 +6,7 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::warn;
+use log::{info, warn};
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
@@ -55,7 +55,8 @@ pub async fn fetch_library_logic(
     if response.status() != 200 {
         let err = response.json().await.unwrap_or(DropServerError {
             status_code: 500,
-            status_message: "Invalid response from server.".to_owned(),
+            status_message: "Server Error".to_owned(),
+            message: "Invalid response from server.".to_owned(),
         });
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
@@ -222,6 +223,11 @@ pub async fn fetch_game_version_options_logic(
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
+
+    let raw = response.text().await?;
+    info!("{}", raw);
+
+    return Err(RemoteAccessError::CorruptedState);
 
     let data: Vec<GameVersion> = response.json().await?;
 

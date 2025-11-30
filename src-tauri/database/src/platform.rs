@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub enum Platform {
     Windows,
     Linux,
+    #[allow(non_camel_case_types)]
     macOS,
 }
 

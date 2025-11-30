@@ -73,7 +73,7 @@
                   alt=""
                 />
               </div>
-              <div class="inline-flex items-center gap-x-2">
+              <div class="truncate inline-flex items-center gap-x-2">
                 <p
                   class="text-sm whitespace-nowrap font-display font-semibold"
                 >

@@ -231,7 +231,8 @@ pub fn download_game_bucket(
             return Err(ApplicationDownloadError::DownloadError(
                 RemoteAccessError::InvalidResponse(DropServerError {
                     status_code: 400,
-                    status_message: format!(
+                    status_message: "Server Error".to_owned(),
+                    message: format!(
                         "invalid number of Content-Lengths recieved: {i}, {lengths}"
                     ),
                 }),
@@ -245,7 +246,8 @@ pub fn download_game_bucket(
             return Err(ApplicationDownloadError::DownloadError(
                 RemoteAccessError::InvalidResponse(DropServerError {
                     status_code: 400,
-                    status_message: format!(
+                    status_message: "Server Error".to_owned(),
+                    message: format!(
                         "for {}, expected {}, got {} ({})",
                         drop.filename, drop.length, raw_length, length
                     ),

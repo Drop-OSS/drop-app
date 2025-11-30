@@ -80,7 +80,7 @@ pub async fn fetch_user() -> Result<User, RemoteAccessError> {
         let err: DropServerError = response.json().await?;
         warn!("{err:?}");
 
-        if err.status_message == "Nonce expired" {
+        if err.message == "Nonce expired" {
             return Err(RemoteAccessError::OutOfSync);
         }
 
@@ -106,8 +106,8 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
         name: format!("{} (Desktop)", hostname.display()),
         platform: env::consts::OS.to_string(),
         capabilities: HashMap::from([
-            ("peerAPI".to_owned(), CapabilityConfiguration {}),
-            ("cloudSaves".to_owned(), CapabilityConfiguration {}),
+            ("PeerAPI".to_owned(), CapabilityConfiguration {}),
+            ("CloudSaves".to_owned(), CapabilityConfiguration {}),
         ]),
         mode,
     };
@@ -117,9 +117,9 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
 
     if response.status() != 200 {
         let data: DropServerError = response.json()?;
-        error!("could not start handshake: {}", data.status_message);
+        error!("could not start handshake: {:?}", data);
 
-        return Err(RemoteAccessError::HandshakeFailed(data.status_message));
+        return Err(RemoteAccessError::HandshakeFailed(data.message));
     }
 
     let response = response.text()?;

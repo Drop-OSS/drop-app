@@ -15,7 +15,7 @@ use serde::Deserialize;
 pub struct DropServerError {
     pub status_code: usize,
     pub status_message: String,
-    // pub message: String,
+    pub message: String,
     // pub url: String,
 }
 
@@ -76,7 +76,7 @@ impl Display for RemoteAccessError {
             RemoteAccessError::InvalidResponse(error) => write!(
                 f,
                 "server returned an invalid response: {}, {}",
-                error.status_code, error.status_message
+                error.status_code, error.message
             ),
             RemoteAccessError::UnparseableResponse(error) => {
                 write!(f, "server returned an invalid response: {error}")
