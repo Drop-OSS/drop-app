@@ -224,11 +224,6 @@ pub async fn fetch_game_version_options_logic(
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let raw = response.text().await?;
-    info!("{}", raw);
-
-    return Err(RemoteAccessError::CorruptedState);
-
     let data: Vec<GameVersion> = response.json().await?;
 
     let state_lock = state.lock();
