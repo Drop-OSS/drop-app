@@ -106,8 +106,8 @@ pub fn auth_initiate_logic(mode: String) -> Result<String, RemoteAccessError> {
         name: format!("{} (Desktop)", hostname.display()),
         platform: env::consts::OS.to_string(),
         capabilities: HashMap::from([
-            ("PeerAPI".to_owned(), CapabilityConfiguration {}),
-            ("CloudSaves".to_owned(), CapabilityConfiguration {}),
+            ("peerAPI".to_owned(), CapabilityConfiguration {}),
+            ("cloudSaves".to_owned(), CapabilityConfiguration {}),
         ]),
         mode,
     };

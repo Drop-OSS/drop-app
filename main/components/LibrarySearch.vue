@@ -38,7 +38,7 @@
       >
         <dt>
           <DisclosureButton
-            class="flex w-full items-center justify-between text-left text-gray-900 dark:text-white"
+            class="flex w-full items-center justify-between text-left text-white"
           >
             <span class="text-sm font-semibold font-display">{{
               nav.name
@@ -73,9 +73,9 @@
                   alt=""
                 />
               </div>
-              <div class="truncate inline-flex items-center gap-x-2">
+              <div class="flex flex-col gap-x-2">
                 <p
-                  class="text-sm whitespace-nowrap font-display font-semibold"
+                  class="truncate text-sm whitespace-nowrap font-display font-semibold"
                 >
                   {{ item.label }}
                 </p>
