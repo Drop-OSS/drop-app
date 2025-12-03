@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     io::Read,
-    sync::LazyLock,
+    sync::LazyLock, time::Duration,
 };
 
 use database::db::DATA_ROOT_DIR;
@@ -91,6 +91,7 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
     }
     client
         .use_rustls_tls()
+        .connect_timeout(Duration::from_millis(1500))
         .build()
         .expect("Failed to build synchronous client")
 }

@@ -10,7 +10,7 @@ use download_manager::{
         progress_object::ProgressHandle,
     },
 };
-use log::debug;
+use log::{debug, info};
 use md5::Context;
 
 use crate::downloads::manifest::DropValidateContext;
@@ -52,6 +52,7 @@ pub fn validate_game_chunk(
 
     let res = hex::encode(hasher.finalize().0);
     if res != ctx.checksum {
+        info!("{} doesn't match", ctx.path.display());
         return Ok(false);
     }
 

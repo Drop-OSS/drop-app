@@ -1,4 +1,6 @@
+
 use database::{DB, interface::DatabaseImpls};
+use log::info;
 use url::Url;
 
 use crate::{
@@ -9,10 +11,10 @@ pub fn generate_url<T: AsRef<str>>(
     path_components: &[T],
     query: &[(T, T)],
 ) -> Result<Url, RemoteAccessError> {
-    let mut base_url = DB.fetch_base_url();
-    for endpoint in path_components {
-        base_url = base_url.join(endpoint.as_ref())?;
-    }
+    let components = path_components.iter().map(|v| v.as_ref()).map(|v| v.trim_matches('/')).collect::<Vec<&str>>();
+    let mut base_url = DB
+        .fetch_base_url()
+        .join(&components.join("/"))?;
     {
         let mut queries = base_url.query_pairs_mut();
         for (param, val) in query {

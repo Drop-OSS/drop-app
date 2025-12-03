@@ -36,13 +36,13 @@ use crate::downloads::validate::validate_game_chunk;
 use crate::library::{on_game_complete, push_game_update, set_partially_installed};
 use crate::state::GameStatusManager;
 
-use super::download_logic::download_game_bucket;
+use super::download_logic::download_game_chunk;
 use super::drop_data::DropData;
 
 static RETRY_COUNT: usize = 3;
 
 const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
-const MAX_FILES_PER_BUCKET: usize = (1024 / 4) - 1;
+const MAX_FILES_PER_BUCKET: usize = 1; // (1024 / 4) - 1;
 
 pub struct GameDownloadAgent {
     pub id: String,
@@ -283,6 +283,7 @@ impl GameDownloadAgent {
             for (index, length) in chunk.lengths.iter().enumerate() {
                 let drop = DownloadDrop {
                     filename: raw_path.to_string(),
+                    id: chunk.ids[index].clone(),
                     start: file_running_offset,
                     length: *length,
                     checksum: chunk.checksums[index].clone(),
@@ -465,7 +466,7 @@ impl GameDownloadAgent {
                     // 3 attempts
                     for i in 0..RETRY_COUNT {
                         let loop_progress_handle = progress_handle.clone();
-                        match download_game_bucket(
+                        match download_game_chunk(
                             &bucket,
                             download_context,
                             &self.control_flag,

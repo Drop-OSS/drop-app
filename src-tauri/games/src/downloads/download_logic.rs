@@ -3,7 +3,7 @@ use std::io::Read;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::{
     fs::{File, OpenOptions},
     io::{self, BufWriter, Seek, SeekFrom, Write},
@@ -105,7 +105,8 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
         })
     }
 
-    fn copy(&mut self) -> Result<bool, io::Error> {
+    fn copy(&mut self) -> Result<(bool, usize), io::Error> {
+        let mut total_copied = 0;
         let mut copy_buffer = [0u8; MAX_PACKET_LENGTH];
         for (index, drop) in self.drops.iter().enumerate() {
             let destination = self
@@ -127,13 +128,14 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
                     })?;
                 remaining -= size;
                 last_bump += size;
+                // total_copied += size;
 
                 destination.write_all(&copy_buffer[0..size])?;
 
                 if last_bump > BUMP_SIZE {
                     last_bump -= BUMP_SIZE;
                     if self.control_flag.get() == DownloadThreadControlFlag::Stop {
-                        return Ok(false);
+                        return Ok((false, 0));
                     }
                 }
 
@@ -143,11 +145,11 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
             }
 
             if self.control_flag.get() == DownloadThreadControlFlag::Stop {
-                return Ok(false);
+                return Ok((false, 0));
             }
         }
 
-        Ok(true)
+        Ok((true, total_copied))
     }
 
     #[allow(dead_code)]
@@ -167,7 +169,7 @@ impl<'a> DropDownloadPipeline<'a, Response, File> {
     }
 }
 
-pub fn download_game_bucket(
+pub fn download_game_chunk(
     bucket: &DownloadBucket,
     ctx: &DownloadContext,
     control_flag: &DownloadThreadControl,
@@ -183,14 +185,20 @@ pub fn download_game_bucket(
 
     let header = generate_authorization_header();
 
-    let url = generate_url(&["/api/v2/client/chunk"], &[])
-        .map_err(ApplicationDownloadError::Communication)?;
+    if bucket.drops.len() > 1 {
+        panic!("lol");
+    }
 
-    let body = ChunkBody::create(ctx, &bucket.drops);
+    let drop = bucket.drops.first().unwrap();
+
+    let bits = ["/api/v1/depot/", &bucket.game_id, &bucket.version, &drop.id];
+    let url = generate_url(&bits, &[]).unwrap();
+
+    // let body = ChunkBody::create(ctx, &bucket.drops);
 
     let response = DROP_CLIENT_SYNC
-        .post(url)
-        .json(&body)
+        .get(url)
+        //.json(&body)
         .header("Authorization", header)
         .send()
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
@@ -210,7 +218,7 @@ pub fn download_game_bucket(
             RemoteAccessError::UnparseableResponse(raw_res),
         ));
     }
-
+    /*
     let lengths = response
         .headers()
         .get("Content-Lengths")
@@ -255,6 +263,7 @@ pub fn download_game_bucket(
             ));
         }
     }
+     */
 
     let timestep = start.elapsed().as_millis();
 
@@ -264,7 +273,7 @@ pub fn download_game_bucket(
         DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
             .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
 
-    let completed = pipeline
+    let (completed, _) = pipeline
         .copy()
         .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
     if !completed {

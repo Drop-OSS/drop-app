@@ -9,7 +9,7 @@ use remote::{
     utils::DROP_CLIENT_SYNC,
 };
 use serde::{Deserialize, Serialize};
-use std::fs::remove_dir_all;
+use std::fs::{exists, remove_dir_all};
 use std::thread::spawn;
 use tauri::AppHandle;
 use utils::app_emit;
@@ -154,7 +154,7 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
         let app_handle = app_handle.clone();
         spawn(move || {
-            if let Err(e) = remove_dir_all(install_dir) {
+            if exists(install_dir.clone()).unwrap_or(false) && let Err(e) = remove_dir_all(install_dir) {
                 error!("{e}");
             } else {
                 let mut db_handle = borrow_db_mut_checked();

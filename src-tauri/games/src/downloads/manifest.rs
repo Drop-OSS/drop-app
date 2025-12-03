@@ -6,6 +6,7 @@ use std::path::PathBuf;
 // Drops go in buckets
 pub struct DownloadDrop {
     pub index: usize,
+    pub id: String,
     pub filename: String,
     pub path: PathBuf,
     pub start: usize,

@@ -57,7 +57,7 @@ impl Display for ApplicationDownloadError {
                 format_size(*required, BINARY),
                 format_size(*available, BINARY),
             ),
-            ApplicationDownloadError::Communication(error) => write!(f, "{error}"),
+            ApplicationDownloadError::Communication(error) => write!(f, "{error:?}"),
             ApplicationDownloadError::Lock => write!(
                 f,
                 "failed to acquire lock. Something has gone very wrong internally. Please restart the application"
