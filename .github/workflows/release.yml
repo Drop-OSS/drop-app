@@ -120,8 +120,8 @@ jobs:
           APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
           NO_STRIP: true
         with:
-          tagName: v__VERSION__ # the action automatically replaces \_\_VERSION\_\_ with the app version.
-          releaseName: "Auto-release v__VERSION__"
+          tagName: ${{ github.ref_name }} # the action automatically replaces \_\_VERSION\_\_ with the app version.
+          releaseName: "Auto-release ${{ github.ref_name }}"
           releaseBody: "See the assets to download this version and install. This release was created automatically."
           releaseDraft: false
           prerelease: true
