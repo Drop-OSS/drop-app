@@ -185,16 +185,9 @@ pub fn download_game_chunk(
 
     let header = generate_authorization_header();
 
-    if bucket.drops.len() > 1 {
-        panic!("lol");
-    }
-
-    let drop = bucket.drops.first().unwrap();
-
-    let bits = ["/api/v1/depot/", &bucket.game_id, &bucket.version, &drop.id];
+    let mut bits = vec!["/api/v1/depot/", &bucket.game_id, &bucket.version];
+    bits.extend(bucket.drops.iter().map(|v| v.id.as_str()));
     let url = generate_url(&bits, &[]).unwrap();
-
-    // let body = ChunkBody::create(ctx, &bucket.drops);
 
     let response = DROP_CLIENT_SYNC
         .get(url)
@@ -218,7 +211,6 @@ pub fn download_game_chunk(
             RemoteAccessError::UnparseableResponse(raw_res),
         ));
     }
-    /*
     let lengths = response
         .headers()
         .get("Content-Lengths")
@@ -240,9 +232,7 @@ pub fn download_game_chunk(
                 RemoteAccessError::InvalidResponse(DropServerError {
                     status_code: 400,
                     status_message: "Server Error".to_owned(),
-                    message: format!(
-                        "invalid number of Content-Lengths recieved: {i}, {lengths}"
-                    ),
+                    message: format!("invalid number of Content-Lengths recieved: {i}, {lengths}"),
                 }),
             ));
         };
@@ -263,7 +253,6 @@ pub fn download_game_chunk(
             ));
         }
     }
-     */
 
     let timestep = start.elapsed().as_millis();
 

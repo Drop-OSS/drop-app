@@ -42,7 +42,7 @@ use super::drop_data::DropData;
 static RETRY_COUNT: usize = 3;
 
 const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
-const MAX_FILES_PER_BUCKET: usize = 1; // (1024 / 4) - 1;
+const MAX_FILES_PER_BUCKET: usize = (1024 / 4) - 1;
 
 pub struct GameDownloadAgent {
     pub id: String,
