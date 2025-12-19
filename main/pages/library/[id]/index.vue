@@ -181,7 +181,10 @@
                 class="relative w-full cursor-default rounded-md bg-zinc-800 py-1.5 pl-3 pr-10 text-left text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-600 sm:text-sm/6"
               >
                 <span class="block truncate"
-                  >{{ versionOptions[installVersionIndex].versionName }}
+                  >{{
+                    versionOptions[installVersionIndex].displayName ||
+                    versionOptions[installVersionIndex].versionPath
+                  }}
                   on
                   {{ versionOptions[installVersionIndex].platform }}</span
                 >
@@ -223,7 +226,7 @@
                             : 'font-normal',
                           'block truncate',
                         ]"
-                        >{{ version.versionName }} on
+                        >{{ version.displayName || version.versionPath }} on
                         {{ version.platform }}</span
                       >
 
@@ -521,7 +524,13 @@ const htmlDescription = micromark(game.value.mDescription);
 
 const installFlowOpen = ref(false);
 const versionOptions = ref<
-  undefined | Array<{ versionName: string; platform: string }>
+  | undefined
+  | Array<{
+      versionId: string;
+      displayName?: string;
+      versionPath: string;
+      platform: string;
+    }>
 >();
 const installDirs = ref<undefined | Array<string>>();
 const currentImageIndex = ref(0);
@@ -554,7 +563,7 @@ async function install() {
     installLoading.value = true;
     await invoke("download_game", {
       gameId: game.value.id,
-      gameVersion: versionOptions.value[installVersionIndex.value].versionName,
+      versionId: versionOptions.value[installVersionIndex.value].versionId,
       installDir: installDir.value,
     });
     installFlowOpen.value = false;
