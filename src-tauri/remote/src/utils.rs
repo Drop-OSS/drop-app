@@ -2,6 +2,7 @@ use std::{
     fs::{self, File},
     io::Read,
     sync::LazyLock,
+    time::Duration,
 };
 
 use database::db::DATA_ROOT_DIR;
@@ -91,6 +92,8 @@ pub fn get_client_sync() -> reqwest::blocking::Client {
     }
     client
         .use_rustls_tls()
+        .user_agent("Drop Desktop Client")
+        .connect_timeout(Duration::from_millis(1500))
         .build()
         .expect("Failed to build synchronous client")
 }
@@ -102,6 +105,7 @@ pub fn get_client_async() -> reqwest::Client {
     }
     client
         .use_rustls_tls()
+        .user_agent("Drop Desktop Client")
         .build()
         .expect("Failed to build asynchronous client")
 }
@@ -113,6 +117,7 @@ pub fn get_client_ws() -> reqwest::Client {
     }
     client
         .use_rustls_tls()
+        .user_agent("Drop Desktop Client")
         .http1_only()
         .build()
         .expect("Failed to build websocket client")

@@ -205,11 +205,13 @@ pub fn on_game_complete(
 
     let client = DROP_CLIENT_SYNC.clone();
     let response = generate_url(
-        &["/api/v1/client/game/version"],
         &[
-            ("id", &meta.id),
-            ("version", meta.version.as_ref().unwrap()),
+            "/api/v1/client/game",
+            &meta.id,
+            "version",
+            meta.version.as_ref().unwrap(),
         ],
+        &[],
     )?;
     let response = client
         .get(response)

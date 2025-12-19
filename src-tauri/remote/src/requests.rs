@@ -5,14 +5,12 @@ use crate::{
     auth::generate_authorization_header, error::RemoteAccessError, utils::DROP_CLIENT_ASYNC,
 };
 
-pub fn generate_url<T: AsRef<str>>(
-    path_components: &[T],
-    query: &[(T, T)],
+pub fn generate_url(
+    path_components: &[&str],
+    query: &[(&str, &str)],
 ) -> Result<Url, RemoteAccessError> {
-    let mut base_url = DB.fetch_base_url();
-    for endpoint in path_components {
-        base_url = base_url.join(endpoint.as_ref())?;
-    }
+    let path_appended = path_components.join("/");
+    let mut base_url = DB.fetch_base_url().join(&path_appended)?;
     {
         let mut queries = base_url.query_pairs_mut();
         for (param, val) in query {

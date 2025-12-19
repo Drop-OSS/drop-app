@@ -53,7 +53,10 @@ pub mod data {
         #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct GameVersion {
             pub game_id: String,
-            pub version_name: String,
+            pub version_id: String,
+
+            pub display_name: Option<String>,
+            pub version_path: String,
 
             pub platform: Platform,
 

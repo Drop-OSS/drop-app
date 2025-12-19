@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use database::DownloadableMetadata;
 use tauri::AppHandle;
 
@@ -16,8 +17,9 @@ use super::{
  *
  * But the download manager manages the queue state
  */
+#[async_trait]
 pub trait Downloadable: Send + Sync {
-    fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
+    async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
     fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
 
     fn progress(&self) -> Arc<ProgressObject>;
@@ -26,6 +28,6 @@ pub trait Downloadable: Send + Sync {
     fn metadata(&self) -> DownloadableMetadata;
     fn on_queued(&self, app_handle: &AppHandle);
     fn on_error(&self, app_handle: &AppHandle, error: &ApplicationDownloadError);
-    fn on_complete(&self, app_handle: &AppHandle);
+    async fn on_complete(&self, app_handle: &AppHandle);
     fn on_cancelled(&self, app_handle: &AppHandle);
 }

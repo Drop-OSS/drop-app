@@ -9,14 +9,14 @@ use games::downloads::download_agent::GameDownloadAgent;
 #[tauri::command]
 pub async fn download_game(
     game_id: String,
-    game_version: String,
+    version_id: String,
     install_dir: usize,
 ) -> Result<(), ApplicationDownloadError> {
     let sender = { DOWNLOAD_MANAGER.get_sender().clone() };
 
     let game_download_agent = GameDownloadAgent::new_from_index(
         game_id.clone(),
-        game_version.clone(),
+        version_id.clone(),
         install_dir,
         sender,
     )
@@ -27,6 +27,7 @@ pub async fn download_game(
 
     DOWNLOAD_MANAGER
         .queue_download(game_download_agent.clone())
+        .await
         .unwrap();
 
     Ok(())
@@ -71,6 +72,7 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
 
     DOWNLOAD_MANAGER
         .queue_download(game_download_agent)
+        .await
         .unwrap();
     Ok(())
 }

@@ -160,7 +160,8 @@ pub async fn fetch_game_logic(
     };
 
     let client = DROP_CLIENT_ASYNC.clone();
-    let response = generate_url(&["/api/v1/client/game/", &id], &[])?;
+    let response = generate_url(&["/api/v1/client/game", &id], &[])?;
+    info!("requesting {}", response);
     let response = client
         .get(response)
         .header("Authorization", generate_authorization_header())
@@ -223,11 +224,6 @@ pub async fn fetch_game_version_options_logic(
         warn!("{err:?}");
         return Err(RemoteAccessError::InvalidResponse(err));
     }
-
-    let raw = response.text().await?;
-    info!("{}", raw);
-
-    return Err(RemoteAccessError::CorruptedState);
 
     let data: Vec<GameVersion> = response.json().await?;
 

@@ -2,7 +2,6 @@ use std::{
     sync::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
-        mpsc::Sender,
     },
     time::{Duration, Instant},
 };
@@ -10,6 +9,7 @@ use std::{
 use atomic_instant_full::AtomicInstant;
 use throttle_my_fn::throttle;
 use utils::{lock, send};
+use tokio::sync::mpsc::Sender;
 
 use crate::download_manager_frontend::DownloadManagerSignal;
 
@@ -46,7 +46,7 @@ impl ProgressHandle {
     pub fn add(&self, amount: usize) {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
-        calculate_update(&self.progress_object);
+        tauri::async_runtime::spawn(calculate_update(self.progress_object.clone()));
     }
     pub fn skip(&self, amount: usize) {
         self.progress
@@ -112,14 +112,17 @@ impl ProgressObject {
     }
 }
 
-#[throttle(1, Duration::from_millis(20))]
-pub fn calculate_update(progress: &ProgressObject) {
+pub async fn calculate_update(progress: Arc<ProgressObject>) {
     let last_update_time = progress
         .last_update_time
-        .swap(Instant::now(), Ordering::SeqCst);
+        .load(Ordering::SeqCst);
     let time_since_last_update = Instant::now()
         .duration_since(last_update_time)
         .as_millis_f64();
+    if time_since_last_update < 250.0 {
+        return;
+    }
+    progress.last_update_time.swap(Instant::now(), Ordering::SeqCst);
 
     let current_bytes_downloaded = progress.sum();
     let max = progress.get_max();
@@ -135,25 +138,24 @@ pub fn calculate_update(progress: &ProgressObject) {
     let bytes_remaining = max.saturating_sub(current_bytes_downloaded); // bytes
 
     progress.update_window(kilobytes_per_second as usize);
-    push_update(progress, bytes_remaining);
+    push_update(&progress, bytes_remaining).await;
 }
 
-#[throttle(1, Duration::from_millis(250))]
-pub fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
+pub async fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
     let average_speed = progress.rolling.get_average();
     let time_remaining = (bytes_remaining / 1000) / average_speed.max(1);
 
-    update_ui(progress, average_speed, time_remaining);
-    update_queue(progress);
+    update_ui(progress, average_speed, time_remaining).await;
+    update_queue(progress).await;
 }
 
-fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
+async fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
     send!(
         progress_object.sender,
         DownloadManagerSignal::UpdateUIStats(kilobytes_per_second, time_remaining)
     );
 }
 
-fn update_queue(progress: &ProgressObject) {
+async fn update_queue(progress: &ProgressObject) {
     send!(progress.sender, DownloadManagerSignal::UpdateUIQueue)
 }

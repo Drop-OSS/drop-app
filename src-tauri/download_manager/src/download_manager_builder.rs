@@ -1,15 +1,13 @@
 use std::{
     collections::HashMap,
-    sync::{
-        Arc, Mutex,
-        mpsc::{Receiver, Sender, channel},
-    },
-    thread::{JoinHandle, spawn},
+    sync::{Arc, Mutex},
 };
 
 use database::DownloadableMetadata;
 use log::{debug, error, info, warn};
-use tauri::AppHandle;
+use tauri::{AppHandle, async_runtime::JoinHandle};
+use tokio::sync::mpsc;
+use tokio::sync::mpsc::{Receiver, Sender};
 use utils::{app_emit, lock, send};
 
 use crate::{
@@ -83,7 +81,7 @@ pub struct DownloadManagerBuilder {
 impl DownloadManagerBuilder {
     pub fn build(app_handle: AppHandle) -> DownloadManager {
         let queue = Queue::new();
-        let (command_sender, command_receiver) = channel();
+        let (command_sender, command_receiver) = mpsc::channel(4);
         let active_progress = Arc::new(Mutex::new(None));
         let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
 
@@ -100,7 +98,10 @@ impl DownloadManagerBuilder {
             active_control_flag: None,
         };
 
-        let terminator = spawn(|| manager.manage_queue());
+        let terminator = tauri::async_runtime::spawn(async move {
+            let result = manager.manage_queue().await;
+            info!("download manager exited with result: {:?}", result);
+        });
 
         DownloadManager::new(terminator, queue, active_progress, command_sender)
     }
@@ -109,48 +110,51 @@ impl DownloadManagerBuilder {
         *lock!(self.status) = status;
     }
 
-    fn remove_and_cleanup_front_download(&mut self, meta: &DownloadableMetadata) -> DownloadAgent {
+    async fn remove_and_cleanup_front_download(
+        &mut self,
+        meta: &DownloadableMetadata,
+    ) -> DownloadAgent {
         self.download_queue.pop_front();
         let download_agent = self.download_agent_registry.remove(meta).unwrap();
-        self.cleanup_current_download();
+        self.cleanup_current_download().await;
         download_agent
     }
 
     // CAREFUL WITH THIS FUNCTION
     // Make sure the download thread is terminated
-    fn cleanup_current_download(&mut self) {
+    async fn cleanup_current_download(&mut self) {
         self.active_control_flag = None;
         *lock!(self.progress) = None;
 
-        let mut download_thread_lock = lock!(self.current_download_thread);
-
-        if let Some(unfinished_thread) = download_thread_lock.take()
-            && !unfinished_thread.is_finished()
-        {
-            unfinished_thread.join().unwrap();
+        if let Some(unfinished_thread) = {
+            let mut download_thread_lock = lock!(self.current_download_thread);
+            download_thread_lock.take()
+        } {
+            let _ = unfinished_thread.await;
         }
-        drop(download_thread_lock);
     }
 
-    fn stop_and_wait_current_download(&self) -> bool {
+    async fn stop_and_wait_current_download(&self) -> bool {
         self.set_status(DownloadManagerStatus::Paused);
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
         }
 
-        let mut download_thread_lock = lock!(self.current_download_thread);
-        if let Some(current_download_thread) = download_thread_lock.take() {
-            return current_download_thread.join().is_ok();
+        if let Some(current_download_thread) = {
+            let mut download_thread_lock = lock!(self.current_download_thread);
+            download_thread_lock.take()
+        } {
+            return current_download_thread.await.is_ok();
         };
 
         true
     }
 
-    fn manage_queue(mut self) -> Result<(), ()> {
+    async fn manage_queue(mut self) -> Result<(), ()> {
         loop {
-            let signal = match self.command_receiver.recv() {
-                Ok(signal) => signal,
-                Err(_) => return Err(()),
+            let signal = match self.command_receiver.recv().await {
+                Some(signal) => signal,
+                None => return Err(()),
             };
 
             match signal {
@@ -161,13 +165,13 @@ impl DownloadManagerBuilder {
                     self.manage_stop_signal();
                 }
                 DownloadManagerSignal::Completed(meta) => {
-                    self.manage_completed_signal(meta);
+                    self.manage_completed_signal(meta).await;
                 }
                 DownloadManagerSignal::Queue(download_agent) => {
-                    self.manage_queue_signal(download_agent);
+                    self.manage_queue_signal(download_agent).await;
                 }
                 DownloadManagerSignal::Error(e) => {
-                    self.manage_error_signal(e);
+                    self.manage_error_signal(e).await;
                 }
                 DownloadManagerSignal::UpdateUIQueue => {
                     self.push_ui_queue_update();
@@ -176,16 +180,16 @@ impl DownloadManagerBuilder {
                     self.push_ui_stats_update(kbs, time);
                 }
                 DownloadManagerSignal::Finish => {
-                    self.stop_and_wait_current_download();
+                    self.stop_and_wait_current_download().await;
                     return Ok(());
                 }
                 DownloadManagerSignal::Cancel(meta) => {
-                    self.manage_cancel_signal(&meta);
+                    self.manage_cancel_signal(&meta).await;
                 }
             }
         }
     }
-    fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
+    async fn manage_queue_signal(&mut self, download_agent: DownloadAgent) {
         debug!("got signal Queue");
         let meta = download_agent.metadata();
 
@@ -249,9 +253,9 @@ impl DownloadManagerBuilder {
         let mut download_thread_lock = lock!(self.current_download_thread);
         let app_handle = self.app_handle.clone();
 
-        *download_thread_lock = Some(spawn(move || {
+        *download_thread_lock = Some(tauri::async_runtime::spawn(async move {
             loop {
-                let download_result = match download_agent.download(&app_handle) {
+                let download_result = match download_agent.download(&app_handle).await {
                     // Ok(true) is for completed and exited properly
                     Ok(v) => v,
                     Err(e) => {
@@ -291,7 +295,7 @@ impl DownloadManagerBuilder {
                 }
 
                 if validate_result {
-                    download_agent.on_complete(&app_handle);
+                    download_agent.on_complete(&app_handle).await;
                     send!(
                         sender,
                         DownloadManagerSignal::Completed(download_agent.metadata())
@@ -314,31 +318,31 @@ impl DownloadManagerBuilder {
             active_control_flag.set(DownloadThreadControlFlag::Stop);
         }
     }
-    fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
+    async fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
         debug!("got signal Completed");
         if let Some(interface) = self.download_queue.read().front()
             && interface == &meta
         {
-            self.remove_and_cleanup_front_download(&meta);
+            self.remove_and_cleanup_front_download(&meta).await;
         }
 
         self.push_ui_queue_update();
         send!(self.sender, DownloadManagerSignal::Go);
     }
-    fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
+    async fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
         debug!("got signal Error");
         if let Some(metadata) = self.download_queue.read().front()
             && let Some(current_agent) = self.download_agent_registry.get(metadata)
         {
             current_agent.on_error(&self.app_handle, &error);
 
-            self.stop_and_wait_current_download();
-            self.remove_and_cleanup_front_download(metadata);
+            self.stop_and_wait_current_download().await;
+            self.remove_and_cleanup_front_download(metadata).await;
         }
         self.push_ui_queue_update();
         self.set_status(DownloadManagerStatus::Error);
     }
-    fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
+    async fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
         debug!("got signal Cancel");
 
         // If the current download is the one we're tryna cancel
@@ -348,11 +352,11 @@ impl DownloadManagerBuilder {
         {
             self.set_status(DownloadManagerStatus::Paused);
             current_download.on_cancelled(&self.app_handle);
-            self.stop_and_wait_current_download();
+            self.stop_and_wait_current_download().await;
 
             self.download_queue.pop_front();
 
-            self.cleanup_current_download();
+            self.cleanup_current_download().await;
             self.download_agent_registry.remove(meta);
             debug!("current download queue: {:?}", self.download_queue.read());
         }
@@ -370,7 +374,7 @@ impl DownloadManagerBuilder {
                 );
             }
         }
-        self.sender.send(DownloadManagerSignal::Go).unwrap();
+        self.sender.send(DownloadManagerSignal::Go).await.unwrap();
         self.push_ui_queue_update();
     }
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {

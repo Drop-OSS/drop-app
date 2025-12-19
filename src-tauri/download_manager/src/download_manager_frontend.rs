@@ -2,16 +2,15 @@ use std::{
     any::Any,
     collections::VecDeque,
     fmt::Debug,
-    sync::{
-        Mutex, MutexGuard,
-        mpsc::{SendError, Sender},
-    },
-    thread::JoinHandle,
+    sync::{Mutex, MutexGuard},
 };
 
 use database::DownloadableMetadata;
 use log::{debug, info};
 use serde::Serialize;
+use tauri::async_runtime::JoinHandle;
+use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::{self, error::SendError};
 use utils::{lock, send};
 
 use crate::error::ApplicationDownloadError;
@@ -81,7 +80,7 @@ pub enum DownloadStatus {
 /// THIS EDITING IS BLOCKING!!!
 #[derive(Debug)]
 pub struct DownloadManager {
-    terminator: Mutex<Option<JoinHandle<Result<(), ()>>>>,
+    terminator: Mutex<Option<JoinHandle<()>>>,
     download_queue: Queue,
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
@@ -90,7 +89,7 @@ pub struct DownloadManager {
 #[allow(dead_code)]
 impl DownloadManager {
     pub fn new(
-        terminator: JoinHandle<Result<(), ()>>,
+        terminator: JoinHandle<()>,
         download_queue: Queue,
         progress: CurrentProgressObject,
         command_sender: Sender<DownloadManagerSignal>,
@@ -103,14 +102,15 @@ impl DownloadManager {
         }
     }
 
-    pub fn queue_download(
+    pub async fn queue_download(
         &self,
         download: DownloadAgent,
     ) -> Result<(), SendError<DownloadManagerSignal>> {
         info!("creating download with meta {:?}", download.metadata());
         self.command_sender
-            .send(DownloadManagerSignal::Queue(download))?;
-        self.command_sender.send(DownloadManagerSignal::Go)
+            .send(DownloadManagerSignal::Queue(download))
+            .await?;
+        self.command_sender.send(DownloadManagerSignal::Go).await
     }
     pub fn edit(&self) -> MutexGuard<'_, VecDeque<DownloadableMetadata>> {
         self.download_queue.edit()
@@ -122,7 +122,7 @@ impl DownloadManager {
         let progress_object = (*lock!(self.progress)).clone()?;
         Some(progress_object.get_progress())
     }
-    pub fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
+    pub async fn rearrange_string(&self, meta: &DownloadableMetadata, new_index: usize) {
         let mut queue = self.edit();
         let current_index =
             get_index_from_id(&mut queue, meta).expect("Failed to get meta index from id");
@@ -132,10 +132,10 @@ impl DownloadManager {
         queue.insert(new_index, to_move);
         send!(self.command_sender, DownloadManagerSignal::UpdateUIQueue);
     }
-    pub fn cancel(&self, meta: DownloadableMetadata) {
+    pub async fn cancel(&self, meta: DownloadableMetadata) {
         send!(self.command_sender, DownloadManagerSignal::Cancel(meta));
     }
-    pub fn rearrange(&self, current_index: usize, new_index: usize) {
+    pub async fn rearrange(&self, current_index: usize, new_index: usize) {
         if current_index == new_index {
             return;
         }
@@ -147,10 +147,11 @@ impl DownloadManager {
 
         debug!("moving download at index {current_index} to index {new_index}");
 
-        let mut queue = self.edit();
-        let to_move = queue.remove(current_index).expect("Failed to get");
-        queue.insert(new_index, to_move);
-        drop(queue);
+        {
+            let mut queue = self.edit();
+            let to_move = queue.remove(current_index).expect("Failed to get");
+            queue.insert(new_index, to_move);
+        }
 
         if needs_pause {
             send!(self.command_sender, DownloadManagerSignal::Go);
@@ -158,16 +159,16 @@ impl DownloadManager {
         send!(self.command_sender, DownloadManagerSignal::UpdateUIQueue);
         send!(self.command_sender, DownloadManagerSignal::Go);
     }
-    pub fn pause_downloads(&self) {
+    pub async fn pause_downloads(&self) {
         send!(self.command_sender, DownloadManagerSignal::Stop);
     }
-    pub fn resume_downloads(&self) {
+    pub async fn resume_downloads(&self) {
         send!(self.command_sender, DownloadManagerSignal::Go);
     }
-    pub fn ensure_terminated(&self) -> Result<Result<(), ()>, Box<dyn Any + Send>> {
+    pub async fn ensure_terminated(&self) -> Result<(), tauri::Error> {
         send!(self.command_sender, DownloadManagerSignal::Finish);
         let terminator = lock!(self.terminator).take();
-        terminator.unwrap().join()
+        terminator.unwrap().await
     }
     pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {
         self.command_sender.clone()

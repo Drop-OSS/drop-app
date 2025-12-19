@@ -38,12 +38,14 @@ use log4rs::{
 };
 use serde::Serialize;
 use tauri::{
-    AppHandle, Manager, RunEvent, WindowEvent,
+    AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, WebviewBuilder, WebviewUrl,
+    WindowBuilder, WindowEvent,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
+use tracing::{Level, span};
 use url::Url;
 use utils::app_emit;
 
@@ -204,6 +206,8 @@ pub fn custom_panic_handler(e: &PanicHookInfo) -> Option<()> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // let global_span = span!(Level::TRACE, "global_span");
+    // let _enter = global_span.enter();
     std::panic::set_hook(Box::new(|e| {
         let _ = custom_panic_handler(e);
         println!("{e}");
@@ -296,6 +300,9 @@ pub fn run() {
 
                 let handle = app.handle().clone();
 
+                let width = 1536.0;
+                let height = 864.0;
+
                 let _main_window = tauri::WebviewWindowBuilder::new(
                     &handle,
                     "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
@@ -303,7 +310,7 @@ pub fn run() {
                 )
                 .title("Drop Desktop App")
                 .min_inner_size(1000.0, 500.0)
-                .inner_size(1536.0, 864.0)
+                .inner_size(width, height)
                 .decorations(false)
                 .shadow(false)
                 .data_directory(DATA_ROOT_DIR.join(".webview"))
@@ -368,7 +375,7 @@ pub fn run() {
                                     .expect("Failed to show window");
                             }
                             "quit" => {
-                                cleanup_and_exit(app);
+                                app.exit(0);
                             }
 
                             _ => {
@@ -409,20 +416,8 @@ pub fn run() {
             });
         })
         .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {
-            tauri::async_runtime::block_on(async move {
-                let state = ctx
-                    .app_handle()
-                    .state::<tauri::State<'_, Mutex<AppState>>>();
-
-                offline!(
-                    state,
-                    handle_server_proto_wrapper,
-                    handle_server_proto_offline_wrapper,
-                    request,
-                    responder
-                )
-                .await;
-            });
+            let scope_holder = ctx.app_handle();
+            handle_server_proto_wrapper(request, responder);
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

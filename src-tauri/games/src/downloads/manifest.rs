@@ -61,17 +61,6 @@ impl ChunkBody {
     }
 }
 
-pub type DropManifest = HashMap<String, DropChunk>;
-#[derive(Serialize, Deserialize, Debug, Clone, Ord, PartialOrd, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct DropChunk {
-    pub permissions: u32,
-    pub ids: Vec<String>,
-    pub checksums: Vec<String>,
-    pub lengths: Vec<usize>,
-    pub version_name: String,
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct DropValidateContext {
     pub index: usize,

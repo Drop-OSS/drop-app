@@ -1,175 +1,43 @@
 use std::fs::{Permissions, set_permissions};
-use std::io::Read;
+use std::io::{Read, SeekFrom};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{
-    fs::{File, OpenOptions},
-    io::{self, BufWriter, Seek, SeekFrom, Write},
-    path::PathBuf,
-};
 
+use aes::cipher::{KeyIvInit, StreamCipher};
 use download_manager::error::ApplicationDownloadError;
 use download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
 use download_manager::util::progress_object::ProgressHandle;
+use droplet_rs::manifest::ChunkData;
+use futures_util::StreamExt as _;
 use log::{debug, info, warn};
-use md5::{Context, Digest};
 use remote::auth::generate_authorization_header;
 use remote::error::{DropServerError, RemoteAccessError};
 use remote::requests::generate_url;
-use remote::utils::DROP_CLIENT_SYNC;
-use reqwest::blocking::Response;
-
-use crate::downloads::manifest::{ChunkBody, DownloadBucket, DownloadContext, DownloadDrop};
+use remote::utils::DROP_CLIENT_ASYNC;
+use sha2::Digest;
+use tokio::fs::OpenOptions;
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio_util::io::StreamReader;
 
 static MAX_PACKET_LENGTH: usize = 4096 * 4;
 static BUMP_SIZE: usize = 4096 * 16;
 
-pub struct DropWriter<W: Write> {
-    hasher: Context,
-    destination: BufWriter<W>,
-    progress: ProgressHandle,
-}
-impl DropWriter<File> {
-    fn new(path: PathBuf, progress: ProgressHandle) -> Result<Self, io::Error> {
-        let destination = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(&path)
-            .inspect_err(|_v| warn!("failed to open {}", path.display()))?;
-        Ok(Self {
-            destination: BufWriter::with_capacity(1024 * 1024, destination),
-            hasher: Context::new(),
-            progress,
-        })
-    }
+const READ_BUF_LEN: usize = 1 * 1024 * 1024;
 
-    fn finish(mut self) -> io::Result<Digest> {
-        self.flush()?;
-        Ok(self.hasher.finalize())
-    }
-}
-// Write automatically pushes to file and hasher
-impl Write for DropWriter<File> {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.hasher
-            .write_all(buf)
-            .map_err(|e| io::Error::other(format!("Unable to write to hasher: {e}")))?;
-        let bytes_written = self.destination.write(buf)?;
-        self.progress.add(bytes_written);
+type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
-        Ok(bytes_written)
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        self.hasher.flush()?;
-        self.destination.flush()
-    }
-}
-// Seek moves around destination output
-impl Seek for DropWriter<File> {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
-        self.destination.seek(pos)
-    }
-}
-
-pub struct DropDownloadPipeline<'a, R: Read, W: Write> {
-    pub source: R,
-    pub drops: Vec<DownloadDrop>,
-    pub destination: Vec<DropWriter<W>>,
-    pub control_flag: &'a DownloadThreadControl,
-    #[allow(dead_code)]
-    progress: ProgressHandle,
-}
-
-impl<'a> DropDownloadPipeline<'a, Response, File> {
-    fn new(
-        source: Response,
-        drops: Vec<DownloadDrop>,
-        control_flag: &'a DownloadThreadControl,
-        progress: ProgressHandle,
-    ) -> Result<Self, io::Error> {
-        Ok(Self {
-            source,
-            destination: drops
-                .iter()
-                .map(|drop| DropWriter::new(drop.path.clone(), progress.clone()))
-                .try_collect()?,
-            drops,
-            control_flag,
-            progress,
-        })
-    }
-
-    fn copy(&mut self) -> Result<bool, io::Error> {
-        let mut copy_buffer = [0u8; MAX_PACKET_LENGTH];
-        for (index, drop) in self.drops.iter().enumerate() {
-            let destination = self
-                .destination
-                .get_mut(index)
-                .ok_or(io::Error::other("no destination"))?;
-            let mut remaining = drop.length;
-            if drop.start != 0 {
-                destination.seek(SeekFrom::Start(drop.start as u64))?;
-            }
-            let mut last_bump = 0;
-            loop {
-                let size = MAX_PACKET_LENGTH.min(remaining);
-                let size = self
-                    .source
-                    .read(&mut copy_buffer[0..size])
-                    .inspect_err(|_| {
-                        warn!("got error from {}", drop.filename);
-                    })?;
-                remaining -= size;
-                last_bump += size;
-
-                destination.write_all(&copy_buffer[0..size])?;
-
-                if last_bump > BUMP_SIZE {
-                    last_bump -= BUMP_SIZE;
-                    if self.control_flag.get() == DownloadThreadControlFlag::Stop {
-                        return Ok(false);
-                    }
-                }
-
-                if remaining == 0 {
-                    break;
-                };
-            }
-
-            if self.control_flag.get() == DownloadThreadControlFlag::Stop {
-                return Ok(false);
-            }
-        }
-
-        Ok(true)
-    }
-
-    #[allow(dead_code)]
-    fn debug_skip_checksum(self) {
-        self.destination
-            .into_iter()
-            .for_each(|mut e| e.flush().unwrap());
-    }
-
-    fn finish(self) -> Result<Vec<Digest>, io::Error> {
-        let checksums = self
-            .destination
-            .into_iter()
-            .map(|e| e.finish())
-            .try_collect()?;
-        Ok(checksums)
-    }
-}
-
-pub fn download_game_bucket(
-    bucket: &DownloadBucket,
-    ctx: &DownloadContext,
+pub async fn download_game_chunk(
+    game_id: &str,
+    version_id: &str,
+    chunk_id: &str,
+    key: &[u8; 16],
+    chunk_data: &ChunkData,
+    base_path: PathBuf,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
 ) -> Result<bool, ApplicationDownloadError> {
@@ -183,21 +51,22 @@ pub fn download_game_bucket(
 
     let header = generate_authorization_header();
 
-    let url = generate_url(&["/api/v2/client/chunk"], &[])
-        .map_err(ApplicationDownloadError::Communication)?;
+    let url = generate_url(
+        &["/api/v1/depot/content", game_id, version_id, chunk_id],
+        &[],
+    )
+    .map_err(ApplicationDownloadError::Communication)?;
 
-    let body = ChunkBody::create(ctx, &bucket.drops);
-
-    let response = DROP_CLIENT_SYNC
-        .post(url)
-        .json(&body)
+    let response = DROP_CLIENT_ASYNC
+        .get(url)
         .header("Authorization", header)
         .send()
+        .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
         info!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().map_err(|e| {
+        let raw_res = response.text().await.map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
         info!("{raw_res}");
@@ -211,92 +80,62 @@ pub fn download_game_bucket(
         ));
     }
 
-    let lengths = response
-        .headers()
-        .get("Content-Lengths")
-        .ok_or(ApplicationDownloadError::Communication(
-            RemoteAccessError::UnparseableResponse("missing Content-Lengths header".to_owned()),
-        ))?
-        .to_str()
-        .map_err(|e| {
-            ApplicationDownloadError::Communication(RemoteAccessError::UnparseableResponse(
-                e.to_string(),
-            ))
-        })?;
-
-    for (i, raw_length) in lengths.split(",").enumerate() {
-        let length = raw_length.parse::<usize>().unwrap_or(0);
-        let Some(drop) = bucket.drops.get(i) else {
-            warn!("invalid number of Content-Lengths recieved: {i}, {lengths}");
-            return Err(ApplicationDownloadError::DownloadError(
-                RemoteAccessError::InvalidResponse(DropServerError {
-                    status_code: 400,
-                    status_message: "Server Error".to_owned(),
-                    message: format!(
-                        "invalid number of Content-Lengths recieved: {i}, {lengths}"
-                    ),
-                }),
-            ));
-        };
-        if drop.length != length {
-            warn!(
-                "for {}, expected {}, got {} ({})",
-                drop.filename, drop.length, raw_length, length
-            );
-            return Err(ApplicationDownloadError::DownloadError(
-                RemoteAccessError::InvalidResponse(DropServerError {
-                    status_code: 400,
-                    status_message: "Server Error".to_owned(),
-                    message: format!(
-                        "for {}, expected {}, got {} ({})",
-                        drop.filename, drop.length, raw_length, length
-                    ),
-                }),
-            ));
-        }
-    }
-
     let timestep = start.elapsed().as_millis();
 
     debug!("took {}ms to start downloading", timestep);
 
-    let mut pipeline =
-        DropDownloadPipeline::new(response, bucket.drops.clone(), control_flag, progress)
-            .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
+    let stream = response
+        .bytes_stream()
+        .map(|v| v.map_err(|err| std::io::Error::other(err)));
+    let mut stream_reader = StreamReader::new(stream);
 
-    let completed = pipeline
-        .copy()
-        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
-    if !completed {
-        return Ok(false);
-    }
+    let mut hasher = sha2::Sha256::new();
+    let mut cipher = Aes128Ctr64LE::new(key.into(), &chunk_data.iv.into());
+    let mut read_buf = vec![0u8; READ_BUF_LEN];
+    for file in &chunk_data.files {
+        let path = base_path.join(file.filename.clone());
+        if let Some(parent) = path.parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let mut file_handle = OpenOptions::new()
+            .truncate(false)
+            .write(true)
+            .append(false)
+            .create(true)
+            .open(&path)
+            .await?;
+        file_handle
+            .seek(SeekFrom::Start(file.start.try_into().unwrap()))
+            .await?;
 
-    // If we complete the file, set the permissions (if on Linux)
-    #[cfg(unix)]
-    {
-        for drop in bucket.drops.iter() {
-            let permission = if drop.permissions == 0 {
+        let mut remaining = file.length;
+        while remaining > 0 {
+            let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)]).await?;
+            progress.add(amount);
+            remaining -= amount;
+
+            cipher.apply_keystream(&mut read_buf[0..amount]);
+            hasher.update(&read_buf[0..amount]);
+            file_handle.write_all(&read_buf[0..amount]).await?;
+        }
+
+        #[cfg(unix)]
+        {
+            drop(file_handle);
+            let permissions = if file.permissions == 0 {
                 0o744
             } else {
-                drop.permissions
+                file.permissions
             };
-            let permissions = Permissions::from_mode(permission);
-            set_permissions(drop.path.clone(), permissions)
+            let permissions = Permissions::from_mode(permissions);
+            set_permissions(path, permissions)
                 .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
         }
     }
 
-    let checksums = pipeline
-        .finish()
-        .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
-
-    for (index, drop) in bucket.drops.iter().enumerate() {
-        let res = hex::encode(**checksums.get(index).unwrap());
-        if res != drop.checksum {
-            warn!("context didn't match... doing nothing because we will validate later.");
-            // return Ok(false);
-            // return Err(ApplicationDownloadError::Checksum);
-        }
+    let digest = hex::encode(hasher.finalize());
+    if digest != chunk_data.checksum {
+        return Err(ApplicationDownloadError::Checksum);
     }
 
     Ok(true)

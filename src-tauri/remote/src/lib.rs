@@ -1,3 +1,6 @@
+#![feature(slice_as_array)]
+#![feature(slice_concat_trait)]
+
 pub mod auth;
 #[macro_use]
 pub mod cache;
