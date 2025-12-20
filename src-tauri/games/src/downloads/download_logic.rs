@@ -13,19 +13,12 @@ use download_manager::util::download_thread_control_flag::{
 };
 use download_manager::util::progress_object::ProgressHandle;
 use droplet_rs::manifest::ChunkData;
-use futures_util::StreamExt as _;
-use log::{debug, info, warn};
+use log::{debug, info};
 use remote::auth::generate_authorization_header;
 use remote::error::{DropServerError, RemoteAccessError};
 use remote::requests::generate_url;
-use remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
+use remote::utils::DROP_CLIENT_SYNC;
 use sha2::Digest;
-use tokio::fs::OpenOptions;
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-use tokio_util::io::StreamReader;
-
-static MAX_PACKET_LENGTH: usize = 4096 * 4;
-static BUMP_SIZE: usize = 4096 * 16;
 
 const READ_BUF_LEN: usize = 1 * 1024 * 1024;
 
@@ -79,6 +72,11 @@ pub fn download_game_chunk(
         ));
     }
 
+    if control_flag.get() == DownloadThreadControlFlag::Stop {
+        progress.set(0);
+        return Ok(false);
+    }
+
     let timestep = start.elapsed().as_millis();
 
     debug!("took {}ms to start downloading", timestep);
@@ -127,6 +125,11 @@ pub fn download_game_chunk(
             let permissions = Permissions::from_mode(permissions);
             set_permissions(path, permissions)
                 .map_err(|e| ApplicationDownloadError::IoError(Arc::new(e)))?;
+        }
+
+        if control_flag.get() == DownloadThreadControlFlag::Stop {
+            progress.set(0);
+            return Ok(false);
         }
     }
 

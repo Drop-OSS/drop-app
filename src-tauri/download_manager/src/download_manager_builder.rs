@@ -330,7 +330,7 @@ impl DownloadManagerBuilder {
         send!(self.sender, DownloadManagerSignal::Go);
     }
     async fn manage_error_signal(&mut self, error: ApplicationDownloadError) {
-        debug!("got signal Error");
+        info!("got signal Error");
         if let Some(metadata) = self.download_queue.read().front()
             && let Some(current_agent) = self.download_agent_registry.get(metadata)
         {

@@ -33,7 +33,8 @@ pub fn scan_install_dirs() {
 
             let metadata = DownloadableMetadata::new(
                 drop_data.game_id,
-                Some(drop_data.game_version),
+                drop_data.game_version,
+                drop_data.target_platform,
                 DownloadType::Game,
             );
             set_partially_installed_db(

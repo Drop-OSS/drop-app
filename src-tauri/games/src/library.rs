@@ -87,7 +87,7 @@ pub fn set_partially_installed_db(
     db_lock.applications.game_statuses.insert(
         meta.id.clone(),
         GameDownloadStatus::PartiallyInstalled {
-            version_name: meta.version.as_ref().unwrap().clone(),
+            version_name: meta.version.clone(),
             install_dir,
         },
     );
@@ -199,17 +199,13 @@ pub fn on_game_complete(
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
-    if meta.version.is_none() {
-        return Err(RemoteAccessError::GameNotFound(meta.id.clone()));
-    }
-
     let client = DROP_CLIENT_SYNC.clone();
     let response = generate_url(
         &[
             "/api/v1/client/game",
             &meta.id,
             "version",
-            meta.version.as_ref().unwrap(),
+            &meta.version,
         ],
         &[],
     )?;
@@ -226,7 +222,7 @@ pub fn on_game_complete(
         .game_versions
         .entry(meta.id.clone())
         .or_default()
-        .insert(meta.version.clone().unwrap(), game_version.clone());
+        .insert(meta.version.clone(), game_version.clone());
     handle
         .applications
         .installed_game_version
@@ -234,14 +230,16 @@ pub fn on_game_complete(
 
     drop(handle);
 
-    let status = if game_version.setup_command.is_empty() {
+    let setup_configuration = game_version.setups.iter().find(|v| v.platform == meta.target_platform);
+
+    let status = if setup_configuration.is_none() {
         GameDownloadStatus::Installed {
-            version_name: meta.version.clone().unwrap(),
+            version_name: meta.version.clone(),
             install_dir,
         }
     } else {
         GameDownloadStatus::SetupRequired {
-            version_name: meta.version.clone().unwrap(),
+            version_name: meta.version.clone(),
             install_dir,
         }
     };

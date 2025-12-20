@@ -95,8 +95,7 @@ walkdir = "2.5.0"
 webbrowser = "1.0.2"
 whoami = "1.6.0"
 zstd = "0.13.3"
-wry = { version = "*", features = ["tracing"] }
-tracing = { version = "0.1.43", features = ["log"] }
+wry = { version = "*", features = [] }
 
 [dependencies.dynfmt]
 version = "0.1.5"

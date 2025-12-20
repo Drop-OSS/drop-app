@@ -561,10 +561,12 @@ async function install() {
   try {
     if (!versionOptions.value) throw new Error("Versions have not been loaded");
     installLoading.value = true;
+    const versionOption = versionOptions.value[installVersionIndex.value];
     await invoke("download_game", {
       gameId: game.value.id,
-      versionId: versionOptions.value[installVersionIndex.value].versionId,
+      versionId: versionOption.versionId,
       installDir: installDir.value,
+      targetPlatform: versionOption.platform,
     });
     installFlowOpen.value = false;
   } catch (error) {

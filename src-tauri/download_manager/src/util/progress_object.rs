@@ -3,11 +3,10 @@ use std::{
         Arc, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use atomic_instant_full::AtomicInstant;
-use throttle_my_fn::throttle;
 use utils::{lock, send};
 use tokio::sync::mpsc::Sender;
 

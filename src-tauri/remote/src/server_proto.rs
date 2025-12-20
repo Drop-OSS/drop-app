@@ -2,13 +2,13 @@ use std::str::FromStr;
 
 use database::borrow_db_checked;
 use http::{
-    HeaderMap, HeaderName, HeaderValue, Request, Response, StatusCode, Uri, header::USER_AGENT,
+    HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header::USER_AGENT,
     uri::PathAndQuery,
 };
-use log::{error, info, warn};
+use log::{error, warn};
 use tauri::UriSchemeResponder;
 
-use crate::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
+use crate::utils::DROP_CLIENT_SYNC;
 
 pub async fn handle_server_proto_offline_wrapper(
     request: Request<Vec<u8>>,

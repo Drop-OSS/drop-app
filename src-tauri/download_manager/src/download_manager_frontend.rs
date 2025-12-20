@@ -1,5 +1,4 @@
 use std::{
-    any::Any,
     collections::VecDeque,
     fmt::Debug,
     sync::{Mutex, MutexGuard},
@@ -10,7 +9,7 @@ use log::{debug, info};
 use serde::Serialize;
 use tauri::async_runtime::JoinHandle;
 use tokio::sync::mpsc::Sender;
-use tokio::sync::mpsc::{self, error::SendError};
+use tokio::sync::mpsc::error::SendError;
 use utils::{lock, send};
 
 use crate::error::ApplicationDownloadError;

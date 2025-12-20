@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use database::platform::Platform;
 use log::error;
 use native_model::{Decode, Encode};
 use utils::lock;
@@ -16,6 +17,7 @@ pub static DROP_DATA_PATH: &str = ".dropdata";
 pub mod v1 {
     use std::{collections::HashMap, path::PathBuf, sync::Mutex};
 
+    use database::platform::Platform;
     use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
@@ -24,16 +26,18 @@ pub mod v1 {
     pub struct DropData {
         pub game_id: String,
         pub game_version: String,
+        pub target_platform: Platform,
         pub contexts: Mutex<HashMap<String, bool>>,
         pub base_path: PathBuf,
     }
 
     impl DropData {
-        pub fn new(game_id: String, game_version: String, base_path: PathBuf) -> Self {
+        pub fn new(game_id: String, game_version: String, target_platform: Platform, base_path: PathBuf) -> Self {
             Self {
                 base_path,
                 game_id,
                 game_version,
+                target_platform,
                 contexts: Mutex::new(HashMap::new()),
             }
         }
@@ -41,10 +45,10 @@ pub mod v1 {
 }
 
 impl DropData {
-    pub fn generate(game_id: String, game_version: String, base_path: PathBuf) -> Self {
+    pub fn generate(game_id: String, game_version: String, target_platform: Platform, base_path: PathBuf) -> Self {
         match DropData::read(&base_path) {
             Ok(v) => v,
-            Err(_) => DropData::new(game_id, game_version, base_path),
+            Err(_) => DropData::new(game_id, game_version, target_platform, base_path),
         }
     }
     pub fn read(base_path: &Path) -> Result<Self, io::Error> {

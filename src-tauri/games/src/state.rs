@@ -1,5 +1,5 @@
 use database::models::data::{
-    ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus,
+    ApplicationTransientStatus, Database, DownloadType, GameDownloadStatus,
 };
 
 pub type GameStatusWithTransient = (
@@ -13,12 +13,10 @@ impl GameStatusManager {
         let online_state = database
             .applications
             .transient_statuses
-            .get(&DownloadableMetadata {
-                id: game_id.to_string(),
-                download_type: DownloadType::Game,
-                version: None,
-            })
-            .cloned();
+            .iter()
+            .find(|v| v.0.id == *game_id && v.0.download_type == DownloadType::Game)
+            .map(|v| v.1.clone())
+            .clone();
 
         let offline_state = database.applications.game_statuses.get(game_id).cloned();
 

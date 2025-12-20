@@ -1,6 +1,5 @@
 use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
 use database::{Database, DownloadableMetadata, GameVersion, platform::Platform};
-use log::debug;
 
 use crate::{error::ProcessError, process_manager::ProcessHandler};
 
@@ -26,14 +25,19 @@ pub struct UMULauncher;
 impl ProcessHandler for UMULauncher {
     fn create_launch_process(
         &self,
-        _meta: &DownloadableMetadata,
+        meta: &DownloadableMetadata,
         launch_command: String,
         args: Vec<String>,
         game_version: &GameVersion,
         _current_dir: &str,
     ) -> Result<String, ProcessError> {
-        debug!("Game override: \"{:?}\"", &game_version.umu_id_override);
-        let game_id = match &game_version.umu_id_override {
+        let launch_config = game_version
+            .launches
+            .iter()
+            .find(|v| v.platform == meta.target_platform)
+            .ok_or(ProcessError::NotInstalled)?;
+
+        let game_id = match &launch_config.umu_id_override {
             Some(game_override) => {
                 if game_override.is_empty() {
                     game_version.game_id.clone()

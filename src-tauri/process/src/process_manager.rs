@@ -169,7 +169,7 @@ impl ProcessManager<'_> {
 
         let version_data = match db_handle.applications.game_versions.get(&game_id) {
             // This unwrap here should be resolved by just making the hashmap accept an option rather than just a String
-            Some(res) => res.get(&meta.version.unwrap()).expect("Failed to get game version from installed game versions. Is the database corrupted?"),
+            Some(res) => res.get(&meta.version).expect("Failed to get game version from installed game versions. Is the database corrupted?"),
             None => todo!(),
         };
 
@@ -214,23 +214,14 @@ impl ProcessManager<'_> {
             return Err(ProcessError::AlreadyRunning);
         }
 
-        let version = match borrow_db_checked()
+        let mut db_lock = borrow_db_mut_checked();
+
+        let meta = db_lock
             .applications
-            .game_statuses
+            .installed_game_version
             .get(&game_id)
             .cloned()
-        {
-            Some(GameDownloadStatus::Installed { version_name, .. }) => version_name,
-            Some(GameDownloadStatus::SetupRequired { version_name, .. }) => version_name,
-            _ => return Err(ProcessError::NotInstalled),
-        };
-        let meta = DownloadableMetadata {
-            id: game_id.clone(),
-            version: Some(version.clone()),
-            download_type: DownloadType::Game,
-        };
-
-        let mut db_lock = borrow_db_mut_checked();
+            .ok_or(ProcessError::NotInstalled)?;
 
         let game_status = db_lock
             .applications
@@ -274,7 +265,11 @@ impl ProcessManager<'_> {
             .truncate(true)
             .read(true)
             .create(true)
-            .open(game_log_folder.join(format!("{}-{}.log", &version, current_time.timestamp())))
+            .open(game_log_folder.join(format!(
+                "{}-{}.log",
+                &meta.version,
+                current_time.timestamp()
+            )))
             .map_err(ProcessError::IOError)?;
 
         let error_file = OpenOptions::new()
@@ -284,34 +279,46 @@ impl ProcessManager<'_> {
             .create(true)
             .open(game_log_folder.join(format!(
                 "{}-{}-error.log",
-                &version,
+                &meta.version,
                 current_time.timestamp()
             )))
             .map_err(ProcessError::IOError)?;
 
-        let target_platform = game_version.platform;
+        let target_platform = meta.target_platform;
 
         let process_handler = self.fetch_process_handler(&db_lock, &target_platform)?;
 
-        let (launch, args) = match game_status {
+        let (launch, args, executor) = match game_status {
             GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir: _,
-            } => (&game_version.launch_command, &game_version.launch_args),
+            } => {
+                let launch_config = game_version
+                    .launches
+                    .iter()
+                    .find(|v| v.platform == target_platform)
+                    .ok_or(ProcessError::NotInstalled)?;
+
+                (
+                    launch_config.command.clone(),
+                    launch_config.args.clone(),
+                    launch_config.executor.as_ref(),
+                )
+            }
             GameDownloadStatus::SetupRequired {
                 version_name: _,
                 install_dir: _,
-            } => (&game_version.setup_command, &game_version.setup_args),
-            GameDownloadStatus::PartiallyInstalled {
-                version_name: _,
-                install_dir: _,
-            } => unreachable!("Game registered as 'Partially Installed'"),
-            GameDownloadStatus::Remote {} => unreachable!("Game registered as 'Remote'"),
-        };
+            } => {
+                let setup_config = game_version
+                    .setups
+                    .iter()
+                    .find(|v| v.platform == target_platform)
+                    .ok_or(ProcessError::NotInstalled)?;
 
-        #[allow(clippy::unwrap_used)]
-        let launch = PathBuf::from_str(install_dir).unwrap().join(launch);
-        let launch = launch.display().to_string();
+                (setup_config.command.clone(), setup_config.args.clone(), None)
+            }
+            _ => unreachable!("Game registered as 'Partially Installed'"),
+        };
 
         let launch_string = process_handler.create_launch_process(
             &meta,
@@ -324,12 +331,15 @@ impl ProcessManager<'_> {
         let format_args = DropFormatArgs::new(
             launch_string,
             install_dir,
-            &game_version.launch_command,
-            launch.to_string(),
+            &launch.clone(),
+            PathBuf::from(install_dir)
+                .join(launch)
+                .display()
+                .to_string(),
         );
 
         let launch_string = SimpleCurlyFormat
-            .format(&game_version.launch_command_template, format_args)
+            .format(&game_version.launch_template, format_args)
             .map_err(|e| ProcessError::FormatError(e.to_string()))?
             .to_string();
 

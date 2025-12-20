@@ -43,6 +43,7 @@ pub enum ApplicationDownloadError {
     Lock,
     IoError(Arc<io::Error>),
     DownloadError(RemoteAccessError),
+    InvalidCommand,
 }
 
 impl Display for ApplicationDownloadError {
@@ -69,6 +70,7 @@ impl Display for ApplicationDownloadError {
             ApplicationDownloadError::DownloadError(error) => {
                 write!(f, "Download failed with error {error:?}")
             }
+            ApplicationDownloadError::InvalidCommand => write!(f, "Invalid command state"),
         }
     }
 }

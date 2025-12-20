@@ -21,8 +21,7 @@ use ::remote::{
     cache::clear_cached_object,
     error::RemoteAccessError,
     fetch_object::fetch_object_wrapper,
-    offline,
-    server_proto::{handle_server_proto_offline_wrapper, handle_server_proto_wrapper},
+    server_proto::handle_server_proto_wrapper,
     utils::DROP_CLIENT_ASYNC,
 };
 use database::{
@@ -38,18 +37,15 @@ use log4rs::{
 };
 use serde::Serialize;
 use tauri::{
-    AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, WebviewBuilder, WebviewUrl,
-    WindowBuilder, WindowEvent,
+    AppHandle, Manager, RunEvent,
+    WindowEvent,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
 };
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
-use tracing::{Level, span};
 use url::Url;
 use utils::app_emit;
-
-use crate::client::cleanup_and_exit;
 
 mod client;
 mod collections;
@@ -415,8 +411,7 @@ pub fn run() {
                 fetch_object_wrapper(request, responder).await;
             });
         })
-        .register_asynchronous_uri_scheme_protocol("server", |ctx, request, responder| {
-            let scope_holder = ctx.app_handle();
+        .register_asynchronous_uri_scheme_protocol("server", |_ctx, request, responder| {
             handle_server_proto_wrapper(request, responder);
         })
         .on_window_event(|window, event| {

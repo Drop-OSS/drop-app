@@ -1,6 +1,8 @@
 use std::sync::nonpoison::Mutex;
 
-use database::{GameDownloadStatus, GameVersion, borrow_db_checked, borrow_db_mut_checked};
+use database::{
+    GameDownloadStatus, GameVersion, borrow_db_checked, borrow_db_mut_checked, platform::Platform,
+};
 use games::{
     downloads::error::LibraryError,
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
@@ -16,6 +18,7 @@ use remote::{
     requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
+use serde::Serialize;
 use tauri::AppHandle;
 
 use crate::AppState;
@@ -141,7 +144,7 @@ pub async fn fetch_game_logic(
                 .applications
                 .game_versions
                 .get(&metadata.id)
-                .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+                .map(|v| v.get(&metadata.version).unwrap())
                 .cloned(),
         };
 
@@ -206,10 +209,19 @@ pub async fn fetch_game_logic(
     Ok(data)
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VersionDownloadOption {
+    version_id: String,
+    display_name: Option<String>,
+    version_path: String,
+    platform: Platform,
+}
+
 pub async fn fetch_game_version_options_logic(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersion>, RemoteAccessError> {
+) -> Result<Vec<VersionDownloadOption>, RemoteAccessError> {
     let client = DROP_CLIENT_ASYNC.clone();
 
     let response = generate_url(&["/api/v1/client/game/versions"], &[("id", &game_id)])?;
@@ -229,8 +241,17 @@ pub async fn fetch_game_version_options_logic(
 
     let state_lock = state.lock();
     let process_manager_lock = PROCESS_MANAGER.lock();
-    let data: Vec<GameVersion> = data
+    let data = data
         .into_iter()
+        .map(|v| {
+            v.launches.into_iter().map(move |l| VersionDownloadOption {
+                version_id: v.version_id.clone(),
+                display_name: v.display_name.clone(),
+                version_path: v.version_path.clone(),
+                platform: l.platform,
+            })
+        })
+        .flatten()
         .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();
     drop(process_manager_lock);
@@ -251,7 +272,7 @@ pub async fn fetch_game_logic_offline(
             .applications
             .game_versions
             .get(&metadata.id)
-            .map(|v| v.get(metadata.version.as_ref().unwrap()).unwrap())
+            .map(|v| v.get(&metadata.version).unwrap())
             .cloned(),
     };
 
@@ -299,7 +320,7 @@ pub fn uninstall_game(game_id: String, app_handle: AppHandle) -> Result<(), Libr
 pub async fn fetch_game_version_options(
     game_id: String,
     state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<Vec<GameVersion>, RemoteAccessError> {
+) -> Result<Vec<VersionDownloadOption>, RemoteAccessError> {
     fetch_game_version_options_logic(game_id, state).await
 }
 
@@ -316,10 +337,7 @@ pub fn update_game_configuration(
         .ok_or(LibraryError::MetaNotFound(game_id))?;
 
     let id = installed_version.id.clone();
-    let version = installed_version
-        .version
-        .clone()
-        .ok_or(LibraryError::VersionNotFound(id.clone()))?;
+    let version = installed_version.version.clone();
 
     let mut existing_configuration = handle
         .applications
@@ -331,7 +349,7 @@ pub fn update_game_configuration(
         .clone();
 
     // Add more options in here
-    existing_configuration.launch_command_template = options.launch_string().clone();
+    existing_configuration.launch_template = options.launch_string().clone();
 
     // Add no more options past here
 

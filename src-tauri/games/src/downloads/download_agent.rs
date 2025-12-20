@@ -11,8 +11,6 @@ use download_manager::util::download_thread_control_flag::{
 };
 use download_manager::util::progress_object::{ProgressHandle, ProgressObject};
 use droplet_rs::manifest::Manifest;
-use futures_util::StreamExt;
-use futures_util::stream::FuturesUnordered;
 use log::{debug, error, info, warn};
 use remote::auth::generate_authorization_header;
 use remote::error::RemoteAccessError;
@@ -22,9 +20,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::{io, mem};
+use std::mem;
 use tauri::AppHandle;
-use tokio::sync::Semaphore;
 use tokio::sync::mpsc::Sender;
 use utils::{app_emit, lock, send};
 
@@ -37,12 +34,8 @@ use super::drop_data::DropData;
 
 static RETRY_COUNT: usize = 3;
 
-const TARGET_BUCKET_SIZE: usize = 63 * 1000 * 1000;
-const MAX_FILES_PER_BUCKET: usize = (1024 / 4) - 1;
-
 pub struct GameDownloadAgent {
-    pub id: String,
-    pub version: String,
+    pub metadata: DownloadableMetadata,
     pub control_flag: DownloadThreadControl,
     context_map: Mutex<HashMap<String, bool>>,
     pub manifest: Mutex<Option<Manifest>>,
@@ -54,8 +47,7 @@ pub struct GameDownloadAgent {
 
 impl GameDownloadAgent {
     pub async fn new_from_index(
-        id: String,
-        version: String,
+        metadata: DownloadableMetadata,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
     ) -> Result<Self, ApplicationDownloadError> {
@@ -65,11 +57,10 @@ impl GameDownloadAgent {
             db_lock.applications.install_dirs[target_download_dir].clone()
         };
 
-        Self::new(id, version, base_dir, sender).await
+        Self::new(metadata, base_dir, sender).await
     }
     pub async fn new(
-        id: String,
-        version: String,
+        metadata: DownloadableMetadata,
         base_dir: PathBuf,
         sender: Sender<DownloadManagerSignal>,
     ) -> Result<Self, ApplicationDownloadError> {
@@ -77,14 +68,13 @@ impl GameDownloadAgent {
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
         let base_dir_path = Path::new(&base_dir);
-        let data_base_dir_path = base_dir_path.join(id.clone());
+        let data_base_dir_path = base_dir_path.join(metadata.id.clone());
 
         let stored_manifest =
-            DropData::generate(id.clone(), version.clone(), data_base_dir_path.clone());
+            DropData::generate(metadata.id.clone(), metadata.version.clone(), metadata.target_platform.clone(), data_base_dir_path.clone());
 
         let result = Self {
-            id,
-            version,
+            metadata,
             control_flag,
             manifest: Mutex::new(None),
             context_map: Mutex::new(HashMap::new()),
@@ -114,7 +104,7 @@ impl GameDownloadAgent {
     pub fn setup_download(&self, app_handle: &AppHandle) -> Result<(), ApplicationDownloadError> {
         let mut db_lock = borrow_db_mut_checked();
         let status = ApplicationTransientStatus::Downloading {
-            version_name: self.version.clone(),
+            version_id: self.metadata.version.clone(),
         };
         db_lock
             .applications
@@ -146,7 +136,7 @@ impl GameDownloadAgent {
 
         debug!(
             "{} took {}ms to download",
-            self.id,
+            self.metadata.id,
             timer.elapsed().as_millis()
         );
         res
@@ -168,7 +158,7 @@ impl GameDownloadAgent {
         let client = DROP_CLIENT_ASYNC.clone();
         let url = generate_url(
             &["/api/v1/client/game/manifest"],
-            &[("id", &self.id), ("version", &self.version)],
+            &[("id", &self.metadata.id), ("version", &self.metadata.version)],
         )
         .map_err(ApplicationDownloadError::Communication)?;
 
@@ -257,8 +247,8 @@ impl GameDownloadAgent {
                             let base_path = unsafe_self.dropdata.base_path.clone();
                             info!("starting chunk {}", chunk_id);
                             match download_game_chunk(
-                                &unsafe_self.id,
-                                &unsafe_self.version,
+                                &unsafe_self.metadata.id,
+                                &unsafe_self.metadata.version,
                                 &chunk_id,
                                 &key,
                                 &chunk_data,
@@ -274,13 +264,13 @@ impl GameDownloadAgent {
                                 Err(e) => {
                                     warn!("got error for chunk id {}: {e:?}", chunk_id);
 
-                                    let retry = matches!(
+                                    let retry = true; /*matches!(
                                         &e,
                                         ApplicationDownloadError::Communication(_)
                                             | ApplicationDownloadError::Checksum
                                             | ApplicationDownloadError::Lock
                                             | ApplicationDownloadError::IoError(_)
-                                    );
+                                    );*/
 
                                     if i == RETRY_COUNT - 1 || !retry {
                                         warn!("retry logic failed, not re-attempting.");
@@ -294,6 +284,7 @@ impl GameDownloadAgent {
                         }
                     });
                 }
+                drop(sender);
             });
         });
 
@@ -319,19 +310,15 @@ impl GameDownloadAgent {
         self.dropdata.write();
 
         // If there are any contexts left which are false
-        if !completed_chunks.iter().all(|x| *x.1) {
+        if completed_chunks.len() != chunk_len {
             info!(
                 "download agent for {} exited without completing ({}/{})",
-                self.id.clone(),
-                completed_chunks.iter().filter(|v| *v.1).count(),
+                self.metadata.id.clone(),
+                completed_chunks.len(),
                 chunk_len,
             );
-            self.context_map.replace(completed_chunks).unwrap();
-
             return Ok(false);
         }
-        self.context_map.replace(completed_chunks).unwrap();
-
         Ok(true)
     }
 
@@ -341,7 +328,7 @@ impl GameDownloadAgent {
         self.control_flag.set(DownloadThreadControlFlag::Go);
 
         let status = ApplicationTransientStatus::Validating {
-            version_name: self.version.clone(),
+            version_id: self.metadata.version.clone(),
         };
 
         let mut db_lock = borrow_db_mut_checked();
@@ -445,24 +432,20 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn metadata(&self) -> DownloadableMetadata {
-        DownloadableMetadata {
-            id: self.id.clone(),
-            version: Some(self.version.clone()),
-            download_type: DownloadType::Game,
-        }
+        self.metadata.clone()
     }
 
     fn on_queued(&self, app_handle: &tauri::AppHandle) {
         *self.status.lock().unwrap() = DownloadStatus::Queued;
         let mut db_lock = borrow_db_mut_checked();
         let status = ApplicationTransientStatus::Queued {
-            version_name: self.version.clone(),
+            version_id: self.metadata.version.clone(),
         };
         db_lock
             .applications
             .transient_statuses
             .insert(self.metadata(), status.clone());
-        push_game_update(app_handle, &self.id, None, (None, Some(status)));
+        push_game_update(app_handle, &self.metadata.id, None, (None, Some(status)));
     }
 
     fn on_error(&self, app_handle: &tauri::AppHandle, error: &ApplicationDownloadError) {
@@ -479,9 +462,9 @@ impl Downloadable for GameDownloadAgent {
 
         push_game_update(
             app_handle,
-            &self.id,
+            &self.metadata.id,
             None,
-            GameStatusManager::fetch_state(&self.id, &handle),
+            GameStatusManager::fetch_state(&self.metadata.id, &handle),
         );
     }
 
@@ -503,7 +486,7 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
-        info!("cancelled {}", self.id);
+        info!("cancelled {}", self.metadata.id);
         self.cancel(app_handle);
     }
 
