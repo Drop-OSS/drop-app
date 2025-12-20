@@ -225,74 +225,89 @@ impl GameDownloadAgent {
         };
         let max_download_threads = borrow_db_checked().settings.max_download_threads;
 
-        let metrics = tauri::async_runtime::handle().inner().metrics();
-        info!("using {} workers", metrics.num_workers());
+        let (sender, recv) = crossbeam_channel::bounded(16);
 
-        let futures_unordered = FuturesUnordered::new();
+        let unsafe_self: &'static GameDownloadAgent = unsafe { mem::transmute(self) };
+        let local_completed_chunks = completed_chunks.clone();
 
-        for (index, (chunk_id, chunk_data)) in chunks.into_iter().enumerate() {
-            let progress = self.progress.get(index);
-            let progress_handle = ProgressHandle::new(progress, self.progress.clone());
+        let download_join_handle = tauri::async_runtime::spawn_blocking(move || {
+            let thread_pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(max_download_threads)
+                .build()
+                .unwrap();
+            thread_pool.scope(move |s| {
+                for (index, (chunk_id, chunk_data)) in chunks.into_iter().enumerate() {
+                    let local_sender = sender.clone();
+                    let progress = unsafe_self.progress.get(index);
+                    let progress_handle =
+                        ProgressHandle::new(progress, unsafe_self.progress.clone());
 
-            let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();
+                    let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();
 
-            if *completed_chunks.get(&chunk_id).unwrap_or(&false) {
-                progress_handle.skip(chunk_length);
-                continue;
-            }
+                    if *local_completed_chunks.get(&chunk_id).unwrap_or(&false) {
+                        progress_handle.skip(chunk_length);
+                        continue;
+                    }
 
-            let sender = self.sender.clone();
+                    let sender = unsafe_self.sender.clone();
 
-            futures_unordered.push(async move { async move {
-                for i in 0..RETRY_COUNT {
-                    let loop_progress_handle = progress_handle.clone();
-                    let base_path = self.dropdata.base_path.clone();
-                    info!("starting chunk {}", chunk_id);
-                    match download_game_chunk(
-                        &self.id,
-                        &self.version,
-                        &chunk_id,
-                        &key,
-                        &chunk_data,
-                        base_path,
-                        &self.control_flag,
-                        loop_progress_handle,
-                    )
-                    .await
-                    {
-                        Ok(true) => {
-                            return Some(chunk_id.clone());
-                        }
-                        Ok(false) => return None,
-                        Err(e) => {
-                            warn!("game download agent error: {e:?}");
+                    s.spawn(move |_| {
+                        for i in 0..RETRY_COUNT {
+                            let loop_progress_handle = progress_handle.clone();
+                            let base_path = unsafe_self.dropdata.base_path.clone();
+                            info!("starting chunk {}", chunk_id);
+                            match download_game_chunk(
+                                &unsafe_self.id,
+                                &unsafe_self.version,
+                                &chunk_id,
+                                &key,
+                                &chunk_data,
+                                base_path,
+                                &unsafe_self.control_flag,
+                                loop_progress_handle,
+                            ) {
+                                Ok(true) => {
+                                    local_sender.send(chunk_id.clone()).unwrap();
+                                    return;
+                                }
+                                Ok(false) => return,
+                                Err(e) => {
+                                    warn!("got error for chunk id {}: {e:?}", chunk_id);
 
-                            let retry = matches!(
-                                &e,
-                                ApplicationDownloadError::Communication(_)
-                                    | ApplicationDownloadError::Checksum
-                                    | ApplicationDownloadError::Lock
-                                    | ApplicationDownloadError::IoError(_)
-                            );
+                                    let retry = matches!(
+                                        &e,
+                                        ApplicationDownloadError::Communication(_)
+                                            | ApplicationDownloadError::Checksum
+                                            | ApplicationDownloadError::Lock
+                                            | ApplicationDownloadError::IoError(_)
+                                    );
 
-                            if i == RETRY_COUNT - 1 || !retry {
-                                warn!("retry logic failed, not re-attempting.");
-                                send!(sender, DownloadManagerSignal::Error(e));
-                                return None;
+                                    if i == RETRY_COUNT - 1 || !retry {
+                                        warn!("retry logic failed, not re-attempting.");
+                                        tauri::async_runtime::spawn(async move {
+                                            send!(sender, DownloadManagerSignal::Error(e));
+                                        });
+                                        return;
+                                    }
+                                }
                             }
                         }
-                    }
+                    });
                 }
-                return None;
-            } });
+            });
+        });
+
+        let mut outputs = Vec::new();
+        while let Ok(chunk_id) = recv.recv() {
+            outputs.push(chunk_id);
         }
 
-        let outputs = futures_unordered.buffer_unordered(max_download_threads).collect::<Vec<Option<String>>>().await;
+        download_join_handle
+            .await
+            .expect("failed to complete download");
 
         for completed_chunk in outputs {
-            if let Some(completed_chunk) = completed_chunk {
-                completed_chunks.insert(completed_chunk, true);
-            }
+            completed_chunks.insert(completed_chunk, true);
         }
 
         let drop_data_chunks = completed_chunks

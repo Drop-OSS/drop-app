@@ -1,5 +1,5 @@
 use std::fs::{Permissions, set_permissions};
-use std::io::{Read, SeekFrom};
+use std::io::{Read, Seek as _, SeekFrom, Write as _};
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -18,7 +18,7 @@ use log::{debug, info, warn};
 use remote::auth::generate_authorization_header;
 use remote::error::{DropServerError, RemoteAccessError};
 use remote::requests::generate_url;
-use remote::utils::DROP_CLIENT_ASYNC;
+use remote::utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC};
 use sha2::Digest;
 use tokio::fs::OpenOptions;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
@@ -31,7 +31,7 @@ const READ_BUF_LEN: usize = 1 * 1024 * 1024;
 
 type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
-pub async fn download_game_chunk(
+pub fn download_game_chunk(
     game_id: &str,
     version_id: &str,
     chunk_id: &str,
@@ -57,16 +57,15 @@ pub async fn download_game_chunk(
     )
     .map_err(ApplicationDownloadError::Communication)?;
 
-    let response = DROP_CLIENT_ASYNC
+    let response = DROP_CLIENT_SYNC
         .get(url)
         .header("Authorization", header)
         .send()
-        .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
         info!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().await.map_err(|e| {
+        let raw_res = response.text().map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
         })?;
         info!("{raw_res}");
@@ -84,10 +83,11 @@ pub async fn download_game_chunk(
 
     debug!("took {}ms to start downloading", timestep);
 
-    let stream = response
+    /*let stream = response
         .bytes_stream()
         .map(|v| v.map_err(|err| std::io::Error::other(err)));
-    let mut stream_reader = StreamReader::new(stream);
+    let mut stream_reader = StreamReader::new(stream);*/
+    let mut stream_reader = response;
 
     let mut hasher = sha2::Sha256::new();
     let mut cipher = Aes128Ctr64LE::new(key.into(), &chunk_data.iv.into());
@@ -95,28 +95,25 @@ pub async fn download_game_chunk(
     for file in &chunk_data.files {
         let path = base_path.join(file.filename.clone());
         if let Some(parent) = path.parent() {
-            tokio::fs::create_dir_all(parent).await?;
+            std::fs::create_dir_all(parent)?;
         }
-        let mut file_handle = OpenOptions::new()
+        let mut file_handle = std::fs::OpenOptions::new()
             .truncate(false)
             .write(true)
             .append(false)
             .create(true)
-            .open(&path)
-            .await?;
-        file_handle
-            .seek(SeekFrom::Start(file.start.try_into().unwrap()))
-            .await?;
+            .open(&path)?;
+        file_handle.seek(SeekFrom::Start(file.start.try_into().unwrap()))?;
 
         let mut remaining = file.length;
         while remaining > 0 {
-            let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)]).await?;
+            let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)])?;
             progress.add(amount);
             remaining -= amount;
 
             cipher.apply_keystream(&mut read_buf[0..amount]);
             hasher.update(&read_buf[0..amount]);
-            file_handle.write_all(&read_buf[0..amount]).await?;
+            file_handle.write_all(&read_buf[0..amount])?;
         }
 
         #[cfg(unix)]

@@ -1902,6 +1902,7 @@ dependencies = [
  "atomic-instant-full",
  "bitcode",
  "boxcar",
+ "crossbeam-channel",
  "ctr",
  "database",
  "download_manager",
