@@ -628,11 +628,19 @@ const launchOptions = ref<Array<{ name: string }> | undefined>(undefined);
 const launchOptionsOpen = computed(() => launchOptions.value !== undefined);
 
 async function launch() {
+  if(status.value.type == GameStatusEnum.SetupRequired) {
+    await launchIndex(0);
+    return;
+  }
   try {
     const fetchedLaunchOptions = await invoke<Array<{ name: string }>>(
       "get_launch_options",
       { id: game.value.id }
     );
+    if(fetchedLaunchOptions.length == 1) {
+      await launchIndex(0);
+      return;
+    }
     launchOptions.value = fetchedLaunchOptions;
   } catch (e) {
     createModal(
