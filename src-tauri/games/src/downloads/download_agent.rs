@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use database::{
-    ApplicationTransientStatus, DownloadType, DownloadableMetadata, borrow_db_checked,
+    ApplicationTransientStatus, DownloadableMetadata, borrow_db_checked,
     borrow_db_mut_checked,
 };
 use download_manager::download_manager_frontend::{DownloadManagerSignal, DownloadStatus};
@@ -71,7 +71,7 @@ impl GameDownloadAgent {
         let data_base_dir_path = base_dir_path.join(metadata.id.clone());
 
         let stored_manifest =
-            DropData::generate(metadata.id.clone(), metadata.version.clone(), metadata.target_platform.clone(), data_base_dir_path.clone());
+            DropData::generate(metadata.id.clone(), metadata.version.clone(), metadata.target_platform, data_base_dir_path.clone());
 
         let result = Self {
             metadata,

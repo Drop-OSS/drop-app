@@ -1440,7 +1440,6 @@ dependencies = [
  "dirs 6.0.0",
  "download_manager",
  "droplet-rs 0.7.3",
- "dynfmt",
  "filetime",
  "futures-core",
  "futures-lite",

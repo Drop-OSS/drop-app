@@ -53,7 +53,7 @@ impl ProcessHandler for UMULauncher {
         };
         let pfx_dir = DATA_ROOT_DIR.join("pfx");
         let pfx_dir = pfx_dir.join(meta.id.clone());
-        create_dir_all(&pfx_dir).map_err(|v| ProcessError::IOError(v))?;
+        create_dir_all(&pfx_dir).map_err(ProcessError::IOError)?;
         Ok(format!(
             "GAMEID={game_id} WINEPREFIX={} {} {umu:?} \"{launch}\" {args}",
             pfx_dir.to_string_lossy(),

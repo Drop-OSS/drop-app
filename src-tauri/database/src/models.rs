@@ -117,7 +117,6 @@ pub mod data {
         /**
          * This is intended to be used to look up the actual launch configuration that we store elsewhere
          */
-
         pub struct LaunchConfigurationExecutor {
             pub launch_id: String,
 
@@ -247,7 +246,7 @@ pub mod data {
             pub cache_dir: PathBuf,
         }
     }
-    
+
     impl Database {
         pub fn new<T: Into<PathBuf>>(
             games_base_dir: T,

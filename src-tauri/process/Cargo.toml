@@ -5,10 +5,10 @@ edition = "2024"
 
 [dependencies]
 chrono = "0.4.42"
-client = { version = "0.1.0", path = "../client" }
-database = { version = "0.1.0", path = "../database" }
-dynfmt = "0.1.5"
-games = { version = "0.1.0", path = "../games" }
+client = { path = "../client", version = "0.1.0" }
+database = { path = "../database", version = "0.1.0" }
+dynfmt = { version = "0.1.5", features = ["curly"] }
+games = { path = "../games", version = "0.1.0" }
 log = "0.4.28"
 page_size = "0.6.0"
 serde = "1.0.228"
@@ -16,4 +16,4 @@ serde_with = "3.15.0"
 shared_child = "1.1.1"
 tauri = "*"
 tauri-plugin-opener = "*"
-utils = { version = "0.1.0", path = "../utils" }
+utils = { path = "../utils", version = "0.1.0" }

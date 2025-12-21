@@ -3,10 +3,8 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
-use aes::cipher::{KeyIvInit as _, StreamCipher};
 use keyring::Entry;
 use log::info;
-use serde::{Serialize, de::DeserializeOwned};
 
 use crate::interface::{DatabaseInterface};
 

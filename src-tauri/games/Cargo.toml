@@ -4,32 +4,34 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+aes = "0.8.4"
+async-scoped = { version = "0.9.0", features = ["use-tokio"] }
+async-trait = "0.1.89"
 atomic-instant-full = "0.1.0"
 bitcode = "0.6.7"
 boxcar = "0.2.14"
-database = { version = "0.1.0", path = "../database" }
-download_manager = { version = "0.1.0", path = "../download_manager" }
+crossbeam-channel = "0.5.15"
+ctr = "0.9.2"
+database = { path = "../database", version = "0.1.0" }
+download_manager = { path = "../download_manager", version = "0.1.0" }
+droplet-rs = { git = "https://github.com/Drop-OSS/droplet-rs" }
+futures-util = "*"
 hex = "0.4.3"
 log = "0.4.28"
+native_model = { git = "https://github.com/Drop-OSS/native_model.git", version = "0.6.4", features = [
+  "rmp_serde_1_3"
+] }
 rayon = "1.11.0"
-remote = { version = "0.1.0", path = "../remote" }
+remote = { path = "../remote", version = "0.1.0" }
 reqwest = "0.12.23"
 rustix = "1.1.2"
 serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 serde_with = "3.15.0"
+sha2 = "0.10.9"
 sysinfo = "0.37.2"
 tauri = "*"
 throttle_my_fn = "0.2.6"
-utils = { version = "0.1.0", path = "../utils" }
-native_model = { version = "0.6.4", features = ["rmp_serde_1_3"], git = "https://github.com/Drop-OSS/native_model.git"}
-serde_json = "1.0.145"
-droplet-rs = { git="https://github.com/Drop-OSS/droplet-rs" }
-async-scoped = { version = "0.9.0", features = ["use-tokio"] }
 tokio = { version = "*", features = ["rt", "sync"] }
 tokio-util = { version = "*", features = ["io"] }
-futures-util = "*"
-sha2 = "0.10.9"
-ctr = "0.9.2"
-aes = "0.8.4"
-async-trait = "0.1.89"
-crossbeam-channel = "0.5.15"
+utils = { path = "../utils", version = "0.1.0" }

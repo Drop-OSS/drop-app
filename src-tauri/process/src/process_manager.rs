@@ -2,17 +2,15 @@ use std::{
     collections::HashMap,
     fs::{OpenOptions, create_dir_all},
     io,
-    ops::Index,
     path::PathBuf,
     process::{Command, ExitStatus},
-    str::FromStr,
     sync::Arc,
     thread::spawn,
     time::{Duration, SystemTime},
 };
 
 use database::{
-    ApplicationTransientStatus, Database, DownloadType, DownloadableMetadata, GameDownloadStatus,
+    ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus,
     GameVersion, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, platform::Platform,
 };
 use dynfmt::Format;

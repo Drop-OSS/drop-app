@@ -20,7 +20,7 @@ use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_SYNC;
 use sha2::Digest;
 
-const READ_BUF_LEN: usize = 1 * 1024 * 1024;
+const READ_BUF_LEN: usize = 1024 * 1024;
 
 type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
