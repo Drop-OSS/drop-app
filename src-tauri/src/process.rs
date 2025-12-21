@@ -1,14 +1,22 @@
 use std::sync::nonpoison::Mutex;
 
-use process::{PROCESS_MANAGER, error::ProcessError};
-use tauri::AppHandle;
+use process::{PROCESS_MANAGER, error::ProcessError, process_manager::{LaunchOption, ProcessManager}};
+use tauri::{AppHandle, Error};
 use tauri_plugin_opener::OpenerExt;
 
 use crate::AppState;
 
 #[tauri::command]
+pub fn get_launch_options(id: String) -> Result<Vec<LaunchOption>, ProcessError> {
+    let launch_options = ProcessManager::get_launch_options(id)?;
+
+    Ok(launch_options)
+}
+
+#[tauri::command]
 pub fn launch_game(
     id: String,
+    index: usize,
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<(), ProcessError> {
     let state_lock = state.lock();
@@ -19,7 +27,7 @@ pub fn launch_game(
     //    download_type: DownloadType::Game,
     //};
 
-    match process_manager_lock.launch_process(id) {
+    match process_manager_lock.launch_process(id, index) {
         Ok(()) => {}
         Err(e) => return Err(e),
     }

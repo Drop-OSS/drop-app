@@ -395,6 +395,45 @@
     </template>
   </ModalTemplate>
 
+  <ModalTemplate :model-value="launchOptionsOpen">
+    <template #default>
+      <div class="sm:flex sm:items-start">
+        <div class="mt-3 text-center sm:mt-0 sm:text-left">
+          <h3 class="text-base font-semibold text-zinc-100">
+            Launch {{ game.mName }}
+          </h3>
+          <div class="mt-2">
+            <p class="text-sm text-zinc-400">
+              The instance admin has configured multiple ways to start this
+              game. Select an option to start.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <ol class="space-y-2">
+        <li v-for="(launchData, launchIdx) in launchOptions!">
+          <button class="transition w-full rounded-sm bg-zinc-800 inline-flex items-center text-sm py-2 px-3 gap-x-2 text-zinc-100 hover:text-zinc-300 hover:bg-zinc-700" @click="() => launchIndex(launchIdx)">
+            <PlayIcon class="size-4" />
+            <span>
+              {{ launchData.name }}
+            </span>
+          </button>
+        </li>
+      </ol>
+    </template>
+    <template #buttons>
+      <button
+        type="button"
+        class="mt-3 inline-flex w-full justify-center rounded-md bg-zinc-800 px-3 py-2 text-sm font-semibold text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 hover:bg-zinc-900 sm:mt-0 sm:w-auto"
+        @click="launchOptions = undefined"
+        ref="cancelButtonRef"
+      >
+        Cancel
+      </button>
+    </template>
+  </ModalTemplate>
+
   <!-- 
   Dear future DecDuck,
   This v-if is necessary for Vue rendering reasons
@@ -492,6 +531,7 @@ import {
   XMarkIcon,
   ArrowsPointingOutIcon,
   PhotoIcon,
+  PlayIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { XCircleIcon } from "@heroicons/vue/24/solid";
@@ -584,9 +624,34 @@ async function resumeDownload() {
   }
 }
 
+const launchOptions = ref<Array<{ name: string }> | undefined>(undefined);
+const launchOptionsOpen = computed(() => launchOptions.value !== undefined);
+
 async function launch() {
   try {
-    await invoke("launch_game", { id: game.value.id });
+    const fetchedLaunchOptions = await invoke<Array<{ name: string }>>(
+      "get_launch_options",
+      { id: game.value.id }
+    );
+    launchOptions.value = fetchedLaunchOptions;
+  } catch (e) {
+    createModal(
+      ModalType.Notification,
+      {
+        title: `Couldn't run "${game.value.mName}"`,
+        description: `Drop failed to launch "${game.value.mName}": ${e}`,
+        buttonText: "Close",
+      },
+      (e, c) => c()
+    );
+    console.error(e);
+  }
+}
+
+async function launchIndex(index: number) {
+  launchOptions.value = undefined;
+  try {
+    await invoke("launch_game", { id: game.value.id, index });
   } catch (e) {
     createModal(
       ModalType.Notification,

@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     fs::{OpenOptions, create_dir_all},
     io,
+    ops::Index,
     path::PathBuf,
     process::{Command, ExitStatus},
     str::FromStr,
@@ -18,6 +19,7 @@ use dynfmt::Format;
 use dynfmt::SimpleCurlyFormat;
 use games::{library::push_game_update, state::GameStatusManager};
 use log::{debug, info, warn};
+use serde::Serialize;
 use shared_child::SharedChild;
 use tauri::{AppHandle, Emitter as _};
 
@@ -43,6 +45,11 @@ pub struct ProcessManager<'a> {
         &'a (dyn ProcessHandler + Sync + Send + 'static),
     )>,
     app_handle: AppHandle,
+}
+
+#[derive(Serialize)]
+pub struct LaunchOption {
+    name: String,
 }
 
 impl ProcessManager<'_> {
@@ -207,8 +214,42 @@ impl ProcessManager<'_> {
         process_handler.is_ok()
     }
 
+    pub fn get_launch_options(game_id: String) -> Result<Vec<LaunchOption>, ProcessError> {
+        let db_lock = borrow_db_checked();
+
+        let meta = db_lock
+            .applications
+            .installed_game_version
+            .get(&game_id)
+            .cloned()
+            .ok_or(ProcessError::NotInstalled)?;
+
+        let game_version = db_lock
+            .applications
+            .game_versions
+            .get(&game_id)
+            .ok_or(ProcessError::InvalidID)?
+            .get(&meta.version)
+            .ok_or(ProcessError::InvalidVersion)?;
+
+        let launch_options = game_version
+            .launches
+            .iter()
+            .filter(|v| v.platform == meta.target_platform)
+            .map(|v| LaunchOption {
+                name: v.name.clone(),
+            })
+            .collect::<Vec<LaunchOption>>();
+
+        Ok(launch_options)
+    }
+
     /// Must be called through spawn as it is currently blocking
-    pub fn launch_process(&mut self, game_id: String) -> Result<(), ProcessError> {
+    pub fn launch_process(
+        &mut self,
+        game_id: String,
+        launch_process_index: usize,
+    ) -> Result<(), ProcessError> {
         if self.processes.contains_key(&game_id) {
             return Err(ProcessError::AlreadyRunning);
         }
@@ -292,12 +333,13 @@ impl ProcessManager<'_> {
                 version_name: _,
                 install_dir: _,
             } => {
-                let launch_config = game_version
+                let (_, launch_config) = game_version
                     .launches
                     .iter()
-                    .find(|v| v.platform == target_platform)
+                    .filter(|v| v.platform == target_platform)
+                    .enumerate()
+                    .find(|(i, _)| *i == launch_process_index)
                     .ok_or(ProcessError::NotInstalled)?;
-
                 (
                     launch_config.command.clone(),
                     launch_config.args.clone(),

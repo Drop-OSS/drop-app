@@ -271,7 +271,8 @@ pub fn run() {
             kill_game,
             toggle_autostart,
             get_autostart_enabled,
-            open_process_logs
+            open_process_logs,
+            get_launch_options
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
