@@ -1,5 +1,9 @@
+use std::fs::create_dir_all;
+
 use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
-use database::{Database, DownloadableMetadata, GameVersion, platform::Platform};
+use database::{
+    Database, DownloadableMetadata, GameVersion, db::DATA_ROOT_DIR, platform::Platform,
+};
 
 use crate::{error::ProcessError, process_manager::ProcessHandler};
 
@@ -47,8 +51,16 @@ impl ProcessHandler for UMULauncher {
             }
             None => game_version.game_id.clone(),
         };
+        let pfx_dir = DATA_ROOT_DIR.join("pfx");
+        let pfx_dir = pfx_dir.join(meta.id.clone());
+        create_dir_all(&pfx_dir).map_err(|v| ProcessError::IOError(v))?;
         Ok(format!(
-            "GAMEID={game_id} {umu:?} \"{launch}\" {args}",
+            "GAMEID={game_id} WINEPREFIX={} {} {umu:?} \"{launch}\" {args}",
+            pfx_dir.to_string_lossy(),
+            match meta.target_platform {
+                Platform::Linux => "UMU_NO_PROTON=1",
+                _ => "",
+            },
             umu = UMU_LAUNCHER_EXECUTABLE
                 .as_ref()
                 .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),

@@ -19,7 +19,7 @@ use dynfmt::SimpleCurlyFormat;
 use games::{library::push_game_update, state::GameStatusManager};
 use log::{debug, info, warn};
 use shared_child::SharedChild;
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter as _};
 
 use crate::{
     PROCESS_MANAGER,
@@ -69,7 +69,7 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Linux),
-                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
                     (Platform::macOS, Platform::macOS),
@@ -163,8 +163,7 @@ impl ProcessManager<'_> {
             && (elapsed.as_secs() <= 2 || result.map_or(true, |r| !r.success()))
         {
             warn!("drop detected that the game {game_id} may have failed to launch properly");
-            return Err(ProcessError::FailedLaunch(game_id));
-            // let _ = self.app_handle.emit("launch_external_error", &game_id);
+            let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
         let version_data = match db_handle.applications.game_versions.get(&game_id) {
@@ -315,7 +314,11 @@ impl ProcessManager<'_> {
                     .find(|v| v.platform == target_platform)
                     .ok_or(ProcessError::NotInstalled)?;
 
-                (setup_config.command.clone(), setup_config.args.clone(), None)
+                (
+                    setup_config.command.clone(),
+                    setup_config.args.clone(),
+                    None,
+                )
             }
             _ => unreachable!("Game registered as 'Partially Installed'"),
         };

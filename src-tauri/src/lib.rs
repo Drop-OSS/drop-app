@@ -26,7 +26,6 @@ use ::remote::{
 };
 use database::{
     DB, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR,
-    interface::DatabaseImpls,
 };
 use log::{LevelFilter, debug, info, warn};
 use log4rs::{
@@ -37,8 +36,8 @@ use log4rs::{
 };
 use serde::Serialize;
 use tauri::{
-    AppHandle, Manager, RunEvent,
-    WindowEvent,
+    AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, WebviewBuilder, WebviewUrl,
+    WindowBuilder, WindowEvent,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
 };
@@ -299,19 +298,23 @@ pub fn run() {
                 let width = 1536.0;
                 let height = 864.0;
 
-                let _main_window = tauri::WebviewWindowBuilder::new(
-                    &handle,
-                    "main", // BTW this is not the name of the window, just the label. Keep this 'main', there are permissions & configs that depend on it
-                    tauri::WebviewUrl::App("main".into()),
-                )
-                .title("Drop Desktop App")
-                .min_inner_size(1000.0, 500.0)
-                .inner_size(width, height)
-                .decorations(false)
-                .shadow(false)
-                .data_directory(DATA_ROOT_DIR.join(".webview"))
-                .build()
-                .expect("Failed to build main window");
+                let main_window = WindowBuilder::new(&handle, "main")
+                    .title("Drop Desktop App")
+                    .min_inner_size(1000.0, 500.0)
+                    .inner_size(width, height)
+                    .decorations(false)
+                    .shadow(false)
+                    .build()
+                    .expect("failed to build main window");
+
+                main_window
+                    .add_child(
+                        WebviewBuilder::new("frontned", WebviewUrl::App("main".into()))
+                            .auto_resize(),
+                        LogicalPosition::new(0., 0.),
+                        LogicalSize::new(width, height),
+                    )
+                    .expect("failed to create frontend webview");
 
                 app.deep_link().on_open_url(move |event| {
                     debug!("handling drop:// url");

@@ -2,30 +2,32 @@ use std::{
     fs::{self, create_dir_all},
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
-    path::PathBuf,
-    sync::{RwLockReadGuard, RwLockWriteGuard},
+    path::{Path, PathBuf},
+    sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
+use aes::cipher::{KeyIvInit as _, StreamCipher as _};
+use anyhow::Error;
 use chrono::Utc;
 use log::{debug, error, info, warn};
-use rustbreak::{PathDatabase, RustbreakError};
 use url::Url;
 
 use crate::{
-    db::{DATA_ROOT_DIR, DB, DropDatabaseSerializer},
-    models::data::Database,
+    db::{DATA_ROOT_DIR, DB, KEY_IV},
+    models::{
+        self,
+        data::{Database, DatabaseVersionSerializable},
+    },
 };
 
-pub type DatabaseInterface =
-    rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer>;
+type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
-pub trait DatabaseImpls {
-    fn set_up_database() -> DatabaseInterface;
-    fn database_is_set_up(&self) -> bool;
-    fn fetch_base_url(&self) -> Url;
+pub struct DatabaseInterface {
+    data: RwLock<models::data::Database>,
+    path: PathBuf,
 }
-impl DatabaseImpls for DatabaseInterface {
-    fn set_up_database() -> DatabaseInterface {
+impl DatabaseInterface {
+    pub fn set_up_database() -> Self {
         let db_path = DATA_ROOT_DIR.join("drop.db");
         let games_base_dir = DATA_ROOT_DIR.join("games");
         let logs_root_dir = DATA_ROOT_DIR.join("logs");
@@ -78,36 +80,95 @@ impl DatabaseImpls for DatabaseInterface {
         });
 
         if exists {
-            match PathDatabase::load_from_path(db_path.clone()) {
-                Ok(db) => db,
-                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir),
+            match DatabaseInterface::open_at_path(&db_path) {
+                Ok(db) => db.unwrap(),
+                Err(e) => handle_invalid_database(e, db_path, games_base_dir, cache_dir)
+                    .expect("failed to recover from failed database"),
             }
         } else {
             let default = Database::new(games_base_dir, None, cache_dir);
             debug!("Creating database at path {}", db_path.display());
-            PathDatabase::create_at_path(db_path, default).expect("Database could not be created")
+            DatabaseInterface::create_at_path(&db_path, default)
+                .expect("Database could not be created")
         }
     }
 
-    fn database_is_set_up(&self) -> bool {
+    pub fn open_at_path(db_path: &Path) -> Result<Option<DatabaseInterface>, Error> {
+        if !db_path.exists() {
+            return Ok(None);
+        };
+        let mut database_data = std::fs::read(db_path)?;
+        let (key, iv) = *KEY_IV;
+        let mut cipher = Aes128Ctr64LE::new(&key.into(), &iv.into());
+        cipher.apply_keystream(&mut database_data);
+
+        let database_data = String::from_utf8(database_data)?;
+
+        let database_data: DatabaseVersionSerializable = ron::from_str(&database_data)?;
+        Ok(Some(DatabaseInterface {
+            data: RwLock::new(database_data.0),
+            path: db_path.to_path_buf(),
+        }))
+    }
+
+    pub fn create_at_path(db_path: &Path, database: Database) -> Result<DatabaseInterface, Error> {
+        let database = DatabaseVersionSerializable(database);
+        let mut database_data = ron::to_string(&database)?.into_bytes();
+
+        let (key, iv) = *KEY_IV;
+        let mut cipher = Aes128Ctr64LE::new(&key.into(), &iv.into());
+        cipher.apply_keystream(&mut database_data);
+
+        std::fs::write(db_path, database_data)?;
+        Ok(DatabaseInterface {
+            data: RwLock::new(database.0),
+            path: db_path.to_path_buf(),
+        })
+    }
+
+    pub fn database_is_set_up(&self) -> bool {
         !borrow_db_checked().base_url.is_empty()
     }
 
-    fn fetch_base_url(&self) -> Url {
+    pub fn fetch_base_url(&self) -> Url {
         let handle = borrow_db_checked();
         Url::parse(&handle.base_url)
             .unwrap_or_else(|_| panic!("Failed to parse base url {}", handle.base_url))
+    }
+
+    fn save(&self) -> Result<(), Error> {
+        let lock = self.data.read().expect("failed to lock database to save");
+        DatabaseInterface::create_at_path(&self.path, lock.clone())?;
+        Ok(())
+    }
+
+    fn borrow_data(
+        &self,
+    ) -> Result<
+        std::sync::RwLockReadGuard<'_, Database>,
+        PoisonError<std::sync::RwLockReadGuard<'_, Database>>,
+    > {
+        self.data.read()
+    }
+
+    fn borrow_data_mut(
+        &self,
+    ) -> Result<
+        std::sync::RwLockWriteGuard<'_, Database>,
+        PoisonError<std::sync::RwLockWriteGuard<'_, Database>>,
+    > {
+        self.data.write()
     }
 }
 
 // TODO: Make the error relelvant rather than just assume that it's a Deserialize error
 fn handle_invalid_database(
-    _e: RustbreakError,
+    error: Error,
     db_path: PathBuf,
     games_base_dir: PathBuf,
     cache_dir: PathBuf,
-) -> rustbreak::Database<Database, rustbreak::backend::PathBackend, DropDatabaseSerializer> {
-    warn!("{_e}");
+) -> Result<DatabaseInterface, Error> {
+    warn!("{error:?}");
     let new_path = {
         let time = Utc::now().timestamp();
         let mut base = db_path.clone();
@@ -126,7 +187,7 @@ fn handle_invalid_database(
 
     let db = Database::new(games_base_dir, Some(new_path), cache_dir);
 
-    PathDatabase::create_at_path(db_path, db).expect("Database could not be created")
+    Ok(DatabaseInterface::create_at_path(&db_path, db).expect("Database could not be created"))
 }
 
 // To automatically save the database upon drop

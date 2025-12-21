@@ -1,4 +1,4 @@
-use database::{DB, interface::DatabaseImpls};
+use database::{DB};
 use url::Url;
 
 use crate::{

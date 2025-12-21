@@ -77,7 +77,7 @@ impl GameDownloadAgent {
             metadata,
             control_flag,
             manifest: Mutex::new(None),
-            context_map: Mutex::new(HashMap::new()),
+            context_map: Mutex::new(stored_manifest.get_contexts()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             dropdata: stored_manifest,
@@ -245,7 +245,6 @@ impl GameDownloadAgent {
                         for i in 0..RETRY_COUNT {
                             let loop_progress_handle = progress_handle.clone();
                             let base_path = unsafe_self.dropdata.base_path.clone();
-                            info!("starting chunk {}", chunk_id);
                             match download_game_chunk(
                                 &unsafe_self.metadata.id,
                                 &unsafe_self.metadata.version,

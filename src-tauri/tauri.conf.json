@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "Drop Desktop Client",
-  "version": "0.3.4",
-  "identifier": "dev.drop.client",
+  "version": "0.4.0",
+  "identifier": "org.droposs.client",
   "build": {
     "beforeDevCommand": "pnpm run -C main dev --port 1432",
     "devUrl": "http://localhost:1432/",

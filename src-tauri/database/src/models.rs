@@ -1,14 +1,13 @@
 pub mod data {
     use std::{hash::Hash, path::PathBuf};
 
-    use native_model::native_model;
     use serde::{Deserialize, Serialize};
 
     // NOTE: Within each version, you should NEVER use these types.
     // Declare it using the actual version that it is from, i.e. v1::Settings rather than just Settings from here
 
-    pub type GameVersion = v1::GameVersion;
     pub type Database = v1::Database;
+    pub type GameVersion = v1::GameVersion;
     pub type Settings = v1::Settings;
     pub type DatabaseAuth = v1::DatabaseAuth;
 
@@ -35,13 +34,44 @@ pub mod data {
         }
     }
 
+    #[derive(Serialize, Deserialize)]
+    enum DatabaseVersionEnum {
+        V1 { database: v1::Database },
+    }
+
+    pub struct DatabaseVersionSerializable(pub(crate) Database);
+
+    impl Serialize for DatabaseVersionSerializable {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            // Always serialize to latest version
+            DatabaseVersionEnum::V1 {
+                database: self.0.clone(),
+            }
+            .serialize(serializer)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for DatabaseVersionSerializable {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            Ok(match DatabaseVersionEnum::deserialize(deserializer)? {
+                DatabaseVersionEnum::V1 { database } => DatabaseVersionSerializable(database),
+            })
+        }
+    }
+
     mod v1 {
         use serde_with::serde_as;
         use std::{collections::HashMap, path::PathBuf};
 
         use crate::platform::Platform;
 
-        use super::{Deserialize, Serialize, native_model};
+        use super::{Deserialize, Serialize};
 
         fn default_template() -> String {
             "{}".to_owned()
@@ -49,7 +79,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 2, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct GameVersion {
             pub game_id: String,
             pub version_id: String,
@@ -71,7 +100,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 10, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct LaunchConfiguration {
             pub launch_id: String,
 
@@ -86,7 +114,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 11, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         /**
          * This is intended to be used to look up the actual launch configuration that we store elsewhere
          */
@@ -100,7 +127,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 12, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct SetupConfiguration {
             pub command: String,
             pub args: Vec<String>,
@@ -109,7 +135,6 @@ pub mod data {
 
         #[derive(Serialize, Deserialize, Clone, Debug)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 4, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
@@ -127,7 +152,6 @@ pub mod data {
 
         #[derive(Serialize, Clone, Deserialize, Debug)]
         #[serde(tag = "type")]
-        #[native_model(id = 5, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub enum GameDownloadStatus {
             Remote {},
             SetupRequired {
@@ -155,7 +179,6 @@ pub mod data {
         }
 
         #[derive(serde::Serialize, Clone, Deserialize)]
-        #[native_model(id = 6, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseAuth {
             pub private: String,
             pub cert: String,
@@ -163,7 +186,6 @@ pub mod data {
             pub web_token: Option<String>,
         }
 
-        #[native_model(id = 8, version = 1)]
         #[derive(
             Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize, Clone, Copy,
         )]
@@ -174,7 +196,6 @@ pub mod data {
             Mod,
         }
 
-        #[native_model(id = 7, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
         #[derive(Debug, Eq, PartialOrd, Ord, Serialize, Deserialize, Clone)]
         #[serde(rename_all = "camelCase")]
         pub struct DownloadableMetadata {
@@ -202,7 +223,6 @@ pub mod data {
         #[serde_as]
         #[derive(Serialize, Clone, Deserialize, Default)]
         #[serde(rename_all = "camelCase")]
-        #[native_model(id = 3, version = 2, with = native_model::rmp_serde_1_3::RmpSerde)]
         pub struct DatabaseApplications {
             pub install_dirs: Vec<PathBuf>,
             // Guaranteed to exist if the game also exists in the app state map
@@ -215,14 +235,6 @@ pub mod data {
             pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
         }
 
-        #[native_model(id = 9, version = 1, with = native_model::rmp_serde_1_3::RmpSerde)]
-        #[derive(Serialize, Deserialize, Clone, Default)]
-
-        pub struct DatabaseCompatInfo {
-            pub umu_installed: bool,
-        }
-
-        #[native_model(id = 1, version = 1)]
         #[derive(Serialize, Deserialize, Clone, Default)]
         pub struct Database {
             #[serde(default)]
@@ -233,10 +245,9 @@ pub mod data {
             #[serde(skip)]
             pub prev_database: Option<PathBuf>,
             pub cache_dir: PathBuf,
-            pub compat_info: Option<DatabaseCompatInfo>,
         }
     }
-
+    
     impl Database {
         pub fn new<T: Into<PathBuf>>(
             games_base_dir: T,
@@ -256,7 +267,6 @@ pub mod data {
                 auth: None,
                 settings: Settings::default(),
                 cache_dir,
-                compat_info: None,
             }
         }
     }
