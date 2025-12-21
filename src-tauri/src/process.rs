@@ -1,7 +1,7 @@
 use std::sync::nonpoison::Mutex;
 
 use process::{PROCESS_MANAGER, error::ProcessError, process_manager::{LaunchOption, ProcessManager}};
-use tauri::{AppHandle, Error};
+use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::AppState;

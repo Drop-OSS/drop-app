@@ -243,7 +243,7 @@ pub async fn fetch_game_version_options_logic(
     let process_manager_lock = PROCESS_MANAGER.lock();
     let data = data
         .into_iter()
-        .map(|v| {
+        .flat_map(|v| {
             v.launches.into_iter().map(move |l| VersionDownloadOption {
                 version_id: v.version_id.clone(),
                 display_name: v.display_name.clone(),
@@ -251,7 +251,6 @@ pub async fn fetch_game_version_options_logic(
                 platform: l.platform,
             })
         })
-        .flatten()
         .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();
     drop(process_manager_lock);
