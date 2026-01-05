@@ -29,88 +29,18 @@
       class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-4"
     >
       <template v-for="collection in filteredNavigation" :key="collection.id">
-        <NuxtLink
+        <GamePanel
           v-for="item in collection.items"
           :key="item.id"
           :href="item.route"
-          :class="[
-            'group relative aspect-[3/4] transition-all duration-200 rounded-xl overflow-hidden',
-            'hover:scale-[1.02] active:scale-[0.98]',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900',
-            currentNavigation == item.id
-              ? 'ring-2 ring-blue-500 shadow-lg shadow-blue-500/20'
-              : 'ring-1 ring-zinc-800/50',
-          ]"
-        >
-          <!-- Blurred Background Image -->
-          <div class="absolute inset-0 z-0">
-            <!-- Cover Image (if available) -->
-            <img
-              v-if="covers[item.id]"
-              :src="covers[item.id]"
-              :alt="item.label"
-              class="w-full h-full object-cover blur-[2px] scale-105 transition-transform duration-300 group-hover:scale-110"
-            />
-            <!-- Fallback to Icon -->
-            <div
-              v-else
-              class="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900"
-            >
-              <img
-                class="w-2/3 h-2/3 object-contain blur-[2px] scale-105 transition-transform duration-300 group-hover:scale-110"
-                :src="icons[item.id]"
-                :alt="item.label"
-              />
-            </div>
-            <!-- Gradient Overlays -->
-            <div
-              class="absolute inset-0 bg-gradient-to-t from-zinc-900 via-zinc-900/80 to-transparent opacity-90 transition-opacity duration-200 group-hover:opacity-70"
-            />
-            <div
-              class="absolute inset-0 bg-gradient-to-r from-zinc-900/95 via-zinc-900/80 to-transparent opacity-90 transition-opacity duration-200 group-hover:opacity-60"
-            />
-          </div>
-
-          <!-- Content Overlay -->
-          <div class="relative z-10 flex flex-col h-full p-4 justify-end">
-            <!-- Game Title -->
-            <h3
-              :class="[
-                'text-base font-display font-bold text-zinc-100 drop-shadow-lg mb-2 line-clamp-2',
-                'transition-colors duration-200',
-                currentNavigation == item.id
-                  ? 'text-zinc-100'
-                  : item.isInstalled.value
-                  ? 'text-zinc-100 group-hover:text-white'
-                  : 'text-zinc-300 group-hover:text-zinc-100',
-              ]"
-            >
-              {{ item.label }}
-            </h3>
-
-            <!-- Status Badge -->
-            <div class="flex items-center">
-              <span
-                :class="[
-                  'inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase font-display',
-                  'backdrop-blur-sm border shadow-lg',
-                  gameStatusTextStyle[games[item.id].status.value.type],
-                  currentNavigation == item.id
-                    ? 'bg-zinc-800/50 border-zinc-700/50 text-white'
-                    : 'bg-zinc-900/50 border-zinc-800/50',
-                ]"
-              >
-                {{ gameStatusText[games[item.id].status.value.type] }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Selected Indicator -->
-          <div
-            v-if="currentNavigation == item.id"
-            class="absolute top-3 right-3 z-20 w-2.5 h-2.5 rounded-full bg-blue-500 shadow-lg shadow-blue-500/50 ring-2 ring-blue-500/30"
-          />
-        </NuxtLink>
+          :game-name="item.label"
+          :description="item.game?.mShortDescription"
+          :cover-src="covers[item.id]"
+          :icon-src="icons[item.id]"
+          :status-text="gameStatusText[games[item.id].status.value.type]"
+          :status-class="gameStatusTextStyle[games[item.id].status.value.type]"
+          :is-selected="currentNavigation == item.id"
+        />
       </template>
     </div>
   </div>
@@ -253,6 +183,7 @@ const navigation = computed(() =>
         prefix: `/library/${game.id}`,
         isInstalled,
         id: game.id,
+        game: game, // Include full game object for description access
       };
       return item;
     });
