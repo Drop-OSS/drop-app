@@ -93,4 +93,5 @@ export type Settings = {
   autostart: boolean;
   maxDownloadThreads: number;
   forceOffline: boolean;
+  libraryView: "list" | "grid";
 };

@@ -25,6 +25,14 @@
       >
         <ArrowPathIcon class="size-4" />
       </button>
+      <button
+        @click="toggleView"
+        class="p-1.5 flex items-center justify-center transition-all duration-200 size-10 hover:scale-105 active:scale-95 rounded-lg bg-zinc-800/50 text-zinc-100 hover:bg-zinc-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-950"
+        :title="libraryView === 'list' ? 'Switch to grid view' : 'Switch to list view'"
+      >
+        <Squares2X2Icon v-if="libraryView === 'list'" class="size-4" />
+        <Bars3Icon v-else class="size-4" />
+      </button>
     </div>
 
     <TransitionGroup name="list" tag="ul" class="flex flex-col gap-y-1.5">
@@ -52,7 +60,7 @@
         <DisclosurePanel as="dd" class="mt-2 flex flex-col gap-y-1.5">
           <NuxtLink
             v-for="item in nav.items"
-            :key="nav.id"
+            :key="item.id"
             :class="[
               'transition-all duration-300 rounded-lg flex items-center px-1 py-1.5 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-zinc-950/50',
               currentNavigation == item.id
@@ -127,6 +135,8 @@ import {
   MagnifyingGlassIcon,
   MinusSmallIcon,
   PlusSmallIcon,
+  Squares2X2Icon,
+  Bars3Icon,
 } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -169,6 +179,9 @@ const router = useRouter();
 const searchQuery = ref("");
 
 const loading = ref(false);
+
+// Use library view composable
+const { libraryView, toggleView } = useLibraryView();
 const games: {
   [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> };
 } = {};

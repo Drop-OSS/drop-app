@@ -137,7 +137,8 @@ pub mod data {
         pub struct Settings {
             pub autostart: bool,
             pub max_download_threads: usize,
-            pub force_offline: bool, // ... other settings ...
+            pub force_offline: bool,
+            pub library_view: String, // "list" or "grid"
         }
         impl Default for Settings {
             fn default() -> Self {
@@ -145,6 +146,7 @@ pub mod data {
                     autostart: false,
                     max_download_threads: 4,
                     force_offline: false,
+                    library_view: "list".to_string(),
                 }
             }
         }
