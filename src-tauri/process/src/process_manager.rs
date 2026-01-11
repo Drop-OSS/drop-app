@@ -10,8 +10,8 @@ use std::{
 };
 
 use database::{
-    ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus,
-    GameVersion, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, platform::Platform,
+    ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion,
+    borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR, platform::Platform,
 };
 use dynfmt::Format;
 use dynfmt::SimpleCurlyFormat;
@@ -363,13 +363,49 @@ impl ProcessManager<'_> {
             _ => unreachable!("Game registered as 'Partially Installed'"),
         };
 
-        let launch_string = process_handler.create_launch_process(
-            &meta,
-            launch.to_string(),
-            args.clone(),
-            game_version,
-            install_dir,
-        )?;
+        let (launch_string, launch, original_exe) = if let Some(executor) = executor {
+            let executor_metadata = db_lock
+                .applications
+                .installed_game_version
+                .get(&executor.game_id)
+                .ok_or(ProcessError::NotInstalled)?;
+
+            let executor_game_version = db_lock
+                .applications
+                .game_versions
+                .get(&executor.game_id)
+                .ok_or(ProcessError::NotInstalled)?
+                .get(&executor.version_id)
+                .ok_or(ProcessError::NotInstalled)?;
+
+            let executor_launch_config = executor_game_version
+                .launches
+                .iter()
+                .find(|v| v.launch_id == executor.launch_id)
+                .ok_or(ProcessError::NotInstalled)?;
+
+            let executor_launch_string = process_handler.create_launch_process(
+                executor_metadata,
+                executor_launch_config.command.clone(),
+                executor_launch_config.args.clone(),
+                executor_game_version,
+                install_dir,
+            )?;
+
+            (executor_launch_string, executor_launch_config.command.clone(), Some(launch))
+        } else {
+            (
+                process_handler.create_launch_process(
+                    &meta,
+                    launch.to_string(),
+                    args.clone(),
+                    game_version,
+                    install_dir,
+                )?,
+                launch,
+                None,
+            )
+        };
 
         let format_args = DropFormatArgs::new(
             launch_string,
@@ -379,6 +415,7 @@ impl ProcessManager<'_> {
                 .join(launch)
                 .display()
                 .to_string(),
+            original_exe,
         );
 
         let launch_string = SimpleCurlyFormat

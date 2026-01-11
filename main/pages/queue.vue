@@ -7,7 +7,7 @@
         class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 font-display items-left justify-center pl-2"
       >
         <span class="font-bold text-zinc-100">{{ formatKilobytes(stats.speed) }}B/s</span>
-        <span v-if="stats.time > 0" class="text-xs text-zinc-400"
+        <span class="text-xs text-zinc-400"
           >{{ formatTime(stats.time) }} left</span
         >
       </div>
@@ -199,6 +199,9 @@ function formatKilobytes(bytes: number): string {
 }
 
 function formatTime(seconds: number): string {
+  if (seconds == 0) {
+    return `0s`;
+  }
   if (seconds < 60) {
     return `${Math.round(seconds)}s`;
   }

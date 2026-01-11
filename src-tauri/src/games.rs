@@ -164,7 +164,6 @@ pub async fn fetch_game_logic(
 
     let client = DROP_CLIENT_ASYNC.clone();
     let response = generate_url(&["/api/v1/client/game", &id], &[])?;
-    info!("requesting {}", response);
     let response = client
         .get(response)
         .header("Authorization", generate_authorization_header())

@@ -13,6 +13,7 @@ impl DropFormatArgs {
         working_dir: &String,
         executable_name: &String,
         absolute_executable_name: String,
+        original: Option<String>,
     ) -> Self {
         let mut positional = Vec::new();
         let mut map: HashMap<&'static str, String> = HashMap::new();
@@ -22,6 +23,10 @@ impl DropFormatArgs {
         map.insert("dir", working_dir.to_string());
         map.insert("exe", executable_name.to_string());
         map.insert("abs_exe", absolute_executable_name);
+        
+        if let Some(original) = original {
+            map.insert("executor", original);
+        }
 
         Self { positional, map }
     }
