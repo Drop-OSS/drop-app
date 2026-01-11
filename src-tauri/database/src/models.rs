@@ -105,7 +105,6 @@ pub mod data {
 
             pub name: String,
             pub command: String,
-            pub args: Vec<String>,
             pub platform: Platform,
             pub umu_id_override: Option<String>,
 
@@ -128,7 +127,6 @@ pub mod data {
         #[serde(rename_all = "camelCase")]
         pub struct SetupConfiguration {
             pub command: String,
-            pub args: Vec<String>,
             pub platform: Platform,
         }
 

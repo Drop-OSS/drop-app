@@ -13,11 +13,10 @@ impl ProcessHandler for NativeGameLauncher {
         &self,
         _meta: &DownloadableMetadata,
         launch_command: String,
-        args: Vec<String>,
         _game_version: &GameVersion,
         _current_dir: &str,
     ) -> Result<String, ProcessError> {
-        Ok(format!("\"{}\" {}", launch_command, args.join(" ")))
+        Ok(format!("\"{}\"", launch_command))
     }
 
     fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
@@ -31,7 +30,6 @@ impl ProcessHandler for UMULauncher {
         &self,
         meta: &DownloadableMetadata,
         launch_command: String,
-        args: Vec<String>,
         game_version: &GameVersion,
         _current_dir: &str,
     ) -> Result<String, ProcessError> {
@@ -55,7 +53,7 @@ impl ProcessHandler for UMULauncher {
         let pfx_dir = pfx_dir.join(meta.id.clone());
         create_dir_all(&pfx_dir).map_err(ProcessError::IOError)?;
         Ok(format!(
-            "GAMEID={game_id} WINEPREFIX={} {} {umu:?} \"{launch}\" {args}",
+            "GAMEID={game_id} WINEPREFIX={} {} {umu:?} {launch}",
             pfx_dir.to_string_lossy(),
             match meta.target_platform {
                 Platform::Linux => "UMU_NO_PROTON=1",
@@ -65,7 +63,6 @@ impl ProcessHandler for UMULauncher {
                 .as_ref()
                 .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
             launch = launch_command,
-            args = args.join(" ")
         ))
     }
 
@@ -83,7 +80,6 @@ impl ProcessHandler for AsahiMuvmLauncher {
         &self,
         meta: &DownloadableMetadata,
         launch_command: String,
-        args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
     ) -> Result<String, ProcessError> {
@@ -91,7 +87,6 @@ impl ProcessHandler for AsahiMuvmLauncher {
         let umu_string = umu_launcher.create_launch_process(
             meta,
             launch_command,
-            args,
             game_version,
             current_dir,
         )?;

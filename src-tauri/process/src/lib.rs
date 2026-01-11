@@ -1,5 +1,6 @@
 #![feature(nonpoison_mutex)]
 #![feature(sync_nonpoison)]
+#![feature(extend_one)]
 
 use std::{
     ops::Deref,
@@ -16,6 +17,7 @@ pub mod error;
 pub mod format;
 pub mod process_handlers;
 pub mod process_manager;
+mod parser;
 
 pub struct ProcessManagerWrapper(OnceLock<Mutex<ProcessManager<'static>>>);
 impl ProcessManagerWrapper {

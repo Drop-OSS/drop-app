@@ -25,6 +25,7 @@ use crate::{
     PROCESS_MANAGER,
     error::ProcessError,
     format::DropFormatArgs,
+    parser::{LaunchParameters, ParsedCommand},
     process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
 };
 
@@ -242,7 +243,6 @@ impl ProcessManager<'_> {
         Ok(launch_options)
     }
 
-    /// Must be called through spawn as it is currently blocking
     pub fn launch_process(
         &mut self,
         game_id: String,
@@ -326,7 +326,7 @@ impl ProcessManager<'_> {
 
         let process_handler = self.fetch_process_handler(&db_lock, &target_platform)?;
 
-        let (launch, args, executor) = match game_status {
+        let (target_command, executor) = match game_status {
             GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir: _,
@@ -340,7 +340,6 @@ impl ProcessManager<'_> {
                     .ok_or(ProcessError::NotInstalled)?;
                 (
                     launch_config.command.clone(),
-                    launch_config.args.clone(),
                     launch_config.executor.as_ref(),
                 )
             }
@@ -354,21 +353,37 @@ impl ProcessManager<'_> {
                     .find(|v| v.platform == target_platform)
                     .ok_or(ProcessError::NotInstalled)?;
 
-                (
-                    setup_config.command.clone(),
-                    setup_config.args.clone(),
-                    None,
-                )
+                (setup_config.command.clone(), None)
             }
             _ => unreachable!("Game registered as 'Partially Installed'"),
         };
 
-        let (launch_string, launch, original_exe) = if let Some(executor) = executor {
+        let target_command = ParsedCommand::parse(target_command)?;
+
+        let launch_parameters = if let Some(executor) = executor {
             let executor_metadata = db_lock
                 .applications
                 .installed_game_version
                 .get(&executor.game_id)
                 .ok_or(ProcessError::NotInstalled)?;
+
+            let executor_game_status = db_lock
+                .applications
+                .game_statuses
+                .get(&executor.game_id)
+                .ok_or(ProcessError::NotInstalled)?;
+
+            let executor_install_dir = match executor_game_status {
+                GameDownloadStatus::Installed {
+                    version_name: _,
+                    install_dir,
+                } => Ok(install_dir),
+                GameDownloadStatus::SetupRequired {
+                    version_name: _,
+                    install_dir: _,
+                } => todo!(),
+                _ => Err(ProcessError::NotInstalled),
+            }?;
 
             let executor_game_version = db_lock
                 .applications
@@ -384,44 +399,56 @@ impl ProcessManager<'_> {
                 .find(|v| v.launch_id == executor.launch_id)
                 .ok_or(ProcessError::NotInstalled)?;
 
+            println!("{}", executor_launch_config.command);
+            let mut exe_command = ParsedCommand::parse(executor_launch_config.command.clone())?;
+            println!("{:?}", exe_command);
+            exe_command.env.extend(target_command.env);
+            exe_command.make_absolute(executor_install_dir.into());
+
+            exe_command.args.iter_mut().for_each(|v| {
+                *v = v.replace("{executor}", &target_command.command);
+            });
+
             let executor_launch_string = process_handler.create_launch_process(
                 executor_metadata,
-                executor_launch_config.command.clone(),
-                executor_launch_config.args.clone(),
+                exe_command.reconstruct(),
                 executor_game_version,
+                &install_dir,
+            )?;
+
+            LaunchParameters(executor_launch_string, install_dir.into())
+        } else {
+            let target_launch_string = process_handler.create_launch_process(
+                &meta,
+                target_command.reconstruct(),
+                game_version,
                 install_dir,
             )?;
 
-            (executor_launch_string, executor_launch_config.command.clone(), Some(launch))
-        } else {
-            (
-                process_handler.create_launch_process(
-                    &meta,
-                    launch.to_string(),
-                    args.clone(),
-                    game_version,
-                    install_dir,
-                )?,
-                launch,
+            let mut parsed_launch = ParsedCommand::parse(target_launch_string.clone())?;
+            let executable_name = parsed_launch.command.clone();
+            parsed_launch.make_absolute(install_dir.into());
+
+            let format_args = DropFormatArgs::new(
+                target_launch_string,
+                install_dir,
+                &executable_name,
+                parsed_launch.command,
                 None,
-            )
+            );
+
+            let target_launch_string = SimpleCurlyFormat
+                .format(&game_version.launch_template, &format_args)
+                .map_err(|e| ProcessError::FormatError(e.to_string()))?
+                .to_string();
+
+            let target_launch_string = SimpleCurlyFormat
+                .format(&target_launch_string, format_args)
+                .map_err(|e| ProcessError::FormatError(e.to_string()))?
+                .to_string();
+
+            LaunchParameters(target_launch_string, install_dir.into())
         };
-
-        let format_args = DropFormatArgs::new(
-            launch_string,
-            install_dir,
-            &launch.clone(),
-            PathBuf::from(install_dir)
-                .join(launch)
-                .display()
-                .to_string(),
-            original_exe,
-        );
-
-        let launch_string = SimpleCurlyFormat
-            .format(&game_version.launch_template, format_args)
-            .map_err(|e| ProcessError::FormatError(e.to_string()))?
-            .to_string();
 
         #[cfg(target_os = "windows")]
         use std::os::windows::process::CommandExt;
@@ -430,20 +457,22 @@ impl ProcessManager<'_> {
         #[cfg(target_os = "windows")]
         command.raw_arg(format!("/C \"{}\"", &launch_string));
 
-        info!("launching (in {install_dir}): {launch_string}",);
+        info!(
+            "launching (in {}): {}",
+            launch_parameters.1.to_string_lossy(),
+            launch_parameters.0
+        );
 
         #[cfg(unix)]
         let mut command: Command = Command::new("sh");
         #[cfg(unix)]
-        command.args(vec!["-c", &launch_string]);
-
-        debug!("final launch string:\n\n{launch_string}\n");
+        command.args(vec!["-c", &launch_parameters.0]);
 
         command
             .stderr(error_file)
             .stdout(log_file)
             .env_remove("RUST_LOG")
-            .current_dir(install_dir);
+            .current_dir(launch_parameters.1);
 
         let child = command.spawn().map_err(ProcessError::IOError)?;
 
@@ -489,7 +518,6 @@ pub trait ProcessHandler: Send + 'static {
         &self,
         meta: &DownloadableMetadata,
         launch_command: String,
-        args: Vec<String>,
         game_version: &GameVersion,
         current_dir: &str,
     ) -> Result<String, ProcessError>;
