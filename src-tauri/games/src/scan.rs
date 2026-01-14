@@ -4,7 +4,7 @@ use database::{DownloadType, DownloadableMetadata, borrow_db_mut_checked};
 use log::warn;
 
 use crate::{
-    downloads::drop_data::{DROP_DATA_PATH, DropData},
+    downloads::drop_data::{DROPDATA_PATH, DropData},
     library::set_partially_installed_db,
 };
 
@@ -15,7 +15,7 @@ pub fn scan_install_dirs() {
             continue;
         };
         for game in files.into_iter().flatten() {
-            let drop_data_file = game.path().join(DROP_DATA_PATH);
+            let drop_data_file = game.path().join(DROPDATA_PATH);
             if !drop_data_file.exists() {
                 continue;
             }

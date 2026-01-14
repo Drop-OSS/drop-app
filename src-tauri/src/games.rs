@@ -8,11 +8,11 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::{info, warn};
+use log::warn;
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
-    cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db},
+    cache::{cache_object, get_cached_object, get_cached_object_db},
     error::{DropServerError, RemoteAccessError},
     offline,
     requests::generate_url,
@@ -132,7 +132,9 @@ pub async fn fetch_game_logic(
         let db_lock = borrow_db_checked();
 
         let metadata_option = db_lock.applications.installed_game_version.get(&id);
-        let version = match metadata_option {
+        
+
+        match metadata_option {
             None => None,
             Some(metadata) => db_lock
                 .applications
@@ -140,9 +142,7 @@ pub async fn fetch_game_logic(
                 .get(&metadata.id)
                 .map(|v| v.get(&metadata.version).unwrap())
                 .cloned(),
-        };
-
-        version
+        }
     };
 
     let client = DROP_CLIENT_ASYNC.clone();

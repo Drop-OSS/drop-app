@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::nonpoison::Mutex};
+use std::sync::nonpoison::Mutex;
 
 use database::{borrow_db_checked, borrow_db_mut_checked};
 use download_manager::DOWNLOAD_MANAGER;
@@ -7,7 +7,6 @@ use remote::requests::{generate_url, make_authenticated_get};
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
-use url::Url;
 
 use crate::AppState;
 

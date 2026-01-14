@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    fmt::Debug,
     sync::{Arc, Mutex},
 };
 
@@ -138,14 +139,15 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Paused);
         if let Some(current_flag) = &self.active_control_flag {
             current_flag.set(DownloadThreadControlFlag::Stop);
-        }
 
-        if let Some(current_download_thread) = {
-            let mut download_thread_lock = lock!(self.current_download_thread);
-            download_thread_lock.take()
-        } {
-            return current_download_thread.await.is_ok();
-        };
+            if let Some(current_download_thread) = {
+                let mut download_thread_lock = lock!(self.current_download_thread);
+                download_thread_lock.take()
+            } {
+                
+                return current_download_thread.await.is_ok();
+            };
+        }
 
         true
     }
@@ -265,11 +267,15 @@ impl DownloadManagerBuilder {
                         return;
                     }
                 };
-
+                
                 // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier
                 if !download_result {
-                    return;
+                    /*
+                     * This seems to cause a really weird bug, where sometimes if you cancel the download
+                     * mid-download it never actually exists or something? Like the JoinHandle doesn't join?
+                     */
+                    //return;
                 }
 
                 if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
@@ -353,6 +359,7 @@ impl DownloadManagerBuilder {
             self.set_status(DownloadManagerStatus::Paused);
             current_download.on_cancelled(&self.app_handle);
             self.stop_and_wait_current_download().await;
+            self.set_status(DownloadManagerStatus::Empty);
 
             self.download_queue.pop_front();
 

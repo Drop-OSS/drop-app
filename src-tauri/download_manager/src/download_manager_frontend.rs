@@ -19,6 +19,7 @@ use super::{
     util::queue::Queue,
 };
 
+#[derive(Debug)]
 pub enum DownloadManagerSignal {
     /// Resumes (or starts) the `DownloadManager`
     Go,

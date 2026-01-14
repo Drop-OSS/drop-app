@@ -8,15 +8,15 @@
 #![deny(clippy::all)]
 
 use std::{
-    collections::HashMap, env, fs::File, io::Write, panic::PanicHookInfo, path::Path, str::FromStr,
+    env, fs::File, io::Write, panic::PanicHookInfo, path::Path, str::FromStr,
     sync::nonpoison::Mutex, time::SystemTime,
 };
 
 use ::client::{
-    app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup, user::User,
+    app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup,
 };
 use ::download_manager::DownloadManagerWrapper;
-use ::games::{library::Game, scan::scan_install_dirs};
+use ::games::scan::scan_install_dirs;
 use ::process::ProcessManagerWrapper;
 use ::remote::{
     auth::{self, HandshakeRequestBody, HandshakeResponse, generate_authorization_header},

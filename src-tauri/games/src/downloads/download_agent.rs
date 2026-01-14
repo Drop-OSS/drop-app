@@ -17,6 +17,7 @@ use remote::error::RemoteAccessError;
 use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_ASYNC;
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -37,12 +38,17 @@ static RETRY_COUNT: usize = 3;
 pub struct GameDownloadAgent {
     pub metadata: DownloadableMetadata,
     pub control_flag: DownloadThreadControl,
-    context_map: Mutex<HashMap<String, bool>>,
     pub manifest: Mutex<Option<Manifest>>,
     pub progress: Arc<ProgressObject>,
     sender: Sender<DownloadManagerSignal>,
     pub dropdata: DropData,
     status: Mutex<DownloadStatus>,
+}
+
+impl Debug for GameDownloadAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("GameDownloadAgent").finish()
+    }
 }
 
 impl GameDownloadAgent {
@@ -68,16 +74,19 @@ impl GameDownloadAgent {
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
         let base_dir_path = Path::new(&base_dir);
+        info!("base dir {}", base_dir_path.display() );
         let data_base_dir_path = base_dir_path.join(metadata.id.clone());
+        info!("data dir path {}", data_base_dir_path.display());
 
         let stored_manifest =
             DropData::generate(metadata.id.clone(), metadata.version.clone(), metadata.target_platform, data_base_dir_path.clone());
+
+            info!("starting download with {} completed", stored_manifest.get_contexts().len());
 
         let result = Self {
             metadata,
             control_flag,
             manifest: Mutex::new(None),
-            context_map: Mutex::new(stored_manifest.get_contexts()),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             dropdata: stored_manifest,
@@ -210,7 +219,7 @@ impl GameDownloadAgent {
         };
         let chunk_len = chunks.len();
         let mut completed_chunks = {
-            let completed_chunks = lock!(self.context_map);
+            let completed_chunks = lock!(self.dropdata.contexts);
             completed_chunks.clone()
         };
         let max_download_threads = borrow_db_checked().settings.max_download_threads;
@@ -307,6 +316,8 @@ impl GameDownloadAgent {
 
         self.dropdata.set_contexts(&drop_data_chunks);
         self.dropdata.write();
+
+        info!("completed {} chunks", drop_data_chunks.len());
 
         // If there are any contexts left which are false
         if completed_chunks.len() != chunk_len {
@@ -485,7 +496,6 @@ impl Downloadable for GameDownloadAgent {
     }
 
     fn on_cancelled(&self, app_handle: &tauri::AppHandle) {
-        info!("cancelled {}", self.metadata.id);
         self.cancel(app_handle);
     }
 

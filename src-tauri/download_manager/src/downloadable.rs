@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 use async_trait::async_trait;
 use database::DownloadableMetadata;
@@ -18,7 +18,7 @@ use super::{
  * But the download manager manages the queue state
  */
 #[async_trait]
-pub trait Downloadable: Send + Sync {
+pub trait Downloadable: Send + Sync + Debug {
     async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
     fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
 

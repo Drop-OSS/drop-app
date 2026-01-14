@@ -12,7 +12,7 @@ use utils::lock;
 
 pub type DropData = v1::DropData;
 
-pub static DROP_DATA_PATH: &str = ".dropdata";
+pub static DROPDATA_PATH: &str = ".dropdata";
 
 pub mod v1 {
     use std::{collections::HashMap, path::PathBuf, sync::Mutex};
@@ -52,7 +52,7 @@ impl DropData {
         }
     }
     pub fn read(base_path: &Path) -> Result<Self, io::Error> {
-        let mut file = File::open(base_path.join(DROP_DATA_PATH))?;
+        let mut file = File::open(base_path.join(DROPDATA_PATH))?;
 
         let mut s = Vec::new();
         file.read_to_end(&mut s)?;
@@ -70,7 +70,7 @@ impl DropData {
             Err(_) => return,
         };
 
-        let mut file = match File::create(self.base_path.join(DROP_DATA_PATH)) {
+        let mut file = match File::create(self.base_path.join(DROPDATA_PATH)) {
             Ok(file) => file,
             Err(e) => {
                 error!("{e}");

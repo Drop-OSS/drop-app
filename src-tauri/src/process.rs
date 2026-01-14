@@ -1,4 +1,4 @@
-use std::sync::{Arc, nonpoison::Mutex};
+use std::sync::Arc;
 
 use process::{
     PROCESS_MANAGER,
@@ -8,8 +8,6 @@ use process::{
 use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
-
-use crate::AppState;
 
 #[tauri::command]
 pub fn get_launch_options(id: String) -> Result<Vec<LaunchOption>, ProcessError> {
@@ -33,16 +31,13 @@ pub fn launch_game(id: String, index: usize) -> Result<LaunchResult, ProcessErro
         process_manager_lock.launch_process(id, index)
     };
 
-    if let Err(err) = &result {
-        match err {
-            ProcessError::RequiredDependency(game_id, version_id) => {
-                return Ok(LaunchResult::InstallRequired(
-                    game_id.to_string(),
-                    version_id.to_string(),
-                ));
-            }
-            _ => (),
-        };
+    if let Err(err) = &result
+        && let ProcessError::RequiredDependency(game_id, version_id) = err
+    {
+        return Ok(LaunchResult::InstallRequired(
+            game_id.to_string(),
+            version_id.to_string(),
+        ));
     }
 
     result?;

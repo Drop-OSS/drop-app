@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 use database::{
     DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked, platform::Platform,
@@ -68,8 +68,11 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
 
     let sender = DOWNLOAD_MANAGER.get_sender();
 
+    let install_dir = PathBuf::from(install_dir);
+    let install_dir = install_dir.parent().expect("game somehow installed at root");
+
     let game_download_agent = Arc::new(Box::new(
-        GameDownloadAgent::new(meta, install_dir.into(), sender).await?,
+        GameDownloadAgent::new(meta, install_dir.to_path_buf(), sender).await?,
     ) as Box<dyn Downloadable + Send + Sync>);
 
     DOWNLOAD_MANAGER
