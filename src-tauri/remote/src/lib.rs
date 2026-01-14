@@ -1,5 +1,7 @@
 #![feature(slice_as_array)]
 #![feature(slice_concat_trait)]
+#![feature(sync_nonpoison)]
+#![feature(nonpoison_mutex)]
 
 pub mod auth;
 #[macro_use]

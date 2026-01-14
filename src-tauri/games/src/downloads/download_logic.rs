@@ -59,7 +59,7 @@ pub fn download_game_chunk(
     if response.status() != 200 {
         info!("chunk request got status code: {}", response.status());
         let raw_res = response.text().map_err(|e| {
-            ApplicationDownloadError::Communication(RemoteAccessError::FetchError(e.into()))
+            ApplicationDownloadError::Communication(RemoteAccessError::FetchErrorLegacy(e.into()))
         })?;
         info!("{raw_res}");
         if let Ok(err) = serde_json::from_str::<DropServerError>(&raw_res) {

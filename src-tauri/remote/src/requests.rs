@@ -1,4 +1,5 @@
 use database::{DB};
+use reqwest_middleware::Error;
 use url::Url;
 
 use crate::{
@@ -20,7 +21,7 @@ pub fn generate_url(
     Ok(base_url)
 }
 
-pub async fn make_authenticated_get(url: Url) -> Result<reqwest::Response, reqwest::Error> {
+pub async fn make_authenticated_get(url: Url) -> Result<reqwest::Response, Error> {
     DROP_CLIENT_ASYNC
         .get(url)
         .header("Authorization", generate_authorization_header())

@@ -472,7 +472,7 @@ impl Downloadable for GameDownloadAgent {
             &self.metadata(),
             self.dropdata.base_path.to_string_lossy().to_string(),
             app_handle,
-        ) {
+        ).await {
             Ok(_) => {}
             Err(e) => {
                 error!("could not mark game as complete: {e}");

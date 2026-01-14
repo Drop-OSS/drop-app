@@ -1,5 +1,5 @@
 <template>
-    <NuxtLoadingIndicator color="#2563eb" />
+  <NuxtLoadingIndicator color="#2563eb" />
   <NuxtLayout class="select-none w-screen h-screen">
     <NuxtPage />
     <ModalStack />
@@ -15,6 +15,8 @@ import {
   initialNavigation,
   setupHooks,
 } from "./composables/state-navigation.js";
+import { listen } from "@tauri-apps/api/event";
+import type { AppState } from "./types.js";
 
 const router = useRouter();
 
@@ -36,9 +38,8 @@ async function fetchState() {
 }
 await fetchState();
 
-// This is inefficient but apparently we do it lol
-router.beforeEach(async () => {
-  await fetchState();
+listen("update_state", (event) => {
+  state.value = event.payload as AppState;
 });
 
 setupHooks();

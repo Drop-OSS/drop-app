@@ -74,9 +74,7 @@
                 />
               </div>
               <div class="truncate inline-flex items-center gap-x-2">
-                <p
-                  class="text-sm whitespace-nowrap font-display font-semibold"
-                >
+                <p class="text-sm whitespace-nowrap font-display font-semibold">
                   {{ item.label }}
                 </p>
                 <p
@@ -177,6 +175,22 @@ const icons: { [key: string]: string } = {};
 const collections: Ref<Collection[]> = ref([]);
 
 async function calculateGames(clearAll = false, forceRefresh = false) {
+  try {
+    await calculateGamesLogic(clearAll, forceRefresh);
+  } catch (e) {
+    createModal(
+      ModalType.Notification,
+      {
+        title: "Failed to fetch library",
+        description: `Drop encountered an error while fetching your library: ${e}`,
+      },
+      (_, c) => c()
+    );
+  }
+  loading.value = false;
+}
+
+async function calculateGamesLogic(clearAll = false, forceRefresh = false) {
   if (clearAll) {
     collections.value = [];
     loading.value = true;

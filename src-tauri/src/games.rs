@@ -67,12 +67,9 @@ pub async fn fetch_library_logic(
 
     let mut games: Vec<Game> = response.json().await?;
 
-    let mut handle = state.lock();
-
     let mut db_handle = borrow_db_mut_checked();
 
     for game in &games {
-        handle.games.insert(game.id().clone(), game.clone());
         if !db_handle.applications.game_statuses.contains_key(game.id()) {
             db_handle
                 .applications
@@ -101,7 +98,6 @@ pub async fn fetch_library_logic(
         games.push(game);
     }
 
-    drop(handle);
     drop(db_handle);
     cache_object("library", &games)?;
 
@@ -133,8 +129,6 @@ pub async fn fetch_game_logic(
     state: tauri::State<'_, Mutex<AppState>>,
 ) -> Result<FetchGameStruct, RemoteAccessError> {
     let version = {
-        let state_handle = state.lock();
-
         let db_lock = borrow_db_checked();
 
         let metadata_option = db_lock.applications.installed_game_version.get(&id);
@@ -147,17 +141,6 @@ pub async fn fetch_game_logic(
                 .map(|v| v.get(&metadata.version).unwrap())
                 .cloned(),
         };
-
-        let game = state_handle.games.get(&id);
-        if let Some(game) = game {
-            let status = GameStatusManager::fetch_state(&id, &db_lock);
-
-            let data = FetchGameStruct::new(game.clone(), status, version);
-
-            cache_object_db(&id, game, &db_lock)?;
-
-            return Ok(data);
-        }
 
         version
     };
@@ -185,9 +168,6 @@ pub async fn fetch_game_logic(
     }
 
     let game: Game = response.json().await?;
-
-    let mut state_handle = state.lock();
-    state_handle.games.insert(id.clone(), game.clone());
 
     let mut db_handle = borrow_db_mut_checked();
 

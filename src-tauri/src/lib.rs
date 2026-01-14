@@ -12,7 +12,9 @@ use std::{
     sync::nonpoison::Mutex, time::SystemTime,
 };
 
-use ::client::{app_status::AppStatus, autostart::sync_autostart_on_startup, user::User};
+use ::client::{
+    app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup, user::User,
+};
 use ::download_manager::DownloadManagerWrapper;
 use ::games::{library::Game, scan::scan_install_dirs};
 use ::process::ProcessManagerWrapper;
@@ -22,7 +24,7 @@ use ::remote::{
     error::RemoteAccessError,
     fetch_object::fetch_object_wrapper,
     server_proto::handle_server_proto_wrapper,
-    utils::DROP_CLIENT_ASYNC,
+    utils::{DROP_APP_HANDLE, DROP_CLIENT_ASYNC},
 };
 use database::{
     DB, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked, db::DATA_ROOT_DIR,
@@ -34,7 +36,6 @@ use log4rs::{
     config::{Appender, Root},
     encode::pattern::PatternEncoder,
 };
-use serde::Serialize;
 use tauri::{
     AppHandle, LogicalPosition, LogicalSize, Manager, RunEvent, WebviewBuilder, WebviewUrl,
     WindowBuilder, WindowEvent,
@@ -63,14 +64,6 @@ use games::*;
 use process::*;
 use remote::*;
 use settings::*;
-
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AppState {
-    status: AppStatus,
-    user: Option<User>,
-    games: HashMap<String, Game>,
-}
 
 async fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
@@ -103,8 +96,6 @@ async fn setup(handle: AppHandle) -> AppState {
 
     log4rs::init_config(config).expect("Failed to initialise log4rs");
 
-    let games = HashMap::new();
-
     ProcessManagerWrapper::init(handle.clone());
     DownloadManagerWrapper::init(handle.clone());
 
@@ -117,7 +108,6 @@ async fn setup(handle: AppHandle) -> AppState {
         return AppState {
             status: AppStatus::NotConfigured,
             user: None,
-            games,
         };
     }
 
@@ -179,7 +169,6 @@ async fn setup(handle: AppHandle) -> AppState {
     AppState {
         status: app_status,
         user,
-        games,
     }
 }
 
@@ -242,6 +231,7 @@ pub fn run() {
             use_remote,
             gen_drop_url,
             fetch_drop_object,
+            check_online,
             // Library
             fetch_library,
             fetch_game,
@@ -284,9 +274,15 @@ pub fn run() {
             let handle = app.handle().clone();
 
             tauri::async_runtime::block_on(async move {
-                let state = setup(handle).await;
+                let state = setup(handle.clone()).await;
                 info!("initialized drop client");
                 app.manage(Mutex::new(state));
+
+                let global_app_handle = handle;
+                {
+                    let mut app_handle_lock = DROP_APP_HANDLE.lock().await;
+                    app_handle_lock.replace(global_app_handle);
+                };
 
                 {
                     use tauri_plugin_deep_link::DeepLinkExt;

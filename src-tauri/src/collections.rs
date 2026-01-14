@@ -1,8 +1,13 @@
+use std::sync::nonpoison::Mutex;
+
+use client::app_state::AppState;
+use database::{GameDownloadStatus, borrow_db_checked};
 use games::collections::collection::{Collection, Collections};
 use remote::{
     auth::generate_authorization_header,
     cache::{cache_object, get_cached_object},
     error::RemoteAccessError,
+    offline,
     requests::{generate_url, make_authenticated_get},
     utils::DROP_CLIENT_ASYNC,
 };
@@ -10,6 +15,19 @@ use serde_json::json;
 
 #[tauri::command]
 pub async fn fetch_collections(
+    state: tauri::State<'_, Mutex<AppState>>,
+    hard_refresh: Option<bool>,
+) -> Result<Collections, RemoteAccessError> {
+    offline!(
+        state,
+        fetch_collections_online,
+        fetch_collections_offline,
+        hard_refresh
+    )
+    .await
+}
+
+pub async fn fetch_collections_online(
     hard_refresh: Option<bool>,
 ) -> Result<Collections, RemoteAccessError> {
     let do_hard_refresh = hard_refresh.unwrap_or(false);
@@ -26,6 +44,29 @@ pub async fn fetch_collections(
     cache_object("collections", &collections)?;
 
     Ok(collections)
+}
+
+pub async fn fetch_collections_offline(
+    _hard_refresh: Option<bool>,
+) -> Result<Collections, RemoteAccessError> {
+    let mut cached = get_cached_object::<Collections>("collections")?;
+
+    let db_handle = borrow_db_checked();
+
+    for collection in cached.iter_mut() {
+        collection.entries.retain(|v| {
+            matches!(
+                &db_handle
+                    .applications
+                    .game_statuses
+                    .get(&v.game_id)
+                    .unwrap_or(&GameDownloadStatus::Remote {}),
+                GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
+            )
+        });
+    }
+
+    Ok(cached)
 }
 
 #[tauri::command]

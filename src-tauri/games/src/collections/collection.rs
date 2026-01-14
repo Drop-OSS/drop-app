@@ -12,13 +12,13 @@ pub struct Collection {
     name: String,
     is_default: bool,
     user_id: String,
-    entries: Vec<CollectionObject>,
+    pub entries: Vec<CollectionObject>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionObject {
     collection_id: String,
-    game_id: String,
+    pub game_id: String,
     game: Game,
 }

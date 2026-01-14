@@ -5,8 +5,10 @@ use database::{
 };
 use log::{debug, error, warn};
 use remote::{
-    auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url,
-    utils::DROP_CLIENT_SYNC,
+    auth::generate_authorization_header,
+    error::RemoteAccessError,
+    requests::generate_url,
+    utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
 };
 use serde::{Deserialize, Serialize};
 use std::fs::remove_dir_all;
@@ -193,28 +195,23 @@ pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
         .cloned()
 }
 
-pub fn on_game_complete(
+pub async fn on_game_complete(
     meta: &DownloadableMetadata,
     install_dir: String,
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
     // Fetch game version information from remote
-    let client = DROP_CLIENT_SYNC.clone();
     let response = generate_url(
-        &[
-            "/api/v1/client/game",
-            &meta.id,
-            "version",
-            &meta.version,
-        ],
+        &["/api/v1/client/game", &meta.id, "version", &meta.version],
         &[],
     )?;
-    let response = client
+    let response = DROP_CLIENT_ASYNC
         .get(response)
         .header("Authorization", generate_authorization_header())
-        .send()?;
+        .send()
+        .await?;
 
-    let game_version: GameVersion = response.json()?;
+    let game_version: GameVersion = response.json().await?;
 
     let mut handle = borrow_db_mut_checked();
     handle
@@ -230,7 +227,10 @@ pub fn on_game_complete(
 
     drop(handle);
 
-    let setup_configuration = game_version.setups.iter().find(|v| v.platform == meta.target_platform);
+    let setup_configuration = game_version
+        .setups
+        .iter()
+        .find(|v| v.platform == meta.target_platform);
 
     let status = if setup_configuration.is_none() {
         GameDownloadStatus::Installed {

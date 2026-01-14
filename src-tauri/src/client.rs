@@ -1,11 +1,13 @@
-use std::sync::nonpoison::Mutex;
+use std::{str::FromStr, sync::nonpoison::Mutex};
 
 use database::{borrow_db_checked, borrow_db_mut_checked};
 use download_manager::DOWNLOAD_MANAGER;
 use log::{debug, error};
+use remote::requests::{generate_url, make_authenticated_get};
 use tauri::AppHandle;
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_opener::OpenerExt;
+use url::Url;
 
 use crate::AppState;
 
@@ -74,4 +76,11 @@ pub fn get_autostart_enabled(app: AppHandle) -> Result<bool, tauri_plugin_autost
 #[tauri::command]
 pub fn open_fs(path: String, app_handle: AppHandle) -> Result<(), tauri_plugin_opener::Error> {
     app_handle.opener().open_path(path, None::<&str>)
+}
+
+
+#[tauri::command]
+pub async fn check_online() -> Result<bool, ()> {
+    let online = make_authenticated_get(generate_url(&["/api/v1/"], &[]).unwrap()).await.is_ok();
+    Ok(online)
 }
