@@ -99,7 +99,8 @@ impl ProcessManager<'_> {
             Some(process) => {
                 process.manually_killed = true;
                 process.handle.kill()?;
-                process.handle.wait()?;
+                let exit_status = process.handle.wait()?;
+                info!("exit status: {:?}", exit_status);
                 Ok(())
             }
             None => Err(io::Error::new(

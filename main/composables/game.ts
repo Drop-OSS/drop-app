@@ -43,19 +43,18 @@ export const useGame = async (gameId: string) => {
       gameStatusRegistry[gameId] = ref(parseStatus(data.status));
 
       listen(`update_game/${gameId}`, (event) => {
-        console.log(event);
         const payload: {
           status: SerializedGameStatus;
           version?: GameVersion;
         } = event.payload as any;
         gameStatusRegistry[gameId].value = parseStatus(payload.status);
-        
+
         /**
          * I am not super happy about this.
-         * 
+         *
          * This will mean that we will still have a version assigned if we have a game installed then uninstall it.
          * It is necessary because a flag to check if we should overwrite seems excessive, and this function gets called
-         * on transient state updates. 
+         * on transient state updates.
          */
         if (payload.version) {
           gameRegistry[gameId].version = payload.version;
@@ -71,4 +70,15 @@ export const useGame = async (gameId: string) => {
 
 export type FrontendGameConfiguration = {
   launchString: string;
+};
+
+export type LaunchResult =
+  | { result: "Success" }
+  | { result: "InstallRequired"; data: [string, string] };
+
+export type VersionOption = {
+  versionId: string;
+  displayName?: string;
+  versionPath: string;
+  platform: string;
 };

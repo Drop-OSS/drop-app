@@ -140,3 +140,11 @@ tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
 lto = true
 panic = "abort"
 codegen-units = 1
+
+[profile.dev.package."*"]
+# Set the default for dependencies in Development mode.
+opt-level = 3
+
+[profile.dev]
+# Turn on a small amount of optimisation in Development mode.
+opt-level = 1

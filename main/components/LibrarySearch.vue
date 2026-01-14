@@ -141,7 +141,7 @@ const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "text-green-500",
   [GameStatusEnum.Downloading]: "text-zinc-400",
   [GameStatusEnum.Validating]: "text-blue-300",
-  [GameStatusEnum.Running]: "text-green-500",
+  [GameStatusEnum.Running]: "text-blue-500",
   [GameStatusEnum.Remote]: "text-zinc-700",
   [GameStatusEnum.Queued]: "text-zinc-400",
   [GameStatusEnum.Updating]: "text-zinc-400",

@@ -1,6 +1,11 @@
 use std::sync::{Arc, nonpoison::Mutex};
 
-use process::{PROCESS_MANAGER, error::ProcessError, process_manager::{LaunchOption, ProcessManager}};
+use process::{
+    PROCESS_MANAGER,
+    error::ProcessError,
+    process_manager::{LaunchOption, ProcessManager},
+};
+use serde::Serialize;
 use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
@@ -13,36 +18,41 @@ pub fn get_launch_options(id: String) -> Result<Vec<LaunchOption>, ProcessError>
     Ok(launch_options)
 }
 
-#[tauri::command]
-pub fn launch_game(
-    id: String,
-    index: usize,
-    state: tauri::State<'_, Mutex<AppState>>,
-) -> Result<(), ProcessError> {
-    let state_lock = state.lock();
-    let mut process_manager_lock = PROCESS_MANAGER.lock();
-    //let meta = DownloadableMetadata {
-    //    id,
-    //    version: Some(version),
-    //    download_type: DownloadType::Game,
-    //};
+#[derive(Serialize)]
+#[serde(tag = "result", content = "data")]
+pub enum LaunchResult {
+    Success,
+    InstallRequired(String, String),
+}
 
-    match process_manager_lock.launch_process(id, index) {
-        Ok(()) => {}
-        Err(e) => return Err(e),
+#[tauri::command]
+pub fn launch_game(id: String, index: usize) -> Result<LaunchResult, ProcessError> {
+    let result = {
+        let mut process_manager_lock = PROCESS_MANAGER.lock();
+
+        process_manager_lock.launch_process(id, index)
+    };
+
+    if let Err(err) = &result {
+        match err {
+            ProcessError::RequiredDependency(game_id, version_id) => {
+                return Ok(LaunchResult::InstallRequired(
+                    game_id.to_string(),
+                    version_id.to_string(),
+                ));
+            }
+            _ => (),
+        };
     }
 
-    drop(process_manager_lock);
-    drop(state_lock);
+    result?;
 
-    Ok(())
+    Ok(LaunchResult::Success)
 }
 
 #[tauri::command]
 pub fn kill_game(game_id: String) -> Result<(), ProcessError> {
-    Ok(PROCESS_MANAGER
-        .lock()
-        .kill_game(game_id)?)
+    Ok(PROCESS_MANAGER.lock().kill_game(game_id)?)
 }
 
 #[tauri::command]
