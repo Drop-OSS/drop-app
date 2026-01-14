@@ -8,11 +8,11 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::warn;
+use log::{info, warn};
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
-    cache::{cache_object, get_cached_object, get_cached_object_db},
+    cache::{cache_object, cache_object_db, get_cached_object, get_cached_object_db},
     error::{DropServerError, RemoteAccessError},
     offline,
     requests::generate_url,
@@ -132,9 +132,7 @@ pub async fn fetch_game_logic(
         let db_lock = borrow_db_checked();
 
         let metadata_option = db_lock.applications.installed_game_version.get(&id);
-        
-
-        match metadata_option {
+        let version = match metadata_option {
             None => None,
             Some(metadata) => db_lock
                 .applications
@@ -142,7 +140,9 @@ pub async fn fetch_game_logic(
                 .get(&metadata.id)
                 .map(|v| v.get(&metadata.version).unwrap())
                 .cloned(),
-        }
+        };
+
+        version
     };
 
     let client = DROP_CLIENT_ASYNC.clone();
@@ -194,7 +194,7 @@ pub struct VersionDownloadOption {
     version_id: String,
     display_name: Option<String>,
     version_path: String,
-    platform: Platform,
+    pub platform: Platform,
 }
 
 pub async fn fetch_game_version_options_logic(
@@ -220,18 +220,23 @@ pub async fn fetch_game_version_options_logic(
 
     let state_lock = state.lock();
     let process_manager_lock = PROCESS_MANAGER.lock();
-    let data = data
+    let data: Vec<VersionDownloadOption> = data
         .into_iter()
         .flat_map(|v| {
-            v.launches.into_iter().map(move |l| VersionDownloadOption {
-                version_id: v.version_id.clone(),
-                display_name: v.display_name.clone(),
-                version_path: v.version_path.clone(),
-                platform: l.platform,
-            })
+            let mut launches_tmp = v.launches;
+            launches_tmp.dedup_by_key(|v| v.platform);
+            launches_tmp
+                .into_iter()
+                .map(move |l| VersionDownloadOption {
+                    version_id: v.version_id.clone(),
+                    display_name: v.display_name.clone(),
+                    version_path: v.version_path.clone(),
+                    platform: l.platform,
+                })
         })
         .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();
+    //data.dedup_by_key(|v| v.platform);
     drop(process_manager_lock);
     drop(state_lock);
 
