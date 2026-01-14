@@ -1,4 +1,4 @@
-use std::sync::nonpoison::Mutex;
+use std::sync::{Arc, nonpoison::Mutex};
 
 use process::{PROCESS_MANAGER, error::ProcessError, process_manager::{LaunchOption, ProcessManager}};
 use tauri::AppHandle;
@@ -40,10 +40,9 @@ pub fn launch_game(
 
 #[tauri::command]
 pub fn kill_game(game_id: String) -> Result<(), ProcessError> {
-    PROCESS_MANAGER
+    Ok(PROCESS_MANAGER
         .lock()
-        .kill_game(game_id)
-        .map_err(ProcessError::IOError)
+        .kill_game(game_id)?)
 }
 
 #[tauri::command]
@@ -54,5 +53,5 @@ pub fn open_process_logs(game_id: String, app_handle: AppHandle) -> Result<(), P
     app_handle
         .opener()
         .open_path(dir.display().to_string(), None::<&str>)
-        .map_err(ProcessError::OpenerError)
+        .map_err(|v| ProcessError::OpenerError(Arc::new(v)))
 }

@@ -1,17 +1,18 @@
-use std::{fmt::Display, io::Error};
+use std::{fmt::Display, io::{self, Error}, sync::Arc};
 
 use serde_with::SerializeDisplay;
 
-#[derive(SerializeDisplay)]
+#[derive(SerializeDisplay, Clone)]
 pub enum ProcessError {
     NotInstalled,
     AlreadyRunning,
     InvalidID,
     InvalidVersion,
-    IOError(Error),
+    RequiredDependency(String, String),
+    IOError(Arc<Error>),
     FormatError(String), // String errors supremacy
     InvalidPlatform,
-    OpenerError(tauri_plugin_opener::Error),
+    OpenerError(Arc<tauri_plugin_opener::Error>),
     InvalidArguments(String),
     FailedLaunch(String),
 }
@@ -33,7 +34,17 @@ impl Display for ProcessError {
             ProcessError::FailedLaunch(game_id) => {
                 &format!("Drop detected that the game {game_id} may have failed to launch properly")
             }
+            ProcessError::RequiredDependency(game_id, version_id) => &format!(
+                "Missing a required dependency to launch this game: {} {}",
+                game_id, version_id
+            ),
         };
         write!(f, "{s}")
+    }
+}
+
+impl From<io::Error> for ProcessError {
+    fn from(value: io::Error) -> Self {
+        ProcessError::IOError(Arc::new(value))
     }
 }

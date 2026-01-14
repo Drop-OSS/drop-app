@@ -295,7 +295,7 @@ impl ProcessManager<'_> {
 
         // TODO: refactor this path with open_process_logs
         let game_log_folder = &self.get_log_dir(game_id);
-        create_dir_all(game_log_folder).map_err(ProcessError::IOError)?;
+        create_dir_all(game_log_folder)?;
 
         let current_time = chrono::offset::Local::now();
         let log_file = OpenOptions::new()
@@ -307,8 +307,7 @@ impl ProcessManager<'_> {
                 "{}-{}.log",
                 &meta.version,
                 current_time.timestamp()
-            )))
-            .map_err(ProcessError::IOError)?;
+            )))?;
 
         let error_file = OpenOptions::new()
             .write(true)
@@ -319,8 +318,7 @@ impl ProcessManager<'_> {
                 "{}-{}-error.log",
                 &meta.version,
                 current_time.timestamp()
-            )))
-            .map_err(ProcessError::IOError)?;
+            )))?;
 
         let target_platform = meta.target_platform;
 
@@ -361,17 +359,22 @@ impl ProcessManager<'_> {
         let target_command = ParsedCommand::parse(target_command)?;
 
         let launch_parameters = if let Some(executor) = executor {
+            let err = ProcessError::RequiredDependency(
+                executor.game_id.clone(),
+                executor.version_id.clone(),
+            );
+
             let executor_metadata = db_lock
                 .applications
                 .installed_game_version
                 .get(&executor.game_id)
-                .ok_or(ProcessError::NotInstalled)?;
+                .ok_or(err.clone())?;
 
             let executor_game_status = db_lock
                 .applications
                 .game_statuses
                 .get(&executor.game_id)
-                .ok_or(ProcessError::NotInstalled)?;
+                .ok_or(err.clone())?;
 
             let executor_install_dir = match executor_game_status {
                 GameDownloadStatus::Installed {
@@ -382,22 +385,22 @@ impl ProcessManager<'_> {
                     version_name: _,
                     install_dir: _,
                 } => todo!(),
-                _ => Err(ProcessError::NotInstalled),
+                _ => Err(err.clone()),
             }?;
 
             let executor_game_version = db_lock
                 .applications
                 .game_versions
                 .get(&executor.game_id)
-                .ok_or(ProcessError::NotInstalled)?
+                .ok_or(err.clone())?
                 .get(&executor.version_id)
-                .ok_or(ProcessError::NotInstalled)?;
+                .ok_or(err.clone())?;
 
             let executor_launch_config = executor_game_version
                 .launches
                 .iter()
                 .find(|v| v.launch_id == executor.launch_id)
-                .ok_or(ProcessError::NotInstalled)?;
+                .ok_or(err)?;
 
             println!("{}", executor_launch_config.command);
             let mut exe_command = ParsedCommand::parse(executor_launch_config.command.clone())?;
@@ -474,10 +477,10 @@ impl ProcessManager<'_> {
             .env_remove("RUST_LOG")
             .current_dir(launch_parameters.1);
 
-        let child = command.spawn().map_err(ProcessError::IOError)?;
+        let child = command.spawn()?;
 
         let launch_process_handle =
-            Arc::new(SharedChild::new(child).map_err(ProcessError::IOError)?);
+            Arc::new(SharedChild::new(child)?);
 
         db_lock
             .applications
