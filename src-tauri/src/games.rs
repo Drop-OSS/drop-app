@@ -191,6 +191,8 @@ pub async fn fetch_game_logic(
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct VersionDownloadOptionRequiredContent {
+    game_id: String,
+    version_id: String,
     name: String,
     icon_object_id: String,
     short_description: String,
@@ -204,6 +206,7 @@ pub struct VersionDownloadOption {
     display_name: Option<String>,
     version_path: String,
     platform: Platform,
+    size: usize,
     required_content: Vec<VersionDownloadOptionRequiredContent>,
 }
 

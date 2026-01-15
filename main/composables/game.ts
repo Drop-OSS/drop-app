@@ -81,7 +81,10 @@ export type VersionOption = {
   displayName?: string;
   versionPath: string;
   platform: string;
+  size: number;
   requiredContent: Array<{
+    gameId: string;
+    versionId: string;
     name: string;
     iconObjectId: string;
     shortDescription: string;

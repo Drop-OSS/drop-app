@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
 use database::{
     DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked, platform::Platform,
@@ -15,6 +15,19 @@ pub async fn download_game(
     target_platform: Platform,
     install_dir: usize,
 ) -> Result<(), ApplicationDownloadError> {
+    {
+        let db = borrow_db_checked();
+        let status = db
+            .applications
+            .game_statuses
+            .get(&game_id)
+            .unwrap_or(&GameDownloadStatus::Remote {});
+
+        if matches!(status, GameDownloadStatus::Installed { .. }) {
+            return Ok(());
+        }
+    };
+
     let sender = { DOWNLOAD_MANAGER.get_sender().clone() };
 
     let meta = DownloadableMetadata {
@@ -69,7 +82,9 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
     let sender = DOWNLOAD_MANAGER.get_sender();
 
     let install_dir = PathBuf::from(install_dir);
-    let install_dir = install_dir.parent().expect("game somehow installed at root");
+    let install_dir = install_dir
+        .parent()
+        .expect("game somehow installed at root");
 
     let game_download_agent = Arc::new(Box::new(
         GameDownloadAgent::new(meta, install_dir.to_path_buf(), sender).await?,

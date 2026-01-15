@@ -170,8 +170,8 @@
         </div>
       </div>
 
-      <form class="space-y-6">
-        <div v-if="versionOptions && versionOptions.length > 0">
+      <div class="space-y-6">
+        <div v-if="versionOptions && versionOptions.length > 0 && currentVersionOption">
           <Listbox as="div" v-model="installVersionIndex">
             <ListboxLabel class="block text-sm/6 font-medium text-zinc-100"
               >Version</ListboxLabel
@@ -182,11 +182,15 @@
               >
                 <span class="block truncate"
                   >{{
-                    versionOptions[installVersionIndex].displayName ||
-                    versionOptions[installVersionIndex].versionPath
+                    currentVersionOption.displayName ||
+                    currentVersionOption.versionPath
                   }}
                   on
-                  {{ versionOptions[installVersionIndex].platform }}</span
+                  {{ currentVersionOption.platform }} ({{
+                    formatKilobytes(
+                      currentVersionOption.size / 1024
+                    )
+                  }}B)</span
                 >
                 <span
                   class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"
@@ -209,7 +213,7 @@
                   <ListboxOption
                     as="template"
                     v-for="(version, versionIdx) in versionOptions"
-                    :key="version.versionName"
+                    :key="version.versionId"
                     :value="versionIdx"
                     v-slot="{ active, selected }"
                   >
@@ -227,7 +231,11 @@
                           'block truncate',
                         ]"
                         >{{ version.displayName || version.versionPath }} on
-                        {{ version.platform }}</span
+                        {{ version.platform }} ({{
+                          formatKilobytes(
+                            versionOptions[installVersionIndex].size / 1024
+                          )
+                        }}B)</span
                       >
 
                       <span
@@ -291,67 +299,79 @@
         </div>
         <div
           v-if="
-            versionOptions?.[installVersionIndex]?.requiredContent &&
-            versionOptions[installVersionIndex].requiredContent.length > 0
+            currentVersionOption?.requiredContent &&
+            currentVersionOption.requiredContent.length > 0
           "
         >
-          <div class="flex items-center justify-between gap-x-8">
-            <span class="flex grow flex-col">
-              <label
-                id="install-extra-label"
-                class="text-sm/6 font-medium text-zinc-100"
-                >Install required components?</label
-              >
-              <span id="install-extra-description" class="text-sm text-zinc-400"
-                >Additional content is required to run this game. Queue for
-                download automatically?</span
-              >
-            </span>
-            <div
+          <div class="border-b border-white/10 py-2">
+            <h3 class="text-sm font-semibold text-white">
+              Install additional dependencies?
+            </h3>
+            <p class="mt-1 text-xs text-gray-400">
+              This game requires additional content to run. Click the components
+              to automatically queue for download.
+            </p>
+          </div>
+          <ul role="list" class="mt-2 divide-y divide-white/5">
+            <li
+              v-for="content in currentVersionOption
+                .requiredContent"
+              :key="content.versionId"
               :class="[
-                'group relative inline-flex w-11 shrink-0 rounded-full p-0.5 inset-ring inset-ring-zinc-100/5 outline-offset-2 outline-blue-600 transition-colors duration-200 ease-in-out has-focus-visible:outline-2',
-                installExtra ? 'bg-blue-600' : 'bg-zinc-800',
+                !installDepsDisabled[content.versionId]
+                  ? 'bg-zinc-950 ring-2 ring-zinc-800'
+                  : '',
+                'rounded-lg relative flex justify-between px-2 py-3',
               ]"
             >
-              <span
-                :class="[
-                  installExtra ? 'translate-x-5' : '',
-                  'size-5 rounded-full bg-white shadow-xs ring-1 ring-zinc-100/5 transition-transform duration-200 ease-in-out',
-                ]"
-              />
-              <input
-                id="install-extra"
-                v-model="installExtra"
-                type="checkbox"
-                class="w-auto h-auto opacity-0 absolute inset-0 focus:outline-hidden"
-                name="install-extra"
-                aria-labelledby="install-extra-label"
-                aria-describedby="install-extra-description"
-              />
-            </div>
-          </div>
-          <ul class="grid grid-cols-2 mt-2 gap-2">
-            <li
-              v-for="content in versionOptions[installVersionIndex]
-                .requiredContent"
-              :key="content.name"
-              class="inline-flex items-start gap-2 bg-zinc-950/50 rounded-md p-2"
-            >
-              <img :src="useObject(content.iconObjectId)" class="size-8" />
-              <div class="flex flex-col">
-                <h1 class="text-zinc-100 font-bold">{{ content.name }}</h1>
-                <p class="text-zinc-400 text-xs">
-                  {{ content.shortDescription }}
-                </p>
-                <span class="text-zinc-400 text-xs inline-flex gap-x-1">
-                  {{ formatKilobytes(content.size / 1024) }}B
-                  <ServerIcon class="size-3" />
-                </span>
+              <div class="flex min-w-0 gap-x-2">
+                <img
+                  class="size-12 flex-none"
+                  :src="useObject(content.iconObjectId)"
+                  alt=""
+                />
+                <div class="min-w-0 flex-auto">
+                  <p class="text-sm/6 font-semibold text-white">
+                    <button
+                      @click="
+                        () =>
+                          (installDepsDisabled[content.versionId] =
+                            !installDepsDisabled[content.versionId])
+                      "
+                    >
+                      <span class="absolute inset-x-0 -top-px bottom-0"></span>
+                      {{ content.name }}
+                    </button>
+                  </p>
+                  <p class="mt-1 flex text-xs/5 text-gray-400">
+                    {{ content.shortDescription }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex shrink-0 items-center gap-x-2">
+                <div class="hidden sm:flex sm:flex-col sm:items-end">
+                  <p
+                    class="inline-flex items-center gap-x-1 text-xs/5 text-gray-400"
+                  >
+                    {{ formatKilobytes(content.size / 1024) }}B
+                    <ServerIcon class="size-3" />
+                  </p>
+                </div>
+                <CheckIcon
+                  v-if="!installDepsDisabled[content.versionId]"
+                  class="size-5 flex-none text-green-500"
+                  aria-hidden="true"
+                />
+                <MinusIcon
+                  v-else
+                  class="size-5 flex-none text-gray-500"
+                  aria-hidden="true"
+                />
               </div>
             </li>
           </ul>
         </div>
-      </form>
+      </div>
 
       <div v-if="installError" class="mt-1 rounded-md bg-red-600/10 p-4">
         <div class="flex">
@@ -534,7 +554,7 @@ import {
   PlayIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
-import { ServerIcon, XCircleIcon } from "@heroicons/vue/24/solid";
+import { MinusIcon, ServerIcon, XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { micromark } from "micromark";
 import { GameStatusEnum } from "~/types";
@@ -589,18 +609,31 @@ const installLoading = ref(false);
 const installError = ref<string | undefined>();
 const installVersionIndex = ref(0);
 const installDir = ref(0);
-const installExtra = ref(true);
+const installDepsDisabled = ref<{ [key: string]: boolean }>({});
+
+const currentVersionOption = computed(() => versionOptions.value?.[installVersionIndex.value]);
 async function install() {
   try {
     if (!versionOptions.value) throw new Error("Versions have not been loaded");
     installLoading.value = true;
     const versionOption = versionOptions.value[installVersionIndex.value];
-    await invoke("download_game", {
-      gameId: game.value.id,
-      versionId: versionOption.versionId,
-      installDir: installDir.value,
-      targetPlatform: versionOption.platform,
-    });
+
+    const games = [
+      { gameId: game.value.id, versionId: versionOption.versionId },
+      ...versionOption.requiredContent
+        .filter((v) => !installDepsDisabled.value[v.versionId])
+        .map((v) => ({ gameId: v.gameId, versionId: v.versionId })),
+    ];
+
+    for (const game of games) {
+      await invoke("download_game", {
+        gameId: game.gameId,
+        versionId: game.versionId,
+        installDir: installDir.value,
+        targetPlatform: versionOption.platform,
+      });
+    }
+
     installFlowOpen.value = false;
   } catch (error) {
     installError.value = (error as string).toString();
