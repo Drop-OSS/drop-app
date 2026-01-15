@@ -1,7 +1,7 @@
 use std::{
     collections::VecDeque,
     fmt::Debug,
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use database::DownloadableMetadata;
@@ -12,7 +12,7 @@ use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::SendError;
 use utils::{lock, send};
 
-use crate::error::ApplicationDownloadError;
+use crate::{depot_manager::DepotManager, error::ApplicationDownloadError};
 
 use super::{
     download_manager_builder::{CurrentProgressObject, DownloadAgent},
@@ -78,12 +78,18 @@ pub enum DownloadStatus {
 /// The actual download queue may be accessed through the .`edit()` function,
 /// which provides raw access to the underlying queue.
 /// THIS EDITING IS BLOCKING!!!
-#[derive(Debug)]
 pub struct DownloadManager {
     terminator: Mutex<Option<JoinHandle<()>>>,
     download_queue: Queue,
     progress: CurrentProgressObject,
     command_sender: Sender<DownloadManagerSignal>,
+    depot_manager: Arc<DepotManager>,
+}
+
+impl Debug for DownloadManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DownloadManager").finish()
+    }
 }
 
 #[allow(dead_code)]
@@ -93,12 +99,14 @@ impl DownloadManager {
         download_queue: Queue,
         progress: CurrentProgressObject,
         command_sender: Sender<DownloadManagerSignal>,
+        depot_manager: Arc<DepotManager>,
     ) -> Self {
         Self {
             terminator: Mutex::new(Some(terminator)),
             download_queue,
             progress,
             command_sender,
+            depot_manager
         }
     }
 
@@ -172,6 +180,9 @@ impl DownloadManager {
     }
     pub fn get_sender(&self) -> Sender<DownloadManagerSignal> {
         self.command_sender.clone()
+    }
+    pub fn clone_depot_manager(&self) -> Arc<DepotManager> {
+        self.depot_manager.clone()
     }
 }
 

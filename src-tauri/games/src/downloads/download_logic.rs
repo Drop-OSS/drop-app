@@ -19,6 +19,7 @@ use remote::error::{DropServerError, RemoteAccessError};
 use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_SYNC;
 use sha2::Digest;
+use tauri::Url;
 
 const READ_BUF_LEN: usize = 1024 * 1024;
 
@@ -28,6 +29,7 @@ pub fn download_game_chunk(
     game_id: &str,
     version_id: &str,
     chunk_id: &str,
+    depot: &str,
     key: &[u8; 16],
     chunk_data: &ChunkData,
     base_path: PathBuf,
@@ -44,11 +46,13 @@ pub fn download_game_chunk(
 
     let header = generate_authorization_header();
 
-    let url = generate_url(
-        &["/api/v1/depot/content", game_id, version_id, chunk_id],
-        &[],
-    )
-    .map_err(ApplicationDownloadError::Communication)?;
+    let url = Url::parse(depot)
+        .map_err(|v| ApplicationDownloadError::DownloadError(v.into()))?
+        .join(&format!(
+            "content/{}/{}/{}",
+            game_id, version_id, chunk_id
+        ))
+        .map_err(|v| ApplicationDownloadError::DownloadError(v.into()))?;
 
     let response = DROP_CLIENT_SYNC
         .get(url)

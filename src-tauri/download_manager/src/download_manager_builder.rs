@@ -8,12 +8,14 @@ use std::{
 
 use database::DownloadableMetadata;
 use log::{debug, error, info, warn};
+use remote::error::RemoteAccessError;
 use tauri::{AppHandle, async_runtime::JoinHandle};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio::{join, sync::mpsc, time::timeout};
 use utils::{app_emit, lock, send};
 
 use crate::{
+    depot_manager::DepotManager,
     download_manager_frontend::DownloadStatus,
     error::ApplicationDownloadError,
     frontend_updates::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
@@ -77,6 +79,7 @@ pub struct DownloadManagerBuilder {
     progress: CurrentProgressObject,
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
+    depot_manager: Arc<DepotManager>,
 
     current_download_thread: Mutex<Option<JoinHandle<()>>>,
     active_control_flag: Option<DownloadThreadControl>,
@@ -88,6 +91,8 @@ impl DownloadManagerBuilder {
         let active_progress = Arc::new(Mutex::new(None));
         let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
 
+        let depot_manager = Arc::new(DepotManager::new());
+        let dpm = depot_manager.clone();
         let manager = Self {
             download_agent_registry: HashMap::new(),
             download_queue: queue.clone(),
@@ -96,6 +101,7 @@ impl DownloadManagerBuilder {
             sender: command_sender.clone(),
             progress: active_progress.clone(),
             app_handle,
+            depot_manager,
 
             current_download_thread: Mutex::new(None),
             active_control_flag: None,
@@ -106,7 +112,7 @@ impl DownloadManagerBuilder {
             info!("download manager exited with result: {:?}", result);
         });
 
-        DownloadManager::new(terminator, queue, active_progress, command_sender)
+        DownloadManager::new(terminator, queue, active_progress, command_sender, dpm)
     }
 
     fn set_status(&self, status: DownloadManagerStatus) {
@@ -169,7 +175,7 @@ impl DownloadManagerBuilder {
 
             match signal {
                 DownloadManagerSignal::Go => {
-                    self.manage_go_signal();
+                    self.manage_go_signal().await;
                 }
                 DownloadManagerSignal::Stop => {
                     self.manage_stop_signal();
@@ -217,7 +223,7 @@ impl DownloadManagerBuilder {
         send!(self.sender, DownloadManagerSignal::UpdateUIQueue);
     }
 
-    fn manage_go_signal(&mut self) {
+    async fn manage_go_signal(&mut self) {
         debug!("got signal Go");
         if self.download_agent_registry.is_empty() {
             debug!(
@@ -265,16 +271,17 @@ impl DownloadManagerBuilder {
 
         *download_thread_lock = Some(tauri::async_runtime::spawn(async move {
             loop {
-                let download_result = match download_agent.download(&app_handle).await {
-                    // Ok(true) is for completed and exited properly
-                    Ok(v) => v,
-                    Err(e) => {
-                        error!("download {:?} has error {}", download_agent.metadata(), &e);
-                        download_agent.on_error(&app_handle, &e);
-                        send!(sender, DownloadManagerSignal::Error(e));
-                        return;
-                    }
-                };
+                let download_result =
+                    match download_agent.download(&app_handle).await {
+                        // Ok(true) is for completed and exited properly
+                        Ok(v) => v,
+                        Err(e) => {
+                            error!("download {:?} has error {}", download_agent.metadata(), &e);
+                            download_agent.on_error(&app_handle, &e);
+                            send!(sender, DownloadManagerSignal::Error(e));
+                            return;
+                        }
+                    };
 
                 // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier

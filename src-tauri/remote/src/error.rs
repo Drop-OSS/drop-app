@@ -34,6 +34,7 @@ pub enum RemoteAccessError {
     OutOfSync,
     Cache(std::io::Error),
     CorruptedState,
+    NoDepots,
 }
 
 impl Display for RemoteAccessError {
@@ -103,7 +104,8 @@ impl Display for RemoteAccessError {
                 f,
                 "Drop encountered a corrupted internal state. Please report this to the developers, with details of reproduction."
             ),
-        }
+            RemoteAccessError::NoDepots => write!(f, "There are no download depots configured on the server. Contact your server admin."),
+                    }
     }
 }
 

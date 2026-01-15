@@ -16,6 +16,7 @@ pub mod downloadable;
 pub mod error;
 pub mod frontend_updates;
 pub mod util;
+pub mod depot_manager;
 
 pub static DOWNLOAD_MANAGER: DownloadManagerWrapper = DownloadManagerWrapper::new();
 
@@ -28,7 +29,7 @@ impl DownloadManagerWrapper {
         DOWNLOAD_MANAGER
             .0
             .set(DownloadManagerBuilder::build(app_handle))
-            .expect("Failed to initialise download manager");
+            .expect("failed to initialise download manager");
     }
 }
 

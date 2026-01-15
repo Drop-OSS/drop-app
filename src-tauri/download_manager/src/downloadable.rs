@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use database::DownloadableMetadata;
 use tauri::AppHandle;
 
-use crate::error::ApplicationDownloadError;
+use crate::{depot_manager::DepotManager, error::ApplicationDownloadError};
 
 use super::{
     download_manager_frontend::DownloadStatus,

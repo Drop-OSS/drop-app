@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use database::{
-    ApplicationTransientStatus, DownloadableMetadata, borrow_db_checked,
-    borrow_db_mut_checked,
+    ApplicationTransientStatus, DownloadableMetadata, borrow_db_checked, borrow_db_mut_checked,
 };
+use download_manager::depot_manager::DepotManager;
 use download_manager::download_manager_frontend::{DownloadManagerSignal, DownloadStatus};
 use download_manager::downloadable::Downloadable;
 use download_manager::error::ApplicationDownloadError;
@@ -18,10 +18,10 @@ use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_ASYNC;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
-use std::mem;
 use tauri::AppHandle;
 use tokio::sync::mpsc::Sender;
 use utils::{app_emit, lock, send};
@@ -40,6 +40,7 @@ pub struct GameDownloadAgent {
     pub control_flag: DownloadThreadControl,
     pub manifest: Mutex<Option<Manifest>>,
     pub progress: Arc<ProgressObject>,
+    depot_manager: Arc<DepotManager>,
     sender: Sender<DownloadManagerSignal>,
     pub dropdata: DropData,
     status: Mutex<DownloadStatus>,
@@ -56,6 +57,7 @@ impl GameDownloadAgent {
         metadata: DownloadableMetadata,
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
+        depot_manager: Arc<DepotManager>,
     ) -> Result<Self, ApplicationDownloadError> {
         let base_dir = {
             let db_lock = borrow_db_checked();
@@ -63,26 +65,29 @@ impl GameDownloadAgent {
             db_lock.applications.install_dirs[target_download_dir].clone()
         };
 
-        Self::new(metadata, base_dir, sender).await
+        Self::new(metadata, base_dir, sender, depot_manager).await
     }
     pub async fn new(
         metadata: DownloadableMetadata,
         base_dir: PathBuf,
         sender: Sender<DownloadManagerSignal>,
+        depot_manager: Arc<DepotManager>,
     ) -> Result<Self, ApplicationDownloadError> {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
         let base_dir_path = Path::new(&base_dir);
-        info!("base dir {}", base_dir_path.display() );
+        info!("base dir {}", base_dir_path.display());
         let data_base_dir_path = base_dir_path.join(metadata.id.clone());
         info!("data dir path {}", data_base_dir_path.display());
 
-        let stored_manifest =
-            DropData::generate(metadata.id.clone(), metadata.version.clone(), metadata.target_platform, data_base_dir_path.clone());
-
-            info!("starting download with {} completed", stored_manifest.get_contexts().len());
-
+        let stored_manifest = DropData::generate(
+            metadata.id.clone(),
+            metadata.version.clone(),
+            metadata.target_platform,
+            data_base_dir_path.clone(),
+        );
+        
         let result = Self {
             metadata,
             control_flag,
@@ -91,6 +96,7 @@ impl GameDownloadAgent {
             sender,
             dropdata: stored_manifest,
             status: Mutex::new(DownloadStatus::Queued),
+            depot_manager,
         };
 
         result.ensure_manifest_exists().await?;
@@ -167,7 +173,10 @@ impl GameDownloadAgent {
         let client = DROP_CLIENT_ASYNC.clone();
         let url = generate_url(
             &["/api/v1/client/game/manifest"],
-            &[("id", &self.metadata.id), ("version", &self.metadata.version)],
+            &[
+                ("id", &self.metadata.id),
+                ("version", &self.metadata.version),
+            ],
         )
         .map_err(ApplicationDownloadError::Communication)?;
 
@@ -211,6 +220,7 @@ impl GameDownloadAgent {
     }
 
     async fn run(&self) -> Result<bool, RemoteAccessError> {
+        self.depot_manager.sync_depots().await?;
         self.setup_progress();
         let (chunks, key) = {
             let manifest = lock!(self.manifest);
@@ -249,6 +259,18 @@ impl GameDownloadAgent {
                     }
 
                     let sender = unsafe_self.sender.clone();
+                    let (depot, permit) = match unsafe_self
+                        .depot_manager
+                        .next_depot(&unsafe_self.metadata.id, &unsafe_self.metadata.version)
+                    {
+                        Ok(v) => v,
+                        Err(err) => {
+                            tauri::async_runtime::spawn(async move {
+                                send!(sender, DownloadManagerSignal::Error(ApplicationDownloadError::Communication(err)));
+                            });
+                            return;
+                        }
+                    };
 
                     s.spawn(move |_| {
                         for i in 0..RETRY_COUNT {
@@ -258,6 +280,7 @@ impl GameDownloadAgent {
                                 &unsafe_self.metadata.id,
                                 &unsafe_self.metadata.version,
                                 &chunk_id,
+                                &depot,
                                 &key,
                                 &chunk_data,
                                 base_path,
@@ -266,6 +289,7 @@ impl GameDownloadAgent {
                             ) {
                                 Ok(true) => {
                                     local_sender.send(chunk_id.clone()).unwrap();
+                                    drop(permit); // Take ownership
                                     return;
                                 }
                                 Ok(false) => return,
@@ -273,11 +297,11 @@ impl GameDownloadAgent {
                                     warn!("got error for chunk id {}: {e:?}", chunk_id);
 
                                     let retry = true; /*matches!(
-                                        &e,
-                                        ApplicationDownloadError::Communication(_)
-                                            | ApplicationDownloadError::Checksum
-                                            | ApplicationDownloadError::Lock
-                                            | ApplicationDownloadError::IoError(_)
+                                    &e,
+                                    ApplicationDownloadError::Communication(_)
+                                    | ApplicationDownloadError::Checksum
+                                    | ApplicationDownloadError::Lock
+                                    | ApplicationDownloadError::IoError(_)
                                     );*/
 
                                     if i == RETRY_COUNT - 1 || !retry {
@@ -483,7 +507,9 @@ impl Downloadable for GameDownloadAgent {
             &self.metadata(),
             self.dropdata.base_path.to_string_lossy().to_string(),
             app_handle,
-        ).await {
+        )
+        .await
+        {
             Ok(_) => {}
             Err(e) => {
                 error!("could not mark game as complete: {e}");

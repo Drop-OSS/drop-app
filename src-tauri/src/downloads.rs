@@ -37,7 +37,13 @@ pub async fn download_game(
         download_type: DownloadType::Game,
     };
 
-    let game_download_agent = GameDownloadAgent::new_from_index(meta, install_dir, sender).await?;
+    let game_download_agent = GameDownloadAgent::new_from_index(
+        meta,
+        install_dir,
+        sender,
+        DOWNLOAD_MANAGER.clone_depot_manager(),
+    )
+    .await?;
 
     let game_download_agent =
         Arc::new(Box::new(game_download_agent) as Box<dyn Downloadable + Send + Sync>);
@@ -87,7 +93,13 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
         .expect("game somehow installed at root");
 
     let game_download_agent = Arc::new(Box::new(
-        GameDownloadAgent::new(meta, install_dir.to_path_buf(), sender).await?,
+        GameDownloadAgent::new(
+            meta,
+            install_dir.to_path_buf(),
+            sender,
+            DOWNLOAD_MANAGER.clone_depot_manager(),
+        )
+        .await?,
     ) as Box<dyn Downloadable + Send + Sync>);
 
     DOWNLOAD_MANAGER

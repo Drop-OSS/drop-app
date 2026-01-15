@@ -1370,6 +1370,7 @@ dependencies = [
  "async-trait",
  "atomic-instant-full",
  "database",
+ "futures-util",
  "humansize",
  "log",
  "parking_lot 0.12.5",
