@@ -34,3 +34,17 @@ listen("update_stats", (event) => {
 });
 
 export const useDownloadHistory = () => useState<Array<number>>('history', () => []);
+
+export function formatKilobytes(bytes: number): string {
+  const units = ["K", "M", "G", "T", "P"];
+  let value = bytes;
+  let unitIndex = 0;
+  const scalar = 1000;
+
+  while (value >= scalar && unitIndex < units.length - 1) {
+    value /= scalar;
+    unitIndex++;
+  }
+
+  return `${value.toFixed(1)} ${units[unitIndex]}`;
+}

@@ -18,7 +18,7 @@ use remote::{
     requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
 
 use crate::AppState;
@@ -188,13 +188,23 @@ pub async fn fetch_game_logic(
     Ok(data)
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VersionDownloadOptionRequiredContent {
+    name: String,
+    icon_object_id: String,
+    short_description: String,
+    size: usize,
+}
+
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionDownloadOption {
     version_id: String,
     display_name: Option<String>,
     version_path: String,
-    pub platform: Platform,
+    platform: Platform,
+    required_content: Vec<VersionDownloadOptionRequiredContent>,
 }
 
 pub async fn fetch_game_version_options_logic(
@@ -216,24 +226,12 @@ pub async fn fetch_game_version_options_logic(
         return Err(RemoteAccessError::InvalidResponse(err));
     }
 
-    let data: Vec<GameVersion> = response.json().await?;
+    let data: Vec<VersionDownloadOption> = response.json().await?;
 
     let state_lock = state.lock();
     let process_manager_lock = PROCESS_MANAGER.lock();
-    let data: Vec<VersionDownloadOption> = data
+    let data = data
         .into_iter()
-        .flat_map(|v| {
-            let mut launches_tmp = v.launches;
-            launches_tmp.dedup_by_key(|v| v.platform);
-            launches_tmp
-                .into_iter()
-                .map(move |l| VersionDownloadOption {
-                    version_id: v.version_id.clone(),
-                    display_name: v.display_name.clone(),
-                    version_path: v.version_path.clone(),
-                    platform: l.platform,
-                })
-        })
         .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();
     //data.dedup_by_key(|v| v.platform);

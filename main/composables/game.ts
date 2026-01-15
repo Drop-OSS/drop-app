@@ -81,4 +81,10 @@ export type VersionOption = {
   displayName?: string;
   versionPath: string;
   platform: string;
+  requiredContent: Array<{
+    name: string;
+    iconObjectId: string;
+    shortDescription: string;
+    size: number;
+  }>;
 };

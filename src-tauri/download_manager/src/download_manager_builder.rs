@@ -1,14 +1,16 @@
+use core::panic;
 use std::{
     collections::HashMap,
     fmt::Debug,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
 use database::DownloadableMetadata;
 use log::{debug, error, info, warn};
 use tauri::{AppHandle, async_runtime::JoinHandle};
-use tokio::sync::mpsc;
 use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::{join, sync::mpsc, time::timeout};
 use utils::{app_emit, lock, send};
 
 use crate::{
@@ -82,7 +84,7 @@ pub struct DownloadManagerBuilder {
 impl DownloadManagerBuilder {
     pub fn build(app_handle: AppHandle) -> DownloadManager {
         let queue = Queue::new();
-        let (command_sender, command_receiver) = mpsc::channel(4);
+        let (command_sender, command_receiver) = mpsc::channel(1500);
         let active_progress = Arc::new(Mutex::new(None));
         let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
 
@@ -144,8 +146,14 @@ impl DownloadManagerBuilder {
                 let mut download_thread_lock = lock!(self.current_download_thread);
                 download_thread_lock.take()
             } {
-                
-                return current_download_thread.await.is_ok();
+                let result = timeout(Duration::from_secs(4), async {
+                    current_download_thread.await.is_ok()
+                })
+                .await;
+                if let Ok(result) = result {
+                    return result;
+                };
+                panic!("failed to cleanup download: timeout after 4 seconds");
             };
         }
 
@@ -267,15 +275,11 @@ impl DownloadManagerBuilder {
                         return;
                     }
                 };
-                
+
                 // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier
                 if !download_result {
-                    /*
-                     * This seems to cause a really weird bug, where sometimes if you cancel the download
-                     * mid-download it never actually exists or something? Like the JoinHandle doesn't join?
-                     */
-                    //return;
+                    return;
                 }
 
                 if download_agent.control_flag().get() == DownloadThreadControlFlag::Stop {
@@ -317,15 +321,12 @@ impl DownloadManagerBuilder {
         active_control_flag.set(DownloadThreadControlFlag::Go);
     }
     fn manage_stop_signal(&mut self) {
-        debug!("got signal Stop");
-
         if let Some(active_control_flag) = self.active_control_flag.clone() {
             self.set_status(DownloadManagerStatus::Paused);
             active_control_flag.set(DownloadThreadControlFlag::Stop);
         }
     }
     async fn manage_completed_signal(&mut self, meta: DownloadableMetadata) {
-        debug!("got signal Completed");
         if let Some(interface) = self.download_queue.read().front()
             && interface == &meta
         {
@@ -349,8 +350,6 @@ impl DownloadManagerBuilder {
         self.set_status(DownloadManagerStatus::Error);
     }
     async fn manage_cancel_signal(&mut self, meta: &DownloadableMetadata) {
-        debug!("got signal Cancel");
-
         // If the current download is the one we're tryna cancel
         if let Some(current_metadata) = self.download_queue.read().front()
             && current_metadata == meta
@@ -365,7 +364,6 @@ impl DownloadManagerBuilder {
 
             self.cleanup_current_download().await;
             self.download_agent_registry.remove(meta);
-            debug!("current download queue: {:?}", self.download_queue.read());
         }
         // else just cancel it
         else if let Some(download_agent) = self.download_agent_registry.get(meta) {
@@ -381,8 +379,8 @@ impl DownloadManagerBuilder {
                 );
             }
         }
-        self.sender.send(DownloadManagerSignal::Go).await.unwrap();
         self.push_ui_queue_update();
+        send!(self.sender, DownloadManagerSignal::Go);
     }
     fn push_ui_stats_update(&self, kbs: usize, time: usize) {
         let event_data = StatsUpdateEvent { speed: kbs, time };

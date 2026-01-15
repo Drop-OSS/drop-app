@@ -289,6 +289,68 @@
             v-model="installDir"
           />
         </div>
+        <div
+          v-if="
+            versionOptions?.[installVersionIndex]?.requiredContent &&
+            versionOptions[installVersionIndex].requiredContent.length > 0
+          "
+        >
+          <div class="flex items-center justify-between gap-x-8">
+            <span class="flex grow flex-col">
+              <label
+                id="install-extra-label"
+                class="text-sm/6 font-medium text-zinc-100"
+                >Install required components?</label
+              >
+              <span id="install-extra-description" class="text-sm text-zinc-400"
+                >Additional content is required to run this game. Queue for
+                download automatically?</span
+              >
+            </span>
+            <div
+              :class="[
+                'group relative inline-flex w-11 shrink-0 rounded-full p-0.5 inset-ring inset-ring-zinc-100/5 outline-offset-2 outline-blue-600 transition-colors duration-200 ease-in-out has-focus-visible:outline-2',
+                installExtra ? 'bg-blue-600' : 'bg-zinc-800',
+              ]"
+            >
+              <span
+                :class="[
+                  installExtra ? 'translate-x-5' : '',
+                  'size-5 rounded-full bg-white shadow-xs ring-1 ring-zinc-100/5 transition-transform duration-200 ease-in-out',
+                ]"
+              />
+              <input
+                id="install-extra"
+                v-model="installExtra"
+                type="checkbox"
+                class="w-auto h-auto opacity-0 absolute inset-0 focus:outline-hidden"
+                name="install-extra"
+                aria-labelledby="install-extra-label"
+                aria-describedby="install-extra-description"
+              />
+            </div>
+          </div>
+          <ul class="grid grid-cols-2 mt-2 gap-2">
+            <li
+              v-for="content in versionOptions[installVersionIndex]
+                .requiredContent"
+              :key="content.name"
+              class="inline-flex items-start gap-2 bg-zinc-950/50 rounded-md p-2"
+            >
+              <img :src="useObject(content.iconObjectId)" class="size-8" />
+              <div class="flex flex-col">
+                <h1 class="text-zinc-100 font-bold">{{ content.name }}</h1>
+                <p class="text-zinc-400 text-xs">
+                  {{ content.shortDescription }}
+                </p>
+                <span class="text-zinc-400 text-xs inline-flex gap-x-1">
+                  {{ formatKilobytes(content.size / 1024) }}B
+                  <ServerIcon class="size-3" />
+                </span>
+              </div>
+            </li>
+          </ul>
+        </div>
       </form>
 
       <div v-if="installError" class="mt-1 rounded-md bg-red-600/10 p-4">
@@ -472,7 +534,7 @@ import {
   PlayIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
-import { XCircleIcon } from "@heroicons/vue/24/solid";
+import { ServerIcon, XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { micromark } from "micromark";
 import { GameStatusEnum } from "~/types";
@@ -527,6 +589,7 @@ const installLoading = ref(false);
 const installError = ref<string | undefined>();
 const installVersionIndex = ref(0);
 const installDir = ref(0);
+const installExtra = ref(true);
 async function install() {
   try {
     if (!versionOptions.value) throw new Error("Versions have not been loaded");
