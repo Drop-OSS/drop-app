@@ -17,7 +17,7 @@
           </div>
           <div class="flex gap-x-2">
             <button
-              @click="() => updateLibraryView('list')"
+              @click="() => setView('list')"
               :class="[
                 'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900',
                 libraryView === 'list'
@@ -28,7 +28,7 @@
               List
             </button>
             <button
-              @click="() => updateLibraryView('grid')"
+              @click="() => setView('grid')"
               :class="[
                 'px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-zinc-900',
                 libraryView === 'grid'
@@ -45,16 +45,5 @@
   </div>
 </template>
 <script setup lang="ts">
-import { invoke } from "@tauri-apps/api/core";
-
-const { libraryView, toggleView } = useLibraryView();
-
-async function updateLibraryView(view: "list" | "grid") {
-  if (libraryView.value !== view) {
-    libraryView.value = view;
-    await invoke("update_settings", {
-      newSettings: { libraryView: view },
-    });
-  }
-}
+const { libraryView, setView } = useLibraryView();
 </script>
