@@ -8,7 +8,7 @@ use http::{
 use log::{error, warn};
 use tauri::UriSchemeResponder;
 
-use crate::utils::DROP_CLIENT_SYNC;
+use crate::utils::DROP_CLIENT_ASYNC;
 
 pub async fn handle_server_proto_offline_wrapper(
     request: Request<Vec<u8>>,
@@ -29,8 +29,8 @@ pub async fn handle_server_proto_offline(
         .expect("Failed to build error response for proto offline"))
 }
 
-pub fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
-    match handle_server_proto(request) {
+pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: UriSchemeResponder) {
+    match handle_server_proto(request).await {
         Ok(r) => responder.respond(r),
         Err(e) => {
             warn!("Cache error: {e}");
@@ -45,7 +45,7 @@ pub fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: UriSche
     }
 }
 
-fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, StatusCode> {
+async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, StatusCode> {
     let (remote_uri, web_token) = {
         let db_handle = borrow_db_checked();
         let auth = match db_handle.auth.as_ref() {
@@ -91,11 +91,11 @@ fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, S
         HeaderValue::from_str(&format!("Bearer {web_token}")).unwrap(),
     );
 
-    let client = DROP_CLIENT_SYNC.clone();
-    let response = match client
+    let response = match DROP_CLIENT_ASYNC
         .request(request.method().clone(), new_uri.to_string())
         .headers(headers)
         .send()
+        .await
     {
         Ok(response) => response,
         Err(e) => {
@@ -116,7 +116,7 @@ fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, S
         }
     };
 
-    let response_body = match response.bytes() {
+    let response_body = match response.bytes().await {
         Ok(bytes) => bytes,
         Err(e) => return Err(e.status().unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)),
     };

@@ -8,7 +8,7 @@ use remote::{
     auth::generate_authorization_header,
     error::RemoteAccessError,
     requests::generate_url,
-    utils::{DROP_CLIENT_ASYNC, DROP_CLIENT_SYNC},
+    utils::DROP_CLIENT_ASYNC
 };
 use serde::{Deserialize, Serialize};
 use std::fs::remove_dir_all;
