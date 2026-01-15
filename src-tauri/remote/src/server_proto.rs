@@ -112,29 +112,7 @@ fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, S
     {
         let client_response_headers = client_http_response.headers_mut().unwrap();
         for (header, header_value) in response.headers() {
-            // Remove or modify Content-Security-Policy to allow framing
-            if header.as_str().eq_ignore_ascii_case("content-security-policy") {
-                let csp_value = header_value.to_str().unwrap_or("");
-                // Remove frame-ancestors directive or replace it to allow all
-                let modified_csp = csp_value
-                    .split(';')
-                    .map(|directive| directive.trim())
-                    .filter(|directive| !directive.starts_with("frame-ancestors"))
-                    .collect::<Vec<_>>()
-                    .join("; ");
-                // Add frame-ancestors * to allow framing from any origin
-                let new_csp = if modified_csp.is_empty() {
-                    "frame-ancestors *".to_string()
-                } else {
-                    format!("{}; frame-ancestors *", modified_csp)
-                };
-                client_response_headers.insert(
-                    header.clone(),
-                    HeaderValue::from_str(&new_csp).unwrap_or(header_value.clone()),
-                );
-            } else {
-                client_response_headers.insert(header, header_value.clone());
-            }
+            client_response_headers.insert(header, header_value.clone());
         }
     };
 
