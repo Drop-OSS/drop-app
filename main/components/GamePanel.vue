@@ -21,7 +21,7 @@
       <img
         v-if="coverSrc"
         :src="coverSrc"
-        :alt="gameName"
+        :alt="game.mName"
         class="w-full h-full object-cover brightness-[90%] blur-[1px]"
       />
       <!-- Fallback to Icon -->
@@ -32,7 +32,7 @@
         <img
           class="w-2/3 h-2/3 object-contain brightness-[90%] blur-[1px]"
           :src="iconSrc"
-          :alt="gameName"
+          :alt="game.mName"
         />
       </div>
       <!-- Placeholder -->
@@ -54,16 +54,16 @@
         }"
         class="text-zinc-100 text-sm font-bold font-display mb-1"
       >
-        {{ gameName }}
+        {{ game.mName }}
       </h1>
       <p
-        v-if="description"
+        v-if="game.mShortDescription"
         :class="{
           'group-hover:text-zinc-300 transition-colors': true,
         }"
         class="text-zinc-400 text-xs line-clamp-2 mb-1.5"
       >
-        {{ description }}
+        {{ game.mShortDescription }}
       </p>
       <!-- Status Badge -->
       <div v-if="statusText" class="flex items-center mt-1">
@@ -87,10 +87,16 @@
 </template>
 
 <script setup lang="ts">
+import type { Game, GameStatus } from "~/types";
+
+type GameWithStatus = {
+  game: Game;
+  status: GameStatus;
+};
+
 defineProps<{
+  game: GameWithStatus;
   href: string;
-  gameName: string;
-  description?: string;
   coverSrc?: string;
   iconSrc?: string;
   statusText?: string;
