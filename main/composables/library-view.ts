@@ -22,8 +22,18 @@ export const useLibraryView = () => {
     });
   };
 
+  const setView = async (view: "list" | "grid") => {
+    if (libraryView.value !== view) {
+      libraryView.value = view;
+      await invoke("update_settings", {
+        newSettings: { libraryView: view },
+      });
+    }
+  };
+
   return {
     libraryView,
     toggleView,
+    setView,
   };
 };
