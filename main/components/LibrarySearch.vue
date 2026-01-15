@@ -149,7 +149,7 @@ const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
   [GameStatusEnum.Installed]: "text-green-500",
   [GameStatusEnum.Downloading]: "text-zinc-400",
   [GameStatusEnum.Validating]: "text-blue-300",
-  [GameStatusEnum.Running]: "text-green-500",
+  [GameStatusEnum.Running]: "text-blue-500",
   [GameStatusEnum.Remote]: "text-zinc-700",
   [GameStatusEnum.Queued]: "text-zinc-400",
   [GameStatusEnum.Updating]: "text-zinc-400",
@@ -243,15 +243,6 @@ const filteredNavigation = computed(() => {
       items: c.items.filter((nav) => nav.label.toLowerCase().includes(query)),
     }))
     .filter((e) => e.items.length > 0);
-});
-
-listen("update_library", async (event) => {
-  console.log("Updating library");
-  let oldNavigation = currentNavigation.value;
-  await calculateGames();
-  if (oldNavigation !== currentNavigation.value) {
-    router.push("/library");
-  }
 });
 </script>
 
