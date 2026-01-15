@@ -138,12 +138,8 @@ import {
   Squares2X2Icon,
   Bars3Icon,
 } from "@heroicons/vue/20/solid";
-import { invoke } from "@tauri-apps/api/core";
 import {
   GameStatusEnum,
-  type Collection as Collection,
-  type Game,
-  type GameStatus,
 } from "~/types";
 import { TransitionGroup } from "vue";
 import { listen } from "@tauri-apps/api/event";
@@ -178,57 +174,9 @@ const router = useRouter();
 
 const searchQuery = ref("");
 
-const loading = ref(false);
-
 // Use library view composable
 const { libraryView, toggleView } = useLibraryView();
-const games: {
-  [key: string]: { game: Game; status: Ref<GameStatus, GameStatus> };
-} = {};
-const icons: { [key: string]: string } = {};
-
-const collections: Ref<Collection[]> = ref([]);
-
-async function calculateGames(clearAll = false, forceRefresh = false) {
-  if (clearAll) {
-    collections.value = [];
-    loading.value = true;
-  }
-  // If we update immediately, the navigation gets re-rendered before we
-  // add all the necessary state, and it freaks tf out
-  const newGames = await invoke<Game[]>("fetch_library", {
-    hardRefresh: forceRefresh,
-  });
-  const otherCollections = await invoke<Collection[]>("fetch_collections", {
-    hardRefresh: forceRefresh,
-  });
-  const allGames = [
-    ...newGames,
-    ...otherCollections
-      .map((e) => e.entries)
-      .flat()
-      .map((e) => e.game),
-  ].filter((v, i, a) => a.indexOf(v) === i);
-
-  for (const game of allGames) {
-    if (games[game.id]) continue;
-    games[game.id] = await useGame(game.id);
-  }
-  for (const game of allGames) {
-    if (icons[game.id]) continue;
-    icons[game.id] = await useObject(game.mIconObjectId);
-  }
-
-  const libraryCollection = {
-    id: "library",
-    name: "Library",
-    isDefault: true,
-    entries: newGames.map((e) => ({ gameId: e.id, game: e })),
-  } satisfies Collection;
-
-  loading.value = false;
-  collections.value = [libraryCollection, ...otherCollections];
-}
+const { loading, games, icons, collections, calculateGames } = useLibraryGames();
 
 // Wait up to 300 ms for the library to load, otherwise
 // show the loading state while we while
@@ -240,6 +188,16 @@ await new Promise<void>((r) => {
   };
   calculateGames(true).then(resolveFunc);
   setTimeout(resolveFunc, 300);
+});
+
+// Listen for library updates
+listen("update_library", async (event) => {
+  console.log("Updating library");
+  let oldNavigation = currentNavigation.value;
+  await calculateGames();
+  if (oldNavigation !== currentNavigation.value) {
+    router.push("/library");
+  }
 });
 
 const navigation = computed(() =>
