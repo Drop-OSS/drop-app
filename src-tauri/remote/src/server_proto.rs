@@ -5,7 +5,7 @@ use http::{
     HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header::USER_AGENT,
     uri::PathAndQuery,
 };
-use log::{error, warn};
+use log::{error, info, warn};
 use tauri::UriSchemeResponder;
 
 use crate::utils::DROP_CLIENT_ASYNC;
@@ -67,14 +67,7 @@ async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u
         (remote_uri, web_token)
     };
 
-    let path = request.uri().path();
-
     let mut new_uri = request.uri().clone().into_parts();
-    new_uri.path_and_query = Some(
-        PathAndQuery::from_str(path)
-            .inspect_err(|v| warn!("{:?}", v))
-            .expect("Failed to parse request path in proto"),
-    );
     new_uri.authority = remote_uri.authority().cloned();
     new_uri.scheme = remote_uri.scheme().cloned();
     let err_msg = &format!("Failed to build new uri from parts {new_uri:?}");
