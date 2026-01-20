@@ -1,11 +1,8 @@
-use std::str::FromStr;
-
 use database::borrow_db_checked;
 use http::{
     HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header::USER_AGENT,
-    uri::PathAndQuery,
 };
-use log::{error, info, warn};
+use log::{error, warn};
 use tauri::UriSchemeResponder;
 
 use crate::utils::DROP_CLIENT_ASYNC;

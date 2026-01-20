@@ -55,7 +55,6 @@ mod remote;
 mod settings;
 
 use client::*;
-use collections::*;
 use download_manager::*;
 use downloads::*;
 use games::*;

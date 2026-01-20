@@ -2,7 +2,7 @@ use std::sync::nonpoison::Mutex;
 
 use bitcode::{Decode, Encode};
 use database::{
-    DownloadableMetadata, GameDownloadStatus, GameVersion, borrow_db_checked,
+    DownloadableMetadata, GameDownloadStatus, borrow_db_checked,
     borrow_db_mut_checked, platform::Platform,
 };
 use games::{
@@ -11,7 +11,7 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::{info, warn};
+use log::warn;
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
@@ -190,16 +190,16 @@ pub async fn fetch_game_logic(
         let db_lock = borrow_db_checked();
 
         let metadata_option = db_lock.applications.installed_game_version.get(&id);
-        let version = match metadata_option {
+        
+
+        match metadata_option {
             None => None,
             Some(metadata) => db_lock
                 .applications
                 .game_versions
                 .get(&metadata.version)
                 .cloned(),
-        };
-
-        version
+        }
     };
 
     let game = match get_cached_object::<Game>(&format!("game/{}", id)) {
@@ -381,7 +381,7 @@ pub fn update_game_configuration(
         .get(&game_id)
         .ok_or(LibraryError::MetaNotFound(game_id))?;
 
-    let id = installed_version.id.clone();
+    let _id = installed_version.id.clone();
     let version = installed_version.version.clone();
 
     let mut existing_configuration = handle

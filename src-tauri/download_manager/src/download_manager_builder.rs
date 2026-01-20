@@ -1,17 +1,15 @@
 use core::panic;
 use std::{
     collections::HashMap,
-    fmt::Debug,
     sync::{Arc, Mutex},
     time::Duration,
 };
 
 use database::DownloadableMetadata;
 use log::{debug, error, info, warn};
-use remote::error::RemoteAccessError;
 use tauri::{AppHandle, async_runtime::JoinHandle};
 use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::{join, sync::mpsc, time::timeout};
+use tokio::{sync::mpsc, time::timeout};
 use utils::{app_emit, lock, send};
 
 use crate::{
@@ -79,7 +77,6 @@ pub struct DownloadManagerBuilder {
     progress: CurrentProgressObject,
     status: Arc<Mutex<DownloadManagerStatus>>,
     app_handle: AppHandle,
-    depot_manager: Arc<DepotManager>,
 
     current_download_thread: Mutex<Option<JoinHandle<()>>>,
     active_control_flag: Option<DownloadThreadControl>,
@@ -92,7 +89,6 @@ impl DownloadManagerBuilder {
         let status = Arc::new(Mutex::new(DownloadManagerStatus::Empty));
 
         let depot_manager = Arc::new(DepotManager::new());
-        let dpm = depot_manager.clone();
         let manager = Self {
             download_agent_registry: HashMap::new(),
             download_queue: queue.clone(),
@@ -101,7 +97,6 @@ impl DownloadManagerBuilder {
             sender: command_sender.clone(),
             progress: active_progress.clone(),
             app_handle,
-            depot_manager,
 
             current_download_thread: Mutex::new(None),
             active_control_flag: None,
@@ -112,7 +107,7 @@ impl DownloadManagerBuilder {
             info!("download manager exited with result: {:?}", result);
         });
 
-        DownloadManager::new(terminator, queue, active_progress, command_sender, dpm)
+        DownloadManager::new(terminator, queue, active_progress, command_sender, depot_manager)
     }
 
     fn set_status(&self, status: DownloadManagerStatus) {

@@ -1,12 +1,10 @@
 use std::{
     collections::HashMap,
-    mem,
-    sync::{Arc, RwLock, atomic::AtomicUsize},
+    sync::RwLock,
     time::{Duration, Instant},
 };
 
 use futures_util::StreamExt;
-use log::info;
 use remote::{
     error::RemoteAccessError,
     requests::{generate_url, make_authenticated_get},
@@ -21,7 +19,7 @@ use crate::util::semaphore::{SyncSemaphore, SyncSemaphorePermit};
 #[serde(rename_all = "camelCase")]
 struct DepotManifestContent {
     version_id: String,
-    compression: String,
+    //compression: String,
 }
 
 #[derive(Deserialize)]
@@ -129,7 +127,7 @@ impl DepotManager {
                     None => return false,
                 };
 
-                return true;
+                true
             })
             .max_by(|x, y| {
                 let x_speed = x.latest_speed.unwrap_or(0) / x.current_downloads.permits();

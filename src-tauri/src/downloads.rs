@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use database::{
     DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked, platform::Platform,

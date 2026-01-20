@@ -411,7 +411,7 @@ impl ProcessManager<'_> {
                 executor_metadata,
                 exe_command.reconstruct(),
                 executor_game_version,
-                &install_dir,
+                install_dir,
             )?;
 
             LaunchParameters(executor_launch_string, install_dir.into())

@@ -16,7 +16,6 @@ use remote::auth::generate_authorization_header;
 use remote::error::RemoteAccessError;
 use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_ASYNC;
-use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -356,6 +355,7 @@ impl GameDownloadAgent {
         Ok(true)
     }
 
+    #[allow(dead_code)]
     fn setup_validate(&self, app_handle: &AppHandle) {
         self.setup_progress();
 
@@ -373,7 +373,7 @@ impl GameDownloadAgent {
         push_game_update(app_handle, &self.metadata().id, None, (None, Some(status)));
     }
 
-    pub fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
+    pub fn validate(&self, _app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError> {
         /*
         self.setup_validate(app_handle);
 

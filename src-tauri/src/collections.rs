@@ -2,16 +2,13 @@ use std::sync::nonpoison::Mutex;
 
 use client::app_state::AppState;
 use database::{GameDownloadStatus, borrow_db_checked};
-use games::collections::collection::{Collection, Collections};
+use games::collections::collection::Collections;
 use remote::{
-    auth::generate_authorization_header,
     cache::{cache_object, get_cached_object},
     error::RemoteAccessError,
     offline,
     requests::{generate_url, make_authenticated_get},
-    utils::DROP_CLIENT_ASYNC,
 };
-use serde_json::json;
 
 pub async fn fetch_collections(
     state: tauri::State<'_, Mutex<AppState>>,

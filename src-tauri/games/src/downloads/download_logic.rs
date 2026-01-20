@@ -16,7 +16,6 @@ use droplet_rs::manifest::ChunkData;
 use log::{debug, info};
 use remote::auth::generate_authorization_header;
 use remote::error::{DropServerError, RemoteAccessError};
-use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_SYNC;
 use sha2::Digest;
 use tauri::Url;
@@ -25,6 +24,7 @@ const READ_BUF_LEN: usize = 1024 * 1024;
 
 type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
+#[allow(clippy::too_many_arguments)]
 pub fn download_game_chunk(
     game_id: &str,
     version_id: &str,

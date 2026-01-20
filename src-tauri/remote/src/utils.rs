@@ -54,7 +54,9 @@ impl Middleware for AutoOfflineMiddleware {
                         let mut state_lock = state.lock();
                         if state_lock.status == AppStatus::Offline {
                             state_lock.status = AppStatus::SignedIn;
-                            app_handle.emit("update_state", &*state_lock).expect("failed to emit state update");
+                            app_handle
+                                .emit("update_state", &*state_lock)
+                                .expect("failed to emit state update");
                         }
                     };
                 });
@@ -73,7 +75,9 @@ impl Middleware for AutoOfflineMiddleware {
                                     app_handle.state::<std::sync::nonpoison::Mutex<AppState>>();
                                 let mut state_lock = state.lock();
                                 state_lock.status = AppStatus::Offline;
-                                app_handle.emit("update_state", &*state_lock).expect("failed to emit state update");
+                                app_handle
+                                    .emit("update_state", &*state_lock)
+                                    .expect("failed to emit state update");
                             };
                         });
                     };
@@ -168,10 +172,9 @@ pub fn get_client_async() -> ClientWithMiddleware {
         .build()
         .expect("Failed to build asynchronous client");
 
-    let client = ClientBuilder::new(normal_client)
+    ClientBuilder::new(normal_client)
         .with(AutoOfflineMiddleware)
-        .build();
-    client
+        .build()
 }
 pub fn get_client_ws() -> reqwest::Client {
     let mut client = reqwest::ClientBuilder::new();
