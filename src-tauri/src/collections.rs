@@ -13,7 +13,6 @@ use remote::{
 };
 use serde_json::json;
 
-#[tauri::command]
 pub async fn fetch_collections(
     state: tauri::State<'_, Mutex<AppState>>,
     hard_refresh: Option<bool>,
@@ -67,81 +66,4 @@ pub async fn fetch_collections_offline(
     }
 
     Ok(cached)
-}
-
-#[tauri::command]
-pub async fn fetch_collection(collection_id: String) -> Result<Collection, RemoteAccessError> {
-    let response = make_authenticated_get(generate_url(
-        &["/api/v1/client/collection/", &collection_id],
-        &[],
-    )?)
-    .await?;
-
-    Ok(response.json().await?)
-}
-
-#[tauri::command]
-pub async fn create_collection(name: String) -> Result<Collection, RemoteAccessError> {
-    let client = DROP_CLIENT_ASYNC.clone();
-    let url = generate_url(&["/api/v1/client/collection"], &[])?;
-
-    let response = client
-        .post(url)
-        .header("Authorization", generate_authorization_header())
-        .json(&json!({"name": name}))
-        .send()
-        .await?;
-
-    Ok(response.json().await?)
-}
-
-#[tauri::command]
-pub async fn add_game_to_collection(
-    collection_id: String,
-    game_id: String,
-) -> Result<(), RemoteAccessError> {
-    let client = DROP_CLIENT_ASYNC.clone();
-
-    let url = generate_url(&["/api/v1/client/collection", &collection_id, "entry"], &[])?;
-
-    client
-        .post(url)
-        .header("Authorization", generate_authorization_header())
-        .json(&json!({"id": game_id}))
-        .send()
-        .await?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn delete_collection(collection_id: String) -> Result<bool, RemoteAccessError> {
-    let client = DROP_CLIENT_ASYNC.clone();
-
-    let url = generate_url(&["/api/v1/client/collection", &collection_id], &[])?;
-
-    let response = client
-        .delete(url)
-        .header("Authorization", generate_authorization_header())
-        .send()
-        .await?;
-
-    Ok(response.json().await?)
-}
-#[tauri::command]
-pub async fn delete_game_in_collection(
-    collection_id: String,
-    game_id: String,
-) -> Result<(), RemoteAccessError> {
-    let client = DROP_CLIENT_ASYNC.clone();
-
-    let url = generate_url(&["/api/v1/client/collection", &collection_id, "entry"], &[])?;
-
-    client
-        .delete(url)
-        .header("Authorization", generate_authorization_header())
-        .json(&json!({"id": game_id}))
-        .send()
-        .await?;
-
-    Ok(())
 }

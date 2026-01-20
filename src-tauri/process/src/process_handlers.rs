@@ -42,12 +42,12 @@ impl ProcessHandler for UMULauncher {
         let game_id = match &launch_config.umu_id_override {
             Some(game_override) => {
                 if game_override.is_empty() {
-                    game_version.game_id.clone()
+                    game_version.version_id.clone()
                 } else {
                     game_override.clone()
                 }
             }
-            None => game_version.game_id.clone(),
+            None => game_version.version_id.clone(),
         };
         let pfx_dir = DATA_ROOT_DIR.join("pfx");
         let pfx_dir = pfx_dir.join(meta.id.clone());

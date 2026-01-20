@@ -173,9 +173,9 @@ impl ProcessManager<'_> {
             let _ = self.app_handle.emit("launch_external_error", &game_id);
         }
 
-        let version_data = match db_handle.applications.game_versions.get(&game_id) {
+        let version_data = match db_handle.applications.game_versions.get(&meta.version) {
             // This unwrap here should be resolved by just making the hashmap accept an option rather than just a String
-            Some(res) => res.get(&meta.version).expect("Failed to get game version from installed game versions. Is the database corrupted?"),
+            Some(res) => res,
             None => todo!(),
         };
 
@@ -227,8 +227,6 @@ impl ProcessManager<'_> {
         let game_version = db_lock
             .applications
             .game_versions
-            .get(&game_id)
-            .ok_or(ProcessError::InvalidID)?
             .get(&meta.version)
             .ok_or(ProcessError::InvalidVersion)?;
 
@@ -289,8 +287,6 @@ impl ProcessManager<'_> {
         let game_version = db_lock
             .applications
             .game_versions
-            .get(&game_id)
-            .ok_or(ProcessError::InvalidID)?
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
@@ -392,8 +388,6 @@ impl ProcessManager<'_> {
             let executor_game_version = db_lock
                 .applications
                 .game_versions
-                .get(&executor.game_id)
-                .ok_or(err.clone())?
                 .get(&executor.version_id)
                 .ok_or(err.clone())?;
 

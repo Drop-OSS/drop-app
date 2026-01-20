@@ -118,7 +118,6 @@ pub mod data {
          */
         pub struct LaunchConfigurationExecutor {
             pub launch_id: String,
-
             pub game_id: String,
             pub version_id: String,
         }
@@ -225,7 +224,7 @@ pub mod data {
             // Guaranteed to exist if the game also exists in the app state map
             pub game_statuses: HashMap<String, GameDownloadStatus>,
 
-            pub game_versions: HashMap<String, HashMap<String, GameVersion>>,
+            pub game_versions: HashMap<String, GameVersion>,
             pub installed_game_version: HashMap<String, DownloadableMetadata>,
 
             #[serde(skip)]

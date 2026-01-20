@@ -241,13 +241,6 @@ pub fn run() {
             fetch_game_status,
             fetch_game_version_options,
             update_game_configuration,
-            // Collections
-            fetch_collections,
-            fetch_collection,
-            create_collection,
-            add_game_to_collection,
-            delete_collection,
-            delete_game_in_collection,
             // Downloads
             download_game,
             resume_download,

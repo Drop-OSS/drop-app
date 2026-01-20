@@ -20,9 +20,9 @@ use crate::state::{GameStatusManager, GameStatusWithTransient};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct FetchGameStruct {
-    game: Game,
-    status: GameStatusWithTransient,
-    version: Option<GameVersion>,
+    pub game: Game,
+    pub status: GameStatusWithTransient,
+    pub version: Option<GameVersion>,
 }
 
 impl FetchGameStruct {
@@ -38,17 +38,19 @@ impl FetchGameStruct {
 #[derive(Serialize, Deserialize, Clone, Debug, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct Game {
-    id: String,
-    m_name: String,
-    m_short_description: String,
-    m_description: String,
+    pub id: String,
+    #[serde(rename = "type")]
+    pub game_type: String,
+    pub m_name: String,
+    pub m_short_description: String,
+    pub m_description: String,
     // mDevelopers
     // mPublishers
-    m_icon_object_id: String,
-    m_banner_object_id: String,
-    m_cover_object_id: String,
-    m_image_library_object_ids: Vec<String>,
-    m_image_carousel_object_ids: Vec<String>,
+    pub m_icon_object_id: String,
+    pub m_banner_object_id: String,
+    pub m_cover_object_id: String,
+    pub m_image_library_object_ids: Vec<String>,
+    pub m_image_carousel_object_ids: Vec<String>,
 }
 impl Game {
     pub fn id(&self) -> &String {
@@ -217,8 +219,6 @@ pub async fn on_game_complete(
     handle
         .applications
         .game_versions
-        .entry(meta.id.clone())
-        .or_default()
         .insert(meta.version.clone(), game_version.clone());
     handle
         .applications
@@ -259,6 +259,8 @@ pub async fn on_game_complete(
             version: Some(game_version),
         }
     );
+
+    app_emit!(app_handle, "update_library", ());
 
     Ok(())
 }

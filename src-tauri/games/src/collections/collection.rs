@@ -18,7 +18,7 @@ pub struct Collection {
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Encode, Decode)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionObject {
-    collection_id: String,
+    pub collection_id: String,
     pub game_id: String,
-    game: Game,
+    pub game: Game,
 }

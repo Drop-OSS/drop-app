@@ -27,6 +27,7 @@ export type AppState = {
 
 export type Game = {
   id: string;
+  type: "Game" | "Executor" | "Redist";
   mName: string;
   mShortDescription: string;
   mDescription: string;
@@ -41,6 +42,7 @@ export type Collection = {
   id: string;
   name: string;
   isDefault: boolean;
+  isTools?: boolean;
   entries: Array<{ gameId: string; game: Game }>;
 };
 

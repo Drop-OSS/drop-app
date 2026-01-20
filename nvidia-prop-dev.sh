@@ -1,1 +1,1 @@
-WEBKIT_DISABLE_DMABUF_RENDERER=1 pnpm tauri dev
+GSK_RENDERER=ngl pnpm tauri dev
