@@ -12,9 +12,7 @@ use std::{
     sync::nonpoison::Mutex, time::SystemTime,
 };
 
-use ::client::{
-    app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup,
-};
+use ::client::{app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup};
 use ::download_manager::DownloadManagerWrapper;
 use ::games::scan::scan_install_dirs;
 use ::process::ProcessManagerWrapper;
@@ -405,7 +403,9 @@ pub fn run() {
             });
         })
         .register_asynchronous_uri_scheme_protocol("server", |_ctx, request, responder| {
-            handle_server_proto_wrapper(request, responder);
+            tauri::async_runtime::spawn(async move {
+                handle_server_proto_wrapper(request, responder).await;
+            });
         })
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { api, .. } = event {

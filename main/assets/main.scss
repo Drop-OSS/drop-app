@@ -6,6 +6,7 @@ html,
 body {
   -ms-overflow-style: none; /* IE and Edge /
 scrollbar-width: none; / Firefox */
+  overscroll-behavior: none;
 }
 
 /* Hide scrollbar for Chrome, Safari and Opera */

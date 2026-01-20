@@ -43,9 +43,12 @@
             <span class="text-sm font-semibold font-display">{{
               nav.name
             }}</span>
-            <span class="ml-6 flex h-7 items-center">
-              <PlusSmallIcon v-if="!open" class="size-6" aria-hidden="true" />
-              <MinusSmallIcon v-else class="size-6" aria-hidden="true" />
+            <span class="ml-6 relative flex size-4">
+              <MinusIcon class="absolute inset-0 size-4" aria-hidden="true" />
+              <MinusIcon
+                :class="[                !open ? 'rotate-90' : 'rotate-0', 'transition-all absolute inset-0 size-4']"
+                aria-hidden="true"
+              />
             </span>
           </DisclosureButton>
         </dt>
@@ -123,8 +126,8 @@ import { Disclosure, DisclosureButton, DisclosurePanel } from "@headlessui/vue";
 import {
   ArrowPathIcon,
   MagnifyingGlassIcon,
-  MinusSmallIcon,
-  PlusSmallIcon,
+  MinusIcon,
+  PlusIcon,
 } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import {
