@@ -453,7 +453,7 @@ impl ProcessManager<'_> {
         #[cfg(target_os = "windows")]
         let mut command = Command::new("cmd");
         #[cfg(target_os = "windows")]
-        command.raw_arg(format!("/C \"{}\"", &launch_string));
+        command.raw_arg(format!("/C \"{}\"", &launch_parameters.0));
 
         info!(
             "launching (in {}): {}",
