@@ -6,7 +6,7 @@ use std::{
 use keyring::Entry;
 use log::info;
 
-use crate::interface::{DatabaseInterface};
+use crate::interface::DatabaseInterface;
 
 pub static DB: LazyLock<DatabaseInterface> = LazyLock::new(DatabaseInterface::set_up_database);
 
@@ -32,6 +32,9 @@ pub(crate) static KEY_IV: LazyLock<([u8; 16], [u8; 16])> = LazyLock::new(|| {
         info!("created new database key");
         buffer.to_vec()
     });
-    let new = key.split_off(16);
-    (new.try_into().expect("failed to extract key"), key.try_into().expect("failed to extract iv"))
+    let iv: Vec<u8> = key.split_off(16);
+    (
+        key[0..16].try_into().expect("key wrong length"),
+        iv[0..16].try_into().expect("iv wrong length"),
+    )
 });
