@@ -1,6 +1,6 @@
 use database::borrow_db_checked;
 use http::{
-    HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header::USER_AGENT,
+    HeaderMap, HeaderValue, Request, Response, StatusCode, Uri, header::{CONTENT_SECURITY_POLICY, USER_AGENT, X_FRAME_OPTIONS},
 };
 use log::{error, warn};
 use tauri::UriSchemeResponder;
@@ -30,7 +30,7 @@ pub async fn handle_server_proto_wrapper(request: Request<Vec<u8>>, responder: U
     match handle_server_proto(request).await {
         Ok(r) => responder.respond(r),
         Err(e) => {
-            warn!("Cache error: {e}");
+            warn!("server proto error: {e}");
             responder.respond(
                 Response::builder()
                     .status(e)
@@ -84,12 +84,13 @@ async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u
     let response = match DROP_CLIENT_ASYNC
         .request(request.method().clone(), new_uri.to_string())
         .headers(headers)
+        .body(request.body().clone()) // TODO: refactor this into a move
         .send()
         .await
     {
         Ok(response) => response,
         Err(e) => {
-            warn!("Could not send response. Got {e} when sending");
+            warn!("Could not send response. Got {e:?} when sending");
             return Err(e.status().unwrap_or(StatusCode::BAD_REQUEST));
         }
     };
@@ -102,6 +103,12 @@ async fn handle_server_proto(request: Request<Vec<u8>>) -> Result<Response<Vec<u
     {
         let client_response_headers = client_http_response.headers_mut().unwrap();
         for (header, header_value) in response.headers() {
+            if header == CONTENT_SECURITY_POLICY  {
+                continue;
+            }
+            if header == X_FRAME_OPTIONS {
+                continue;
+            }
             client_response_headers.insert(header, header_value.clone());
         }
     };
