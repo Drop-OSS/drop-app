@@ -10,12 +10,14 @@ use download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
 use download_manager::util::progress_object::{ProgressHandle, ProgressObject};
-use droplet_rs::manifest::Manifest;
+use droplet_rs::manifest::{ChunkData, Manifest};
 use log::{debug, error, info, warn};
 use remote::auth::generate_authorization_header;
 use remote::error::RemoteAccessError;
 use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_ASYNC;
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fmt::Debug;
 use std::mem;
 use std::path::{Path, PathBuf};
@@ -34,10 +36,18 @@ use super::drop_data::DropData;
 
 static RETRY_COUNT: usize = 3;
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DownloadInformation {
+    file_list: HashMap<String, String>,
+    manifests: HashMap<String, Manifest>,
+    install_size: u64,
+}
+
 pub struct GameDownloadAgent {
     pub metadata: DownloadableMetadata,
     pub control_flag: DownloadThreadControl,
-    pub manifest: Mutex<Option<Manifest>>,
+    pub dl_info: Mutex<Option<DownloadInformation>>,
     pub progress: Arc<ProgressObject>,
     depot_manager: Arc<DepotManager>,
     sender: Sender<DownloadManagerSignal>,
@@ -86,11 +96,11 @@ impl GameDownloadAgent {
             metadata.target_platform,
             data_base_dir_path.clone(),
         );
-        
+
         let result = Self {
             metadata,
             control_flag,
-            manifest: Mutex::new(None),
+            dl_info: Mutex::new(None),
             progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
             sender,
             dropdata: stored_manifest,
@@ -100,7 +110,7 @@ impl GameDownloadAgent {
 
         result.ensure_manifest_exists().await?;
 
-        let required_space = lock!(result.manifest).as_ref().unwrap().size;
+        let required_space = lock!(result.dl_info).as_ref().unwrap().install_size;
 
         let available_space = get_disk_available(data_base_dir_path)? as u64;
 
@@ -157,11 +167,11 @@ impl GameDownloadAgent {
     }
 
     pub fn check_manifest_exists(&self) -> bool {
-        lock!(self.manifest).is_some()
+        lock!(self.dl_info).is_some()
     }
 
     pub async fn ensure_manifest_exists(&self) -> Result<(), ApplicationDownloadError> {
-        if lock!(self.manifest).is_some() {
+        if lock!(self.dl_info).is_some() {
             return Ok(());
         }
 
@@ -195,12 +205,12 @@ impl GameDownloadAgent {
             ));
         }
 
-        let manifest_download: Manifest = response
+        let manifest_download: DownloadInformation = response
             .json()
             .await
             .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
-        if let Ok(mut manifest) = self.manifest.lock() {
+        if let Ok(mut manifest) = self.dl_info.lock() {
             *manifest = Some(manifest_download);
             return Ok(());
         }
@@ -210,32 +220,52 @@ impl GameDownloadAgent {
 
     // Sets it up for both download and validate
     fn setup_progress(&self) {
-        let manifest = lock!(self.manifest);
+        let manifest = lock!(self.dl_info);
         let manifest = manifest.as_ref().unwrap();
 
-        self.progress.set_max(manifest.size.try_into().unwrap());
-        self.progress.set_size(manifest.chunks.len());
+        let total_size = manifest.manifests.iter().map(|v| v.1.size).sum::<u64>();
+        let total_chunks = manifest
+            .manifests
+            .iter()
+            .map(|v| v.1.chunks.len())
+            .sum::<usize>();
+
+        self.progress.set_max(total_size.try_into().unwrap());
+        self.progress.set_size(total_chunks);
         self.progress.reset();
     }
 
     async fn run(&self) -> Result<bool, RemoteAccessError> {
         self.depot_manager.sync_depots().await?;
         self.setup_progress();
-        let (chunks, key) = {
-            let manifest = lock!(self.manifest);
-            let manifest = manifest.as_ref().unwrap();
-            (manifest.chunks.clone(), manifest.key)
+        let manifests_chunks: Vec<(String, HashMap<String, ChunkData>, [u8; 16])> = {
+            let dl_info = lock!(self.dl_info);
+            dl_info
+                .as_ref()
+                .unwrap()
+                .manifests
+                .iter()
+                .map(|v| (v.0.clone(), v.1.chunks.clone(), v.1.key))
+                .collect()
         };
-        let chunk_len = chunks.len();
+        let file_list = {
+            let dl_info = lock!(self.dl_info);
+            dl_info.as_ref().unwrap().file_list.clone()
+        };
         let mut completed_chunks = {
             let completed_chunks = lock!(self.dropdata.contexts);
             completed_chunks.clone()
         };
+        let chunk_len = manifests_chunks.iter().map(|v| v.1.len()).sum::<usize>();
         let max_download_threads = borrow_db_checked().settings.max_download_threads;
 
         let (sender, recv) = crossbeam_channel::bounded(16);
 
+        // SAFETY: I pinky-promise
+        // (the scope keeps these in scope)
         let unsafe_self: &'static GameDownloadAgent = unsafe { mem::transmute(self) };
+        let file_list: &'static HashMap<String, String> = unsafe { mem::transmute(&file_list) };
+
         let local_completed_chunks = completed_chunks.clone();
 
         let download_join_handle = tauri::async_runtime::spawn_blocking(move || {
@@ -244,77 +274,90 @@ impl GameDownloadAgent {
                 .build()
                 .unwrap();
             thread_pool.scope(move |s| {
-                for (index, (chunk_id, chunk_data)) in chunks.into_iter().enumerate() {
-                    let local_sender = sender.clone();
-                    let progress = unsafe_self.progress.get(index);
-                    let progress_handle =
-                        ProgressHandle::new(progress, unsafe_self.progress.clone());
+                let mut index = 0;
+                for (version_id, chunks, key) in manifests_chunks.into_iter() {
+                    let version_id = &version_id;
+                    for (chunk_id, chunk_data) in chunks.into_iter() {
+                        let local_sender = sender.clone();
+                        let progress = unsafe_self.progress.get(index);
+                        index += 1;
+                        let progress_handle =
+                            ProgressHandle::new(progress, unsafe_self.progress.clone());
 
-                    let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();
+                        let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();
 
-                    if *local_completed_chunks.get(&chunk_id).unwrap_or(&false) {
-                        progress_handle.skip(chunk_length);
-                        continue;
-                    }
-
-                    let sender = unsafe_self.sender.clone();
-                    let (depot, permit) = match unsafe_self
-                        .depot_manager
-                        .next_depot(&unsafe_self.metadata.id, &unsafe_self.metadata.version)
-                    {
-                        Ok(v) => v,
-                        Err(err) => {
-                            tauri::async_runtime::spawn(async move {
-                                send!(sender, DownloadManagerSignal::Error(ApplicationDownloadError::Communication(err)));
-                            });
-                            return;
+                        if *local_completed_chunks.get(&chunk_id).unwrap_or(&false) {
+                            progress_handle.skip(chunk_length);
+                            continue;
                         }
-                    };
 
-                    s.spawn(move |_| {
-                        for i in 0..RETRY_COUNT {
-                            let loop_progress_handle = progress_handle.clone();
-                            let base_path = unsafe_self.dropdata.base_path.clone();
-                            match download_game_chunk(
-                                &unsafe_self.metadata.id,
-                                &unsafe_self.metadata.version,
-                                &chunk_id,
-                                &depot,
-                                &key,
-                                &chunk_data,
-                                base_path,
-                                &unsafe_self.control_flag,
-                                loop_progress_handle,
-                            ) {
-                                Ok(true) => {
-                                    local_sender.send(chunk_id.clone()).unwrap();
-                                    drop(permit); // Take ownership
-                                    return;
-                                }
-                                Ok(false) => return,
-                                Err(e) => {
-                                    warn!("got error for chunk id {}: {e:?}", chunk_id);
+                        let sender = unsafe_self.sender.clone();
+                        let (depot, permit) = match unsafe_self
+                            .depot_manager
+                            .next_depot(&unsafe_self.metadata.id, &unsafe_self.metadata.version)
+                        {
+                            Ok(v) => v,
+                            Err(err) => {
+                                tauri::async_runtime::spawn(async move {
+                                    send!(
+                                        sender,
+                                        DownloadManagerSignal::Error(
+                                            ApplicationDownloadError::Communication(err)
+                                        )
+                                    );
+                                });
+                                return;
+                            }
+                        };
 
-                                    let retry = true; /*matches!(
-                                    &e,
-                                    ApplicationDownloadError::Communication(_)
-                                    | ApplicationDownloadError::Checksum
-                                    | ApplicationDownloadError::Lock
-                                    | ApplicationDownloadError::IoError(_)
-                                    );*/
-
-                                    if i == RETRY_COUNT - 1 || !retry {
-                                        warn!("retry logic failed, not re-attempting.");
-                                        tauri::async_runtime::spawn(async move {
-                                            send!(sender, DownloadManagerSignal::Error(e));
-                                        });
+                        let local_version_id = version_id.clone();
+                        s.spawn(move |_| {
+                            for i in 0..RETRY_COUNT {
+                                let loop_progress_handle = progress_handle.clone();
+                                let base_path = unsafe_self.dropdata.base_path.clone();
+                                match download_game_chunk(
+                                    &unsafe_self.metadata.id,
+                                    &local_version_id,
+                                    &chunk_id,
+                                    &depot,
+                                    &key,
+                                    &chunk_data,
+                                    file_list,
+                                    base_path,
+                                    &unsafe_self.control_flag,
+                                    loop_progress_handle,
+                                ) {
+                                    Ok(true) => {
+                                        local_sender.send(chunk_id.clone()).unwrap();
+                                        drop(permit); // Take ownership
                                         return;
+                                    }
+                                    Ok(false) => return,
+                                    Err(e) => {
+                                        warn!("got error for chunk id {}: {e:?}", chunk_id);
+
+                                        let retry = true; /*matches!(
+                                        &e,
+                                        ApplicationDownloadError::Communication(_)
+                                        | ApplicationDownloadError::Checksum
+                                        | ApplicationDownloadError::Lock
+                                        | ApplicationDownloadError::IoError(_)
+                                        );*/
+
+                                        if i == RETRY_COUNT - 1 || !retry {
+                                            warn!("retry logic failed, not re-attempting.");
+                                            tauri::async_runtime::spawn(async move {
+                                                send!(sender, DownloadManagerSignal::Error(e));
+                                            });
+                                            return;
+                                        }
                                     }
                                 }
                             }
-                        }
-                    });
+                        });
+                    }
                 }
+
                 drop(sender);
             });
         });

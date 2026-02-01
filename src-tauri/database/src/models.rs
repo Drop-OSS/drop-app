@@ -238,9 +238,10 @@ pub mod data {
             pub auth: Option<DatabaseAuth>,
             pub base_url: String,
             pub applications: DatabaseApplications,
+            pub cache_dir: PathBuf,
+
             #[serde(skip)]
             pub prev_database: Option<PathBuf>,
-            pub cache_dir: PathBuf,
         }
     }
 

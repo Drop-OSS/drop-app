@@ -2,8 +2,8 @@ use std::sync::nonpoison::Mutex;
 
 use bitcode::{Decode, Encode};
 use database::{
-    DownloadableMetadata, GameDownloadStatus, borrow_db_checked,
-    borrow_db_mut_checked, platform::Platform,
+    DownloadableMetadata, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked,
+    platform::Platform,
 };
 use games::{
     collections::collection::Collection,
@@ -190,7 +190,6 @@ pub async fn fetch_game_logic(
         let db_lock = borrow_db_checked();
 
         let metadata_option = db_lock.applications.installed_game_version.get(&id);
-        
 
         match metadata_option {
             None => None,
@@ -258,7 +257,7 @@ struct VersionDownloadOptionRequiredContent {
     name: String,
     icon_object_id: String,
     short_description: String,
-    size: usize,
+    size: GameSize,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -268,8 +267,15 @@ pub struct VersionDownloadOption {
     display_name: Option<String>,
     version_path: String,
     platform: Platform,
-    size: usize,
+    size: GameSize,
     required_content: Vec<VersionDownloadOptionRequiredContent>,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+
+pub struct GameSize {
+    install_size: usize,
+    download_size: usize,
 }
 
 pub async fn fetch_game_version_options_logic(
@@ -278,7 +284,7 @@ pub async fn fetch_game_version_options_logic(
 ) -> Result<Vec<VersionDownloadOption>, RemoteAccessError> {
     let client = DROP_CLIENT_ASYNC.clone();
 
-    let response = generate_url(&["/api/v1/client/game/versions"], &[("id", &game_id)])?;
+    let response = generate_url(&["/api/v1/client/game", &game_id, "versions"], &[])?;
     let response = client
         .get(response)
         .header("Authorization", generate_authorization_header())

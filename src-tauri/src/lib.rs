@@ -73,7 +73,7 @@ async fn setup(handle: AppHandle) -> AppState {
 
     let console = ConsoleAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
-            "{d} | {l} | {f}:{L} - {m}{n}",
+            "{d} | {h({l})} | {f}:{L} - {m}{n}",
         )))
         .build();
 

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{Permissions, set_permissions};
 use std::io::{Read, Seek as _, SeekFrom, Write as _};
 #[cfg(unix)]
@@ -32,6 +33,7 @@ pub fn download_game_chunk(
     depot: &str,
     key: &[u8; 16],
     chunk_data: &ChunkData,
+    file_list: &HashMap<String, String>,
     base_path: PathBuf,
     control_flag: &DownloadThreadControl,
     progress: ProgressHandle,
@@ -48,10 +50,7 @@ pub fn download_game_chunk(
 
     let url = Url::parse(depot)
         .map_err(|v| ApplicationDownloadError::DownloadError(v.into()))?
-        .join(&format!(
-            "content/{}/{}/{}",
-            game_id, version_id, chunk_id
-        ))
+        .join(&format!("content/{}/{}/{}", game_id, version_id, chunk_id))
         .map_err(|v| ApplicationDownloadError::DownloadError(v.into()))?;
 
     let response = DROP_CLIENT_SYNC
@@ -95,17 +94,26 @@ pub fn download_game_chunk(
     let mut cipher = Aes128Ctr64LE::new(key.into(), &chunk_data.iv.into());
     let mut read_buf = vec![0u8; READ_BUF_LEN];
     for file in &chunk_data.files {
+        let should_write = file_list
+            .get(&file.filename)
+            .map(|v| v == version_id)
+            .unwrap_or(false);
         let path = base_path.join(file.filename.clone());
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let mut file_handle = std::fs::OpenOptions::new()
-            .truncate(false)
-            .write(true)
-            .append(false)
-            .create(true)
-            .open(&path)?;
-        file_handle.seek(SeekFrom::Start(file.start.try_into().unwrap()))?;
+        let mut file_handle = if should_write {
+            let mut file_handle = std::fs::OpenOptions::new()
+                .truncate(false)
+                .write(true)
+                .append(false)
+                .create(true)
+                .open(&path)?;
+            file_handle.seek(SeekFrom::Start(file.start.try_into().unwrap()))?;
+            Some(file_handle)
+        } else {
+            None
+        };
 
         let mut remaining = file.length;
         while remaining > 0 {
@@ -115,7 +123,9 @@ pub fn download_game_chunk(
 
             cipher.apply_keystream(&mut read_buf[0..amount]);
             hasher.update(&read_buf[0..amount]);
-            file_handle.write_all(&read_buf[0..amount])?;
+            if let Some(file_handle) = &mut file_handle {
+                file_handle.write_all(&read_buf[0..amount])?;
+            }
         }
 
         #[cfg(unix)]
