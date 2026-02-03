@@ -7,15 +7,22 @@ use std::{
 };
 
 use atomic_instant_full::AtomicInstant;
-use utils::{lock, send};
 use tokio::sync::mpsc::Sender;
+use utils::{lock, send};
 
-use crate::download_manager_frontend::DownloadManagerSignal;
+use crate::{download_manager_frontend::DownloadManagerSignal, util::progress_object};
 
 use super::rolling_progress_updates::RollingProgressWindow;
 
 #[derive(Clone, Debug)]
+pub enum ProgressType {
+    Download,
+    Disk,
+}
+
+#[derive(Clone, Debug)]
 pub struct ProgressObject {
+    progress_type: ProgressType,
     max: Arc<Mutex<usize>>,
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
     start: Arc<Mutex<Instant>>,
@@ -45,7 +52,7 @@ impl ProgressHandle {
     pub fn add(&self, amount: usize) {
         self.progress
             .fetch_add(amount, std::sync::atomic::Ordering::AcqRel);
-        tauri::async_runtime::spawn(calculate_update(self.progress_object.clone()));
+        spawn_update(&self.progress_object);
     }
     pub fn skip(&self, amount: usize) {
         self.progress
@@ -59,7 +66,12 @@ impl ProgressHandle {
 }
 
 impl ProgressObject {
-    pub fn new(max: usize, length: usize, sender: Sender<DownloadManagerSignal>) -> Self {
+    pub fn new(
+        max: usize,
+        length: usize,
+        sender: Sender<DownloadManagerSignal>,
+        progress_type: ProgressType,
+    ) -> Self {
         let arr = Mutex::new((0..length).map(|_| Arc::new(AtomicUsize::new(0))).collect());
         Self {
             max: Arc::new(Mutex::new(max)),
@@ -70,6 +82,7 @@ impl ProgressObject {
             last_update_time: Arc::new(AtomicInstant::now()),
             bytes_last_update: Arc::new(AtomicUsize::new(0)),
             rolling: RollingProgressWindow::new(),
+            progress_type,
         }
     }
 
@@ -111,17 +124,21 @@ impl ProgressObject {
     }
 }
 
-pub async fn calculate_update(progress: Arc<ProgressObject>) {
-    let last_update_time = progress
-        .last_update_time
-        .load(Ordering::SeqCst);
+pub fn spawn_update(progress: &Arc<ProgressObject>) {
+    let last_update_time = progress.last_update_time.load(Ordering::SeqCst);
     let time_since_last_update = Instant::now()
         .duration_since(last_update_time)
         .as_millis_f64();
     if time_since_last_update < 250.0 {
         return;
     }
-    progress.last_update_time.swap(Instant::now(), Ordering::SeqCst);
+    tauri::async_runtime::spawn(calculate_update(progress.clone(), time_since_last_update));
+}
+
+pub async fn calculate_update(progress: Arc<ProgressObject>, time_since_last_update: f64) {
+    progress
+        .last_update_time
+        .swap(Instant::now(), Ordering::SeqCst);
 
     let current_bytes_downloaded = progress.sum();
     let max = progress.get_max();
@@ -148,11 +165,18 @@ pub async fn push_update(progress: &ProgressObject, bytes_remaining: usize) {
     update_queue(progress).await;
 }
 
-async fn update_ui(progress_object: &ProgressObject, kilobytes_per_second: usize, time_remaining: usize) {
-    send!(
-        progress_object.sender,
-        DownloadManagerSignal::UpdateUIStats(kilobytes_per_second, time_remaining)
-    );
+async fn update_ui(
+    progress_object: &ProgressObject,
+    kilobytes_per_second: usize,
+    time_remaining: usize,
+) {
+    match progress_object.progress_type {
+        ProgressType::Download => send!(
+            progress_object.sender,
+            DownloadManagerSignal::UpdateUIDownloadStats(kilobytes_per_second, time_remaining)
+        ),
+        ProgressType::Disk => (),
+    }
 }
 
 async fn update_queue(progress: &ProgressObject) {

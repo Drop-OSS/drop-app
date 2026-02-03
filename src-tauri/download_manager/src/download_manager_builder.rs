@@ -16,7 +16,9 @@ use crate::{
     depot_manager::DepotManager,
     download_manager_frontend::DownloadStatus,
     error::ApplicationDownloadError,
-    frontend_updates::{QueueUpdateEvent, QueueUpdateEventQueueData, StatsUpdateEvent},
+    frontend_updates::{
+        DiskStatsUpdateEvent, DownloadStatsUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData,
+    },
 };
 
 use super::{
@@ -107,7 +109,13 @@ impl DownloadManagerBuilder {
             info!("download manager exited with result: {:?}", result);
         });
 
-        DownloadManager::new(terminator, queue, active_progress, command_sender, depot_manager)
+        DownloadManager::new(
+            terminator,
+            queue,
+            active_progress,
+            command_sender,
+            depot_manager,
+        )
     }
 
     fn set_status(&self, status: DownloadManagerStatus) {
@@ -187,8 +195,8 @@ impl DownloadManagerBuilder {
                 DownloadManagerSignal::UpdateUIQueue => {
                     self.push_ui_queue_update();
                 }
-                DownloadManagerSignal::UpdateUIStats(kbs, time) => {
-                    self.push_ui_stats_update(kbs, time);
+                DownloadManagerSignal::UpdateUIDownloadStats(kbs, time) => {
+                    self.push_ui_download_stats_update(kbs, time);
                 }
                 DownloadManagerSignal::Finish => {
                     self.stop_and_wait_current_download().await;
@@ -266,17 +274,16 @@ impl DownloadManagerBuilder {
 
         *download_thread_lock = Some(tauri::async_runtime::spawn(async move {
             loop {
-                let download_result =
-                    match download_agent.download(&app_handle).await {
-                        // Ok(true) is for completed and exited properly
-                        Ok(v) => v,
-                        Err(e) => {
-                            error!("download {:?} has error {}", download_agent.metadata(), &e);
-                            download_agent.on_error(&app_handle, &e);
-                            send!(sender, DownloadManagerSignal::Error(e));
-                            return;
-                        }
-                    };
+                let download_result = match download_agent.download(&app_handle).await {
+                    // Ok(true) is for completed and exited properly
+                    Ok(v) => v,
+                    Err(e) => {
+                        error!("download {:?} has error {}", download_agent.metadata(), &e);
+                        download_agent.on_error(&app_handle, &e);
+                        send!(sender, DownloadManagerSignal::Error(e));
+                        return;
+                    }
+                };
 
                 // If the download gets canceled
                 // immediately return, on_cancelled gets called for us earlier
@@ -384,9 +391,8 @@ impl DownloadManagerBuilder {
         self.push_ui_queue_update();
         send!(self.sender, DownloadManagerSignal::Go);
     }
-    fn push_ui_stats_update(&self, kbs: usize, time: usize) {
-        let event_data = StatsUpdateEvent { speed: kbs, time };
-
+    fn push_ui_download_stats_update(&self, kbs: usize, time: usize) {
+        let event_data = DownloadStatsUpdateEvent { speed: kbs, time };
         app_emit!(&self.app_handle, "update_stats", event_data);
     }
     fn push_ui_queue_update(&self) {
@@ -398,9 +404,12 @@ impl DownloadManagerBuilder {
                 QueueUpdateEventQueueData {
                     meta: DownloadableMetadata::clone(key),
                     status: val.status(),
-                    progress: val.progress().get_progress(),
-                    current: val.progress().sum(),
-                    max: val.progress().get_max(),
+                    dl_progress: val.dl_progress().get_progress(),
+                    dl_current: val.dl_progress().sum(),
+                    dl_max: val.dl_progress().get_max(),
+                    disk_progress: val.disk_progress().get_progress(),
+                    disk_current: val.disk_progress().sum(),
+                    disk_max: val.disk_progress().get_max(),
                 }
             })
             .collect();

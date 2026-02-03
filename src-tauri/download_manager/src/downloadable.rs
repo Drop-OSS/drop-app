@@ -22,7 +22,8 @@ pub trait Downloadable: Send + Sync + Debug {
     async fn download(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
     fn validate(&self, app_handle: &AppHandle) -> Result<bool, ApplicationDownloadError>;
 
-    fn progress(&self) -> Arc<ProgressObject>;
+    fn dl_progress(&self) -> &Arc<ProgressObject>;
+    fn disk_progress(&self) -> &Arc<ProgressObject>;
     fn control_flag(&self) -> DownloadThreadControl;
     fn status(&self) -> DownloadStatus;
     fn metadata(&self) -> DownloadableMetadata;

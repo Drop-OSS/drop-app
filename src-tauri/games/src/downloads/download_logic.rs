@@ -36,11 +36,15 @@ pub fn download_game_chunk(
     file_list: &HashMap<String, String>,
     base_path: PathBuf,
     control_flag: &DownloadThreadControl,
-    progress: ProgressHandle,
+    // How much we're downloading
+    download_progress: &ProgressHandle,
+    // How much we're writing to disk
+    disk_progress: &ProgressHandle,
 ) -> Result<bool, ApplicationDownloadError> {
     // If we're paused
     if control_flag.get() == DownloadThreadControlFlag::Stop {
-        progress.set(0);
+        download_progress.set(0);
+        disk_progress.set(0);
         return Ok(false);
     }
 
@@ -76,7 +80,8 @@ pub fn download_game_chunk(
     }
 
     if control_flag.get() == DownloadThreadControlFlag::Stop {
-        progress.set(0);
+        download_progress.set(0);
+        disk_progress.set(0);
         return Ok(false);
     }
 
@@ -118,14 +123,15 @@ pub fn download_game_chunk(
         let mut remaining = file.length;
         while remaining > 0 {
             let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)])?;
-            progress.add(amount);
+            download_progress.add(amount);
             remaining -= amount;
 
             cipher.apply_keystream(&mut read_buf[0..amount]);
             hasher.update(&read_buf[0..amount]);
-            if let Some(file_handle) = &mut file_handle {
-                file_handle.write_all(&read_buf[0..amount])?;
-            }
+            //if let Some(file_handle) = &mut file_handle {
+                file_handle.as_mut().unwrap().write_all(&read_buf[0..amount])?;
+                disk_progress.add(amount);
+            //}
         }
 
         #[cfg(unix)]
@@ -142,7 +148,7 @@ pub fn download_game_chunk(
         }
 
         if control_flag.get() == DownloadThreadControlFlag::Stop {
-            progress.set(0);
+            download_progress.set(0);
             return Ok(false);
         }
     }

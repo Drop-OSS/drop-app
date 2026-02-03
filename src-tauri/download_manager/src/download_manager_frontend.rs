@@ -40,7 +40,7 @@ pub enum DownloadManagerSignal {
     Error(ApplicationDownloadError),
     /// Pushes UI update
     UpdateUIQueue,
-    UpdateUIStats(usize, usize), //kb/s and seconds
+    UpdateUIDownloadStats(usize, usize), //kb/s and seconds
 }
 
 #[derive(Debug)]
@@ -106,7 +106,7 @@ impl DownloadManager {
             download_queue,
             progress,
             command_sender,
-            depot_manager
+            depot_manager,
         }
     }
 

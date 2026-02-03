@@ -6,12 +6,16 @@
       <div
         class="bg-zinc-900 z-10 w-32 flex flex-col gap-x-2 font-display items-left justify-center pl-2"
       >
-        <span class="font-bold text-zinc-100">{{ formatKilobytes(stats.speed) }}B/s</span>
+        <span class="font-bold text-zinc-100"
+          >{{ formatKilobytes(stats.speed) }}B/s</span
+        >
         <span class="text-xs text-zinc-400"
           >{{ formatTime(stats.time) }} left</span
         >
       </div>
-      <div class="absolute inset-0 h-full flex flex-row items-end justify-end space-x-[1px]">
+      <div
+        class="absolute inset-0 h-full flex flex-row items-end justify-end space-x-[1px]"
+      >
         <div
           v-for="bar in speedHistory"
           :style="{ height: `${(bar / speedMax) * 100}%` }"
@@ -20,7 +24,7 @@
       </div>
     </div>
     <draggable v-model="queue.queue" @end="onEnd">
-      <template #item="{ element }: { element: (typeof queue.value.queue)[0] }">
+      <template #item="{ element }: ListIterable">
         <li
           v-if="games[element.meta.id]"
           :key="element.meta.id"
@@ -50,21 +54,40 @@
                 {{ element.status }}
               </p>
               <div
-                v-if="element.progress"
+                v-if="element.dl_progress"
                 class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
               >
                 <div
                   class="h-2 bg-blue-600"
-                  :style="{ width: `${element.progress * 100}%` }"
+                  :style="{ width: `${element.dl_progress * 100}%` }"
                 />
               </div>
               <span
                 class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"
-                ><span class="text-zinc-300">{{
-                  formatKilobytes(element.current / 1000)
-                }}B</span>
+                ><span class="text-zinc-300"
+                  >{{ formatKilobytes(element.dl_current / 1000) }}B</span
+                >
                 /
-                <span class="">{{ formatKilobytes(element.max / 1000) }}B</span
+                <span class="">{{ formatKilobytes(element.dl_max / 1000) }}B</span
+                ><CloudIcon class="size-5"
+              /></span>
+                  <div class="h-[1px] my-2 w-full bg-zinc-700" />
+              <div
+                v-if="element.disk_progress"
+                class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
+              >
+                <div
+                  class="h-2 bg-blue-600"
+                  :style="{ width: `${element.disk_progress * 100}%` }"
+                />
+              </div>
+              <span
+                class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"
+                ><span class="text-zinc-300"
+                  >{{ formatKilobytes(element.disk_current / 1000) }}B</span
+                >
+                /
+                <span class="">{{ formatKilobytes(element.disk_max / 1000) }}B</span
                 ><ServerIcon class="size-5"
               /></span>
             </div>
@@ -89,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { ServerIcon, XMarkIcon } from "@heroicons/vue/20/solid";
+import { ServerIcon, XMarkIcon, CloudIcon } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { type DownloadableMetadata, type Game, type GameStatus } from "~/types";
 
@@ -108,9 +131,11 @@ const stats = useStatsState();
 const speedHistory = useDownloadHistory();
 const speedHistoryMax = computed(() => windowWidth.value / 4);
 const speedMax = computed(
-  () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.1
+  () => speedHistory.value.reduce((a, b) => (a > b ? a : b)) * 1.1,
 );
-const previousGameId = useState<string | undefined>('previous_game');
+const previousGameId = useState<string | undefined>("previous_game");
+
+type ListIterable = { element: (typeof queue.value.queue)[0] };
 
 const games: Ref<{
   [key: string]: { game: Game; status: Ref<GameStatus>; cover: string };
@@ -122,7 +147,7 @@ function resetHistoryGraph() {
 }
 function checkReset(v: QueueState) {
   const currentGame = v.queue.at(0)?.meta.id;
-    // If we don't have a game
+  // If we don't have a game
   if (!currentGame) return;
 
   // If we're finished
@@ -150,7 +175,7 @@ watch(queue, (v) => {
 });
 
 watch(stats, (v) => {
-  if(v.speed == 0) return;
+  if (v.speed == 0) return;
   const newLength = speedHistory.value.push(v.speed);
   if (newLength > speedHistoryMax.value) {
     speedHistory.value.splice(0, newLength - speedHistoryMax.value);

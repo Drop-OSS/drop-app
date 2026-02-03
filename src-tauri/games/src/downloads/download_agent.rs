@@ -9,7 +9,7 @@ use download_manager::error::ApplicationDownloadError;
 use download_manager::util::download_thread_control_flag::{
     DownloadThreadControl, DownloadThreadControlFlag,
 };
-use download_manager::util::progress_object::{ProgressHandle, ProgressObject};
+use download_manager::util::progress_object::{ProgressHandle, ProgressObject, ProgressType};
 use droplet_rs::manifest::{ChunkData, Manifest};
 use log::{debug, error, info, warn};
 use remote::auth::generate_authorization_header;
@@ -42,13 +42,15 @@ pub struct DownloadInformation {
     file_list: HashMap<String, String>,
     manifests: HashMap<String, Manifest>,
     install_size: u64,
+    download_size: u64,
 }
 
 pub struct GameDownloadAgent {
     pub metadata: DownloadableMetadata,
     pub control_flag: DownloadThreadControl,
     pub dl_info: Mutex<Option<DownloadInformation>>,
-    pub progress: Arc<ProgressObject>,
+    pub download_progress: Arc<ProgressObject>,
+    pub disk_progress: Arc<ProgressObject>,
     depot_manager: Arc<DepotManager>,
     sender: Sender<DownloadManagerSignal>,
     pub dropdata: DropData,
@@ -101,7 +103,18 @@ impl GameDownloadAgent {
             metadata,
             control_flag,
             dl_info: Mutex::new(None),
-            progress: Arc::new(ProgressObject::new(0, 0, sender.clone())),
+            download_progress: Arc::new(ProgressObject::new(
+                0,
+                0,
+                sender.clone(),
+                ProgressType::Download,
+            )),
+            disk_progress: Arc::new(ProgressObject::new(
+                0,
+                0,
+                sender.clone(),
+                ProgressType::Disk,
+            )),
             sender,
             dropdata: stored_manifest,
             status: Mutex::new(DownloadStatus::Queued),
@@ -218,26 +231,34 @@ impl GameDownloadAgent {
         Err(ApplicationDownloadError::Lock)
     }
 
-    // Sets it up for both download and validate
+    // Sets up progress for download writes
     fn setup_progress(&self) {
-        let manifest = lock!(self.dl_info);
-        let manifest = manifest.as_ref().unwrap();
+        let dl_info = lock!(self.dl_info);
+        let dl_info = dl_info.as_ref().unwrap();
 
-        let total_size = manifest.manifests.iter().map(|v| v.1.size).sum::<u64>();
-        let total_chunks = manifest
+        let total_chunks = dl_info
             .manifests
             .iter()
             .map(|v| v.1.chunks.len())
             .sum::<usize>();
 
-        self.progress.set_max(total_size.try_into().unwrap());
-        self.progress.set_size(total_chunks);
-        self.progress.reset();
+        self.download_progress
+            .set_max(dl_info.download_size.try_into().unwrap());
+        self.download_progress
+            .set_size(total_chunks);
+        self.download_progress.reset();
+
+        self.disk_progress.set_max(dl_info.install_size.try_into().unwrap());
+        self.disk_progress
+            .set_size(total_chunks);
+        self.disk_progress.reset();
     }
 
     async fn run(&self) -> Result<bool, RemoteAccessError> {
         self.depot_manager.sync_depots().await?;
+        info!("synced depots");
         self.setup_progress();
+        info!("setup progress objects");
         let manifests_chunks: Vec<(String, HashMap<String, ChunkData>, [u8; 16])> = {
             let dl_info = lock!(self.dl_info);
             dl_info
@@ -279,15 +300,20 @@ impl GameDownloadAgent {
                     let version_id = &version_id;
                     for (chunk_id, chunk_data) in chunks.into_iter() {
                         let local_sender = sender.clone();
-                        let progress = unsafe_self.progress.get(index);
+                        let download_progress_handle = ProgressHandle::new(
+                            unsafe_self.download_progress.get(index),
+                            unsafe_self.download_progress.clone(),
+                        );
+                        let disk_progress_handle = ProgressHandle::new(
+                            unsafe_self.disk_progress.get(index),
+                            unsafe_self.disk_progress.clone(),
+                        );
                         index += 1;
-                        let progress_handle =
-                            ProgressHandle::new(progress, unsafe_self.progress.clone());
 
                         let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();
 
                         if *local_completed_chunks.get(&chunk_id).unwrap_or(&false) {
-                            progress_handle.skip(chunk_length);
+                            download_progress_handle.skip(chunk_length);
                             continue;
                         }
 
@@ -313,7 +339,6 @@ impl GameDownloadAgent {
                         let local_version_id = version_id.clone();
                         s.spawn(move |_| {
                             for i in 0..RETRY_COUNT {
-                                let loop_progress_handle = progress_handle.clone();
                                 let base_path = unsafe_self.dropdata.base_path.clone();
                                 match download_game_chunk(
                                     &unsafe_self.metadata.id,
@@ -325,7 +350,8 @@ impl GameDownloadAgent {
                                     file_list,
                                     base_path,
                                     &unsafe_self.control_flag,
-                                    loop_progress_handle,
+                                    &download_progress_handle,
+                                    &disk_progress_handle,
                                 ) {
                                     Ok(true) => {
                                         local_sender.send(chunk_id.clone()).unwrap();
@@ -500,8 +526,12 @@ impl Downloadable for GameDownloadAgent {
         self.validate(app_handle)
     }
 
-    fn progress(&self) -> Arc<ProgressObject> {
-        self.progress.clone()
+    fn dl_progress(&self) -> &Arc<ProgressObject> {
+        &self.download_progress
+    }
+
+    fn disk_progress(&self) -> &Arc<ProgressObject> {
+        &self.disk_progress
     }
 
     fn control_flag(&self) -> DownloadThreadControl {

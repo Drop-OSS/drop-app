@@ -112,6 +112,11 @@ impl DepotManager {
                 depot.enabled = false;
             }
         }
+        
+        let enabled = new_depots.iter().filter(|v| v.enabled).count();
+        if enabled == 0 {
+            return Err(RemoteAccessError::NoDepots);
+        }
 
         let mut depot_lock = self.depots.write().unwrap();
         *depot_lock = new_depots;

@@ -5,9 +5,12 @@ export type QueueState = {
   queue: Array<{
     meta: DownloadableMetadata;
     status: string;
-    progress: number | null;
-    current: number;
-    max: number;
+    dl_progress: number | null;
+    dl_current: number;
+    dl_max: number;
+    disk_progress: number | null;
+    disk_current: number;
+    disk_max: number;
   }>;
   status: string;
 };
@@ -33,7 +36,8 @@ listen("update_stats", (event) => {
   stats.value = event.payload as StatsState;
 });
 
-export const useDownloadHistory = () => useState<Array<number>>('history', () => []);
+export const useDownloadHistory = () =>
+  useState<Array<number>>("history", () => []);
 
 export function formatKilobytes(bytes: number): string {
   const units = ["K", "M", "G", "T", "P"];

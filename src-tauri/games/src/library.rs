@@ -5,10 +5,8 @@ use database::{
 };
 use log::{debug, error, warn};
 use remote::{
-    auth::generate_authorization_header,
-    error::RemoteAccessError,
-    requests::generate_url,
-    utils::DROP_CLIENT_ASYNC
+    auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url,
+    utils::DROP_CLIENT_ASYNC,
 };
 use serde::{Deserialize, Serialize};
 use std::fs::remove_dir_all;
@@ -160,29 +158,28 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
         spawn(move || {
             if let Err(e) = remove_dir_all(install_dir) {
                 error!("{e}");
-            } else {
-                let mut db_handle = borrow_db_mut_checked();
-                db_handle.applications.transient_statuses.remove(&meta);
-                db_handle
-                    .applications
-                    .installed_game_version
-                    .remove(&meta.id);
-                db_handle
-                    .applications
-                    .game_statuses
-                    .insert(meta.id.clone(), GameDownloadStatus::Remote {});
-                let _ = db_handle.applications.transient_statuses.remove(&meta);
-
-                push_game_update(
-                    &app_handle,
-                    &meta.id,
-                    None,
-                    GameStatusManager::fetch_state(&meta.id, &db_handle),
-                );
-
-                debug!("uninstalled game id {}", &meta.id);
-                app_emit!(&app_handle, "update_library", ());
             }
+            let mut db_handle = borrow_db_mut_checked();
+            db_handle.applications.transient_statuses.remove(&meta);
+            db_handle
+                .applications
+                .installed_game_version
+                .remove(&meta.id);
+            db_handle
+                .applications
+                .game_statuses
+                .insert(meta.id.clone(), GameDownloadStatus::Remote {});
+            let _ = db_handle.applications.transient_statuses.remove(&meta);
+
+            push_game_update(
+                &app_handle,
+                &meta.id,
+                None,
+                GameStatusManager::fetch_state(&meta.id, &db_handle),
+            );
+
+            debug!("uninstalled game id {}", &meta.id);
+            app_emit!(&app_handle, "update_library", ());
         });
     } else {
         warn!("invalid previous state for uninstall, failing silently.");
