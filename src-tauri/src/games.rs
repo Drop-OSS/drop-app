@@ -272,7 +272,6 @@ pub struct VersionDownloadOption {
 }
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-
 pub struct GameSize {
     install_size: usize,
     download_size: usize,
