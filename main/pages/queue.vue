@@ -68,12 +68,18 @@
                   >{{ formatKilobytes(element.dl_current / 1000) }}B</span
                 >
                 /
-                <span class="">{{ formatKilobytes(element.dl_max / 1000) }}B</span
+                <span class=""
+                  >{{ formatKilobytes(element.dl_max / 1000) }}B</span
                 ><CloudIcon class="size-5"
               /></span>
-                  <div class="h-[1px] my-2 w-full bg-zinc-700" />
               <div
-                v-if="element.disk_progress"
+                v-if="element.dl_max !== element.disk_max"
+                class="h-[1px] my-2 w-full bg-zinc-700"
+              />
+              <div
+                v-if="
+                  element.disk_progress && element.dl_max !== element.disk_max
+                "
                 class="mt-1 w-96 bg-zinc-800 rounded-lg overflow-hidden"
               >
                 <div
@@ -82,12 +88,14 @@
                 />
               </div>
               <span
+                v-if="element.dl_max !== element.disk_max"
                 class="mt-2 inline-flex items-center gap-x-1 text-zinc-400 text-sm font-display"
                 ><span class="text-zinc-300"
                   >{{ formatKilobytes(element.disk_current / 1000) }}B</span
                 >
                 /
-                <span class="">{{ formatKilobytes(element.disk_max / 1000) }}B</span
+                <span class=""
+                  >{{ formatKilobytes(element.disk_max / 1000) }}B</span
                 ><ServerIcon class="size-5"
               /></span>
             </div>

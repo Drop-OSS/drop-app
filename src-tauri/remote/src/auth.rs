@@ -1,10 +1,15 @@
-use std::{collections::HashMap, env};
+use std::{
+    collections::HashMap,
+    env,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use chrono::Utc;
 use client::{app_status::AppStatus, user::User};
 use database::{DatabaseAuth, interface::borrow_db_checked};
 use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
+use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -60,18 +65,36 @@ impl From<HandshakeResponse> for DatabaseAuth {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Claims {
+    exp: usize,
+    nbf: usize,
+}
+
 pub fn generate_authorization_header() -> String {
     let certs = {
         let db = borrow_db_checked();
         db.auth.clone().expect("Authorisation not initialised")
     };
 
-    let nonce = Utc::now().timestamp_millis().to_string();
+    let system_time: usize = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or(Duration::from_secs(0))
+        .as_secs() as usize;
 
-    let signature =
-        sign_nonce(certs.private, nonce.clone()).expect("Failed to generate authorisation header");
+    let claims = Claims {
+        nbf: system_time,
+        exp: system_time + 10,
+    };
 
-    format!("Nonce {} {} {}", certs.client_id, nonce, signature)
+    let jwt = jsonwebtoken::encode(
+        &Header::new(Algorithm::ES384),
+        &claims,
+        &EncodingKey::from_ec_pem(certs.private.as_bytes()).unwrap(),
+    )
+    .expect("failed to sign jwt");
+
+    format!("JWT {} {}", certs.client_id, jwt)
 }
 
 pub async fn fetch_user() -> Result<User, RemoteAccessError> {
