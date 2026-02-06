@@ -35,15 +35,18 @@
             @resume="() => resumeDownload()"
             :status="status"
           />
-          <a
-            :href="remoteUrl"
-            target="_blank"
-            type="button"
+          <NuxtLink
             class="transition-transform duration-300 hover:scale-105 active:scale-95 inline-flex items-center rounded-md bg-zinc-800/50 px-6 font-semibold text-white shadow-xl backdrop-blur-sm hover:bg-zinc-800/80 uppercase font-display"
+            :to="{
+              path: '/store',
+              query: {
+                gameId: game.id,
+              },
+            }"
           >
             <BuildingStorefrontIcon class="mr-2 size-5" aria-hidden="true" />
             Store
-          </a>
+          </NuxtLink>
         </div>
       </div>
 
@@ -171,7 +174,11 @@
       </div>
 
       <div class="space-y-6">
-        <div v-if="versionOptions && versionOptions.length > 0 && currentVersionOption">
+        <div
+          v-if="
+            versionOptions && versionOptions.length > 0 && currentVersionOption
+          "
+        >
           <Listbox as="div" v-model="installVersionIndex">
             <ListboxLabel class="block text-sm/6 font-medium text-zinc-100"
               >Version</ListboxLabel
@@ -188,7 +195,7 @@
                   on
                   {{ currentVersionOption.platform }} ({{
                     formatKilobytes(
-                      currentVersionOption.size.installSize / 1024
+                      currentVersionOption.size.installSize / 1024,
                     )
                   }}B)</span
                 >
@@ -233,7 +240,8 @@
                         >{{ version.displayName || version.versionPath }} on
                         {{ version.platform }} ({{
                           formatKilobytes(
-                            versionOptions[installVersionIndex].size.installSize / 1024
+                            versionOptions[installVersionIndex].size
+                              .installSize / 1024,
                           )
                         }}B)</span
                       >
@@ -314,8 +322,7 @@
           </div>
           <ul role="list" class="mt-2 divide-y divide-white/5">
             <li
-              v-for="content in currentVersionOption
-                .requiredContent"
+              v-for="content in currentVersionOption.requiredContent"
               :key="content.versionId"
               :class="[
                 !installDepsDisabled[content.versionId]
@@ -577,7 +584,7 @@ const mediaUrls = await Promise.all(
   game.value.mImageCarouselObjectIds.map(async (v) => {
     const src = await useObject(v);
     return src;
-  })
+  }),
 );
 
 const htmlDescription = micromark(game.value.mDescription);
@@ -611,7 +618,9 @@ const installVersionIndex = ref(0);
 const installDir = ref(0);
 const installDepsDisabled = ref<{ [key: string]: boolean }>({});
 
-const currentVersionOption = computed(() => versionOptions.value?.[installVersionIndex.value]);
+const currentVersionOption = computed(
+  () => versionOptions.value?.[installVersionIndex.value],
+);
 async function install() {
   try {
     if (!versionOptions.value) throw new Error("Versions have not been loaded");
@@ -661,7 +670,7 @@ async function launch() {
   try {
     const fetchedLaunchOptions = await invoke<Array<{ name: string }>>(
       "get_launch_options",
-      { id: game.value.id }
+      { id: game.value.id },
     );
     if (fetchedLaunchOptions.length == 1) {
       await launchIndex(0);
@@ -676,7 +685,7 @@ async function launch() {
         description: `Drop failed to launch "${game.value.mName}": ${e}`,
         buttonText: "Close",
       },
-      (e, c) => c()
+      (e, c) => c(),
     );
     console.error(e);
   }
@@ -707,7 +716,7 @@ async function launchIndex(index: number) {
         description: `Drop failed to launch "${game.value.mName}": ${e}`,
         buttonText: "Close",
       },
-      (e, c) => c()
+      (e, c) => c(),
     );
   }
 }
@@ -731,7 +740,7 @@ async function kill() {
         description: `Drop failed to stop "${game.value.mName}": ${e}`,
         buttonText: "Close",
       },
-      (e, c) => c()
+      (e, c) => c(),
     );
     console.error(e);
   }

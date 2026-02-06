@@ -129,8 +129,8 @@
                 </span>
               </li>
             </ListboxOption>
-            <span v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
-              >No auto-discovered layers.</span
+            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
+              >No auto-discovered layers.</li
             >
             <h1 class="text-white text-sm font-semibold bg-zinc-900 py-2 px-2">
               Manually added
@@ -170,8 +170,8 @@
                 </span>
               </li>
             </ListboxOption>
-            <span v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
-              >No manually added layers.</span
+            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
+              >No manually added layers.</li
             >
           </ListboxOptions>
         </transition>

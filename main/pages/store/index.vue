@@ -2,11 +2,12 @@
   <iframe :src="convertedStoreUrl" class="grow w-full h-full" />
 </template>
 <script setup lang="ts">
-import {
-  ArrowTopRightOnSquareIcon,
-  BuildingStorefrontIcon,
-} from "@heroicons/vue/20/solid";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { convertFileSrc } from "@tauri-apps/api/core";
 
-const convertedStoreUrl = convertFileSrc("store", "server");
+const route = useRoute();
+
+const customRoute = route.query.gameId?.toString();
+
+// This is necessary because convertFileSrc encodes the URI
+const convertedStoreUrl = convertFileSrc(`dummyvalue`, "server").replace("dummyvalue", `store/${customRoute}`);
 </script>
