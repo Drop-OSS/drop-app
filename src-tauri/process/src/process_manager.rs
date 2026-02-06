@@ -355,7 +355,7 @@ impl ProcessManager<'_> {
 
         let mut target_command = ParsedCommand::parse(target_command)?;
 
-        let launch_parameters = if let Some(emulator) = emulator {
+        let target_launch_string = if let Some(emulator) = emulator {
             let err = ProcessError::RequiredDependency(
                 emulator.game_id.clone(),
                 emulator.version_id.clone(),
@@ -415,10 +415,7 @@ impl ProcessManager<'_> {
                 &db_lock,
             )?;
 
-            LaunchParameters(
-                ParsedCommand::parse(emulator_launch_string)?,
-                install_dir.into(),
-            )
+            emulator_launch_string
         } else {
             let target_launch_string = process_handler.create_launch_process(
                 &meta,
@@ -428,36 +425,38 @@ impl ProcessManager<'_> {
                 &db_lock,
             )?;
 
-            let mut parsed_launch = ParsedCommand::parse(target_launch_string.clone())?;
-            let executable_name = parsed_launch.command.clone();
-            parsed_launch.make_absolute(install_dir.into());
-
-            let format_args = DropFormatArgs::new(
-                target_launch_string,
-                install_dir,
-                &executable_name,
-                parsed_launch.command,
-                None,
-            );
-
-            let target_launch_string = SimpleCurlyFormat
-                .format(
-                    &game_version.user_configuration.launch_template,
-                    &format_args,
-                )
-                .map_err(|e| ProcessError::FormatError(e.to_string()))?
-                .to_string();
-
-            let target_launch_string = SimpleCurlyFormat
-                .format(&target_launch_string, format_args)
-                .map_err(|e| ProcessError::FormatError(e.to_string()))?
-                .to_string();
-
-            LaunchParameters(
-                ParsedCommand::parse(target_launch_string)?,
-                install_dir.into(),
-            )
+            target_launch_string
         };
+
+        let mut parsed_launch = ParsedCommand::parse(target_launch_string.clone())?;
+        let executable_name = parsed_launch.command.clone();
+        parsed_launch.make_absolute(install_dir.into());
+
+        let format_args = DropFormatArgs::new(
+            target_launch_string,
+            install_dir,
+            &executable_name,
+            parsed_launch.command,
+            None,
+        );
+
+        let target_launch_string = SimpleCurlyFormat
+            .format(
+                &game_version.user_configuration.launch_template,
+                &format_args,
+            )
+            .map_err(|e| ProcessError::FormatError(e.to_string()))?
+            .to_string();
+
+        let target_launch_string = SimpleCurlyFormat
+            .format(&target_launch_string, format_args)
+            .map_err(|e| ProcessError::FormatError(e.to_string()))?
+            .to_string();
+
+        let launch_parameters = LaunchParameters(
+            ParsedCommand::parse(target_launch_string)?,
+            install_dir.into(),
+        );
 
         info!(
             "launching (in {}): {:?}",
