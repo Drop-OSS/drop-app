@@ -43,7 +43,7 @@ impl ParsedCommand {
         v.extend(self.env);
         v.extend_one(self.command);
         v.extend(self.args);
-        v.join(" ")
+        shell_words::join(v)
     }
 }
 

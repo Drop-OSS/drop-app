@@ -248,7 +248,7 @@ async function calculateGamesLogic(clearAll = false, forceRefresh = false) {
 
   const missingCollection = {
     id: "missing",
-    name: "Missing Games",
+    name: "Delisted",
     isDefault: false,
     isTools: true,
     entries: library.missing.map((v) => ({ gameId: v.id, game: v })),

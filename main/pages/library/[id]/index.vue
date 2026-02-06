@@ -573,10 +573,6 @@ const id = route.params.id.toString();
 const { game: rawGame, status } = await useGame(id);
 const game = ref(rawGame);
 
-const remoteUrl: string = await invoke("gen_drop_url", {
-  path: `/store/${game.value.id}`,
-});
-
 const bannerUrl = await useObject(game.value.mBannerObjectId);
 
 // Get all available images

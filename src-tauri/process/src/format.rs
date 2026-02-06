@@ -25,7 +25,7 @@ impl DropFormatArgs {
         map.insert("abs_exe", absolute_executable_name);
         
         if let Some(original) = original {
-            map.insert("executor", original);
+            map.insert("rom", original);
         }
 
         Self { positional, map }

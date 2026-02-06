@@ -6,8 +6,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 
 const route = useRoute();
 
-const customRoute = route.query.gameId?.toString();
+const gameId = route.query.gameId?.toString();
 
 // This is necessary because convertFileSrc encodes the URI
-const convertedStoreUrl = convertFileSrc(`dummyvalue`, "server").replace("dummyvalue", `store/${customRoute}`);
+const convertedStoreUrl = convertFileSrc(`dummyvalue`, "server").replace(
+  "dummyvalue",
+  gameId ? `store/${gameId}` : "store",
+);
 </script>

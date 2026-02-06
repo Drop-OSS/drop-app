@@ -321,7 +321,7 @@ impl ProcessManager<'_> {
 
         let process_handler = self.fetch_process_handler(&db_lock, &target_platform)?;
 
-        let (target_command, executor) = match game_status {
+        let (target_command, emulator) = match game_status {
             GameDownloadStatus::Installed {
                 version_name: _,
                 install_dir: _,
@@ -335,7 +335,7 @@ impl ProcessManager<'_> {
                     .ok_or(ProcessError::NotInstalled)?;
                 (
                     launch_config.command.clone(),
-                    launch_config.executor.as_ref(),
+                    launch_config.emulator.as_ref(),
                 )
             }
             GameDownloadStatus::SetupRequired {
@@ -353,27 +353,27 @@ impl ProcessManager<'_> {
             _ => unreachable!("Game registered as 'Partially Installed'"),
         };
 
-        let target_command = ParsedCommand::parse(target_command)?;
+        let mut target_command = ParsedCommand::parse(target_command)?;
 
-        let launch_parameters = if let Some(executor) = executor {
+        let launch_parameters = if let Some(emulator) = emulator {
             let err = ProcessError::RequiredDependency(
-                executor.game_id.clone(),
-                executor.version_id.clone(),
+                emulator.game_id.clone(),
+                emulator.version_id.clone(),
             );
 
-            let executor_metadata = db_lock
+            let emulator_metadata = db_lock
                 .applications
                 .installed_game_version
-                .get(&executor.game_id)
+                .get(&emulator.game_id)
                 .ok_or(err.clone())?;
 
-            let executor_game_status = db_lock
+            let emulator_game_status = db_lock
                 .applications
                 .game_statuses
-                .get(&executor.game_id)
+                .get(&emulator.game_id)
                 .ok_or(err.clone())?;
 
-            let executor_install_dir = match executor_game_status {
+            let emulator_install_dir = match emulator_game_status {
                 GameDownloadStatus::Installed {
                     version_name: _,
                     install_dir,
@@ -385,38 +385,38 @@ impl ProcessManager<'_> {
                 _ => Err(err.clone()),
             }?;
 
-            let executor_game_version = db_lock
+            let emulator_game_version = db_lock
                 .applications
                 .game_versions
-                .get(&executor.version_id)
+                .get(&emulator.version_id)
                 .ok_or(err.clone())?;
 
-            let executor_launch_config = executor_game_version
+            let emulator_launch_config = emulator_game_version
                 .launches
                 .iter()
-                .find(|v| v.launch_id == executor.launch_id)
+                .find(|v| v.launch_id == emulator.launch_id)
                 .ok_or(err)?;
 
-            println!("{}", executor_launch_config.command);
-            let mut exe_command = ParsedCommand::parse(executor_launch_config.command.clone())?;
-            println!("{:?}", exe_command);
-            exe_command.env.extend(target_command.env);
-            exe_command.make_absolute(executor_install_dir.into());
+            let mut exe_command = ParsedCommand::parse(emulator_launch_config.command.clone())?;
+            exe_command.env.extend(target_command.env.clone());
+            exe_command.make_absolute(emulator_install_dir.into());
+
+            target_command.make_absolute(PathBuf::from(install_dir.clone()));
 
             exe_command.args.iter_mut().for_each(|v| {
-                *v = v.replace("{executor}", &target_command.command);
+                *v = v.replace("{rom}", &target_command.command);
             });
 
-            let executor_launch_string = process_handler.create_launch_process(
-                executor_metadata,
+            let emulator_launch_string = process_handler.create_launch_process(
+                emulator_metadata,
                 exe_command.reconstruct(),
-                executor_game_version,
+                emulator_game_version,
                 install_dir,
                 &db_lock,
             )?;
 
             LaunchParameters(
-                ParsedCommand::parse(executor_launch_string)?,
+                ParsedCommand::parse(emulator_launch_string)?,
                 install_dir.into(),
             )
         } else {
@@ -465,7 +465,6 @@ impl ProcessManager<'_> {
             launch_parameters.0
         );
 
-        #[cfg(target_os = "windows")]
         let mut command = {
             let mut command = Command::new(launch_parameters.0.command);
             command.args(launch_parameters.0.args);
@@ -481,13 +480,6 @@ impl ProcessManager<'_> {
                     }
                 }
             }
-            command
-        };
-
-        #[cfg(unix)]
-        let mut command = {
-            let mut command = Command::new("sh");
-            command.args(vec!["-c", &launch_parameters.0.reconstruct()]);
             command
         };
 

@@ -118,7 +118,7 @@ pub mod data {
             pub platform: Platform,
             pub umu_id_override: Option<String>,
 
-            pub executor: Option<LaunchConfigurationExecutor>,
+            pub emulator: Option<LaunchConfigurationEmulator>,
         }
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -126,7 +126,7 @@ pub mod data {
         /**
          * This is intended to be used to look up the actual launch configuration that we store elsewhere
          */
-        pub struct LaunchConfigurationExecutor {
+        pub struct LaunchConfigurationEmulator {
             pub launch_id: String,
             pub game_id: String,
             pub version_id: String,

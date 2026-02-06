@@ -92,11 +92,11 @@ impl GameDownloadAgent {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
-        let game_data: Game = get_cached_object(&format!("game/{}", metadata.id))?;
+        let game_name = get_cached_object::<Game>(&format!("game/{}", metadata.id)).map(|v| v.library_path).unwrap_or(metadata.id.clone());
 
         let base_dir_path = Path::new(&base_dir);
         info!("base dir {}", base_dir_path.display());
-        let data_base_dir_path = base_dir_path.join(game_data.library_path);
+        let data_base_dir_path = base_dir_path.join(game_name);
         info!("data dir path {}", data_base_dir_path.display());
 
         let stored_manifest = DropData::generate(
