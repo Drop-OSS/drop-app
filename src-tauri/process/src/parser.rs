@@ -47,4 +47,4 @@ impl ParsedCommand {
     }
 }
 
-pub struct LaunchParameters(pub String, pub PathBuf);
+pub struct LaunchParameters(pub ParsedCommand, pub PathBuf);

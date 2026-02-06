@@ -36,7 +36,7 @@ pub mod data {
 
     #[derive(Serialize, Deserialize)]
     enum DatabaseVersionEnum {
-        V1 { database: v1::Database },
+        V0_4_0 { database: v1::Database },
     }
 
     pub struct DatabaseVersionSerializable(pub(crate) Database);
@@ -47,7 +47,7 @@ pub mod data {
             S: serde::Serializer,
         {
             // Always serialize to latest version
-            DatabaseVersionEnum::V1 {
+            DatabaseVersionEnum::V0_4_0 {
                 database: self.0.clone(),
             }
             .serialize(serializer)
@@ -60,7 +60,7 @@ pub mod data {
             D: serde::Deserializer<'de>,
         {
             Ok(match DatabaseVersionEnum::deserialize(deserializer)? {
-                DatabaseVersionEnum::V1 { database } => DatabaseVersionSerializable(database),
+                DatabaseVersionEnum::V0_4_0 { database } => DatabaseVersionSerializable(database),
             })
         }
     }

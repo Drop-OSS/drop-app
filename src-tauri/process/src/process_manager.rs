@@ -414,7 +414,10 @@ impl ProcessManager<'_> {
                 install_dir,
             )?;
 
-            LaunchParameters(executor_launch_string, install_dir.into())
+            LaunchParameters(
+                ParsedCommand::parse(executor_launch_string)?,
+                install_dir.into(),
+            )
         } else {
             let target_launch_string = process_handler.create_launch_process(
                 &meta,
@@ -445,26 +448,43 @@ impl ProcessManager<'_> {
                 .map_err(|e| ProcessError::FormatError(e.to_string()))?
                 .to_string();
 
-            LaunchParameters(target_launch_string, install_dir.into())
+            LaunchParameters(
+                ParsedCommand::parse(target_launch_string)?,
+                install_dir.into(),
+            )
         };
 
-        #[cfg(target_os = "windows")]
-        use std::os::windows::process::CommandExt;
-        #[cfg(target_os = "windows")]
-        let mut command = Command::new("cmd");
-        #[cfg(target_os = "windows")]
-        command.raw_arg(format!("/C \"{}\"", &launch_parameters.0));
-
         info!(
-            "launching (in {}): {}",
+            "launching (in {}): {:?}",
             launch_parameters.1.to_string_lossy(),
             launch_parameters.0
         );
+        
+        #[cfg(target_os = "windows")]
+        let mut command = {
+            let mut command = Command::new(launch_parameters.0.command);
+            command.args(launch_parameters.0.args);
+            for parts in launch_parameters
+                .0
+                .env
+                .into_iter()
+                .map(|e| e.split("=").map(|v| v.to_string()).collect::<Vec<String>>())
+            {
+                if let Some(key) = parts.get(0) {
+                    if let Some(value) = parts.get(1) {
+                        command.env(key, value);
+                    }
+                }
+            }
+            command
+        };
 
         #[cfg(unix)]
-        let mut command: Command = Command::new("sh");
-        #[cfg(unix)]
-        command.args(vec!["-c", &launch_parameters.0]);
+        let mut command = {
+            let mut command = Command::new("sh");
+            command.args(vec!["-c", &launch_parameters.0.reconstruct()]);
+            command
+        };
 
         command
             .stderr(error_file)
@@ -474,8 +494,7 @@ impl ProcessManager<'_> {
 
         let child = command.spawn()?;
 
-        let launch_process_handle =
-            Arc::new(SharedChild::new(child)?);
+        let launch_process_handle = Arc::new(SharedChild::new(child)?);
 
         db_lock
             .applications

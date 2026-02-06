@@ -49,6 +49,7 @@ pub struct Game {
     pub m_cover_object_id: String,
     pub m_image_library_object_ids: Vec<String>,
     pub m_image_carousel_object_ids: Vec<String>,
+    pub library_path: String,
 }
 impl Game {
     pub fn id(&self) -> &String {

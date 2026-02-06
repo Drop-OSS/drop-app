@@ -15,6 +15,7 @@ use futures_util::StreamExt;
 use futures_util::stream::FuturesUnordered;
 use log::{debug, error, info, warn};
 use remote::auth::generate_authorization_header;
+use remote::cache::get_cached_object;
 use remote::error::RemoteAccessError;
 use remote::requests::generate_url;
 use remote::utils::DROP_CLIENT_ASYNC;
@@ -32,7 +33,7 @@ use tokio::sync::mpsc::Sender;
 use utils::{app_emit, lock, send};
 
 use crate::downloads::utils::get_disk_available;
-use crate::library::{on_game_complete, push_game_update, set_partially_installed};
+use crate::library::{Game, on_game_complete, push_game_update, set_partially_installed};
 use crate::state::GameStatusManager;
 
 use super::download_logic::download_game_chunk;
@@ -91,9 +92,11 @@ impl GameDownloadAgent {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
+        let game_data: Game = get_cached_object(&format!("game/{}", metadata.id))?;
+
         let base_dir_path = Path::new(&base_dir);
         info!("base dir {}", base_dir_path.display());
-        let data_base_dir_path = base_dir_path.join(metadata.id.clone());
+        let data_base_dir_path = base_dir_path.join(game_data.library_path);
         info!("data dir path {}", data_base_dir_path.display());
 
         let stored_manifest = DropData::generate(
