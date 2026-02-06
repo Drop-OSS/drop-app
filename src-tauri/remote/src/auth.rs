@@ -4,10 +4,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use chrono::Utc;
 use client::{app_status::AppStatus, user::User};
 use database::{DatabaseAuth, interface::borrow_db_checked};
-use droplet_rs::ssl::sign_nonce;
 use gethostname::gethostname;
 use jsonwebtoken::{Algorithm, EncodingKey, Header};
 use log::{error, warn};

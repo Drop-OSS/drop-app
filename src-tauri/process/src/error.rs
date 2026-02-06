@@ -43,9 +43,7 @@ impl Display for ProcessError {
                 "Missing a required dependency to launch this game: {} {}",
                 game_id, version_id
             ),
-            ProcessError::NoCompat => &format!(
-                "No Proton compatibility layer could be found for this tool. Add an override or set your global default in settings."
-            ),
+            ProcessError::NoCompat => "No Proton compatibility layer could be found for this tool. Add an override or set your global default in settings.",
         };
         write!(f, "{s}")
     }

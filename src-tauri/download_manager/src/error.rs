@@ -1,5 +1,4 @@
 use humansize::{BINARY, format_size};
-use tauri::App;
 use std::{
     fmt::{Display, Formatter},
     io,

@@ -4,6 +4,12 @@ pub struct SyncSemaphore {
     inner: Arc<AtomicUsize>
 }
 
+impl Default for SyncSemaphore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SyncSemaphore {
     pub fn new() -> Self {
         Self { inner: Arc::new(AtomicUsize::new(0)) }

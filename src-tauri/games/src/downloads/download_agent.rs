@@ -22,13 +22,10 @@ use remote::utils::DROP_CLIENT_ASYNC;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::AppHandle;
-use tokio::join;
-use tokio::sync::Semaphore;
 use tokio::sync::mpsc::Sender;
 use utils::{app_emit, lock, send};
 

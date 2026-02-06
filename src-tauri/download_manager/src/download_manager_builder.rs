@@ -17,7 +17,7 @@ use crate::{
     download_manager_frontend::DownloadStatus,
     error::ApplicationDownloadError,
     frontend_updates::{
-        DiskStatsUpdateEvent, DownloadStatsUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData,
+        DownloadStatsUpdateEvent, QueueUpdateEvent, QueueUpdateEventQueueData,
     },
 };
 

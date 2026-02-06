@@ -407,25 +407,25 @@ impl ProcessManager<'_> {
                 *v = v.replace("{rom}", &target_command.command);
             });
 
-            let emulator_launch_string = process_handler.create_launch_process(
+            
+
+            process_handler.create_launch_process(
                 emulator_metadata,
                 exe_command.reconstruct(),
                 emulator_game_version,
                 install_dir,
                 &db_lock,
-            )?;
-
-            emulator_launch_string
+            )?
         } else {
-            let target_launch_string = process_handler.create_launch_process(
+            
+
+            process_handler.create_launch_process(
                 &meta,
                 target_command.reconstruct(),
                 game_version,
                 install_dir,
                 &db_lock,
-            )?;
-
-            target_launch_string
+            )?
         };
 
         let mut parsed_launch = ParsedCommand::parse(target_launch_string.clone())?;
@@ -473,11 +473,10 @@ impl ProcessManager<'_> {
                 .into_iter()
                 .map(|e| e.split("=").map(|v| v.to_string()).collect::<Vec<String>>())
             {
-                if let Some(key) = parts.get(0) {
-                    if let Some(value) = parts.get(1) {
+                if let Some(key) = parts.first()
+                    && let Some(value) = parts.get(1) {
                         command.env(key, value);
                     }
-                }
             }
             command
         };

@@ -39,8 +39,7 @@ impl ProcessHandler for UMULauncher {
             .launches
             .iter()
             .find(|v| v.platform == meta.target_platform)
-            .map(|v| v.umu_id_override.as_ref())
-            .flatten()
+            .and_then(|v| v.umu_id_override.as_ref())
             .map_or("", |v| v);
 
         let game_id = if umu_id_override.is_empty() {

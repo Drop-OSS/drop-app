@@ -8,8 +8,8 @@ use std::{
 };
 
 use database::{borrow_db_checked, borrow_db_mut_checked};
-use log::{info, warn};
-use serde::{Deserialize, Serialize};
+use log::warn;
+use serde::Serialize;
 
 static SEARCH_PATHS: LazyLock<Vec<String>> = LazyLock::new(|| {
     let mut paths = vec!["/usr/share/steam/compatibilitytools.d/".to_owned()];
@@ -28,8 +28,7 @@ static SEARCH_PATHS: LazyLock<Vec<String>> = LazyLock::new(|| {
 
 pub fn read_proton_path(proton_path: PathBuf) -> Result<Option<ProtonPath>, io::Error> {
     let read_dir = read_dir(&proton_path)?
-        .filter(|v| v.is_ok())
-        .map(|v| v.unwrap())
+        .flatten()
         .collect::<Vec<DirEntry>>();
     let has_proton_path = read_dir
         .iter()
@@ -57,7 +56,7 @@ pub fn read_proton_path(proton_path: PathBuf) -> Result<Option<ProtonPath>, io::
     // Not intended to be readable
     let get_display_name = || -> Option<String> {
         let compat_tools = compat_vdf.value.unwrap_obj();
-        let compat_tools = compat_tools.values().next()?.into_iter().next()?;
+        let compat_tools = compat_tools.values().next()?.iter().next()?;
         let compat_tools = compat_tools.get_obj().unwrap();
         let compat_tools = compat_tools.values().next()?.iter().next()?.get_obj()?;
         let display_name = compat_tools.get("display_name")?.iter().next()?.get_str()?;
@@ -71,7 +70,7 @@ pub fn read_proton_path(proton_path: PathBuf) -> Result<Option<ProtonPath>, io::
         }));
     }
 
-    return Ok(None);
+    Ok(None)
 }
 
 pub fn discover_proton_paths() -> Result<Vec<ProtonPath>, io::Error> {
@@ -113,11 +112,8 @@ pub async fn fetch_proton_paths() -> Result<ProtonPaths, String> {
         .applications
         .additional_proton_paths
         .iter()
-        .map(|v| read_proton_path(PathBuf::from(v)))
-        .filter(|v| v.is_ok())
-        .map(|v| v.unwrap())
-        .filter(|v| v.is_some())
-        .map(|v| v.unwrap())
+        .flat_map(|v| read_proton_path(PathBuf::from(v)))
+        .flatten()
         .collect::<Vec<ProtonPath>>();
 
     let default = db_lock.applications.default_proton_path.clone();
@@ -151,11 +147,9 @@ pub async fn remove_proton_layer(index: usize) {
     let deleted = db.applications.additional_proton_paths.try_remove(index);
     if let Some(deleted) = deleted
         && let Some(default_path) = &db.applications.default_proton_path
-    {
-        if *default_path == deleted {
+        && *default_path == deleted {
             db.applications.default_proton_path = None;
         }
-    }
 }
 
 #[tauri::command]

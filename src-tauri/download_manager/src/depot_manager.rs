@@ -1,7 +1,7 @@
 use std::{
     collections::HashMap,
     sync::RwLock,
-    time::{Duration, Instant},
+    time::{Duration, Instant}, usize,
 };
 
 use futures_util::StreamExt;
@@ -48,6 +48,12 @@ struct ServersideDepot {
 
 const SPEEDTEST_TIMEOUT: Duration = Duration::from_secs(4);
 
+impl Default for DepotManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DepotManager {
     pub fn new() -> Self {
         Self {
@@ -77,11 +83,7 @@ impl DepotManager {
         }
 
         let elapsed = start.elapsed().as_millis() as usize;
-        let speed = if elapsed == 0 {
-            usize::MAX
-        } else {
-            (total_length / elapsed) * 1000
-        };
+        let speed = total_length.checked_div(elapsed).unwrap_or(usize::MAX);
         depot.latest_speed.replace(speed);
 
         Ok(())

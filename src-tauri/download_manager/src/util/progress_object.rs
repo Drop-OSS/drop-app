@@ -10,7 +10,7 @@ use atomic_instant_full::AtomicInstant;
 use tokio::sync::mpsc::Sender;
 use utils::{lock, send};
 
-use crate::{download_manager_frontend::DownloadManagerSignal, util::progress_object};
+use crate::download_manager_frontend::DownloadManagerSignal;
 
 use super::rolling_progress_updates::RollingProgressWindow;
 
@@ -37,7 +37,7 @@ pub struct ProgressHandle {
     progress_object: Arc<ProgressObject>,
 }
 
-static LAST_UPDATE_TIME: LazyLock<AtomicInstant> = LazyLock::new(|| AtomicInstant::now());
+static LAST_UPDATE_TIME: LazyLock<AtomicInstant> = LazyLock::new(AtomicInstant::now);
 
 impl ProgressHandle {
     pub fn new(progress: Arc<AtomicUsize>, progress_object: Arc<ProgressObject>) -> Self {

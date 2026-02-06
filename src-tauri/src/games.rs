@@ -11,7 +11,7 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::{info, warn};
+use log::warn;
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
@@ -21,10 +21,8 @@ use remote::{
     requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
-use tokio::runtime::Handle;
 
 use crate::{AppState, collections::fetch_collections};
 
