@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fs::{Permissions, set_permissions};
-use std::io::{Read, Seek as _, SeekFrom, Write as _};
+use std::io::SeekFrom;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -14,19 +14,22 @@ use download_manager::util::download_thread_control_flag::{
 };
 use download_manager::util::progress_object::ProgressHandle;
 use droplet_rs::manifest::ChunkData;
+use futures_util::StreamExt as _;
 use log::{debug, info};
 use remote::auth::generate_authorization_header;
 use remote::error::{DropServerError, RemoteAccessError};
-use remote::utils::DROP_CLIENT_SYNC;
+use remote::utils::DROP_CLIENT_ASYNC;
 use sha2::Digest;
 use tauri::Url;
+use tokio::io::{AsyncReadExt as _, AsyncSeekExt as _, AsyncWriteExt as _};
+use tokio_util::io::StreamReader;
 
 const READ_BUF_LEN: usize = 1024 * 1024;
 
 type Aes128Ctr64LE = ctr::Ctr64LE<aes::Aes128>;
 
 #[allow(clippy::too_many_arguments)]
-pub fn download_game_chunk(
+pub async fn download_game_chunk(
     game_id: &str,
     version_id: &str,
     chunk_id: &str,
@@ -57,15 +60,16 @@ pub fn download_game_chunk(
         .join(&format!("content/{}/{}/{}", game_id, version_id, chunk_id))
         .map_err(|v| ApplicationDownloadError::DownloadError(v.into()))?;
 
-    let response = DROP_CLIENT_SYNC
+    let response = DROP_CLIENT_ASYNC
         .get(url)
         .header("Authorization", header)
         .send()
+        .await
         .map_err(|e| ApplicationDownloadError::Communication(e.into()))?;
 
     if response.status() != 200 {
         info!("chunk request got status code: {}", response.status());
-        let raw_res = response.text().map_err(|e| {
+        let raw_res = response.text().await.map_err(|e| {
             ApplicationDownloadError::Communication(RemoteAccessError::FetchErrorLegacy(e.into()))
         })?;
         info!("{raw_res}");
@@ -89,11 +93,11 @@ pub fn download_game_chunk(
 
     debug!("took {}ms to start downloading", timestep);
 
-    /*let stream = response
+    let stream = response
         .bytes_stream()
         .map(|v| v.map_err(|err| std::io::Error::other(err)));
-    let mut stream_reader = StreamReader::new(stream);*/
-    let mut stream_reader = response;
+    let mut stream_reader = StreamReader::new(stream);
+    //let mut stream_reader = response;
 
     let mut hasher = sha2::Sha256::new();
     let mut cipher = Aes128Ctr64LE::new(key.into(), &chunk_data.iv.into());
@@ -108,13 +112,14 @@ pub fn download_game_chunk(
             std::fs::create_dir_all(parent)?;
         }
         let mut file_handle = if should_write {
-            let mut file_handle = std::fs::OpenOptions::new()
+            let mut file_handle = tokio::fs::OpenOptions::new()
                 .truncate(false)
                 .write(true)
                 .append(false)
                 .create(true)
-                .open(&path)?;
-            file_handle.seek(SeekFrom::Start(file.start.try_into().unwrap()))?;
+                .open(&path)
+                .await?;
+            file_handle.seek(SeekFrom::Start(file.start.try_into().unwrap())).await?;
             Some(file_handle)
         } else {
             None
@@ -122,14 +127,14 @@ pub fn download_game_chunk(
 
         let mut remaining = file.length;
         while remaining > 0 {
-            let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)])?;
+            let amount = stream_reader.read(&mut read_buf[0..remaining.min(READ_BUF_LEN)]).await?;
             download_progress.add(amount);
             remaining -= amount;
 
             cipher.apply_keystream(&mut read_buf[0..amount]);
-            //hasher.update(&read_buf[0..amount]);
+            hasher.update(&read_buf[0..amount]);
             if let Some(file_handle) = &mut file_handle {
-                file_handle.write_all(&read_buf[0..amount])?;
+                file_handle.write_all(&read_buf[0..amount]).await?;
                 disk_progress.add(amount);
             }
         }
@@ -155,7 +160,7 @@ pub fn download_game_chunk(
 
     let digest = hex::encode(hasher.finalize());
     if digest != chunk_data.checksum {
-        //return Err(ApplicationDownloadError::Checksum);
+        return Err(ApplicationDownloadError::Checksum);
     }
 
     Ok(true)

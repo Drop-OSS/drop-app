@@ -1,4 +1,5 @@
 use humansize::{BINARY, format_size};
+use tauri::App;
 use std::{
     fmt::{Display, Formatter},
     io,
@@ -78,5 +79,11 @@ impl Display for ApplicationDownloadError {
 impl From<io::Error> for ApplicationDownloadError {
     fn from(value: io::Error) -> Self {
         ApplicationDownloadError::IoError(Arc::new(value))
+    }
+}
+
+impl From<RemoteAccessError> for ApplicationDownloadError {
+    fn from(value: RemoteAccessError) -> Self {
+        ApplicationDownloadError::Communication(value)
     }
 }

@@ -11,7 +11,7 @@ use games::{
     library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
-use log::warn;
+use log::{info, warn};
 use process::PROCESS_MANAGER;
 use remote::{
     auth::generate_authorization_header,
@@ -21,8 +21,10 @@ use remote::{
     requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use tauri::AppHandle;
+use tokio::runtime::Handle;
 
 use crate::{AppState, collections::fetch_collections};
 
@@ -48,6 +50,7 @@ pub struct FetchLibraryResponse {
     library: Vec<Game>,
     collections: Vec<Collection>,
     other: Vec<Game>,
+    missing: Vec<Game>,
 }
 
 pub async fn fetch_library_logic(
@@ -60,11 +63,11 @@ pub async fn fetch_library_logic(
         return Ok(library);
     }
 
-    let client = DROP_CLIENT_ASYNC.clone();
     let response = generate_url(&["/api/v1/client/user/library"], &[])?;
-    let response = client
+    let auth_header = generate_authorization_header();
+    let response = DROP_CLIENT_ASYNC
         .get(response)
-        .header("Authorization", generate_authorization_header())
+        .header("Authorization", auth_header)
         .send()
         .await?;
 
@@ -111,6 +114,7 @@ pub async fn fetch_library_logic(
 
     // Add games that are installed but no longer in library
     let mut other = Vec::new();
+    let mut missing = Vec::new();
     for meta in installed_metas {
         if all_games.iter().any(|e| *e.id() == meta.id) {
             continue;
@@ -132,13 +136,18 @@ pub async fn fetch_library_logic(
                 continue;
             }
         };
-        other.push(game);
+        if game.game_type == "Game" {
+            missing.push(game);
+        } else {
+            other.push(game);
+        }
     }
 
     let response = FetchLibraryResponse {
         library,
         collections,
         other,
+        missing,
     };
 
     cache_object("library", &response)?;
@@ -167,6 +176,7 @@ pub async fn fetch_library_logic_offline(
 
     response.library.retain(retain_filter);
     response.other.retain(retain_filter);
+    response.missing.retain(retain_filter);
     response.collections.iter_mut().for_each(|k| {
         k.entries.retain(|object| {
             matches!(

@@ -44,21 +44,33 @@ impl Middleware for AutoOfflineMiddleware {
         extensions: &mut Extensions,
         next: Next<'_>,
     ) -> Result<Response> {
+        let url = req.url().clone();
         let res = next.run(req, extensions).await;
         match res {
             Ok(res) => {
                 tauri::async_runtime::spawn(async move {
-                    let lock = DROP_APP_HANDLE.lock().await;
-                    if let Some(app_handle) = &*lock {
-                        let state = app_handle.state::<std::sync::nonpoison::Mutex<AppState>>();
-                        let mut state_lock = state.lock();
-                        if state_lock.status == AppStatus::Offline {
-                            state_lock.status = AppStatus::SignedIn;
-                            app_handle
-                                .emit("update_state", &*state_lock)
-                                .expect("failed to emit state update");
-                        }
-                    };
+                    let lock = DROP_APP_HANDLE.try_lock();
+                    if let Ok(lock) = lock {
+                        if let Some(app_handle) = &*lock {
+                            let state = app_handle.state::<std::sync::nonpoison::Mutex<AppState>>();
+                            let state_lock = state.try_lock();
+                            if let Ok(mut state_lock) = state_lock {
+                                if state_lock.status == AppStatus::Offline {
+                                    state_lock.status = AppStatus::SignedIn;
+                                    app_handle
+                                        .emit("update_state", &*state_lock)
+                                        .expect("failed to emit state update");
+                                }
+                            } else {
+                                warn!("failed to lock app state - {}", url.as_str());
+                            }
+                        };
+                    } else {
+                        warn!(
+                            "failed to lock app handle for offline/online middleware - {}",
+                            url.as_str()
+                        );
+                    }
                 });
 
                 Ok(res)

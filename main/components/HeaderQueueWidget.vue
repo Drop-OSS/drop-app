@@ -18,9 +18,9 @@ const props = defineProps<{ object?: QueueState["queue"][0] }>();
       ]"
     />
     <div
-      v-if="props.object?.progress"
+      v-if="props.object?.dl_progress"
       class="transition-all absolute left-0 top-0 bottom-0 bg-blue-600 z-10"
-      :style="{ width: `${props.object.progress * 99 + 1}%` }"
+      :style="{ width: `${props.object.dl_progress * 99 + 1}%` }"
     />
   </NuxtLink>
 </template>

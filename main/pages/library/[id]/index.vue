@@ -188,7 +188,7 @@
                   on
                   {{ currentVersionOption.platform }} ({{
                     formatKilobytes(
-                      currentVersionOption.size / 1024
+                      currentVersionOption.size.installSize / 1024
                     )
                   }}B)</span
                 >
@@ -233,7 +233,7 @@
                         >{{ version.displayName || version.versionPath }} on
                         {{ version.platform }} ({{
                           formatKilobytes(
-                            versionOptions[installVersionIndex].size / 1024
+                            versionOptions[installVersionIndex].size.installSize / 1024
                           )
                         }}B)</span
                       >
@@ -353,7 +353,7 @@
                   <p
                     class="inline-flex items-center gap-x-1 text-xs/5 text-gray-400"
                   >
-                    {{ formatKilobytes(content.size / 1024) }}B
+                    {{ formatKilobytes(content.size.installSize / 1024) }}B
                     <ServerIcon class="size-3" />
                   </p>
                 </div>

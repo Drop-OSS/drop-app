@@ -1,6 +1,6 @@
 use std::{
     sync::{
-        Arc, Mutex,
+        Arc, LazyLock, Mutex,
         atomic::{AtomicUsize, Ordering},
     },
     time::Instant,
@@ -27,8 +27,6 @@ pub struct ProgressObject {
     progress_instances: Arc<Mutex<Vec<Arc<AtomicUsize>>>>,
     start: Arc<Mutex<Instant>>,
     sender: Sender<DownloadManagerSignal>,
-    //last_update: Arc<RwLock<Instant>>,
-    last_update_time: Arc<AtomicInstant>,
     bytes_last_update: Arc<AtomicUsize>,
     rolling: RollingProgressWindow<1000>,
 }
@@ -38,6 +36,8 @@ pub struct ProgressHandle {
     progress: Arc<AtomicUsize>,
     progress_object: Arc<ProgressObject>,
 }
+
+static LAST_UPDATE_TIME: LazyLock<AtomicInstant> = LazyLock::new(|| AtomicInstant::now());
 
 impl ProgressHandle {
     pub fn new(progress: Arc<AtomicUsize>, progress_object: Arc<ProgressObject>) -> Self {
@@ -79,7 +79,6 @@ impl ProgressObject {
             start: Arc::new(Mutex::new(Instant::now())),
             sender,
 
-            last_update_time: Arc::new(AtomicInstant::now()),
             bytes_last_update: Arc::new(AtomicUsize::new(0)),
             rolling: RollingProgressWindow::new(),
             progress_type,
@@ -125,7 +124,7 @@ impl ProgressObject {
 }
 
 pub fn spawn_update(progress: &Arc<ProgressObject>) {
-    let last_update_time = progress.last_update_time.load(Ordering::SeqCst);
+    let last_update_time = LAST_UPDATE_TIME.load(Ordering::SeqCst);
     let time_since_last_update = Instant::now()
         .duration_since(last_update_time)
         .as_millis_f64();
@@ -136,9 +135,7 @@ pub fn spawn_update(progress: &Arc<ProgressObject>) {
 }
 
 pub async fn calculate_update(progress: Arc<ProgressObject>, time_since_last_update: f64) {
-    progress
-        .last_update_time
-        .swap(Instant::now(), Ordering::SeqCst);
+    LAST_UPDATE_TIME.swap(Instant::now(), Ordering::SeqCst);
 
     let current_bytes_downloaded = progress.sum();
     let max = progress.get_max();

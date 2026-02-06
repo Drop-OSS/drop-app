@@ -33,22 +33,20 @@ impl ProcessHandler for UMULauncher {
         game_version: &GameVersion,
         _current_dir: &str,
     ) -> Result<String, ProcessError> {
-        let launch_config = game_version
+        let umu_id_override = game_version
             .launches
             .iter()
             .find(|v| v.platform == meta.target_platform)
-            .ok_or(ProcessError::NotInstalled)?;
+            .map(|v| v.umu_id_override.as_ref())
+            .flatten()
+            .map_or("", |v| v);
 
-        let game_id = match &launch_config.umu_id_override {
-            Some(game_override) => {
-                if game_override.is_empty() {
-                    game_version.version_id.clone()
-                } else {
-                    game_override.clone()
-                }
-            }
-            None => game_version.version_id.clone(),
+        let game_id = if umu_id_override.is_empty() {
+            &game_version.version_id
+        } else {
+            umu_id_override
         };
+
         let pfx_dir = DATA_ROOT_DIR.join("pfx");
         let pfx_dir = pfx_dir.join(meta.id.clone());
         create_dir_all(&pfx_dir)?;
@@ -84,12 +82,8 @@ impl ProcessHandler for AsahiMuvmLauncher {
         current_dir: &str,
     ) -> Result<String, ProcessError> {
         let umu_launcher = UMULauncher {};
-        let umu_string = umu_launcher.create_launch_process(
-            meta,
-            launch_command,
-            game_version,
-            current_dir,
-        )?;
+        let umu_string =
+            umu_launcher.create_launch_process(meta, launch_command, game_version, current_dir)?;
         let mut args_cmd = umu_string
             .split("umu-run")
             .collect::<Vec<&str>>()

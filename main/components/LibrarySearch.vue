@@ -27,7 +27,11 @@
       </button>
     </div>
 
-    <TransitionGroup name="list" tag="ul" class="flex flex-col gap-y-1.5 h-full">
+    <TransitionGroup
+      name="list"
+      tag="ul"
+      class="flex flex-col gap-y-1.5 h-full"
+    >
       <Disclosure
         as="div"
         v-for="(nav, navIndex) in filteredNavigation"
@@ -46,7 +50,10 @@
             <span class="ml-6 relative flex size-4">
               <MinusIcon class="absolute inset-0 size-4" aria-hidden="true" />
               <MinusIcon
-                :class="[                !open ? 'rotate-90' : 'rotate-0', 'transition-all absolute inset-0 size-4']"
+                :class="[
+                  !open ? 'rotate-90' : 'rotate-0',
+                  'transition-all absolute inset-0 size-4',
+                ]"
                 aria-hidden="true"
               />
             </span>
@@ -196,6 +203,7 @@ type FetchLibraryResponse = {
   library: Game[];
   collections: Collection[];
   other: Game[];
+  missing: Game[];
 };
 
 async function calculateGamesLogic(clearAll = false, forceRefresh = false) {
@@ -237,11 +245,20 @@ async function calculateGamesLogic(clearAll = false, forceRefresh = false) {
     entries: library.other.map((v) => ({ gameId: v.id, game: v })),
   } satisfies Collection;
 
+  const missingCollection = {
+    id: "missing",
+    name: "Missing Games",
+    isDefault: false,
+    isTools: true,
+    entries: library.missing.map((v) => ({ gameId: v.id, game: v })),
+  };
+
   loading.value = false;
   collections.value = [
     libraryCollection,
     ...library.collections,
     ...(library.other.length > 0 ? [otherCollection] : []),
+    ...(library.missing.length > 0 ? [missingCollection] : []),
   ];
 }
 
@@ -259,24 +276,25 @@ await new Promise<void>((r) => {
 
 const navigation = computed(() =>
   collections.value.map((collection) => {
-    const items = collection.entries.map(({ game }) => {
-      const status = games[game.id].status;
+    const items = collection.entries
+      .map(({ game }) => {
+        const status = games[game.id].status;
 
-      const isInstalled = computed(
-        () => status.value.type != GameStatusEnum.Remote,
-      );
+        const isInstalled = computed(
+          () => status.value.type != GameStatusEnum.Remote,
+        );
 
-      const item = {
-        label: game.mName,
-        route: `/library/${game.id}`,
-        prefix: `/library/${game.id}`,
-        icon: game.mIconObjectId,
-        isInstalled,
-        id: game.id,
-        type: game.type,
-      };
-      return item;
-    });
+        const item = {
+          label: game.mName,
+          route: `/library/${game.id}`,
+          prefix: `/library/${game.id}`,
+          icon: game.mIconObjectId,
+          isInstalled,
+          id: game.id,
+          type: game.type,
+        };
+        return item;
+      });
 
     return {
       id: collection.id,
