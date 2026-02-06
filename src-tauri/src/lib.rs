@@ -12,7 +12,12 @@ use std::{
     sync::nonpoison::Mutex, time::SystemTime,
 };
 
-use ::client::{app_state::AppState, app_status::AppStatus, autostart::sync_autostart_on_startup};
+use ::client::{
+    app_state::{AppState, UmuState},
+    app_status::AppStatus,
+    autostart::sync_autostart_on_startup,
+    compat::UMU_LAUNCHER_EXECUTABLE,
+};
 use ::download_manager::DownloadManagerWrapper;
 use ::games::scan::scan_install_dirs;
 use ::process::ProcessManagerWrapper;
@@ -96,6 +101,15 @@ async fn setup(handle: AppHandle) -> AppState {
     ProcessManagerWrapper::init(handle.clone());
     DownloadManagerWrapper::init(handle.clone());
 
+    #[cfg(not(target_os = "linux"))]
+    let umu_state = UmuState::NotNeeded;
+
+    #[cfg(target_os = "linux")]
+    let umu_state = match UMU_LAUNCHER_EXECUTABLE.is_some() {
+        true => UmuState::Installed,
+        false => UmuState::NotInstalled,
+    };
+
     debug!("checking if database is set up");
     let is_set_up = DB.database_is_set_up();
 
@@ -105,6 +119,7 @@ async fn setup(handle: AppHandle) -> AppState {
         return AppState {
             status: AppStatus::NotConfigured,
             user: None,
+            umu_state,
         };
     }
 
@@ -166,6 +181,7 @@ async fn setup(handle: AppHandle) -> AppState {
     AppState {
         status: app_status,
         user,
+        umu_state,
     }
 }
 
@@ -252,7 +268,15 @@ pub fn run() {
             toggle_autostart,
             get_autostart_enabled,
             open_process_logs,
-            get_launch_options
+            get_launch_options,
+            #[cfg(target_os = "linux")]
+            ::process::compat::fetch_proton_paths,
+            #[cfg(target_os = "linux")]
+            ::process::compat::add_proton_layer,
+            #[cfg(target_os = "linux")]
+            ::process::compat::remove_proton_layer,
+            #[cfg(target_os = "linux")]
+            ::process::compat::set_default
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
@@ -296,7 +320,7 @@ pub fn run() {
 
                 main_window
                     .add_child(
-                        WebviewBuilder::new("frontned", WebviewUrl::App("main".into()))
+                        WebviewBuilder::new("frontend", WebviewUrl::App("main".into()))
                             .auto_resize(),
                         LogicalPosition::new(0., 0.),
                         LogicalSize::new(width, height),
@@ -355,7 +379,7 @@ pub fn run() {
                         .on_menu_event(|app, event| match event.id.as_ref() {
                             "open" => {
                                 app.webview_windows()
-                                    .get("main")
+                                    .get("frontend")
                                     .expect("Failed to get webview")
                                     .show()
                                     .expect("Failed to show window");

@@ -1,6 +1,7 @@
 #![feature(nonpoison_mutex)]
 #![feature(sync_nonpoison)]
 #![feature(extend_one)]
+#![feature(vec_try_remove)]
 
 use std::{
     ops::Deref,
@@ -13,11 +14,13 @@ use crate::process_manager::ProcessManager;
 
 pub static PROCESS_MANAGER: ProcessManagerWrapper = ProcessManagerWrapper::new();
 
+#[cfg(target_os = "linux")]
+pub mod compat;
 pub mod error;
 pub mod format;
+mod parser;
 pub mod process_handlers;
 pub mod process_manager;
-mod parser;
 
 pub struct ProcessManagerWrapper(OnceLock<Mutex<ProcessManager<'static>>>);
 impl ProcessManagerWrapper {

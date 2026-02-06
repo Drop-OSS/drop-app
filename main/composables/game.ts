@@ -70,6 +70,7 @@ export const useGame = async (gameId: string) => {
 
 export type FrontendGameConfiguration = {
   launchString: string;
+  overrideProtonPath?: string;
 };
 
 export type LaunchResult =
@@ -96,4 +97,9 @@ export type VersionOption = {
       downloadSize: number;
     };
   }>;
+};
+
+export type ProtonPath = {
+  path: string;
+  name: string;
 };

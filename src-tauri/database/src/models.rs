@@ -73,8 +73,18 @@ pub mod data {
 
         use super::{Deserialize, Serialize};
 
-        fn default_template() -> String {
-            "{}".to_owned()
+        fn default_template() -> UserConfiguration {
+            UserConfiguration {
+                launch_template: "{}".to_owned(),
+                override_proton_path: None,
+            }
+        }
+
+        #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+        #[serde(rename_all = "camelCase")]
+        pub struct UserConfiguration {
+            pub launch_template: String,
+            pub override_proton_path: Option<String>,
         }
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -92,7 +102,7 @@ pub mod data {
             pub delta: bool,
 
             #[serde(default = "default_template")]
-            pub launch_template: String,
+            pub user_configuration: UserConfiguration,
 
             pub launches: Vec<LaunchConfiguration>,
             pub setups: Vec<SetupConfiguration>,
@@ -227,6 +237,9 @@ pub mod data {
             pub game_versions: HashMap<String, GameVersion>,
             pub installed_game_version: HashMap<String, DownloadableMetadata>,
 
+            pub additional_proton_paths: Vec<String>,
+            pub default_proton_path: Option<String>,
+
             #[serde(skip)]
             pub transient_statuses: HashMap<DownloadableMetadata, ApplicationTransientStatus>,
         }
@@ -258,6 +271,8 @@ pub mod data {
                     game_versions: HashMap::new(),
                     installed_game_version: HashMap::new(),
                     transient_statuses: HashMap::new(),
+                    additional_proton_paths: Vec::new(),
+                    default_proton_path: None,
                 },
                 prev_database,
                 base_url: String::new(),

@@ -412,6 +412,7 @@ impl ProcessManager<'_> {
                 exe_command.reconstruct(),
                 executor_game_version,
                 install_dir,
+                &db_lock,
             )?;
 
             LaunchParameters(
@@ -424,6 +425,7 @@ impl ProcessManager<'_> {
                 target_command.reconstruct(),
                 game_version,
                 install_dir,
+                &db_lock,
             )?;
 
             let mut parsed_launch = ParsedCommand::parse(target_launch_string.clone())?;
@@ -439,7 +441,10 @@ impl ProcessManager<'_> {
             );
 
             let target_launch_string = SimpleCurlyFormat
-                .format(&game_version.launch_template, &format_args)
+                .format(
+                    &game_version.user_configuration.launch_template,
+                    &format_args,
+                )
                 .map_err(|e| ProcessError::FormatError(e.to_string()))?
                 .to_string();
 
@@ -459,7 +464,7 @@ impl ProcessManager<'_> {
             launch_parameters.1.to_string_lossy(),
             launch_parameters.0
         );
-        
+
         #[cfg(target_os = "windows")]
         let mut command = {
             let mut command = Command::new(launch_parameters.0.command);
@@ -537,6 +542,7 @@ pub trait ProcessHandler: Send + 'static {
         launch_command: String,
         game_version: &GameVersion,
         current_dir: &str,
+        database: &Database,
     ) -> Result<String, ProcessError>;
 
     fn valid_for_platform(&self, db: &Database, target: &Platform) -> bool;

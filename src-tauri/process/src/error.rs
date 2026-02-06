@@ -1,4 +1,8 @@
-use std::{fmt::Display, io::{self, Error}, sync::Arc};
+use std::{
+    fmt::Display,
+    io::{self, Error},
+    sync::Arc,
+};
 
 use serde_with::SerializeDisplay;
 
@@ -15,6 +19,7 @@ pub enum ProcessError {
     OpenerError(Arc<tauri_plugin_opener::Error>),
     InvalidArguments(String),
     FailedLaunch(String),
+    NoCompat,
 }
 
 impl Display for ProcessError {
@@ -37,6 +42,9 @@ impl Display for ProcessError {
             ProcessError::RequiredDependency(game_id, version_id) => &format!(
                 "Missing a required dependency to launch this game: {} {}",
                 game_id, version_id
+            ),
+            ProcessError::NoCompat => &format!(
+                "No Proton compatibility layer could be found for this tool. Add an override or set your global default in settings."
             ),
         };
         write!(f, "{s}")

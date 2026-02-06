@@ -185,6 +185,7 @@ fn handle_invalid_database(
         )
     });
     fs::remove_dir_all(cache_dir.clone())?;
+    fs::create_dir_all(cache_dir.clone())?;
 
     let db = Database::new(games_base_dir, Some(new_path), cache_dir);
 

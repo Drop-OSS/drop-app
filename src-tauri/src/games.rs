@@ -407,7 +407,8 @@ pub fn update_game_configuration(
         .clone();
 
     // Add more options in here
-    existing_configuration.launch_template = options.launch_string().clone();
+    existing_configuration.user_configuration.launch_template = options.launch_string;
+    existing_configuration.user_configuration.override_proton_path = options.override_proton_path;
 
     // Add no more options past here
 

@@ -33,6 +33,7 @@
           <component
             v-model="configuration"
             :is="tabs[currentTabIndex]?.page"
+            :proton-enabled="protonEnabled"
           />
         </div>
       </div>
@@ -82,13 +83,23 @@ import Launch from "./GameOptions/Launch.vue";
 import type { FrontendGameConfiguration } from "~/composables/game";
 import { invoke } from "@tauri-apps/api/core";
 
+const appState = useAppState();
+
 const open = defineModel<boolean>();
 const props = defineProps<{ gameId: string }>();
 const game = await useGame(props.gameId);
 
 const configuration: Ref<FrontendGameConfiguration> = ref({
-  launchString: game.version!!.launchCommandTemplate,
+  launchString: game.version!.userConfiguration.launchTemplate,
+  overrideProtonPath: game.version!.userConfiguration.overrideProtonPath,
 });
+
+const hasWindows = !!(
+  game.version!.setups.find((v) => v.platform === "Windows") ??
+  game.version!.launches.find((v) => v.platform === "Windows")
+);
+
+const protonEnabled = !!(appState.value!.umuState !== "NotNeeded" && hasWindows);
 
 const tabs: Array<{ name: string; icon: Component; page: Component }> = [
   {
@@ -108,12 +119,14 @@ const saveLoading = ref(false);
 const saveError = ref<undefined | string>();
 async function save() {
   saveLoading.value = true;
+  saveError.value = undefined;
   try {
     await invoke("update_game_configuration", {
       gameId: game.game.id,
       options: configuration.value,
     });
     open.value = false;
+    saveError.value = undefined;
   } catch (e) {
     saveError.value = (e as unknown as string).toString();
   }

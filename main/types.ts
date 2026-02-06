@@ -20,8 +20,11 @@ export type User = {
   profilePictureObjectId: string;
 };
 
+type UmuState = "Installed" | "NotInstalled" | "NotNeeded";
+
 export type AppState = {
   status: AppStatus;
+  umuState: UmuState;
   user?: User;
 };
 
@@ -47,7 +50,12 @@ export type Collection = {
 };
 
 export type GameVersion = {
-  launchCommandTemplate: string;
+  userConfiguration: {
+    launchTemplate: string;
+    overrideProtonPath: string;
+  };
+  setups: Array<{ platform: string }>;
+  launches: Array<{ platform: string }>;
 };
 
 export enum AppStatus {

@@ -247,6 +247,10 @@ pub async fn on_game_complete(
         .applications
         .game_statuses
         .insert(meta.id.clone(), status.clone());
+    db_handle
+        .applications
+        .transient_statuses
+        .remove(meta);
     drop(db_handle);
     app_emit!(
         app_handle,
@@ -290,11 +294,6 @@ pub fn push_game_update(
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FrontendGameOptions {
-    launch_string: String,
-}
-
-impl FrontendGameOptions {
-    pub fn launch_string(&self) -> &String {
-        &self.launch_string
-    }
+    pub launch_string: String,
+    pub override_proton_path: Option<String>,
 }

@@ -7,6 +7,7 @@ export default {
     "./plugins/**/*.{js,ts}",
     "./app.vue",
     "./error.vue",
+    "../libs/drop-base/**/*.{js,vue,ts}"
   ],
   theme: {
     extend: {

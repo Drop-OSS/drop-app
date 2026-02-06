@@ -28,6 +28,7 @@
       />
       <div class="inline-flex items-center">
         <ol class="inline-flex gap-3">
+          <HeaderProtonSupportWidget />
           <HeaderQueueWidget :object="currentQueueObject" />
           <li v-for="(item, itemIdx) in quickActions">
             <HeaderWidget

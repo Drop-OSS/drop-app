@@ -223,6 +223,7 @@ async function calculateGamesLogic(clearAll = false, forceRefresh = false) {
       .flat()
       .map((e) => e.game),
     ...library.other,
+    ...library.missing,
   ].filter((v, i, a) => a.indexOf(v) === i);
 
   for (const game of allGames) {
