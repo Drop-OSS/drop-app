@@ -26,7 +26,9 @@ use crate::{
     error::ProcessError,
     format::DropFormatArgs,
     parser::{LaunchParameters, ParsedCommand},
-    process_handlers::{AsahiMuvmLauncher, NativeGameLauncher, UMULauncher},
+    process_handlers::{
+        AsahiMuvmLauncher, NativeGameLauncher, UMUCompatLauncher, UMUNativeLauncher,
+    },
 };
 
 pub struct RunningProcess {
@@ -75,7 +77,7 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Linux),
-                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                    &UMUNativeLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
                     (Platform::macOS, Platform::macOS),
@@ -87,7 +89,7 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::Linux, Platform::Windows),
-                    &UMULauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                    &UMUCompatLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
             ],
             app_handle,
@@ -407,8 +409,6 @@ impl ProcessManager<'_> {
                 *v = v.replace("{rom}", &target_command.command);
             });
 
-            
-
             process_handler.create_launch_process(
                 emulator_metadata,
                 exe_command.reconstruct(),
@@ -417,8 +417,6 @@ impl ProcessManager<'_> {
                 &db_lock,
             )?
         } else {
-            
-
             process_handler.create_launch_process(
                 &meta,
                 target_command.reconstruct(),
@@ -474,9 +472,10 @@ impl ProcessManager<'_> {
                 .map(|e| e.split("=").map(|v| v.to_string()).collect::<Vec<String>>())
             {
                 if let Some(key) = parts.first()
-                    && let Some(value) = parts.get(1) {
-                        command.env(key, value);
-                    }
+                    && let Some(value) = parts.get(1)
+                {
+                    command.env(key, value);
+                }
             }
             command
         };

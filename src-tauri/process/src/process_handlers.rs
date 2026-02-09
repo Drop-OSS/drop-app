@@ -25,8 +25,53 @@ impl ProcessHandler for NativeGameLauncher {
     }
 }
 
-pub struct UMULauncher;
-impl ProcessHandler for UMULauncher {
+pub struct UMUNativeLauncher;
+impl ProcessHandler for UMUNativeLauncher {
+    fn create_launch_process(
+        &self,
+        meta: &DownloadableMetadata,
+        launch_command: String,
+        game_version: &GameVersion,
+        _current_dir: &str,
+        _database: &Database,
+    ) -> Result<String, ProcessError> {
+        let umu_id_override = game_version
+            .launches
+            .iter()
+            .find(|v| v.platform == meta.target_platform)
+            .and_then(|v| v.umu_id_override.as_ref())
+            .map_or("", |v| v);
+
+        let game_id = if umu_id_override.is_empty() {
+            &game_version.version_id
+        } else {
+            umu_id_override
+        };
+
+        let pfx_dir = DATA_ROOT_DIR.join("pfx");
+        let pfx_dir = pfx_dir.join(meta.id.clone());
+        create_dir_all(&pfx_dir)?;
+
+        Ok(format!(
+            "GAMEID={game_id} UMU_NO_PROTON=1 WINEPREFIX={} {umu:?} {launch}",
+            pfx_dir.to_string_lossy(),
+            umu = UMU_LAUNCHER_EXECUTABLE
+                .as_ref()
+                .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
+            launch = launch_command,
+        ))
+    }
+
+    fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
+        let Some(compat_info) = &*COMPAT_INFO else {
+            return false;
+        };
+        compat_info.umu_installed
+    }
+}
+
+pub struct UMUCompatLauncher;
+impl ProcessHandler for UMUCompatLauncher {
     fn create_launch_process(
         &self,
         meta: &DownloadableMetadata,
@@ -52,39 +97,29 @@ impl ProcessHandler for UMULauncher {
         let pfx_dir = pfx_dir.join(meta.id.clone());
         create_dir_all(&pfx_dir)?;
 
-        let no_proton = match meta.target_platform {
-            Platform::Linux => Some("UMU_NO_PROTON=1"),
-            _ => None,
-        };
+        let proton_path = game_version
+            .user_configuration
+            .override_proton_path
+            .as_ref()
+            .or(database.applications.default_proton_path.as_ref())
+            .ok_or(ProcessError::NoCompat)?;
 
-        let proton_env = if no_proton.is_none() {
-            let proton_path = game_version
-                .user_configuration
-                .override_proton_path
-                .as_ref()
-                .or(database.applications.default_proton_path.as_ref())
-                .ok_or(ProcessError::NoCompat)?;
-
-            #[cfg(target_os = "linux")]
-            let proton_valid = crate::compat::read_proton_path(PathBuf::from(proton_path))
-                .ok()
-                .flatten()
-                .is_some();
-            #[cfg(not(target_os = "linux"))]
-            let proton_valid = false;
-            if !proton_valid {
-                return Err(ProcessError::NoCompat);
-            }
-            Some(format!("PROTONPATH={}", proton_path))
-        } else {
-            None
-        };
+        #[cfg(target_os = "linux")]
+        let proton_valid = crate::compat::read_proton_path(PathBuf::from(proton_path))
+            .ok()
+            .flatten()
+            .is_some();
+        #[cfg(not(target_os = "linux"))]
+        let proton_valid = false;
+        if !proton_valid {
+            return Err(ProcessError::NoCompat);
+        }
+        let proton_env = format!("PROTONPATH={}", proton_path);
 
         Ok(format!(
-            "GAMEID={game_id} {} WINEPREFIX={} {} {umu:?} {launch}",
-            proton_env.unwrap_or(String::new()),
+            "GAMEID={game_id} {} WINEPREFIX={} {umu:?} {launch}",
+            proton_env,
             pfx_dir.to_string_lossy(),
-            no_proton.unwrap_or(""),
             umu = UMU_LAUNCHER_EXECUTABLE
                 .as_ref()
                 .expect("Failed to get UMU_LAUNCHER_EXECUTABLE as ref"),
@@ -110,7 +145,7 @@ impl ProcessHandler for AsahiMuvmLauncher {
         current_dir: &str,
         database: &Database,
     ) -> Result<String, ProcessError> {
-        let umu_launcher = UMULauncher {};
+        let umu_launcher = UMUCompatLauncher {};
         let umu_string = umu_launcher.create_launch_process(
             meta,
             launch_command,
