@@ -89,7 +89,9 @@ impl GameDownloadAgent {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
 
-        let game_name = get_cached_object::<Game>(&format!("game/{}", metadata.id)).map(|v| v.library_path).unwrap_or(metadata.id.clone());
+        let game_name = get_cached_object::<Game>(&format!("game/{}", metadata.id))
+            .map(|v| v.library_path)
+            .unwrap_or(metadata.id.clone());
 
         let base_dir_path = Path::new(&base_dir);
         info!("base dir {}", base_dir_path.display());
@@ -101,6 +103,7 @@ impl GameDownloadAgent {
             metadata.version.clone(),
             metadata.target_platform,
             data_base_dir_path.clone(),
+            metadata.enable_updates,
         );
 
         let result = Self {
@@ -279,7 +282,7 @@ impl GameDownloadAgent {
         };
         let chunk_len = manifests_chunks.iter().map(|v| v.1.len()).sum::<usize>();
         let mut max_download_threads = borrow_db_checked().settings.max_download_threads;
-        if max_download_threads <= 0  {
+        if max_download_threads <= 0 {
             max_download_threads = 1;
         }
 
@@ -310,10 +313,8 @@ impl GameDownloadAgent {
                     self.download_progress.get(index),
                     self.download_progress.clone(),
                 );
-                let disk_progress_handle = ProgressHandle::new(
-                    self.disk_progress.get(index),
-                    self.disk_progress.clone(),
-                );
+                let disk_progress_handle =
+                    ProgressHandle::new(self.disk_progress.get(index), self.disk_progress.clone());
                 index += 1;
 
                 let chunk_length = chunk_data.files.iter().map(|v| v.length).sum();

@@ -12,6 +12,7 @@ pub mod data {
     pub type DatabaseAuth = v1::DatabaseAuth;
 
     pub type GameDownloadStatus = v1::GameDownloadStatus;
+    pub type InstalledGameType = v1::InstalledGameType;
     pub type ApplicationTransientStatus = v1::ApplicationTransientStatus;
     /**
      * Need to be universally accessible by the ID, and the version is just a couple sprinkles on top
@@ -157,24 +158,27 @@ pub mod data {
         }
 
         #[derive(Serialize, Clone, Deserialize, Debug)]
+        pub enum InstalledGameType {
+            SetupRequired,
+            Installed,
+            PartiallyInstalled,
+        }
+
+        #[derive(Serialize, Clone, Deserialize, Debug)]
         #[serde(tag = "type")]
         pub enum GameDownloadStatus {
             Remote {},
-            SetupRequired {
-                version_name: String,
-                install_dir: String,
-            },
             Installed {
-                version_name: String,
+                install_type: InstalledGameType,
+                version_id: String,
                 install_dir: String,
-            },
-            PartiallyInstalled {
-                version_name: String,
-                install_dir: String,
+                enable_updates: bool,
+                update_available: bool,
             },
         }
         // Stuff that shouldn't be synced to disk
         #[derive(Clone, Serialize, Deserialize, Debug)]
+        #[serde(tag = "type")]
         pub enum ApplicationTransientStatus {
             Queued { version_id: String },
             Downloading { version_id: String },
@@ -208,6 +212,7 @@ pub mod data {
             pub id: String,
             pub version: String,
             pub target_platform: Platform,
+            pub enable_updates: bool,
             pub download_type: DownloadType,
         }
         impl DownloadableMetadata {
@@ -216,12 +221,14 @@ pub mod data {
                 version: String,
                 target_platform: Platform,
                 download_type: DownloadType,
+                enable_updates: bool,
             ) -> Self {
                 Self {
                     id,
                     version,
                     target_platform,
                     download_type,
+                    enable_updates,
                 }
             }
         }

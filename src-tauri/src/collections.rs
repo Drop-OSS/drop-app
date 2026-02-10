@@ -1,7 +1,7 @@
 use std::sync::nonpoison::Mutex;
 
 use client::app_state::AppState;
-use database::{GameDownloadStatus, borrow_db_checked};
+use database::{GameDownloadStatus, borrow_db_checked, models::data::InstalledGameType};
 use games::collections::collection::Collections;
 use remote::{
     cache::{cache_object, get_cached_object},
@@ -57,7 +57,7 @@ pub async fn fetch_collections_offline(
                     .game_statuses
                     .get(&v.game_id)
                     .unwrap_or(&GameDownloadStatus::Remote {}),
-                GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
+                GameDownloadStatus::Installed { install_type: InstalledGameType::Installed | InstalledGameType::SetupRequired, .. }
             )
         });
     }

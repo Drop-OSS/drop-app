@@ -1,7 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use database::{
-    DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked, platform::Platform,
+    DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked,
+    models::data::InstalledGameType, platform::Platform,
 };
 use download_manager::{
     DOWNLOAD_MANAGER, downloadable::Downloadable, error::ApplicationDownloadError,
@@ -14,6 +15,7 @@ pub async fn download_game(
     version_id: String,
     target_platform: Platform,
     install_dir: usize,
+    enable_updates: bool,
 ) -> Result<(), ApplicationDownloadError> {
     {
         let db = borrow_db_checked();
@@ -35,6 +37,7 @@ pub async fn download_game(
         version: version_id,
         target_platform,
         download_type: DownloadType::Game,
+        enable_updates,
     };
 
     let game_download_agent = GameDownloadAgent::new_from_index(
@@ -75,12 +78,12 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
             .clone();
 
         let install_dir = match status {
-            GameDownloadStatus::Remote {} => Err(ApplicationDownloadError::InvalidCommand),
-            GameDownloadStatus::SetupRequired { .. } => {
-                Err(ApplicationDownloadError::InvalidCommand)
-            }
-            GameDownloadStatus::Installed { .. } => Err(ApplicationDownloadError::InvalidCommand),
-            GameDownloadStatus::PartiallyInstalled { install_dir, .. } => Ok(install_dir),
+            GameDownloadStatus::Installed {
+                install_type: InstalledGameType::PartiallyInstalled,
+                install_dir,
+                ..
+            } => Ok(install_dir),
+            _ => Err(ApplicationDownloadError::InvalidCommand),
         }?;
         (meta, install_dir)
     };

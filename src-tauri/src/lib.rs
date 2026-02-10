@@ -57,6 +57,7 @@ mod downloads;
 mod games;
 mod process;
 mod remote;
+mod scheduler;
 mod settings;
 
 use client::*;
@@ -66,6 +67,8 @@ use games::*;
 use process::*;
 use remote::*;
 use settings::*;
+
+use crate::scheduler::scheduler_task;
 
 async fn setup(handle: AppHandle) -> AppState {
     let logfile = FileAppender::builder()
@@ -101,6 +104,9 @@ async fn setup(handle: AppHandle) -> AppState {
     ProcessManagerWrapper::init(handle.clone());
     DownloadManagerWrapper::init(handle.clone());
 
+    debug!("checking if database is set up");
+    let is_set_up = DB.database_is_set_up();
+
     #[cfg(not(target_os = "linux"))]
     let umu_state = UmuState::NotNeeded;
 
@@ -109,9 +115,6 @@ async fn setup(handle: AppHandle) -> AppState {
         true => UmuState::Installed,
         false => UmuState::NotInstalled,
     };
-
-    debug!("checking if database is set up");
-    let is_set_up = DB.database_is_set_up();
 
     scan_install_dirs();
 
@@ -136,20 +139,7 @@ async fn setup(handle: AppHandle) -> AppState {
     for (game_id, status) in statuses {
         match status {
             GameDownloadStatus::Remote {} => {}
-            GameDownloadStatus::PartiallyInstalled { .. } => {}
-            GameDownloadStatus::SetupRequired {
-                version_name: _,
-                install_dir,
-            } => {
-                let install_dir_path = Path::new(&install_dir);
-                if !install_dir_path.exists() {
-                    missing_games.push(game_id);
-                }
-            }
-            GameDownloadStatus::Installed {
-                version_name: _,
-                install_dir,
-            } => {
+            GameDownloadStatus::Installed { install_dir, .. } => {
                 let install_dir_path = Path::new(&install_dir);
                 if !install_dir_path.exists() {
                     missing_games.push(game_id);
@@ -416,6 +406,8 @@ pub fn run() {
                             .show(|_| {});
                     }
                 }
+
+                tokio::spawn(async move { scheduler_task().await });
             });
 
             Ok(())

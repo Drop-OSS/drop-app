@@ -27,28 +27,42 @@ pub mod v1 {
         pub game_id: String,
         pub game_version: String,
         pub target_platform: Platform,
+        pub enable_updates: bool,
         pub contexts: Mutex<HashMap<String, bool>>,
         pub base_path: PathBuf,
     }
 
     impl DropData {
-        pub fn new(game_id: String, game_version: String, target_platform: Platform, base_path: PathBuf) -> Self {
+        pub fn new(
+            game_id: String,
+            game_version: String,
+            target_platform: Platform,
+            base_path: PathBuf,
+            enable_updates: bool,
+        ) -> Self {
             Self {
                 base_path,
                 game_id,
                 game_version,
                 target_platform,
                 contexts: Mutex::new(HashMap::new()),
+                enable_updates,
             }
         }
     }
 }
 
 impl DropData {
-    pub fn generate(game_id: String, game_version: String, target_platform: Platform, base_path: PathBuf) -> Self {
+    pub fn generate(
+        game_id: String,
+        game_version: String,
+        target_platform: Platform,
+        base_path: PathBuf,
+        enable_updates: bool,
+    ) -> Self {
         match DropData::read(&base_path) {
             Ok(v) => v,
-            Err(_) => DropData::new(game_id, game_version, target_platform, base_path),
+            Err(_) => DropData::new(game_id, game_version, target_platform, base_path, enable_updates),
         }
     }
     pub fn read(base_path: &Path) -> Result<Self, io::Error> {

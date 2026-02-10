@@ -29,9 +29,10 @@ rustflags = ["-C", "target-feature=+aes,+sse2"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+anyhow = "1.0.101"
+async-trait = "0.1.89"
 atomic-instant-full = "0.1.0"
 bitcode = "0.6.6"
-boxcar = "0.2.7"
 bytes = "1.10.1"
 cacache = "13.1.0"
 chrono = "0.4.38"

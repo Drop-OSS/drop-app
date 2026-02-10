@@ -26,7 +26,11 @@ pub fn scan_install_dirs() {
                 );
                 continue;
             };
-            if db_lock.applications.game_statuses.contains_key(&drop_data.game_id) {
+            if db_lock
+                .applications
+                .game_statuses
+                .contains_key(&drop_data.game_id)
+            {
                 continue;
             }
 
@@ -35,6 +39,7 @@ pub fn scan_install_dirs() {
                 drop_data.game_version,
                 drop_data.target_platform,
                 DownloadType::Game,
+                drop_data.enable_updates,
             );
             set_partially_installed_db(
                 &mut db_lock,

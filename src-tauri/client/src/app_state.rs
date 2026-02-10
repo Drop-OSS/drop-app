@@ -2,10 +2,11 @@ use serde::Serialize;
 
 use crate::{app_status::AppStatus, user::User};
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, PartialEq, Eq)]
 pub enum UmuState {
     NotNeeded,
     NotInstalled,
+    NoDefault,
     Installed,
 }
 

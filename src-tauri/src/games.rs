@@ -3,7 +3,7 @@ use std::sync::nonpoison::Mutex;
 use bitcode::{Decode, Encode};
 use database::{
     DownloadableMetadata, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked,
-    platform::Platform,
+    models::data::InstalledGameType, platform::Platform,
 };
 use games::{
     collections::collection::Collection,
@@ -168,25 +168,20 @@ pub async fn fetch_library_logic_offline(
                 .game_statuses
                 .get(game.id())
                 .unwrap_or(&GameDownloadStatus::Remote {}),
-            GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
+            GameDownloadStatus::Installed {
+                install_type: InstalledGameType::Installed | InstalledGameType::SetupRequired,
+                ..
+            }
         )
     };
 
     response.library.retain(retain_filter);
     response.other.retain(retain_filter);
     response.missing.retain(retain_filter);
-    response.collections.iter_mut().for_each(|k| {
-        k.entries.retain(|object| {
-            matches!(
-                &db_handle
-                    .applications
-                    .game_statuses
-                    .get(object.game.id())
-                    .unwrap_or(&GameDownloadStatus::Remote {}),
-                GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }
-            )
-        })
-    });
+    response
+        .collections
+        .iter_mut()
+        .for_each(|k| k.entries.retain(|object| retain_filter(&object.game)));
 
     Ok(response)
 }
@@ -408,7 +403,9 @@ pub fn update_game_configuration(
 
     // Add more options in here
     existing_configuration.user_configuration.launch_template = options.launch_string;
-    existing_configuration.user_configuration.override_proton_path = options.override_proton_path;
+    existing_configuration
+        .user_configuration
+        .override_proton_path = options.override_proton_path;
 
     // Add no more options past here
 

@@ -1,7 +1,7 @@
 use bitcode::{Decode, Encode};
 use database::{
     ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion,
-    borrow_db_checked, borrow_db_mut_checked,
+    borrow_db_checked, borrow_db_mut_checked, models::data::InstalledGameType,
 };
 use log::{debug, error, warn};
 use remote::{
@@ -89,9 +89,12 @@ pub fn set_partially_installed_db(
     db_lock.applications.transient_statuses.remove(meta);
     db_lock.applications.game_statuses.insert(
         meta.id.clone(),
-        GameDownloadStatus::PartiallyInstalled {
-            version_name: meta.version.clone(),
+        GameDownloadStatus::Installed {
+            install_type: InstalledGameType::PartiallyInstalled,
+            version_id: meta.version.clone(),
             install_dir,
+            enable_updates: meta.enable_updates,
+            update_available: false,
         },
     );
     db_lock
@@ -135,16 +138,11 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
 
     if let Some((_, install_dir)) = match previous_state {
         GameDownloadStatus::Installed {
-            version_name,
+            install_type: _,
+            version_id: version_name,
             install_dir,
-        } => Some((version_name, install_dir)),
-        GameDownloadStatus::SetupRequired {
-            version_name,
-            install_dir,
-        } => Some((version_name, install_dir)),
-        GameDownloadStatus::PartiallyInstalled {
-            version_name,
-            install_dir,
+            enable_updates: _,
+            update_available: _,
         } => Some((version_name, install_dir)),
         _ => None,
     } {
@@ -230,16 +228,16 @@ pub async fn on_game_complete(
         .iter()
         .find(|v| v.platform == meta.target_platform);
 
-    let status = if setup_configuration.is_none() {
-        GameDownloadStatus::Installed {
-            version_name: meta.version.clone(),
-            install_dir,
-        }
-    } else {
-        GameDownloadStatus::SetupRequired {
-            version_name: meta.version.clone(),
-            install_dir,
-        }
+    let status = GameDownloadStatus::Installed {
+        version_id: meta.version.clone(),
+        install_dir,
+        install_type: if setup_configuration.is_none() {
+            InstalledGameType::Installed
+        } else {
+            InstalledGameType::SetupRequired
+        },
+        enable_updates: meta.enable_updates,
+        update_available: false,
     };
 
     let mut db_handle = borrow_db_mut_checked();
@@ -247,10 +245,7 @@ pub async fn on_game_complete(
         .applications
         .game_statuses
         .insert(meta.id.clone(), status.clone());
-    db_handle
-        .applications
-        .transient_statuses
-        .remove(meta);
+    db_handle.applications.transient_statuses.remove(meta);
     drop(db_handle);
     app_emit!(
         app_handle,
@@ -273,8 +268,10 @@ pub fn push_game_update(
     version: Option<GameVersion>,
     status: GameStatusWithTransient,
 ) {
-    if let Some(GameDownloadStatus::Installed { .. } | GameDownloadStatus::SetupRequired { .. }) =
-        &status.0
+    if let Some(GameDownloadStatus::Installed {
+        install_type: InstalledGameType::Installed | InstalledGameType::SetupRequired,
+        ..
+    }) = &status.0
         && version.is_none()
     {
         panic!("pushed game for installed game that doesn't have version information");
