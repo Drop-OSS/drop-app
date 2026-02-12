@@ -3,19 +3,19 @@
   <div class="inline-flex divide-x divide-zinc-900">
     <button
       type="button"
-      @click="() => buttonActions[props.status.type]()"
+      @click="() => fetchStatusStyleData($props.status).action()"
       :class="[
-        styles[props.status.type],
+        fetchStatusStyleData($props.status).style,
         showDropdown ? 'rounded-l-md' : 'rounded-md',
         'inline-flex uppercase font-display items-center gap-x-2 px-4 py-3 text-md font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
       ]"
     >
       <component
-        :is="buttonIcons[props.status.type]"
+        :is="fetchStatusStyleData($props.status).icon"
         class="-mr-0.5 size-5"
         aria-hidden="true"
       />
-      {{ buttonNames[props.status.type] }}
+      {{ fetchStatusStyleData($props.status).buttonName }}
     </button>
     <Menu
       v-if="showDropdown"
@@ -25,7 +25,7 @@
       <div class="h-full">
         <MenuButton
           :class="[
-            styles[props.status.type],
+            fetchStatusStyleData($props.status).style,
             'inline-flex w-full h-full justify-center items-center rounded-r-md px-1 py-2 text-sm font-semibold shadow-sm group',
             'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
           ]"
@@ -46,14 +46,14 @@
           class="absolute right-0 z-[500] mt-2 w-32 origin-top-right rounded-md bg-zinc-900 shadow-lg ring-1 ring-zinc-100/5 focus:outline-none"
         >
           <div class="py-1">
-            <MenuItem v-if="showOptions" v-slot="{ active }">
+            <MenuItem v-if="showDropdown" v-slot="{ active }">
               <button
                 @click="() => emit('options')"
                 :class="[
                   active
                     ? 'bg-zinc-800 text-zinc-100 outline-none'
                     : 'text-zinc-400',
-                  'w-full block px-4 py-2 text-sm inline-flex justify-between',
+                  'w-full px-4 py-2 text-sm inline-flex justify-between',
                 ]"
               >
                 Options
@@ -67,7 +67,7 @@
                   active
                     ? 'bg-zinc-800 text-zinc-100 outline-none'
                     : 'text-zinc-400',
-                  'w-full block px-4 py-2 text-sm inline-flex justify-between',
+                  'w-full inline-flex px-4 py-2 text-sm justify-between',
                 ]"
               >
                 Uninstall
@@ -93,7 +93,11 @@ import {
 } from "@heroicons/vue/20/solid";
 
 import type { Component } from "vue";
-import { GameStatusEnum, type GameStatus } from "~/types.js";
+import {
+  type EmptyGameStatusEnum,
+  InstalledType,
+  type GameStatus,
+} from "~/types.js";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { Cog6ToothIcon, TrashIcon } from "@heroicons/vue/24/outline";
 
@@ -108,76 +112,98 @@ const emit = defineEmits<{
   (e: "resume"): void;
 }>();
 
-const showDropdown = computed(
-  () =>
-    props.status.type === GameStatusEnum.Installed ||
-    props.status.type === GameStatusEnum.SetupRequired ||
-    props.status.type === GameStatusEnum.PartiallyInstalled
-);
+interface StatusStyleData {
+  style: string;
+  buttonName: string;
+  icon: Component;
+  action: () => void;
+}
 
-const showOptions = computed(
-  () => props.status.type === GameStatusEnum.Installed
-);
+function fetchStatusStyleData(status: GameStatus): StatusStyleData {
+  if (status.type === "Installed") {
+    if (status.install_type === InstalledType.Installed) {
+      return {
+        style:
+          "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600 hover:bg-green-500",
+        buttonName: "Play",
+        icon: PlayIcon,
+        action: () => emit("launch"),
+      };
+    }
+    if (status.install_type === InstalledType.SetupRequired) {
+      return {
+        style:
+          "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600 hover:bg-yellow-500",
+        buttonName: "Setup",
+        icon: WrenchIcon,
+        action: () => emit("launch"),
+      };
+    }
+    if (status.install_type === InstalledType.PartiallyInstalled) {
+      return {
+        style:
+          "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600 hover:bg-blue-500",
+        buttonName: "Resume",
+        icon: ArrowDownTrayIcon,
+        action: () => emit("resume"),
+      };
+    }
+    throw "Non-exhaustive install type: " + JSON.stringify(status.install_type);
+  }
+  return {
+    style: styles[status.type],
+    buttonName: buttonNames[status.type],
+    icon: buttonIcons[status.type],
+    action: buttonActions[status.type],
+  };
+}
 
-const styles: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Remote]:
+const showDropdown = computed(() => props.status.type === "Installed" && props.status.install_type !== InstalledType.PartiallyInstalled);
+
+const styles: { [key in EmptyGameStatusEnum]: string } = {
+  Remote:
     "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600 hover:bg-blue-500",
-  [GameStatusEnum.Queued]:
+  Queued:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.Downloading]:
+  Downloading:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.Validating]:
+  Validating:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.SetupRequired]:
-    "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600 hover:bg-yellow-500",
-  [GameStatusEnum.Installed]:
-    "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600 hover:bg-green-500",
-  [GameStatusEnum.Updating]:
+  Updating:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.Uninstalling]:
+  Uninstalling:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.Running]:
+  Running:
     "bg-zinc-800 text-white hover:bg-zinc-700 focus-visible:outline-zinc-700 hover:bg-zinc-700",
-  [GameStatusEnum.PartiallyInstalled]:
-    "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600 hover:bg-blue-500",
 };
 
-const buttonNames: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Remote]: "Install",
-  [GameStatusEnum.Queued]: "Queued",
-  [GameStatusEnum.Downloading]: "Downloading",
-  [GameStatusEnum.Validating]: "Validating",
-  [GameStatusEnum.SetupRequired]: "Setup",
-  [GameStatusEnum.Installed]: "Play",
-  [GameStatusEnum.Updating]: "Updating",
-  [GameStatusEnum.Uninstalling]: "Uninstalling",
-  [GameStatusEnum.Running]: "Stop",
-  [GameStatusEnum.PartiallyInstalled]: "Resume",
+const buttonNames: { [key in EmptyGameStatusEnum]: string } = {
+  Remote: "Install",
+  Queued: "Queued",
+  Downloading: "Downloading",
+  Validating: "Validating",
+  Updating: "Updating",
+  Uninstalling: "Uninstalling",
+  Running: "Stop",
 };
 
-const buttonIcons: { [key in GameStatusEnum]: Component } = {
-  [GameStatusEnum.Remote]: ArrowDownTrayIcon,
-  [GameStatusEnum.Queued]: QueueListIcon,
-  [GameStatusEnum.Downloading]: ArrowDownTrayIcon,
-  [GameStatusEnum.Validating]: ServerIcon,
-  [GameStatusEnum.SetupRequired]: WrenchIcon,
-  [GameStatusEnum.Installed]: PlayIcon,
-  [GameStatusEnum.Updating]: ArrowDownTrayIcon,
-  [GameStatusEnum.Uninstalling]: TrashIcon,
-  [GameStatusEnum.Running]: StopIcon,
-  [GameStatusEnum.PartiallyInstalled]: ArrowDownTrayIcon,
+const buttonIcons: { [key in EmptyGameStatusEnum]: Component } = {
+  Remote: ArrowDownTrayIcon,
+  Queued: QueueListIcon,
+  Downloading: ArrowDownTrayIcon,
+  Validating: ServerIcon,
+  Updating: ArrowDownTrayIcon,
+  Uninstalling: TrashIcon,
+  Running: StopIcon,
 };
 
-const buttonActions: { [key in GameStatusEnum]: () => void } = {
-  [GameStatusEnum.Remote]: () => emit("install"),
-  [GameStatusEnum.Queued]: () => emit("queue"),
-  [GameStatusEnum.Downloading]: () => emit("queue"),
-  [GameStatusEnum.Validating]: () => emit("queue"),
-  [GameStatusEnum.SetupRequired]: () => emit("launch"),
-  [GameStatusEnum.Installed]: () => emit("launch"),
-  [GameStatusEnum.Updating]: () => emit("queue"),
-  [GameStatusEnum.Uninstalling]: () => {},
-  [GameStatusEnum.Running]: () => emit("kill"),
-  [GameStatusEnum.PartiallyInstalled]: () => emit("resume"),
+const buttonActions: { [key in EmptyGameStatusEnum]: () => void } = {
+  Remote: () => emit("install"),
+  Queued: () => emit("queue"),
+  Downloading: () => emit("queue"),
+  Validating: () => emit("queue"),
+  Updating: () => emit("queue"),
+  Uninstalling: () => {},
+  Running: () => emit("kill"),
 };
 </script>

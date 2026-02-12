@@ -45,18 +45,22 @@
     </div>
   </div>
 
-  <div v-if="!paths.data.value?.default" class="mt-4 rounded-md bg-yellow-500/15 p-4 outline outline-yellow-500/25">
+  <div
+    v-if="!paths.data.value?.default"
+class="mt-4 rounded-md bg-red-500/15 p-4 outline outline-red-500/25"  >
     <div class="flex">
       <div class="shrink-0">
-        <ExclamationTriangleIcon class="size-5 text-yellow-400" aria-hidden="true" />
+        <XCircleIcon class="size-5 text-red-400" aria-hidden="true" />
       </div>
       <div class="ml-3">
-        <h3 class="text-sm font-medium text-yellow-200">
+        <h3 class="text-sm font-medium text-red-200">
           No default Proton layer
         </h3>
-        <div class="mt-2 text-sm text-yellow-200/80">
+        <div class="mt-2 text-sm text-red-200/80">
           <p>
-            You won't be able to launch any Windows games without overriding their Proton layer in game settings. Please select a default layer below using the stars.
+            You won't be able to launch any Windows games without overriding
+            their Proton layer in game settings. Please select a default layer
+            below using the stars.
           </p>
         </div>
       </div>
@@ -290,12 +294,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 const appState = useAppState();
 
-const paths = useAsyncData<{
-  autodiscovered: ProtonPath[];
-  custom: ProtonPath[];
-  default?: string;
-}>("proton_paths", async () => await invoke("fetch_proton_paths"));
-
+const paths = await useProtonPaths();
 const pickLayerModal = ref(false);
 const pickError = ref<string | null>(null);
 

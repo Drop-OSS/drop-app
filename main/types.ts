@@ -67,24 +67,41 @@ export enum AppStatus {
   ServerUnavailable = "ServerUnavailable",
 }
 
-export enum GameStatusEnum {
-  Remote = "Remote",
-  Queued = "Queued",
-  Downloading = "Downloading",
-  Validating = "Validating",
-  Installed = "Installed",
-  Updating = "Updating",
-  Uninstalling = "Uninstalling",
-  SetupRequired = "SetupRequired",
-  Running = "Running",
+export type EmptyGameStatusEnum =
+  | "Remote"
+  | "Queued"
+  | "Downloading"
+  | "Validating"
+  | "Updating"
+  | "Uninstalling"
+  | "Running";
+
+export enum InstalledType {
   PartiallyInstalled = "PartiallyInstalled",
+  SetupRequired = "SetupRequired",
+  Installed = "Installed",
 }
 
-export type GameStatus = {
-  type: GameStatusEnum;
-  version_name?: string;
-  install_dir?: string;
-};
+export interface InstalledGameStatusData {
+  install_type: InstalledType;
+  version_name: string;
+  install_dir: string;
+  enable_updates: boolean;
+  update_available: boolean;
+}
+
+export type GameStatus =
+  | {
+      type: EmptyGameStatusEnum;
+    }
+  | ({
+      type: "Installed";
+    } & InstalledGameStatusData);
+
+export type GameStatusEnum = GameStatus["type"];
+
+export type RawGameStatus =
+  | [GameStatus | null, GameStatus | null];
 
 export enum DownloadableType {
   Game = "Game",

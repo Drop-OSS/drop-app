@@ -7,7 +7,8 @@
     "build": "nuxt generate",
     "dev": "nuxt dev",
     "postinstall": "nuxt prepare",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "typecheck": "nuxt typecheck"
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.23",

@@ -90,14 +90,17 @@
                 <p
                   class="truncate text-[10px] font-bold uppercase font-display"
                   :class="[
-                    gameStatusTextStyle[games[item.id].status.value.type],
+                    getGameStatusStyleText(games[item.id].status.value)[0],
                   ]"
                 >
-                  {{ gameStatusText[games[item.id].status.value.type] }}
+                  {{ getGameStatusStyleText(games[item.id].status.value)[1] }}
                 </p>
               </div>
             </div>
           </NuxtLink>
+          <span v-if="nav.items.length == 0" class="text-xs text-zinc-500 mx-auto"
+            >No games in this category</span
+          >
         </DisclosurePanel>
       </Disclosure>
     </TransitionGroup>
@@ -138,7 +141,8 @@ import {
 } from "@heroicons/vue/20/solid";
 import { invoke } from "@tauri-apps/api/core";
 import {
-  GameStatusEnum,
+  type EmptyGameStatusEnum,
+  InstalledType,
   type Collection as Collection,
   type Game,
   type GameStatus,
@@ -147,30 +151,43 @@ import { TransitionGroup } from "vue";
 import { listen } from "@tauri-apps/api/event";
 
 // Style information
-const gameStatusTextStyle: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Installed]: "text-green-500",
-  [GameStatusEnum.Downloading]: "text-zinc-400",
-  [GameStatusEnum.Validating]: "text-blue-300",
-  [GameStatusEnum.Running]: "text-blue-500",
-  [GameStatusEnum.Remote]: "text-zinc-700",
-  [GameStatusEnum.Queued]: "text-zinc-400",
-  [GameStatusEnum.Updating]: "text-zinc-400",
-  [GameStatusEnum.Uninstalling]: "text-zinc-100",
-  [GameStatusEnum.SetupRequired]: "text-yellow-500",
-  [GameStatusEnum.PartiallyInstalled]: "text-gray-400",
+const gameStatusTextStyle: { [key in EmptyGameStatusEnum]: string } = {
+  Downloading: "text-zinc-400",
+  Validating: "text-blue-300",
+  Running: "text-blue-500",
+  Remote: "text-zinc-700",
+  Queued: "text-zinc-400",
+  Updating: "text-zinc-400",
+  Uninstalling: "text-zinc-100",
 };
-const gameStatusText: { [key in GameStatusEnum]: string } = {
-  [GameStatusEnum.Remote]: "Not installed",
-  [GameStatusEnum.Queued]: "Queued",
-  [GameStatusEnum.Downloading]: "Downloading...",
-  [GameStatusEnum.Validating]: "Validating...",
-  [GameStatusEnum.Installed]: "Installed",
-  [GameStatusEnum.Updating]: "Updating...",
-  [GameStatusEnum.Uninstalling]: "Uninstalling...",
-  [GameStatusEnum.SetupRequired]: "Setup required",
-  [GameStatusEnum.Running]: "Running",
-  [GameStatusEnum.PartiallyInstalled]: "Partially installed",
+const gameStatusText: { [key in EmptyGameStatusEnum]: string } = {
+  Remote: "Not installed",
+  Queued: "Queued",
+  Downloading: "Downloading...",
+  Validating: "Validating...",
+  Updating: "Updating...",
+  Uninstalling: "Uninstalling...",
+  Running: "Running",
 };
+
+function getGameStatusStyleText(status: GameStatus): [string, string] {
+  if (status.type === "Installed") {
+    if (status.install_type === InstalledType.Installed) {
+      return ["text-green-500", "Installed"];
+    }
+    if (status.install_type === InstalledType.PartiallyInstalled) {
+      return ["text-gray-400", "Partially installed"];
+    }
+    if (status.install_type === InstalledType.SetupRequired) {
+      return ["text-yellow-500", "Setup required"];
+    }
+    throw (
+      "Non-exhaustive installed type, missing: " +
+      JSON.stringify(status.install_type)
+    );
+  }
+  return [gameStatusTextStyle[status.type], gameStatusText[status.type]];
+}
 
 const router = useRouter();
 
@@ -277,25 +294,22 @@ await new Promise<void>((r) => {
 
 const navigation = computed(() =>
   collections.value.map((collection) => {
-    const items = collection.entries
-      .map(({ game }) => {
-        const status = games[game.id].status;
+    const items = collection.entries.map(({ game }) => {
+      const status = games[game.id].status;
 
-        const isInstalled = computed(
-          () => status.value.type != GameStatusEnum.Remote,
-        );
+      const isInstalled = computed(() => status.value.type != "Remote");
 
-        const item = {
-          label: game.mName,
-          route: `/library/${game.id}`,
-          prefix: `/library/${game.id}`,
-          icon: game.mIconObjectId,
-          isInstalled,
-          id: game.id,
-          type: game.type,
-        };
-        return item;
-      });
+      const item = {
+        label: game.mName,
+        route: `/library/${game.id}`,
+        prefix: `/library/${game.id}`,
+        icon: game.mIconObjectId,
+        isInstalled,
+        id: game.id,
+        type: game.type,
+      };
+      return item;
+    });
 
     return {
       id: collection.id,

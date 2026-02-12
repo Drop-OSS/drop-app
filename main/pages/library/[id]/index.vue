@@ -174,11 +174,7 @@
       </div>
 
       <div class="space-y-6">
-        <div
-          v-if="
-            versionOptions && versionOptions.length > 0 && currentVersionOption
-          "
-        >
+        <div v-if="versionOptions && versionOptions.length > 0">
           <Listbox as="div" v-model="installVersionIndex">
             <ListboxLabel class="block text-sm/6 font-medium text-zinc-100"
               >Version</ListboxLabel
@@ -187,18 +183,9 @@
               <ListboxButton
                 class="relative w-full cursor-default rounded-md bg-zinc-800 py-1.5 pl-3 pr-10 text-left text-zinc-100 shadow-sm ring-1 ring-inset ring-zinc-700 focus:outline-none focus:ring-2 focus:ring-blue-600 sm:text-sm/6"
               >
-                <span class="block truncate"
-                  >{{
-                    currentVersionOption.displayName ||
-                    currentVersionOption.versionPath
-                  }}
-                  on
-                  {{ currentVersionOption.platform }} ({{
-                    formatKilobytes(
-                      currentVersionOption.size.installSize / 1024,
-                    )
-                  }}B)</span
-                >
+                <span class="block truncate">{{
+                  formatVersionOptionText(installVersionIndex)
+                }}</span>
                 <span
                   class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"
                 >
@@ -209,6 +196,48 @@
                 </span>
               </ListboxButton>
 
+              <div
+                v-if="installVersionIndex == -1"
+                class="mt-3 rounded-md bg-blue-500/10 p-2 outline outline-blue-500/20"
+              >
+                <div class="flex">
+                  <div class="shrink-0">
+                    <InformationCircleIcon
+                      class="size-4 text-blue-400"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div class="ml-2 flex-1 md:flex md:justify-between">
+                    <p class="text-xs text-blue-300">
+                      "Latest" will notify you when there is a new version
+                      available. Choose another version to pin this game's
+                      version.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div
+                v-else
+                class="mt-3 rounded-md bg-blue-500/10 p-2 outline outline-blue-500/20"
+              >
+                <div class="flex">
+                  <div class="shrink-0">
+                    <InformationCircleIcon
+                      class="size-4 text-blue-400"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <div class="ml-2 flex-1 md:flex md:justify-between">
+                    <p class="text-xs text-blue-300">
+                      This game will be pinned to "{{
+                        currentVersionOption?.displayName ||
+                        currentVersionOption?.versionPath
+                      }}"
+                    </p>
+                  </div>
+                </div>
+              </div>
+
               <transition
                 leave-active-class="transition ease-in duration-100"
                 leave-from-class="opacity-100"
@@ -217,6 +246,39 @@
                 <ListboxOptions
                   class="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-zinc-900 py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm"
                 >
+                  <ListboxOption
+                    as="template"
+                    :value="-1"
+                    v-slot="{ active, selected }"
+                  >
+                    <li
+                      :class="[
+                        active ? 'bg-blue-600 text-white' : 'text-zinc-300',
+                        'relative cursor-default select-none py-2 pl-3 pr-9',
+                      ]"
+                    >
+                      <span
+                        :class="[
+                          selected
+                            ? 'font-semibold text-zinc-100'
+                            : 'font-normal',
+                          'block truncate',
+                        ]"
+                        >{{ formatVersionOptionText(-1) }}</span
+                      >
+
+                      <span
+                        v-if="selected"
+                        :class="[
+                          active ? 'text-white' : 'text-blue-600',
+                          'absolute inset-y-0 right-0 flex items-center pr-4',
+                        ]"
+                      >
+                        <CheckIcon class="h-5 w-5" aria-hidden="true" />
+                      </span>
+                    </li>
+                  </ListboxOption>
+
                   <ListboxOption
                     as="template"
                     v-for="(version, versionIdx) in versionOptions"
@@ -237,13 +299,7 @@
                             : 'font-normal',
                           'block truncate',
                         ]"
-                        >{{ version.displayName || version.versionPath }} on
-                        {{ version.platform }} ({{
-                          formatKilobytes(
-                            versionOptions[installVersionIndex].size
-                              .installSize / 1024,
-                          )
-                        }}B)</span
+                        >{{ formatVersionOptionText(versionIdx) }}</span
                       >
 
                       <span
@@ -464,7 +520,11 @@
   Don't.  
   -->
   <GameOptionsModal
-    v-if="status.type === GameStatusEnum.Installed"
+    v-if="
+      status.type === 'Installed' &&
+      (status.install_type == InstalledType.Installed ||
+        status.install_type == InstalledType.SetupRequired)
+    "
     v-model="configureModalOpen"
     :game-id="game.id"
   />
@@ -559,12 +619,14 @@ import {
   ArrowsPointingOutIcon,
   PhotoIcon,
   PlayIcon,
+  InformationCircleIcon,
 } from "@heroicons/vue/20/solid";
 import { BuildingStorefrontIcon } from "@heroicons/vue/24/outline";
 import { MinusIcon, ServerIcon, XCircleIcon } from "@heroicons/vue/24/solid";
 import { invoke } from "@tauri-apps/api/core";
 import { micromark } from "micromark";
-import { GameStatusEnum } from "~/types";
+import { version } from "typescript";
+import { InstalledType } from "~/types";
 
 const route = useRoute();
 const router = useRouter();
@@ -610,18 +672,17 @@ async function installFlow() {
 
 const installLoading = ref(false);
 const installError = ref<string | undefined>();
-const installVersionIndex = ref(0);
+const installVersionIndex = ref(-1);
 const installDir = ref(0);
 const installDepsDisabled = ref<{ [key: string]: boolean }>({});
 
-const currentVersionOption = computed(
-  () => versionOptions.value?.[installVersionIndex.value],
-);
 async function install() {
   try {
     if (!versionOptions.value) throw new Error("Versions have not been loaded");
     installLoading.value = true;
-    const versionOption = versionOptions.value[installVersionIndex.value];
+    const versionOption =
+      versionOptions.value[Math.max(installVersionIndex.value, 0)];
+    const isLatest = installVersionIndex.value == -1;
 
     const games = [
       { gameId: game.value.id, versionId: versionOption.versionId },
@@ -636,6 +697,7 @@ async function install() {
         versionId: game.versionId,
         installDir: installDir.value,
         targetPlatform: versionOption.platform,
+        enableUpdates: isLatest,
       });
     }
 
@@ -645,6 +707,20 @@ async function install() {
   }
 
   installLoading.value = false;
+}
+
+const currentVersionOption = computed(
+  () => versionOptions.value?.[Math.max(installVersionIndex.value, 0)],
+);
+
+function formatVersionOptionText(index: number) {
+  if (!versionOptions.value) return undefined;
+  const versionOption = versionOptions.value[Math.max(index, 0)];
+  const template = `${versionOption.displayName || versionOption.versionPath} on ${versionOption.platform}, ${formatKilobytes(versionOption.size.installSize / 1024)}B`;
+  if (index == -1) {
+    return `Latest (${template})`;
+  }
+  return template;
 }
 
 async function resumeDownload() {
@@ -659,7 +735,10 @@ const launchOptions = ref<Array<{ name: string }> | undefined>(undefined);
 const launchOptionsOpen = computed(() => launchOptions.value !== undefined);
 
 async function launch() {
-  if (status.value.type == GameStatusEnum.SetupRequired) {
+  if (
+    status.value.type == "Installed" &&
+    status.value.install_type == InstalledType.SetupRequired
+  ) {
     await launchIndex(0);
     return;
   }

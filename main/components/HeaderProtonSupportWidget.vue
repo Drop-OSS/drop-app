@@ -2,7 +2,7 @@
   <NuxtLink to="/settings/compat">
     <HeaderWidget
       v-if="appState && appState.umuState !== 'NotNeeded'"
-      :problem="notInstalled"
+      :problem="protonError"
     >
       <img src="/proton-logo.png" class="relative z-50 size-5 brightness-[30%]" />
     </HeaderWidget>
@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 const appState = useAppState();
+const paths = await useProtonPaths();
 
-const notInstalled = appState.value?.umuState === "NotInstalled";
+const protonError = computed(() => appState.value?.umuState === "NotInstalled" || !paths.data.value.default);
 </script>
