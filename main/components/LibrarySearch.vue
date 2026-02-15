@@ -64,7 +64,7 @@
             v-for="item in nav.items"
             :key="nav.id"
             :class="[
-              'transition-all duration-300 rounded-lg flex items-center px-1 py-1.5 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-zinc-950/50',
+              'transition-all duration-300 rounded-lg flex items-center px-1 py-0.5 hover:scale-105 active:scale-95 hover:shadow-lg hover:shadow-zinc-950/50',
               currentNavigation == item.id
                 ? 'bg-zinc-800 text-zinc-100 shadow-md shadow-zinc-950/20'
                 : item.isInstalled.value
@@ -83,7 +83,7 @@
                   alt=""
                 />
               </div>
-              <div class="truncate inline-flex items-center gap-x-2">
+              <div class="truncate flex flex-col">
                 <p class="text-sm whitespace-nowrap font-display font-semibold">
                   {{ item.label }}
                 </p>

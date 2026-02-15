@@ -17,18 +17,6 @@
       />
       {{ fetchStatusStyleData($props.status).buttonName }}
     </button>
-    <button
-      v-if="
-        $props.status.type === 'Installed' && $props.status.update_available
-      "
-      :class="[
-        fetchStatusStyleData($props.status).style,
-        'inline-flex uppercase font-display items-center gap-x-2 px-4 py-3 text-md font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
-      ]"
-    >
-      <ArrowDownTrayIcon class="-mr-0.5 size-5" aria-hidden="true" />
-      Update
-    </button>
     <Menu
       v-if="showDropdown"
       as="div"

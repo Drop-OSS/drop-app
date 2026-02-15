@@ -91,13 +91,13 @@ const props = defineProps<{ gameId: string }>();
 const game = await useGame(props.gameId);
 
 const configuration: Ref<FrontendGameConfiguration> = ref({
-  launchString: game.version!.userConfiguration.launchTemplate,
-  overrideProtonPath: game.version!.userConfiguration.overrideProtonPath,
+  launchString: game.version.value!.userConfiguration.launchTemplate,
+  overrideProtonPath: game.version.value!.userConfiguration.overrideProtonPath,
 });
 
 const hasWindows = !!(
-  game.version!.setups.find((v) => v.platform === "Windows") ??
-  game.version!.launches.find((v) => v.platform === "Windows")
+  game.version.value!.setups.find((v) => v.platform === "Windows") ??
+  game.version.value!.launches.find((v) => v.platform === "Windows")
 );
 
 const protonEnabled = !!(appState.value!.umuState !== "NotNeeded" && hasWindows);

@@ -53,6 +53,7 @@ export type GameVersion = {
   userConfiguration: {
     launchTemplate: string;
     overrideProtonPath: string;
+    enableUpdates: boolean
   };
   setups: Array<{ platform: string }>;
   launches: Array<{ platform: string }>;
@@ -83,10 +84,9 @@ export enum InstalledType {
 }
 
 export interface InstalledGameStatusData {
-  install_type: {type: InstalledType};
-  version_name: string;
+  install_type: { type: InstalledType };
+  version_id: string;
   install_dir: string;
-  enable_updates: boolean;
   update_available: boolean;
 }
 
@@ -100,8 +100,7 @@ export type GameStatus =
 
 export type GameStatusEnum = GameStatus["type"];
 
-export type RawGameStatus =
-  | [GameStatus | null, GameStatus | null];
+export type RawGameStatus = [GameStatus | null, GameStatus | null];
 
 export enum DownloadableType {
   Game = "Game",

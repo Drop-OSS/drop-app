@@ -110,8 +110,6 @@ impl ScheduleTask for GameUpdater {
             };
         }
 
-        info!("checked for updates.");
-
         Ok(())
     }
 }

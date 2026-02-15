@@ -8,7 +8,7 @@ import type {
   RawGameStatus,
 } from "~/types";
 
-const gameRegistry: { [key: string]: { game: Game; version?: GameVersion } } =
+const gameRegistry: { [key: string]: { game: Game; version: Ref<GameVersion | undefined> } } =
   {};
 
 const gameStatusRegistry: { [key: string]: Ref<GameStatus> } = {};
@@ -33,7 +33,7 @@ export const useGame = async (gameId: string) => {
     } = await invoke("fetch_game", {
       gameId,
     });
-    gameRegistry[gameId] = { game: data.game, version: data.version };
+    gameRegistry[gameId] = { game: data.game, version: ref(data.version) };
     if (!gameStatusRegistry[gameId]) {
       gameStatusRegistry[gameId] = ref(parseStatus(data.status));
 
@@ -52,7 +52,7 @@ export const useGame = async (gameId: string) => {
          * on transient state updates.
          */
         if (payload.version) {
-          gameRegistry[gameId].version = payload.version;
+          gameRegistry[gameId].version.value = payload.version;
         }
       });
     }
