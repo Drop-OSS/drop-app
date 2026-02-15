@@ -17,6 +17,18 @@
       />
       {{ fetchStatusStyleData($props.status).buttonName }}
     </button>
+    <button
+      v-if="
+        $props.status.type === 'Installed' && $props.status.update_available
+      "
+      :class="[
+        fetchStatusStyleData($props.status).style,
+        'inline-flex uppercase font-display items-center gap-x-2 px-4 py-3 text-md font-semibold shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2',
+      ]"
+    >
+      <ArrowDownTrayIcon class="-mr-0.5 size-5" aria-hidden="true" />
+      Update
+    </button>
     <Menu
       v-if="showDropdown"
       as="div"
@@ -100,6 +112,7 @@ import {
 } from "~/types.js";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { Cog6ToothIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import { ArrowUpTrayIcon } from "@heroicons/vue/24/solid";
 
 const props = defineProps<{ status: GameStatus }>();
 const emit = defineEmits<{
@@ -121,7 +134,7 @@ interface StatusStyleData {
 
 function fetchStatusStyleData(status: GameStatus): StatusStyleData {
   if (status.type === "Installed") {
-    if (status.install_type === InstalledType.Installed) {
+    if (status.install_type.type === InstalledType.Installed) {
       return {
         style:
           "bg-green-600 text-white hover:bg-green-500 focus-visible:outline-green-600 hover:bg-green-500",
@@ -130,7 +143,7 @@ function fetchStatusStyleData(status: GameStatus): StatusStyleData {
         action: () => emit("launch"),
       };
     }
-    if (status.install_type === InstalledType.SetupRequired) {
+    if (status.install_type.type === InstalledType.SetupRequired) {
       return {
         style:
           "bg-yellow-600 text-white hover:bg-yellow-500 focus-visible:outline-yellow-600 hover:bg-yellow-500",
@@ -139,7 +152,7 @@ function fetchStatusStyleData(status: GameStatus): StatusStyleData {
         action: () => emit("launch"),
       };
     }
-    if (status.install_type === InstalledType.PartiallyInstalled) {
+    if (status.install_type.type === InstalledType.PartiallyInstalled) {
       return {
         style:
           "bg-blue-600 text-white hover:bg-blue-500 focus-visible:outline-blue-600 hover:bg-blue-500",
@@ -158,7 +171,11 @@ function fetchStatusStyleData(status: GameStatus): StatusStyleData {
   };
 }
 
-const showDropdown = computed(() => props.status.type === "Installed" && props.status.install_type !== InstalledType.PartiallyInstalled);
+const showDropdown = computed(
+  () =>
+    props.status.type === "Installed" &&
+    props.status.install_type.type !== InstalledType.PartiallyInstalled,
+);
 
 const styles: { [key in EmptyGameStatusEnum]: string } = {
   Remote:

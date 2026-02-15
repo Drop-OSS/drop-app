@@ -1,7 +1,8 @@
 use bitcode::{Decode, Encode};
 use database::{
     ApplicationTransientStatus, Database, DownloadableMetadata, GameDownloadStatus, GameVersion,
-    borrow_db_checked, borrow_db_mut_checked, models::data::InstalledGameType,
+    borrow_db_checked, borrow_db_mut_checked,
+    models::data::{InstalledGameType, UserConfiguration},
 };
 use log::{debug, error, warn};
 use remote::{
@@ -76,8 +77,9 @@ pub fn set_partially_installed(
     meta: &DownloadableMetadata,
     install_dir: String,
     app_handle: Option<&AppHandle>,
+    configuration: UserConfiguration,
 ) {
-    set_partially_installed_db(&mut borrow_db_mut_checked(), meta, install_dir, app_handle);
+    set_partially_installed_db(&mut borrow_db_mut_checked(), meta, install_dir, app_handle, configuration);
 }
 
 pub fn set_partially_installed_db(
@@ -85,15 +87,15 @@ pub fn set_partially_installed_db(
     meta: &DownloadableMetadata,
     install_dir: String,
     app_handle: Option<&AppHandle>,
+    configuration: UserConfiguration,
 ) {
     db_lock.applications.transient_statuses.remove(meta);
     db_lock.applications.game_statuses.insert(
         meta.id.clone(),
         GameDownloadStatus::Installed {
-            install_type: InstalledGameType::PartiallyInstalled,
+            install_type: InstalledGameType::PartiallyInstalled { configuration },
             version_id: meta.version.clone(),
             install_dir,
-            enable_updates: meta.enable_updates,
             update_available: false,
         },
     );
@@ -141,7 +143,6 @@ pub fn uninstall_game_logic(meta: DownloadableMetadata, app_handle: &AppHandle) 
             install_type: _,
             version_id: version_name,
             install_dir,
-            enable_updates: _,
             update_available: _,
         } => Some((version_name, install_dir)),
         _ => None,
@@ -195,6 +196,7 @@ pub fn get_current_meta(game_id: &String) -> Option<DownloadableMetadata> {
 
 pub async fn on_game_complete(
     meta: &DownloadableMetadata,
+    configuration: UserConfiguration,
     install_dir: String,
     app_handle: &AppHandle,
 ) -> Result<(), RemoteAccessError> {
@@ -209,7 +211,8 @@ pub async fn on_game_complete(
         .send()
         .await?;
 
-    let game_version: GameVersion = response.json().await?;
+    let mut game_version: GameVersion = response.json().await?;
+    game_version.user_configuration = configuration;
 
     let mut handle = borrow_db_mut_checked();
     handle
@@ -236,7 +239,6 @@ pub async fn on_game_complete(
         } else {
             InstalledGameType::SetupRequired
         },
-        enable_updates: meta.enable_updates,
         update_available: false,
     };
 

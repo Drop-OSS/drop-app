@@ -30,6 +30,7 @@
           </ul>
         </nav>
         <div class="border-l-2 border-zinc-800 w-full grow pl-4">
+          <span class="font-mono text-zinc-100">{{ configuration }}</span>
           <component
             v-model="configuration"
             :is="tabs[currentTabIndex]?.page"

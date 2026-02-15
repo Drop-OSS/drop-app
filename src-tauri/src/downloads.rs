@@ -2,12 +2,14 @@ use std::{path::PathBuf, sync::Arc};
 
 use database::{
     DownloadType, DownloadableMetadata, GameDownloadStatus, borrow_db_checked,
-    models::data::InstalledGameType, platform::Platform,
+    models::data::{InstalledGameType, UserConfiguration},
+    platform::Platform,
 };
 use download_manager::{
     DOWNLOAD_MANAGER, downloadable::Downloadable, error::ApplicationDownloadError,
 };
 use games::downloads::download_agent::GameDownloadAgent;
+use log::info;
 
 #[tauri::command]
 pub async fn download_game(
@@ -37,14 +39,19 @@ pub async fn download_game(
         version: version_id,
         target_platform,
         download_type: DownloadType::Game,
-        enable_updates,
     };
+
+    let mut configuration = UserConfiguration::default();
+    configuration.enable_updates = enable_updates;
+
+    info!("created configuration: {:?}", configuration);
 
     let game_download_agent = GameDownloadAgent::new_from_index(
         meta,
         install_dir,
         sender,
         DOWNLOAD_MANAGER.clone_depot_manager(),
+        configuration,
     )
     .await?;
 
@@ -61,7 +68,7 @@ pub async fn download_game(
 
 #[tauri::command]
 pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadError> {
-    let (meta, install_dir) = {
+    let (meta, (install_dir, configuration)) = {
         let db_lock = borrow_db_checked();
         let status = db_lock
             .applications
@@ -79,10 +86,10 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
 
         let install_dir = match status {
             GameDownloadStatus::Installed {
-                install_type: InstalledGameType::PartiallyInstalled,
+                install_type: InstalledGameType::PartiallyInstalled { configuration },
                 install_dir,
                 ..
-            } => Ok(install_dir),
+            } => Ok((install_dir, configuration)),
             _ => Err(ApplicationDownloadError::InvalidCommand),
         }?;
         (meta, install_dir)
@@ -101,6 +108,7 @@ pub async fn resume_download(game_id: String) -> Result<(), ApplicationDownloadE
             install_dir.to_path_buf(),
             sender,
             DOWNLOAD_MANAGER.clone_depot_manager(),
+            configuration,
         )
         .await?,
     ) as Box<dyn Downloadable + Send + Sync>);

@@ -19,12 +19,16 @@ pub fn scan_install_dirs() {
             if !drop_data_file.exists() {
                 continue;
             }
-            let Ok(drop_data) = DropData::read(&game.path()) else {
-                warn!(
-                    ".dropdata exists for {}, but couldn't read it. is it corrupted?",
-                    game.file_name().display()
-                );
-                continue;
+            let drop_data = match DropData::read(&game.path()) {
+                Ok(v) => v,
+                Err(err) => {
+                    warn!(
+                        ".dropdata exists for {}, but couldn't read it. is it corrupted? {:?}",
+                        game.file_name().display(),
+                        err
+                    );
+                    continue;
+                }
             };
             if db_lock
                 .applications
@@ -39,13 +43,13 @@ pub fn scan_install_dirs() {
                 drop_data.game_version,
                 drop_data.target_platform,
                 DownloadType::Game,
-                drop_data.enable_updates,
             );
             set_partially_installed_db(
                 &mut db_lock,
                 &metadata,
                 drop_data.base_path.to_str().unwrap().to_string(),
                 None,
+                drop_data.configuration,
             );
         }
     }

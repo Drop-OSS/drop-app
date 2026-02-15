@@ -7,7 +7,7 @@ export default {
     "./plugins/**/*.{js,ts}",
     "./app.vue",
     "./error.vue",
-    "../libs/drop-base/**/*.{js,vue,ts}"
+    "../libs/drop-base/**/*.{js,vue,ts}",
   ],
   theme: {
     extend: {
@@ -17,5 +17,5 @@ export default {
       },
     },
   },
-  plugins: [require("@tailwindcss/forms"), require('@tailwindcss/typography')],
+  plugins: [require("@tailwindcss/forms"), require("@tailwindcss/typography")],
 };

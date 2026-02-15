@@ -47,7 +47,8 @@
 
   <div
     v-if="!paths.data.value?.default"
-class="mt-4 rounded-md bg-red-500/15 p-4 outline outline-red-500/25"  >
+    class="mt-4 rounded-md bg-red-500/15 p-4 outline outline-red-500/25"
+  >
     <div class="flex">
       <div class="shrink-0">
         <XCircleIcon class="size-5 text-red-400" aria-hidden="true" />

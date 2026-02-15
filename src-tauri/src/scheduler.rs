@@ -1,28 +1,16 @@
-use std::time::Duration;
+use std::{time::Duration, usize};
 
 use async_trait::async_trait;
 use log::{info, warn};
 use tokio::time;
 
+use crate::updates::GameUpdater;
+
 #[async_trait]
-trait ScheduleTask {
+pub trait ScheduleTask {
     /// Returns how many minutes between calls
     fn timeframe(&mut self) -> usize;
     async fn call(&mut self) -> Result<(), anyhow::Error>;
-}
-
-struct Test;
-
-#[async_trait]
-impl ScheduleTask for Test {
-    fn timeframe(&mut self) -> usize {
-        1
-    }
-
-    async fn call(&mut self) -> Result<(), anyhow::Error> {
-        info!("ran background task");
-        Ok(())
-    }
 }
 
 struct TaskData {
@@ -35,8 +23,8 @@ pub async fn scheduler_task() -> ! {
     interval.tick().await;
 
     let mut tasks = vec![TaskData {
-        task: Box::new(Test {}),
-        updates_since_call: 0,
+        task: Box::new(GameUpdater::new()),
+        updates_since_call: usize::MAX - 1,
     }];
 
     loop {

@@ -267,11 +267,11 @@ struct VersionDownloadOptionRequiredContent {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VersionDownloadOption {
-    game_id: String,
-    version_id: String,
+    pub game_id: String,
+    pub version_id: String,
     display_name: Option<String>,
     version_path: String,
-    platform: Platform,
+    pub platform: Platform,
     size: GameSize,
     required_content: Vec<VersionDownloadOptionRequiredContent>,
 }
@@ -305,7 +305,7 @@ pub async fn fetch_game_version_options_logic(
 
     let state_lock = state.lock();
     let process_manager_lock = PROCESS_MANAGER.lock();
-    let data = data
+    let data: Vec<VersionDownloadOption> = data
         .into_iter()
         .filter(|v| process_manager_lock.valid_platform(&v.platform))
         .collect();

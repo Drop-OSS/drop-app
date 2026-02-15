@@ -522,8 +522,8 @@
   <GameOptionsModal
     v-if="
       status.type === 'Installed' &&
-      (status.install_type == InstalledType.Installed ||
-        status.install_type == InstalledType.SetupRequired)
+      (status.install_type.type == InstalledType.Installed ||
+        status.install_type.type == InstalledType.SetupRequired)
     "
     v-model="configureModalOpen"
     :game-id="game.id"
@@ -737,7 +737,7 @@ const launchOptionsOpen = computed(() => launchOptions.value !== undefined);
 async function launch() {
   if (
     status.value.type == "Installed" &&
-    status.value.install_type == InstalledType.SetupRequired
+    status.value.install_type.type == InstalledType.SetupRequired
   ) {
     await launchIndex(0);
     return;

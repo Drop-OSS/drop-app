@@ -20,6 +20,7 @@ pub mod data {
     pub type DownloadableMetadata = v1::DownloadableMetadata;
     pub type DownloadType = v1::DownloadType;
     pub type DatabaseApplications = v1::DatabaseApplications;
+    pub type UserConfiguration = v1::UserConfiguration;
 
     use std::collections::HashMap;
 
@@ -78,6 +79,7 @@ pub mod data {
             UserConfiguration {
                 launch_template: "{}".to_owned(),
                 override_proton_path: None,
+                enable_updates: false,
             }
         }
 
@@ -86,6 +88,13 @@ pub mod data {
         pub struct UserConfiguration {
             pub launch_template: String,
             pub override_proton_path: Option<String>,
+            pub enable_updates: bool,
+        }
+
+        impl Default for UserConfiguration {
+            fn default() -> Self {
+                default_template()
+            }
         }
 
         #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
@@ -158,10 +167,14 @@ pub mod data {
         }
 
         #[derive(Serialize, Clone, Deserialize, Debug)]
+        #[serde(tag = "type")]
         pub enum InstalledGameType {
             SetupRequired,
             Installed,
-            PartiallyInstalled,
+            PartiallyInstalled {
+                #[serde(skip)]
+                configuration: UserConfiguration,
+            },
         }
 
         #[derive(Serialize, Clone, Deserialize, Debug)]
@@ -172,7 +185,6 @@ pub mod data {
                 install_type: InstalledGameType,
                 version_id: String,
                 install_dir: String,
-                enable_updates: bool,
                 update_available: bool,
             },
         }
@@ -212,7 +224,6 @@ pub mod data {
             pub id: String,
             pub version: String,
             pub target_platform: Platform,
-            pub enable_updates: bool,
             pub download_type: DownloadType,
         }
         impl DownloadableMetadata {
@@ -221,14 +232,12 @@ pub mod data {
                 version: String,
                 target_platform: Platform,
                 download_type: DownloadType,
-                enable_updates: bool,
             ) -> Self {
                 Self {
                     id,
                     version,
                     target_platform,
                     download_type,
-                    enable_updates,
                 }
             }
         }

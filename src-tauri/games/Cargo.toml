@@ -18,9 +18,7 @@ droplet-rs = { git = "https://github.com/Drop-OSS/droplet-rs" }
 futures-util = "*"
 hex = "0.4.3"
 log = "0.4.28"
-native_model = { git = "https://github.com/Drop-OSS/native_model.git", version = "0.6.4", features = [
-  "rmp_serde_1_3"
-] }
+pot = "3.0.1"
 rayon = "1.11.0"
 remote = { path = "../remote", version = "0.1.0" }
 reqwest = "0.12.23"

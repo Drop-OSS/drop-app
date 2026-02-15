@@ -59,6 +59,7 @@ mod process;
 mod remote;
 mod scheduler;
 mod settings;
+mod updates;
 
 use client::*;
 use download_manager::*;

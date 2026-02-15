@@ -172,13 +172,13 @@ const gameStatusText: { [key in EmptyGameStatusEnum]: string } = {
 
 function getGameStatusStyleText(status: GameStatus): [string, string] {
   if (status.type === "Installed") {
-    if (status.install_type === InstalledType.Installed) {
+    if (status.install_type.type === InstalledType.Installed) {
       return ["text-green-500", "Installed"];
     }
-    if (status.install_type === InstalledType.PartiallyInstalled) {
+    if (status.install_type.type === InstalledType.PartiallyInstalled) {
       return ["text-gray-400", "Partially installed"];
     }
-    if (status.install_type === InstalledType.SetupRequired) {
+    if (status.install_type.type === InstalledType.SetupRequired) {
       return ["text-yellow-500", "Setup required"];
     }
     throw (

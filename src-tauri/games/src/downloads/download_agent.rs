@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use database::models::data::UserConfiguration;
 use database::{
     ApplicationTransientStatus, DownloadableMetadata, borrow_db_checked, borrow_db_mut_checked,
 };
@@ -49,6 +50,7 @@ pub struct DownloadInformation {
 
 pub struct GameDownloadAgent {
     pub metadata: DownloadableMetadata,
+    pub configuration: UserConfiguration,
     pub control_flag: DownloadThreadControl,
     pub dl_info: Mutex<Option<DownloadInformation>>,
     pub download_progress: Arc<ProgressObject>,
@@ -71,6 +73,7 @@ impl GameDownloadAgent {
         target_download_dir: usize,
         sender: Sender<DownloadManagerSignal>,
         depot_manager: Arc<DepotManager>,
+        configuration: UserConfiguration,
     ) -> Result<Self, ApplicationDownloadError> {
         let base_dir = {
             let db_lock = borrow_db_checked();
@@ -78,13 +81,14 @@ impl GameDownloadAgent {
             db_lock.applications.install_dirs[target_download_dir].clone()
         };
 
-        Self::new(metadata, base_dir, sender, depot_manager).await
+        Self::new(metadata, base_dir, sender, depot_manager, configuration).await
     }
     pub async fn new(
         metadata: DownloadableMetadata,
         base_dir: PathBuf,
         sender: Sender<DownloadManagerSignal>,
         depot_manager: Arc<DepotManager>,
+        configuration: UserConfiguration,
     ) -> Result<Self, ApplicationDownloadError> {
         // Don't run by default
         let control_flag = DownloadThreadControl::new(DownloadThreadControlFlag::Stop);
@@ -103,7 +107,7 @@ impl GameDownloadAgent {
             metadata.version.clone(),
             metadata.target_platform,
             data_base_dir_path.clone(),
-            metadata.enable_updates,
+            configuration.clone(),
         );
 
         let result = Self {
@@ -126,6 +130,7 @@ impl GameDownloadAgent {
             dropdata: stored_manifest,
             status: Mutex::new(DownloadStatus::Queued),
             depot_manager,
+            configuration,
         };
 
         result.ensure_manifest_exists().await?;
@@ -504,6 +509,7 @@ impl GameDownloadAgent {
             &self.metadata(),
             self.dropdata.base_path.display().to_string(),
             Some(app_handle),
+            self.configuration.clone(),
         );
 
         self.dropdata.write();
@@ -574,6 +580,7 @@ impl Downloadable for GameDownloadAgent {
     async fn on_complete(&self, app_handle: &tauri::AppHandle) {
         match on_game_complete(
             &self.metadata(),
+            self.configuration.clone(),
             self.dropdata.base_path.to_string_lossy().to_string(),
             app_handle,
         )

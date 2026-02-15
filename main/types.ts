@@ -83,7 +83,7 @@ export enum InstalledType {
 }
 
 export interface InstalledGameStatusData {
-  install_type: InstalledType;
+  install_type: {type: InstalledType};
   version_name: string;
   install_dir: string;
   enable_updates: boolean;
