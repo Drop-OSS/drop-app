@@ -6,6 +6,7 @@
     >
       <LibrarySearch />
     </div>
+
     <div class="grow overflow-y-auto">
       <NuxtErrorBoundary>
         <NuxtPage />

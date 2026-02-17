@@ -68,21 +68,6 @@ impl Debug for GameDownloadAgent {
 }
 
 impl GameDownloadAgent {
-    pub async fn new_from_index(
-        metadata: DownloadableMetadata,
-        target_download_dir: usize,
-        sender: Sender<DownloadManagerSignal>,
-        depot_manager: Arc<DepotManager>,
-        configuration: UserConfiguration,
-    ) -> Result<Self, ApplicationDownloadError> {
-        let base_dir = {
-            let db_lock = borrow_db_checked();
-
-            db_lock.applications.install_dirs[target_download_dir].clone()
-        };
-
-        Self::new(metadata, base_dir, sender, depot_manager, configuration).await
-    }
     pub async fn new(
         metadata: DownloadableMetadata,
         base_dir: PathBuf,

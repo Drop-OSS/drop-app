@@ -100,7 +100,7 @@ import {
 } from "~/types.js";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/vue";
 import { Cog6ToothIcon, TrashIcon } from "@heroicons/vue/24/outline";
-import { ArrowUpTrayIcon } from "@heroicons/vue/24/solid";
+import { ArrowsRightLeftIcon, ArrowUpTrayIcon } from "@heroicons/vue/24/solid";
 
 const props = defineProps<{ status: GameStatus }>();
 const emit = defineEmits<{

@@ -19,19 +19,6 @@ pub async fn download_game(
     install_dir: usize,
     enable_updates: bool,
 ) -> Result<(), ApplicationDownloadError> {
-    {
-        let db = borrow_db_checked();
-        let status = db
-            .applications
-            .game_statuses
-            .get(&game_id)
-            .unwrap_or(&GameDownloadStatus::Remote {});
-
-        if matches!(status, GameDownloadStatus::Installed { .. }) {
-            return Ok(());
-        }
-    };
-
     let sender = { DOWNLOAD_MANAGER.get_sender().clone() };
 
     let meta = DownloadableMetadata {
@@ -41,14 +28,27 @@ pub async fn download_game(
         download_type: DownloadType::Game,
     };
 
+    {
+        let db = borrow_db_checked();
+        let status = db.applications.transient_statuses.get(&meta);
+
+        if status.is_some() {
+            return Ok(());
+        }
+    };
+
     let mut configuration = UserConfiguration::default();
     configuration.enable_updates = enable_updates;
 
-    info!("created configuration: {:?}", configuration);
+    let base_dir = {
+        let db_lock = borrow_db_checked();
 
-    let game_download_agent = GameDownloadAgent::new_from_index(
+        db_lock.applications.install_dirs[install_dir].clone()
+    };
+
+    let game_download_agent = GameDownloadAgent::new(
         meta,
-        install_dir,
+        base_dir,
         sender,
         DOWNLOAD_MANAGER.clone_depot_manager(),
         configuration,

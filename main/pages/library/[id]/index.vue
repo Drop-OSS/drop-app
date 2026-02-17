@@ -69,6 +69,7 @@
           <button
             v-if="status.type === 'Installed' && status.update_available"
             class="transition-transform duration-300 hover:scale-105 active:scale-95 inline-flex gap-x-2 items-center rounded-md bg-blue-600 px-6 font-semibold text-white shadow-xl backdrop-blur-sm hover:bg-blue-700 uppercase font-display"
+            @click="() => installFlow()"
           >
             Update <ArrowDownTrayIcon class="size-5" />
           </button>
