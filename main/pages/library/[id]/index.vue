@@ -22,9 +22,9 @@
         >
           {{ game.mName }}
         </h1>
-        <div class="relative" v-if="status.type === 'Installed'">
+        <div class="relative" v-if="status.type === 'Installed' && status.install_type.type != InstalledType.PartiallyInstalled">
           <div
-            v-if="!version!.userConfiguration.enableUpdates"
+            v-if="!version?.userConfiguration?.enableUpdates"
             class="absolute mt-1 inline-flex items-center gap-x-1 text-xs text-zinc-400"
           >
             Version pinned
@@ -697,6 +697,7 @@ async function installFlow() {
   installFlowOpen.value = true;
   versionOptions.value = undefined;
   installDirs.value = undefined;
+  installError.value = undefined;
 
   try {
     versionOptions.value = await invoke("fetch_game_version_options", {

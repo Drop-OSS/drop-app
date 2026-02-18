@@ -46,6 +46,21 @@
           class="absolute right-0 z-[500] mt-2 w-32 origin-top-right rounded-md bg-zinc-900 shadow-lg ring-1 ring-zinc-100/5 focus:outline-none"
         >
           <div class="py-1">
+            <MenuItem v-slot="{ active }">
+              <button
+                @click="() => emit('install')"
+                :class="[
+                  active
+                    ? 'bg-zinc-800 text-zinc-100 outline-none'
+                    : 'text-zinc-400',
+                  'w-full px-4 py-2 text-sm inline-flex justify-between',
+                ]"
+              >
+                Install
+                <ArrowDownTrayIcon class="size-5" />
+              </button>
+            </MenuItem>
+
             <MenuItem v-if="showDropdown" v-slot="{ active }">
               <button
                 @click="() => emit('options')"
