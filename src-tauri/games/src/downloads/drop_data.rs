@@ -28,6 +28,7 @@ pub mod v1 {
         pub configuration: UserConfiguration,
         pub contexts: Mutex<HashMap<String, bool>>,
         pub base_path: PathBuf,
+        pub previously_installed_version: Option<String>,
     }
 
     impl DropData {
@@ -37,6 +38,7 @@ pub mod v1 {
             target_platform: Platform,
             base_path: PathBuf,
             configuration: UserConfiguration,
+            previously_installed_version: Option<String>,
         ) -> Self {
             Self {
                 base_path,
@@ -45,6 +47,7 @@ pub mod v1 {
                 target_platform,
                 contexts: Mutex::new(HashMap::new()),
                 configuration,
+                previously_installed_version,
             }
         }
     }
@@ -59,13 +62,26 @@ impl DropData {
         configuration: UserConfiguration,
     ) -> Self {
         match DropData::read(&base_path) {
-            Ok(v) => v,
+            Ok(v) => {
+                if v.game_id != game_id || v.game_version != game_version {
+                    return DropData::new(
+                        game_id,
+                        game_version,
+                        target_platform,
+                        base_path,
+                        configuration,
+                        Some(v.game_version),
+                    );
+                }
+                v
+            }
             Err(_) => DropData::new(
                 game_id,
                 game_version,
                 target_platform,
                 base_path,
                 configuration,
+                None,
             ),
         }
     }

@@ -288,7 +288,16 @@ pub async fn fetch_game_version_options_logic(
 ) -> Result<Vec<VersionDownloadOption>, RemoteAccessError> {
     let client = DROP_CLIENT_ASYNC.clone();
 
-    let response = generate_url(&["/api/v1/client/game", &game_id, "versions"], &[])?;
+    let previous_id = borrow_db_checked()
+        .applications
+        .installed_game_version
+        .get(&game_id)
+        .map(|v| v.version.clone());
+
+    let response = generate_url(
+        &["/api/v1/client/game", &game_id, "versions"],
+        &[("previous", &previous_id.unwrap_or(String::new()))],
+    )?;
     let response = client
         .get(response)
         .header("Authorization", generate_authorization_header())

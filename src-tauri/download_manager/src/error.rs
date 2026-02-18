@@ -1,8 +1,6 @@
 use humansize::{BINARY, format_size};
 use std::{
-    fmt::{Display, Formatter},
-    io,
-    sync::{Arc, mpsc::SendError},
+    fmt::{Display, Formatter}, io, path::StripPrefixError, sync::{Arc, mpsc::SendError}
 };
 
 use remote::error::RemoteAccessError;
@@ -84,5 +82,11 @@ impl From<io::Error> for ApplicationDownloadError {
 impl From<RemoteAccessError> for ApplicationDownloadError {
     fn from(value: RemoteAccessError) -> Self {
         ApplicationDownloadError::Communication(value)
+    }
+}
+
+impl From<StripPrefixError> for ApplicationDownloadError {
+    fn from(value: StripPrefixError) -> Self {
+        ApplicationDownloadError::IoError(Arc::new(io::Error::other(value)))
     }
 }

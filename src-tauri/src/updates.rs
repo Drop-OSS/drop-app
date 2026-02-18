@@ -58,13 +58,26 @@ impl ScheduleTask for GameUpdater {
         let to_check: Vec<GameVersion> = {
             let db_lock = borrow_db_checked();
 
-            db_lock
+            let games = db_lock
                 .applications
-                .game_versions
+                .game_statuses
                 .values()
-                .filter(|v| v.user_configuration.enable_updates)
-                .map(|v| v.clone())
-                .collect()
+                .map(|v| match v {
+                    GameDownloadStatus::Installed { version_id, .. } => Some(version_id),
+                    _ => None,
+                })
+                .map(|v| {
+                    v.map(|version_id| db_lock.applications.game_versions.get(version_id))
+                        .flatten()
+                })
+                .filter(|v| {
+                    v.map(|v| v.user_configuration.enable_updates)
+                        .unwrap_or(false)
+                })
+                .map(|v| v.cloned().unwrap())
+                .collect();
+
+            games
         };
 
         for version in to_check {

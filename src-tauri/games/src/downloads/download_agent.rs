@@ -23,7 +23,9 @@ use remote::utils::DROP_CLIENT_ASYNC;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::path::{Path, PathBuf};
+use std::fs::remove_file;
+use std::io;
+use std::path::{Path, PathBuf, StripPrefixError};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::AppHandle;
@@ -95,6 +97,12 @@ impl GameDownloadAgent {
             configuration.clone(),
         );
 
+        let previous_version = borrow_db_checked()
+            .applications
+            .installed_game_version
+            .get(&metadata.id)
+            .map(|e| e.version.clone());
+
         let result = Self {
             metadata,
             control_flag,
@@ -132,6 +140,21 @@ impl GameDownloadAgent {
         }
 
         Ok(result)
+    }
+
+    fn scan_filetree(&self, path: &Path) -> Result<Vec<PathBuf>, io::Error> {
+        if !path.is_dir() {
+            return Ok(vec![path.into()]);
+        };
+
+        let subdirs = path.read_dir()?;
+        let mut results = Vec::new();
+        for subdir in subdirs {
+            let subdir = subdir?;
+            let subfiles = self.scan_filetree(&subdir.path())?;
+            results.extend(subfiles);
+        }
+        Ok(results)
     }
 
     // Blocking
@@ -192,6 +215,13 @@ impl GameDownloadAgent {
             &[
                 ("id", &self.metadata.id),
                 ("version", &self.metadata.version),
+                (
+                    "previous",
+                    self.dropdata
+                        .previously_installed_version
+                        .as_ref()
+                        .map_or("", |v| v),
+                ),
             ],
         )
         .map_err(ApplicationDownloadError::Communication)?;
@@ -270,6 +300,7 @@ impl GameDownloadAgent {
             let completed_chunks = lock!(self.dropdata.contexts);
             completed_chunks.clone()
         };
+        info!("started with {} existing chunks", completed_chunks.len());
         let chunk_len = manifests_chunks.iter().map(|v| v.1.len()).sum::<usize>();
         let mut max_download_threads = borrow_db_checked().settings.max_download_threads;
         if max_download_threads <= 0 {
@@ -277,6 +308,17 @@ impl GameDownloadAgent {
         }
 
         let file_list = &file_list;
+        let base_path = &self.dropdata.base_path;
+        let current_file_tree = self.scan_filetree(base_path)?;
+
+        for file in current_file_tree {
+            let filename = file.strip_prefix(&base_path)?.to_string_lossy().to_string();
+            let needed = file_list.contains_key(&filename) || filename == ".dropdata";
+            if !needed {
+                info!("deleted {}", file.display());
+                remove_file(file)?;
+            }
+        }
 
         let local_completed_chunks = completed_chunks.clone();
 
@@ -335,7 +377,6 @@ impl GameDownloadAgent {
                 }
                 chunk_completions.push(async move {
                     for i in 0..RETRY_COUNT {
-                        let base_path = self.dropdata.base_path.clone();
                         match download_game_chunk(
                             &self.metadata.id,
                             &local_version_id,

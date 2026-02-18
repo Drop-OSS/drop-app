@@ -3,7 +3,7 @@ use std::fs::{Permissions, set_permissions};
 use std::io::SeekFrom;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -37,7 +37,7 @@ pub async fn download_game_chunk(
     key: &[u8; 16],
     chunk_data: &ChunkData,
     file_list: &HashMap<String, String>,
-    base_path: PathBuf,
+    base_path: &Path,
     control_flag: &DownloadThreadControl,
     // How much we're downloading
     download_progress: &ProgressHandle,
