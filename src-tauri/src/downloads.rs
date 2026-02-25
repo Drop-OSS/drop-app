@@ -9,7 +9,6 @@ use download_manager::{
     DOWNLOAD_MANAGER, downloadable::Downloadable, error::ApplicationDownloadError,
 };
 use games::downloads::download_agent::GameDownloadAgent;
-use log::info;
 
 #[tauri::command]
 pub async fn download_game(
@@ -37,8 +36,10 @@ pub async fn download_game(
         }
     };
 
-    let mut configuration = UserConfiguration::default();
-    configuration.enable_updates = enable_updates;
+    let configuration = UserConfiguration {
+        enable_updates,
+        ..Default::default()
+    };
 
     let base_dir = {
         let db_lock = borrow_db_checked();

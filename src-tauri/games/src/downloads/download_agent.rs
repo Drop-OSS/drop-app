@@ -25,7 +25,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::{create_dir_all, remove_file};
 use std::io;
-use std::path::{Path, PathBuf, StripPrefixError};
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use tauri::AppHandle;
@@ -308,7 +308,7 @@ impl GameDownloadAgent {
         let current_file_tree = self.scan_filetree(base_path)?;
 
         for file in current_file_tree {
-            let filename = file.strip_prefix(&base_path)?.to_string_lossy().to_string();
+            let filename = file.strip_prefix(base_path)?.to_string_lossy().to_string();
             let needed = file_list.contains_key(&filename) || filename == ".dropdata";
             if !needed {
                 info!("deleted {}", file.display());
@@ -330,7 +330,7 @@ impl GameDownloadAgent {
                     }
                     Ok(())
                 }
-                Err(err) => return Err(err),
+                Err(err) => Err(err),
             };
 
         let mut index = 0;

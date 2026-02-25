@@ -3,9 +3,9 @@ use std::sync::nonpoison::Mutex;
 use async_trait::async_trait;
 use client::{app_state::AppState, app_status::AppStatus};
 use database::{
-    DownloadableMetadata, GameDownloadStatus, GameVersion, borrow_db_checked, borrow_db_mut_checked,
+    GameDownloadStatus, GameVersion, borrow_db_checked, borrow_db_mut_checked,
 };
-use log::{info, warn};
+use log::warn;
 use process::PROCESS_MANAGER;
 use remote::utils::DROP_APP_HANDLE;
 use tauri::Manager;
@@ -44,12 +44,9 @@ impl ScheduleTask for GameUpdater {
         let state = app_handle.state::<Mutex<AppState>>();
         {
             let state_lock = state.lock();
-            match state_lock.status {
-                AppStatus::Offline => {
-                    self.no_internet = true;
-                    return Ok(());
-                }
-                _ => {}
+            if state_lock.status == AppStatus::Offline {
+                self.no_internet = true;
+                return Ok(());
             };
         };
 
@@ -58,7 +55,9 @@ impl ScheduleTask for GameUpdater {
         let to_check: Vec<GameVersion> = {
             let db_lock = borrow_db_checked();
 
-            let games = db_lock
+            
+
+            db_lock
                 .applications
                 .game_statuses
                 .values()
@@ -67,17 +66,14 @@ impl ScheduleTask for GameUpdater {
                     _ => None,
                 })
                 .map(|v| {
-                    v.map(|version_id| db_lock.applications.game_versions.get(version_id))
-                        .flatten()
+                    v.and_then(|version_id| db_lock.applications.game_versions.get(version_id))
                 })
                 .filter(|v| {
                     v.map(|v| v.user_configuration.enable_updates)
                         .unwrap_or(false)
                 })
                 .map(|v| v.cloned().unwrap())
-                .collect();
-
-            games
+                .collect()
         };
 
         for version in to_check {
@@ -99,7 +95,7 @@ impl ScheduleTask for GameUpdater {
                 .filter(|v| process_manager_lock.valid_platform(&v.platform))
                 .collect();
 
-            let latest = match valid_options.get(0) {
+            let latest = match valid_options.first() {
                 Some(v) => v,
                 None => {
                     warn!("found no versions for game id: {}", version.game_id);
@@ -113,13 +109,10 @@ impl ScheduleTask for GameUpdater {
                 .get_mut(&version.game_id)
                 .ok_or(anyhow::anyhow!(""))?;
 
-            match game_status {
-                GameDownloadStatus::Installed {
+            if let GameDownloadStatus::Installed {
                     update_available, ..
-                } => {
-                    *update_available = latest.version_id != version.version_id;
-                }
-                _ => (),
+                } = game_status {
+                *update_available = latest.version_id != version.version_id;
             };
         }
 

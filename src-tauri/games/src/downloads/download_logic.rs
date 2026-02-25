@@ -3,7 +3,7 @@ use std::fs::{Permissions, set_permissions};
 use std::io::SeekFrom;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -95,7 +95,7 @@ pub async fn download_game_chunk(
 
     let stream = response
         .bytes_stream()
-        .map(|v| v.map_err(|err| std::io::Error::other(err)));
+        .map(|v| v.map_err(std::io::Error::other));
     let mut stream_reader = StreamReader::new(stream);
     //let mut stream_reader = response;
 

@@ -1,7 +1,7 @@
-use std::{time::Duration, usize};
+use std::{time::Duration};
 
 use async_trait::async_trait;
-use log::{info, warn};
+use log::warn;
 use tokio::time;
 
 use crate::updates::GameUpdater;
