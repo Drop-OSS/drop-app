@@ -1,7 +1,7 @@
 <template>
   <ModalTemplate size-class="max-w-4xl" v-model="open">
     <template #default>
-      <div class="flex flex-row gap-x-4">
+      <div class="flex flex-row gap-x-4 h-96">
         <nav class="flex flex-1 flex-col" aria-label="Sidebar">
           <ul role="list" class="-mx-2 space-y-1">
             <li v-for="(tab, tabIdx) in tabs" :key="tab.name">
@@ -29,8 +29,7 @@
             </li>
           </ul>
         </nav>
-        <div class="border-l-2 border-zinc-800 w-full grow pl-4">
-          <span class="font-mono text-zinc-100">{{ configuration }}</span>
+        <div class="border-l-2 border-zinc-800 w-full grow pl-4 overflow-y-scroll">
           <component
             v-model="configuration"
             :is="tabs[currentTabIndex]?.page"
@@ -81,8 +80,10 @@ import {
   XCircleIcon,
 } from "@heroicons/vue/20/solid";
 import Launch from "./GameOptions/Launch.vue";
-import type { FrontendGameConfiguration } from "~/composables/game";
+import Updates from "./GameOptions/Updates.vue";
 import { invoke } from "@tauri-apps/api/core";
+import { ArrowPathIcon } from "@heroicons/vue/24/solid";
+import type { GameVersion } from "~/types";
 
 const appState = useAppState();
 
@@ -90,23 +91,27 @@ const open = defineModel<boolean>();
 const props = defineProps<{ gameId: string }>();
 const game = await useGame(props.gameId);
 
-const configuration: Ref<FrontendGameConfiguration> = ref({
-  launchString: game.version.value!.userConfiguration.launchTemplate,
-  overrideProtonPath: game.version.value!.userConfiguration.overrideProtonPath,
-});
+const configuration: Ref<GameVersion["userConfiguration"]> = ref(game.version.value!.userConfiguration);
 
 const hasWindows = !!(
   game.version.value!.setups.find((v) => v.platform === "Windows") ??
   game.version.value!.launches.find((v) => v.platform === "Windows")
 );
 
-const protonEnabled = !!(appState.value!.umuState !== "NotNeeded" && hasWindows);
+const protonEnabled = !!(
+  appState.value!.umuState !== "NotNeeded" && hasWindows
+);
 
 const tabs: Array<{ name: string; icon: Component; page: Component }> = [
   {
     name: "Launch",
     icon: RocketLaunchIcon,
     page: Launch,
+  },
+  {
+    name: "Updates",
+    icon: ArrowPathIcon,
+    page: Updates,
   },
   {
     name: "Storage",

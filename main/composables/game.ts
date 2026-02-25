@@ -63,11 +63,6 @@ export const useGame = async (gameId: string) => {
   return { ...game, status };
 };
 
-export type FrontendGameConfiguration = {
-  launchString: string;
-  overrideProtonPath?: string;
-};
-
 export type LaunchResult =
   | { result: "Success" }
   | { result: "InstallRequired"; data: [string, string] };

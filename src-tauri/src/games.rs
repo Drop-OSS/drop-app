@@ -3,12 +3,12 @@ use std::sync::nonpoison::Mutex;
 use bitcode::{Decode, Encode};
 use database::{
     DownloadableMetadata, GameDownloadStatus, borrow_db_checked, borrow_db_mut_checked,
-    models::data::InstalledGameType, platform::Platform,
+    models::data::{InstalledGameType, UserConfiguration}, platform::Platform,
 };
 use games::{
     collections::collection::Collection,
     downloads::error::LibraryError,
-    library::{FetchGameStruct, FrontendGameOptions, Game, get_current_meta, uninstall_game_logic},
+    library::{FetchGameStruct, Game, get_current_meta, uninstall_game_logic},
     state::{GameStatusManager, GameStatusWithTransient},
 };
 use log::warn;
@@ -391,7 +391,7 @@ pub async fn fetch_game_version_options(
 #[tauri::command]
 pub fn update_game_configuration(
     game_id: String,
-    options: FrontendGameOptions,
+    options: UserConfiguration,
 ) -> Result<(), LibraryError> {
     let mut handle = borrow_db_mut_checked();
     let installed_version = handle
@@ -410,13 +410,7 @@ pub fn update_game_configuration(
         .unwrap()
         .clone();
 
-    // Add more options in here
-    existing_configuration.user_configuration.launch_template = options.launch_string;
-    existing_configuration
-        .user_configuration
-        .override_proton_path = options.override_proton_path;
-
-    // Add no more options past here
+    existing_configuration.user_configuration = options;
 
     handle
         .applications

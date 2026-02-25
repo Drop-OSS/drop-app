@@ -311,7 +311,7 @@ impl GameDownloadAgent {
             let filename = file.strip_prefix(base_path)?.to_string_lossy().to_string();
             let needed = file_list.contains_key(&filename) || filename == ".dropdata";
             if !needed {
-                info!("deleted {}", file.display());
+                debug!("deleted {}", file.display());
                 remove_file(file)?;
             }
         }

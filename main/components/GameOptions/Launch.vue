@@ -11,7 +11,7 @@
         class="block w-full rounded-md bg-zinc-800 px-3 py-1.5 text-base text-zinc-100 outline-1 -outline-offset-1 outline-zinc-800 placeholder:text-zinc-400 focus:outline-2 focus:-outline-offset-2 focus:outline-blue-600 sm:text-sm/6"
         placeholder="{}"
         aria-describedby="launch-description"
-        v-model="model.launchString"
+        v-model="model.launchTemplate"
       />
     </div>
     <p class="mt-2 text-sm text-zinc-400" id="launch-description">
@@ -129,9 +129,9 @@
                 </span>
               </li>
             </ListboxOption>
-            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
-              >No auto-discovered layers.</li
-            >
+            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3">
+              No auto-discovered layers.
+            </li>
             <h1 class="text-white text-sm font-semibold bg-zinc-900 py-2 px-2">
               Manually added
             </h1>
@@ -170,9 +170,9 @@
                 </span>
               </li>
             </ListboxOption>
-            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3"
-              >No manually added layers.</li
-            >
+            <li v-else class="italic text-zinc-400 py-2 pr-9 pl-3">
+              No manually added layers.
+            </li>
           </ListboxOptions>
         </transition>
       </div>
@@ -190,7 +190,7 @@
 
 <script setup lang="ts">
 import { invoke } from "@tauri-apps/api/core";
-import type { FrontendGameConfiguration, ProtonPath } from "~/composables/game";
+import type { ProtonPath } from "~/composables/game";
 import {
   Listbox,
   ListboxButton,
@@ -201,8 +201,9 @@ import {
 import { ChevronUpDownIcon } from "@heroicons/vue/16/solid";
 import { CheckIcon } from "@heroicons/vue/20/solid";
 import { WrenchIcon } from "@heroicons/vue/24/solid";
+import type { GameVersion } from "~/types";
 
-const model = defineModel<FrontendGameConfiguration>({ required: true });
+const model = defineModel<GameVersion["userConfiguration"]>({ required: true });
 
 const props = defineProps<{
   protonEnabled: boolean;

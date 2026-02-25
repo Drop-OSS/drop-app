@@ -5,7 +5,7 @@ use std::{
 };
 
 use futures_util::StreamExt;
-use log::warn;
+use log::{info, warn};
 use remote::{
     error::RemoteAccessError,
     requests::{generate_url, make_authenticated_get},
@@ -107,6 +107,8 @@ impl DepotManager {
                 enabled: true,
             })
             .collect::<Vec<Depot>>();
+
+        info!("syncing {} depots...", new_depots.len());
 
         for depot in &mut new_depots {
             if let Err(sync_error) = self.sync_depot(depot).await {

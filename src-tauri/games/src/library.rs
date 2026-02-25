@@ -289,10 +289,3 @@ pub fn push_game_update(
         }
     );
 }
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FrontendGameOptions {
-    pub launch_string: String,
-    pub override_proton_path: Option<String>,
-}
