@@ -23,6 +23,7 @@ pub static DATA_ROOT_DIR: LazyLock<Arc<PathBuf>> = LazyLock::new(|| {
     )
 });
 
+/*
 pub(crate) static KEY_IV: LazyLock<([u8; 16], [u8; 16])> = LazyLock::new(|| {
     let entry = Entry::new("drop", "database_key").expect("failed to open keyring");
     let mut key = entry.get_secret().unwrap_or_else(|_| {
@@ -38,3 +39,7 @@ pub(crate) static KEY_IV: LazyLock<([u8; 16], [u8; 16])> = LazyLock::new(|| {
         iv[0..16].try_into().expect("iv wrong length"),
     )
 });
+*/
+
+// TODO: fix keyring
+pub(crate) static KEY_IV: LazyLock<([u8; 16], [u8; 16])> = LazyLock::new(|| ([0; 16], [0; 16]));

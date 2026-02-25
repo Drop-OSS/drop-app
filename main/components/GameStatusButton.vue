@@ -61,7 +61,7 @@
               </button>
             </MenuItem>
 
-            <MenuItem v-if="showDropdown" v-slot="{ active }">
+            <MenuItem v-if="showOptions" v-slot="{ active }">
               <button
                 @click="() => emit('options')"
                 :class="[
@@ -174,8 +174,11 @@ function fetchStatusStyleData(status: GameStatus): StatusStyleData {
   };
 }
 
-const showDropdown = computed(
+const showDropdown = computed(() => props.status.type === "Installed");
+
+const showOptions = computed(
   () =>
+    showDropdown.value &&
     props.status.type === "Installed" &&
     props.status.install_type.type !== InstalledType.PartiallyInstalled,
 );

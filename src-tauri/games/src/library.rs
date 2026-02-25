@@ -9,6 +9,7 @@ use remote::{
     auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
+use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_dir_all;
 use std::thread::spawn;
@@ -210,6 +211,10 @@ pub async fn on_game_complete(
         .header("Authorization", generate_authorization_header())
         .send()
         .await?;
+
+    if !response.status().is_success() {
+        return Err(RemoteAccessError::InvalidResponse(response.json().await?));
+    }
 
     let mut game_version: GameVersion = response.json().await?;
     game_version.user_configuration = configuration;
