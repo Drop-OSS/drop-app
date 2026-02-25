@@ -9,7 +9,6 @@ use remote::{
     auth::generate_authorization_header, error::RemoteAccessError, requests::generate_url,
     utils::DROP_CLIENT_ASYNC,
 };
-use reqwest::StatusCode;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_dir_all;
 use std::thread::spawn;

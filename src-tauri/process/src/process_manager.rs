@@ -371,6 +371,7 @@ impl ProcessManager<'_> {
             let emulator_install_dir = match emulator_game_status {
                 GameDownloadStatus::Installed {
                     install_type: InstalledGameType::Installed,
+                    install_dir,
                     ..
                 } => Ok(install_dir),
                 GameDownloadStatus::Installed {
