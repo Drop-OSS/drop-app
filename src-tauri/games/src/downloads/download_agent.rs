@@ -299,7 +299,7 @@ impl GameDownloadAgent {
         info!("started with {} existing chunks", completed_chunks.len());
         let chunk_len = manifests_chunks.iter().map(|v| v.1.len()).sum::<usize>();
         let mut max_download_threads = borrow_db_checked().settings.max_download_threads;
-        if max_download_threads <= 0 {
+        if max_download_threads == 0 {
             max_download_threads = 1;
         }
 
