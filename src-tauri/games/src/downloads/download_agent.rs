@@ -23,7 +23,7 @@ use remote::utils::DROP_CLIENT_ASYNC;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::fs::remove_file;
+use std::fs::{create_dir_all, remove_file};
 use std::io;
 use std::path::{Path, PathBuf, StripPrefixError};
 use std::sync::{Arc, Mutex};
@@ -89,6 +89,8 @@ impl GameDownloadAgent {
         let data_base_dir_path = base_dir_path.join(game_name);
         info!("data dir path {}", data_base_dir_path.display());
 
+        create_dir_all(data_base_dir_path.clone())?;
+
         let stored_manifest = DropData::generate(
             metadata.id.clone(),
             metadata.version.clone(),
@@ -96,12 +98,6 @@ impl GameDownloadAgent {
             data_base_dir_path.clone(),
             configuration.clone(),
         );
-
-        let previous_version = borrow_db_checked()
-            .applications
-            .installed_game_version
-            .get(&metadata.id)
-            .map(|e| e.version.clone());
 
         let result = Self {
             metadata,
