@@ -50,7 +50,9 @@ impl ProcessHandler for WindowsLauncher {
     #[allow(unused_variables)]
     fn modify_command(&self, command: &mut Command) {
         #[cfg(target_os = "windows")]
-        command.creation_flags(CREATE_NO_WINDOW)
+        use std::os::windows::process::CommandExt;
+        #[cfg(target_os = "windows")]
+        command.creation_flags(CREATE_NO_WINDOW);
     }
 }
 
