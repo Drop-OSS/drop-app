@@ -1,4 +1,4 @@
-use std::{fs::create_dir_all, path::PathBuf};
+use std::{fs::create_dir_all, path::PathBuf, process::Command};
 
 use client::compat::{COMPAT_INFO, UMU_LAUNCHER_EXECUTABLE};
 use database::{
@@ -7,8 +7,8 @@ use database::{
 
 use crate::{error::ProcessError, process_manager::ProcessHandler};
 
-pub struct NativeGameLauncher;
-impl ProcessHandler for NativeGameLauncher {
+pub struct MacLauncher;
+impl ProcessHandler for MacLauncher {
     fn create_launch_process(
         &self,
         _meta: &DownloadableMetadata,
@@ -22,6 +22,35 @@ impl ProcessHandler for NativeGameLauncher {
 
     fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
         true
+    }
+
+    fn modify_command(&self, _command: &mut Command) {}
+}
+
+#[allow(dead_code)]
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+pub struct WindowsLauncher;
+impl ProcessHandler for WindowsLauncher {
+    fn create_launch_process(
+        &self,
+        _meta: &DownloadableMetadata,
+        launch_command: String,
+        _game_version: &GameVersion,
+        _current_dir: &str,
+        _database: &Database,
+    ) -> Result<String, ProcessError> {
+        Ok(format!("cmd /C \"{}\"", launch_command))
+    }
+
+    fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
+        true
+    }
+
+    #[allow(unused_variables)]
+    fn modify_command(&self, command: &mut Command) {
+        #[cfg(target_os = "windows")]
+        command.creation_flags(CREATE_NO_WINDOW)
     }
 }
 
@@ -68,6 +97,8 @@ impl ProcessHandler for UMUNativeLauncher {
         };
         compat_info.umu_installed
     }
+
+    fn modify_command(&self, _command: &mut Command) {}
 }
 
 pub struct UMUCompatLauncher;
@@ -133,6 +164,8 @@ impl ProcessHandler for UMUCompatLauncher {
         };
         compat_info.umu_installed
     }
+
+    fn modify_command(&self, _command: &mut Command) {}
 }
 
 pub struct AsahiMuvmLauncher;
@@ -191,4 +224,6 @@ impl ProcessHandler for AsahiMuvmLauncher {
 
         compat_info.umu_installed
     }
+
+    fn modify_command(&self, _command: &mut Command) {}
 }

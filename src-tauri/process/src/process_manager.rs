@@ -28,7 +28,7 @@ use crate::{
     format::DropFormatArgs,
     parser::{LaunchParameters, ParsedCommand},
     process_handlers::{
-        AsahiMuvmLauncher, NativeGameLauncher, UMUCompatLauncher, UMUNativeLauncher,
+        AsahiMuvmLauncher, MacLauncher, UMUCompatLauncher, UMUNativeLauncher, WindowsLauncher,
     },
 };
 
@@ -74,7 +74,7 @@ impl ProcessManager<'_> {
                 // Current platform to target platform
                 (
                     (Platform::Windows, Platform::Windows),
-                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                    &WindowsLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
                     (Platform::Linux, Platform::Linux),
@@ -82,7 +82,7 @@ impl ProcessManager<'_> {
                 ),
                 (
                     (Platform::macOS, Platform::macOS),
-                    &NativeGameLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
+                    &MacLauncher {} as &(dyn ProcessHandler + Sync + Send + 'static),
                 ),
                 (
                     (Platform::Linux, Platform::Windows),
@@ -149,10 +149,7 @@ impl ProcessManager<'_> {
         db_handle.applications.transient_statuses.remove(&meta);
 
         let current_state = db_handle.applications.game_statuses.get_mut(&game_id);
-        if let Some(GameDownloadStatus::Installed {
-            install_type,
-            ..
-        }) = current_state
+        if let Some(GameDownloadStatus::Installed { install_type, .. }) = current_state
             && let Ok(exit_code) = result
             && exit_code.success()
         {
@@ -479,6 +476,8 @@ impl ProcessManager<'_> {
             .env_remove("RUST_LOG")
             .current_dir(launch_parameters.1);
 
+        process_handler.modify_command(&mut command);
+
         let child = command.spawn()?;
 
         let launch_process_handle = Arc::new(SharedChild::new(child)?);
@@ -528,4 +527,6 @@ pub trait ProcessHandler: Send + 'static {
     ) -> Result<String, ProcessError>;
 
     fn valid_for_platform(&self, db: &Database, target: &Platform) -> bool;
+
+    fn modify_command(&self, command: &mut Command);
 }
