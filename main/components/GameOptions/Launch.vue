@@ -96,8 +96,8 @@
             </h1>
             <ListboxOption
               as="template"
-              v-if="protonPaths.autodiscovered.length > 0"
-              v-for="proton in protonPaths.autodiscovered"
+              v-if="protonPaths?.autodiscovered.length ?? 0 > 0"
+              v-for="proton in protonPaths!.autodiscovered"
               :key="proton.path"
               :value="proton.path"
               v-slot="{ active, selected }"
@@ -137,8 +137,8 @@
             </h1>
             <ListboxOption
               as="template"
-              v-if="protonPaths.custom.length > 0"
-              v-for="proton in protonPaths.custom"
+              v-if="protonPaths?.custom.length ?? 0 > 0"
+              v-for="proton in protonPaths!.custom"
               :key="proton.path"
               :value="proton.path"
               v-slot="{ active, selected }"
@@ -209,16 +209,18 @@ const props = defineProps<{
   protonEnabled: boolean;
 }>();
 
-const protonPaths = await invoke<{
-  autodiscovered: ProtonPath[];
-  custom: ProtonPath[];
-  default?: string;
-}>("fetch_proton_paths");
+const protonPaths = props.protonEnabled
+  ? await invoke<{
+      autodiscovered: ProtonPath[];
+      custom: ProtonPath[];
+      default?: string;
+    }>("fetch_proton_paths")
+  : undefined;
 const currentProtonPath = computed(
   () =>
-    protonPaths.autodiscovered.find(
+    protonPaths?.autodiscovered.find(
       (v) => v.path == model.value.overrideProtonPath,
     ) ??
-    protonPaths.custom.find((v) => v.path == model.value.overrideProtonPath),
+    protonPaths?.custom.find((v) => v.path == model.value.overrideProtonPath),
 );
 </script>

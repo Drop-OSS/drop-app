@@ -276,7 +276,7 @@ impl ProcessManager<'_> {
         debug!(
             "Launching process {:?} with version {:?}",
             &game_id,
-            db_lock.applications.game_versions.get(&game_id)
+            db_lock.applications.game_versions.get(version_name)
         );
 
         let game_version = db_lock
@@ -285,7 +285,6 @@ impl ProcessManager<'_> {
             .get(version_name)
             .ok_or(ProcessError::InvalidVersion)?;
 
-        // TODO: refactor this path with open_process_logs
         let game_log_folder = &self.get_log_dir(game_id);
         create_dir_all(game_log_folder)?;
 
