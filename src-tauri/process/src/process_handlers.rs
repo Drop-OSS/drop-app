@@ -17,7 +17,7 @@ impl ProcessHandler for NativeGameLauncher {
         _current_dir: &str,
         _database: &Database,
     ) -> Result<String, ProcessError> {
-        Ok(format!("\"{}\"", launch_command))
+        Ok(launch_command)
     }
 
     fn valid_for_platform(&self, _db: &Database, _target: &Platform) -> bool {
