@@ -62,11 +62,13 @@ impl DepotManager {
     }
 
     async fn sync_depot(&self, depot: &mut Depot) -> Result<(), RemoteAccessError> {
+        info!("requesting manifest.json");
         let manifest_url = Url::parse(&depot.endpoint)?.join("manifest.json")?;
         let manifest = DROP_CLIENT_ASYNC.get(manifest_url).send().await?;
         let manifest: DepotManifest = manifest.json().await?;
         depot.manifest.replace(manifest);
 
+        info!("running speedtest...");
         let speedtest_url = Url::parse(&depot.endpoint)?.join("speedtest")?;
         let speedtest = DROP_CLIENT_ASYNC.get(speedtest_url).send().await?;
 
@@ -74,7 +76,9 @@ impl DepotManager {
         let start = Instant::now();
         let mut total_length = 0;
 
+        info!("streaming speedtest...");
         while let Some(chunk) = stream.next().await {
+            info!("total length: {}", total_length);
             let length = chunk?.len();
             total_length += length;
             if SPEEDTEST_TIMEOUT <= start.elapsed() {
@@ -84,6 +88,7 @@ impl DepotManager {
 
         let elapsed = start.elapsed().as_millis() as usize;
         let speed = total_length.checked_div(elapsed).unwrap_or(usize::MAX);
+        info!("speed: {}", speed);
         depot.latest_speed.replace(speed);
 
         Ok(())
