@@ -45,6 +45,9 @@ use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
 };
+
+#[cfg(not(dev))]
+use tauri::ipc::CapabilityBuilder;
 use tauri_plugin_deep_link::DeepLinkExt;
 use tauri_plugin_dialog::DialogExt;
 use url::Url;
@@ -201,10 +204,19 @@ pub fn run() {
         println!("{e}");
     }));
 
+    #[cfg(not(dev))]
+    let port = portpicker::pick_unused_port()
+        .expect("Failed to find unused port for localhost server");
+
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_dialog::init());
+
+    #[cfg(not(dev))]
+    {
+        builder = builder.plugin(tauri_plugin_localhost::Builder::new(port).build());
+    }
 
     #[cfg(desktop)]
     #[allow(unused_variables)]
@@ -309,9 +321,26 @@ pub fn run() {
                     .build()
                     .expect("failed to build main window");
 
+                #[cfg(dev)]
+                let webview_url = WebviewUrl::App("main".into());
+
+                #[cfg(not(dev))]
+                let webview_url = {
+                    let url_str = format!("http://localhost:{port}/main");
+                    let url = Url::parse(&url_str).expect("Invalid localhost URL");
+                    app.add_capability(
+                        CapabilityBuilder::new("localhost")
+                            .remote(url_str.clone())
+                            .window("main"),
+                    )
+                    .expect("Failed to add localhost capability");
+                    info!("Serving frontend on {}", url_str);
+                    WebviewUrl::External(url)
+                };
+
                 main_window
                     .add_child(
-                        WebviewBuilder::new("frontend", WebviewUrl::App("main".into()))
+                        WebviewBuilder::new("frontend", webview_url)
                             .auto_resize(),
                         LogicalPosition::new(0., 0.),
                         LogicalSize::new(width, height),
