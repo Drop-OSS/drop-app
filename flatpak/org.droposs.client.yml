@@ -1,0 +1,98 @@
+id: org.droposs.client
+runtime: org.gnome.Platform
+runtime-version: '48'
+sdk: org.gnome.Sdk
+command: drop-app
+
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=ipc
+  - --share=network
+  - --filesystem=host
+  - --talk-name=org.kde.StatusNotifierWatcher
+  - --filesystem=xdg-run/tray-icon:create
+  # Uncomment if webview renders black on Wayland:
+  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
+  - --env=WEBKIT_DISABLE_DMABUF_RENDERER=1
+
+modules:
+  - name: drop-app
+    buildsystem: simple
+    sources:
+      - type: file
+        path: drop-app.deb
+      - type: file
+        path: org.droposs.client.metainfo.xml
+      - type: file
+        path: org.droposs.client.desktop
+      - type: file
+        path: org.droposs.client.svg
+      - type: file
+        path: ../src-tauri/icons/32x32.png
+      - type: file
+        path: ../src-tauri/icons/128x128.png
+      - type: file
+        path: ../src-tauri/icons/128x128@2x.png
+      - type: file
+        path: ../src-tauri/icons/icon.png
+      - type: file
+        path: libs/libayatana-appindicator3.so.1
+      - type: file
+        path: libs/libayatana-appindicator3.so.1.0.0
+      - type: file
+        path: libs/libayatana-ido3-0.4.so.0
+      - type: file
+        path: libs/libayatana-ido3-0.4.so.0.0.0
+      - type: file
+        path: libs/libayatana-indicator3.so.7
+      - type: file
+        path: libs/libayatana-indicator3.so.7.0.0
+      - type: file
+        path: libs/libdbusmenu-glib.so.4
+      - type: file
+        path: libs/libdbusmenu-glib.so.4.0.12
+      - type: file
+        path: libs/libdbusmenu-gtk3.so.4
+      - type: file
+        path: libs/libdbusmenu-gtk3.so.4.0.12
+    build-commands:
+      - |
+        set -euo pipefail
+
+        mkdir -p deb-extract
+        cd deb-extract
+        ar x "../drop-app.deb"
+        tar xzf data.tar.gz
+        cd ..
+
+        # Binary
+        install -Dm755 deb-extract/usr/bin/drop-app /app/bin/drop-app
+
+        # Desktop file (use Flatpak-specific version with correct paths)
+        install -Dm644 org.droposs.client.desktop /app/share/applications/org.droposs.client.desktop
+
+        # AppStream metainfo
+        install -Dm644 org.droposs.client.metainfo.xml /app/share/metainfo/org.droposs.client.metainfo.xml
+
+        # System tray indicator library
+        install -Dm755 libayatana-appindicator3.so.1.0.0 /app/lib/libayatana-appindicator3.so.1.0.0
+        ln -sf libayatana-appindicator3.so.1.0.0 /app/lib/libayatana-appindicator3.so.1
+        install -Dm755 libayatana-ido3-0.4.so.0.0.0 /app/lib/libayatana-ido3-0.4.so.0.0.0
+        ln -sf libayatana-ido3-0.4.so.0.0.0 /app/lib/libayatana-ido3-0.4.so.0
+        install -Dm755 libayatana-indicator3.so.7.0.0 /app/lib/libayatana-indicator3.so.7.0.0
+        ln -sf libayatana-indicator3.so.7.0.0 /app/lib/libayatana-indicator3.so.7
+        install -Dm755 libdbusmenu-glib.so.4.0.12 /app/lib/libdbusmenu-glib.so.4.0.12
+        ln -sf libdbusmenu-glib.so.4.0.12 /app/lib/libdbusmenu-glib.so.4
+        install -Dm755 libdbusmenu-gtk3.so.4.0.12 /app/lib/libdbusmenu-gtk3.so.4.0.12
+        ln -sf libdbusmenu-gtk3.so.4.0.12 /app/lib/libdbusmenu-gtk3.so.4
+
+        # SVG icon (scalable)
+        install -Dm644 org.droposs.client.svg /app/share/icons/hicolor/scalable/apps/org.droposs.client.svg
+
+        # PNG icons at standard hicolor sizes (install from source PNGs, renaming to app ID)
+        install -Dm644 32x32.png /app/share/icons/hicolor/32x32/apps/org.droposs.client.png
+        install -Dm644 128x128.png /app/share/icons/hicolor/128x128/apps/org.droposs.client.png
+        install -Dm644 128x128@2x.png /app/share/icons/hicolor/256x256/apps/org.droposs.client.png
+        install -Dm644 icon.png /app/share/icons/hicolor/512x512/apps/org.droposs.client.png

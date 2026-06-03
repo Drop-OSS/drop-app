@@ -75,3 +75,11 @@ coverage/
 tmp/
 .agents/
 skills-lock.json
+
+# ── Flatpak build artifacts ──
+.flatpak-builder/
+flatpak-build-dir/
+flatpak/drop-app.deb
+flatpak/libs/
+flatpak/deb-check/
+org.droposs.client.flatpak
