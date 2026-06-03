@@ -287,7 +287,7 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             Some(vec!["--minimize"]),
         ))
-        .setup(|app| {
+        .setup(move |app| {
             let handle = app.handle().clone();
 
             tauri::async_runtime::block_on(async move {
