@@ -1,0 +1,143 @@
+name: Flatpak
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag to build the Flatpak from (leave empty to build from current commit)'
+        required: false
+  release:
+    types: [published]
+
+# Builds the Drop Desktop Flatpak.
+#
+# Strategy: Companion to the main release workflow.
+# On release, it downloads the pre-built .deb from the release assets,
+# bundles system tray libraries from apt, and builds the Flatpak.
+#
+# For workflow_dispatch without a tag, it builds everything from source.
+
+jobs:
+  flatpak-build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Flatpak SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install GNOME Platform 48
+        run: |
+          flatpak install --system flathub org.gnome.Platform//48 org.gnome.Sdk//48 -y
+
+      - name: Install system tray libraries
+        run: |
+          sudo apt-get install -y \
+            libayatana-appindicator3-dev \
+            libdbusmenu-gtk3-dev
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install system deps for Tauri
+        run: |
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf \
+            xdg-utils
+
+      - name: Determine build mode
+        id: build_mode
+        run: |
+          if [[ -n "${{ github.event.inputs.release_tag }}" ]]; then
+            echo "source=release" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "source=release" >> "$GITHUB_OUTPUT"
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "source=source" >> "$GITHUB_OUTPUT"
+          fi
+
+      # ── Mode A: Build from source (workflow_dispatch without tag) ──
+      - name: (Source) Install frontend dependencies
+        if: steps.build_mode.outputs.source == 'source'
+        run: pnpm install
+
+      - name: (Source) Build Tauri .deb
+        if: steps.build_mode.outputs.source == 'source'
+        run: pnpm tauri build --bundles deb
+
+      # ── Mode B: Download from release ──
+      - name: (Release) Download .deb from release
+        if: steps.build_mode.outputs.source == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.build_mode.outputs.tag }}"
+          gh release download "$TAG" --pattern '*_amd64.deb' --dir flatpak/
+          # Rename to expected path
+
+      # ── Common: Prepare inputs for flatpak-builder ──
+      - name: Prepare libraries and .deb for Flatpak build
+        run: |
+          # Copy system tray libraries from host
+          bash flatpak/prepare-libs.sh
+
+          # If we downloaded from a release, rename to expected name
+          if [ -z "$(ls flatpak/drop-app.deb 2>/dev/null)" ]; then
+            if ls flatpak/*_amd64.deb 1>/dev/null 2>&1; then
+              mv flatpak/*_amd64.deb flatpak/drop-app.deb
+            else
+              # Source build — create symlink
+              bash flatpak/prepare-deb.sh
+            fi
+          fi
+
+      - name: Build Flatpak
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: org.droposs.client.flatpak
+          manifest-path: flatpak/org.droposs.client.yml
+          cache-key: flatpak-${{ github.event.release.tag_name || github.sha }}
+          branch: master
+
+      - name: Upload Flatpak to release
+        if: steps.build_mode.outputs.source == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.build_mode.outputs.tag }}"
+          gh release upload "$TAG" org.droposs.client.flatpak
+
+      - name: Upload Flatpak as workflow artifact
+        if: steps.build_mode.outputs.source == 'source'
+        uses: actions/upload-artifact@v4
+        with:
+          name: org.droposs.client-flatpak
+          path: org.droposs.client.flatpak

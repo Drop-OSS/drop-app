@@ -59,6 +59,7 @@ native_model = { git = "https://github.com/Drop-OSS/native_model.git", version =
 ] }
 page_size = "0.6.0"
 parking_lot = "0.12.3"
+portpicker = "0.1"
 process = { path = "./process" }  # process
 rand = "0.9.1"
 rayon = "1.10.0"
@@ -87,6 +88,7 @@ tar = "0.4.44"
 tauri-plugin-autostart = "*"
 tauri-plugin-deep-link = "*"
 tauri-plugin-dialog = "*"
+tauri-plugin-localhost = "2.0.0"
 tauri-plugin-opener = "*"
 tauri-plugin-os = "*"
 tauri-plugin-shell = "*"

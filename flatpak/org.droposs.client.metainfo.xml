@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component type="desktop-application">
+  <id>org.droposs.client</id>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Drop</name>
+  <summary>Desktop client for the Drop game distribution platform</summary>
+  <description>
+    <p>Drop is an open-source, self-hosted game distribution platform. This desktop client connects to a Drop server to browse, download, and launch your game library.</p>
+  </description>
+  <categories>
+    <category>Game</category>
+    <category>Network</category>
+  </categories>
+  <url type="homepage">https://github.com/Drop-OSS/drop-app</url>
+  <developer_name>Drop OSS</developer_name>
+  <launchable type="desktop-id">org.droposs.client.desktop</launchable>
+  <releases>
+    <release version="0.1.0" date="2026-06-02"/>
+  </releases>
+</component>

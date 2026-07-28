@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Drop
+Comment=Drop Desktop Client - open-source game distribution platform
+Exec=/app/bin/drop-app
+Icon=org.droposs.client
+Terminal=false
+Categories=Game;Network;
+MimeType=x-scheme-handler/drop;
+StartupWMClass=drop-app
